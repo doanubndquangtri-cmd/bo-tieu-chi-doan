@@ -1787,9 +1787,10 @@ function renderUnitSubmitTab() {
                 const st = getCriterionStatus(c);
                 const scoreVal = sc && sc.score !== null && sc.score !== '' ? Number(sc.score) : null;
                 const startDate = c.start_date || '2026-01-01';
+                const isActivity = Number(c.is_report) !== 1;
 
                 return `
-                <tr>
+                <tr style="${isActivity ? 'background: #fbfdff;' : ''}">
                   <td style="text-align:center; font-weight:700; color:#7c2d12; background:#fff7ed;">
                     ${escapeHtml(c.col_label)}
                   </td>
@@ -1797,14 +1798,27 @@ function renderUnitSubmitTab() {
                     ${escapeHtml(c.month_label)}
                   </td>
                   <td>
-                    <div style="font-weight:600; color:#0f172a;">${escapeHtml(c.title)}</div>
+                    <div style="font-weight:600; color:#0f172a; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                      <span>${escapeHtml(c.title)}</span>
+                      ${
+                        isActivity
+                          ? `<span class="badge" style="background:#eff6ff; color:#1d4ed8; font-size:11px; border:1px solid #bfdbfe; font-weight:700;">🎯 Hoạt động / Phong trào (Admin chấm)</span>`
+                          : `<span class="badge" style="background:#fef2f2; color:#b91c1c; font-size:11px; border:1px solid #fecaca; font-weight:700;">📋 Báo cáo định kỳ</span>`
+                      }
+                    </div>
                     ${
-                      sc && (sc.report_content || sc.file_name || sc.evidence_link)
-                        ? `<div style="margin-top:4px; font-size:12px; color:#0369a1;">
-                            📎 Đã nộp (${escapeHtml(sc.submitted_date || '')}): ${escapeHtml(sc.report_content || sc.file_name || sc.evidence_link)}
-                            ${sc.file_path ? `<a href="${escapeHtml(sc.file_path)}" target="_blank" style="margin-left:6px; font-weight:700;">[Tải file]</a>` : ''}
-                          </div>`
-                        : ''
+                      isActivity
+                        ? (sc && (sc.report_content || sc.admin_note)
+                            ? `<div style="margin-top:4px; font-size:12px; color:#0369a1;">
+                                👑 <b>Nhận xét của Admin:</b> ${escapeHtml(sc.admin_note || sc.report_content)}
+                              </div>`
+                            : '')
+                        : (sc && (sc.report_content || sc.file_name || sc.evidence_link)
+                            ? `<div style="margin-top:4px; font-size:12px; color:#0369a1;">
+                                📎 Đã nộp (${escapeHtml(sc.submitted_date || '')}): ${escapeHtml(sc.report_content || sc.file_name || sc.evidence_link)}
+                                ${sc.file_path ? `<a href="${escapeHtml(sc.file_path)}" target="_blank" style="margin-left:6px; font-weight:700;">[Tải file]</a>` : ''}
+                              </div>`
+                            : '')
                     }
                   </td>
                   <td style="text-align:center; font-size:12px; color:#475569; white-space:pre-line;">
@@ -1817,22 +1831,32 @@ function renderUnitSubmitTab() {
                     ${formatDateVN(c.deadline)}
                   </td>
                   <td style="text-align:center;">
-                    <span class="badge ${st.badgeClass}">
-                      ${st.label}
-                    </span>
+                    ${
+                      isActivity
+                        ? (scoreVal !== null
+                            ? `<span class="badge badge-success">✅ Admin đã chấm</span>`
+                            : `<span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;">🔒 Admin tự chấm</span>`)
+                        : `<span class="badge ${st.badgeClass}">${st.label}</span>`
+                    }
                   </td>
                   <td style="text-align:center; font-weight:800; font-size:14px; color:${scoreVal !== null ? (scoreVal < 0 ? '#dc2626' : '#16a34a') : '#94a3b8'};">
                     ${scoreVal !== null ? formatScore(scoreVal) + ' đ' : '-'}
                   </td>
                   <td style="text-align:center;">
                     ${
-                      st.canSubmit
-                        ? `<button class="btn btn-sm ${sc ? 'btn-outline' : 'btn-primary'}" onclick="openUnitSubmitModal(${c.id})" style="font-weight:700;">
-                            ${sc ? '✏️ Cập nhật' : '📤 Nộp báo cáo'}
-                          </button>`
-                        : `<button class="btn btn-sm btn-outline" onclick="openUnitSubmitModal(${c.id})" style="opacity:0.85; font-size:12px; font-weight:600;" title="${st.label}">
-                            ${sc ? '👁️ Xem bài nộp' : '🔒 ' + st.label}
-                          </button>`
+                      isActivity
+                        ? (scoreVal !== null || (sc && (sc.report_content || sc.admin_note))
+                            ? `<button class="btn btn-sm btn-outline" onclick="openSubmissionDetailModal(${unit.id}, ${c.id})" style="font-size:12px; font-weight:600; color:#0052cc;">
+                                👁️ Xem điểm
+                              </button>`
+                            : `<span style="font-size:12px; color:#64748b; font-style:italic;">🔒 Chờ Admin chấm</span>`)
+                        : (st.canSubmit
+                            ? `<button class="btn btn-sm ${sc ? 'btn-outline' : 'btn-primary'}" onclick="openUnitSubmitModal(${c.id})" style="font-weight:700;">
+                                ${sc ? '✏️ Cập nhật' : '📤 Nộp báo cáo'}
+                              </button>`
+                            : `<button class="btn btn-sm btn-outline" onclick="openUnitSubmitModal(${c.id})" style="opacity:0.85; font-size:12px; font-weight:600;" title="${st.label}">
+                                ${sc ? '👁️ Xem bài nộp' : '🔒 ' + st.label}
+                              </button>`)
                     }
                   </td>
                 </tr>
@@ -1859,6 +1883,15 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
   const unit = state.units.find((u) => u.id === unitId) || state.user;
   const crit = state.criteria.find((c) => c.id === criterionId);
   if (!crit) return;
+
+  const isAdmin = state.user && state.user.role === 'admin';
+  const isActivity = Number(crit.is_report) !== 1;
+
+  if (isActivity && !isAdmin) {
+    showToast('Tiêu chí này thuộc phần Hoạt động / Phong trào do Admin tự chấm điểm. Đơn vị không tự nhập điểm hoặc nộp tài liệu!', 'info');
+    openSubmissionDetailModal(unitId, criterionId);
+    return;
+  }
 
   const sc = getScoreObj(unitId, criterionId);
   const open = isCriterionOpen(crit);
@@ -2180,6 +2213,12 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
   const startDate = crit.start_date || '2026-01-01';
   const isAdmin = state.user && state.user.role === 'admin';
   const isUnlocked = Number(crit.lock_override) === 1;
+  const isActivity = Number(crit.is_report) !== 1;
+
+  if (isActivity && !isAdmin) {
+    showToast('Tiêu chí này thuộc phần Hoạt động / Phong trào do Admin tự chấm điểm. Đơn vị không thể tự nộp!', 'error');
+    return;
+  }
 
   if (!isAdmin && !isUnlocked) {
     if (effDate < startDate) {
@@ -3483,23 +3522,13 @@ window.openCriterionEditModal = function (critId) {
 
           <div class="form-group" style="background:#f8fafc; padding:12px; border-radius:8px; border:1px solid #cbd5e1; margin-bottom:14px;">
             <label style="font-weight:700; color:#0f172a;">📌 Phân loại Tiêu chí / Báo cáo:</label>
-            <select id="new-crit-is-report" style="font-weight:600; font-size:13.5px; padding:6px 10px;">
-              <option value="0">🎯 Hoạt động / Phong trào (Không nằm trong bảng Theo dõi nộp báo cáo)</option>
-              <option value="1">📋 Báo cáo định kỳ (Tự động đưa vào bảng THEO DÕI NỘP BÁO CÁO CỦA CÁC ĐƠN VỊ)</option>
-            </select>
-            <small style="color:#64748b; margin-top:4px; display:block; font-size:12px;">
-              💡 Chọn <b>"Báo cáo định kỳ"</b> nếu đây là báo cáo cần theo dõi tiến độ nộp của các đơn vị. Nếu là tiêu chí chấm điểm hoạt động thông thường, hãy chọn <b>"Hoạt động / Phong trào"</b>.
-            </small>
-          </div>
-
-          <div class="form-group" style="background:#f8fafc; padding:12px; border-radius:8px; border:1px solid #cbd5e1; margin-bottom:14px;">
-            <label style="font-weight:700; color:#0f172a;">📌 Phân loại Tiêu chí / Báo cáo:</label>
             <select id="edit-crit-is-report" style="font-weight:600; font-size:13.5px; padding:6px 10px;">
-              <option value="0" ${Number(c.is_report) !== 1 ? 'selected' : ''}>🎯 Hoạt động / Phong trào (Không nằm trong bảng Theo dõi nộp báo cáo)</option>
-              <option value="1" ${Number(c.is_report) === 1 ? 'selected' : ''}>📋 Báo cáo định kỳ (Tự động đưa vào bảng THEO DÕI NỘP BÁO CÁO CỦA CÁC ĐƠN VỊ)</option>
+              <option value="0" ${Number(c.is_report) !== 1 ? 'selected' : ''}>🎯 Hoạt động / Phong trào (Admin tự chấm điểm - Đơn vị không nhập điểm/tài liệu)</option>
+              <option value="1" ${Number(c.is_report) === 1 ? 'selected' : ''}>📋 Báo cáo định kỳ (Đơn vị nộp báo cáo & tài liệu - Theo dõi tiến độ)</option>
             </select>
-            <small style="color:#64748b; margin-top:4px; display:block; font-size:12px;">
-              💡 Chọn <b>"Báo cáo định kỳ"</b> nếu muốn tiêu chí xuất hiện thành 1 cột trong bảng <i>Theo Dõi Nộp Báo Cáo Của Các Đơn Vị</i>.
+            <small style="color:#64748b; margin-top:4px; display:block; font-size:12px; line-height:1.4;">
+              💡 <b>Hoạt động / Phong trào:</b> Admin (Ban Thường vụ) tự đánh giá và chấm điểm trực tiếp. Đơn vị cơ sở đoàn KHÔNG THỂ nhập điểm hay nộp tài liệu ở mục này.<br/>
+              💡 <b>Báo cáo định kỳ:</b> Đơn vị cơ sở đoàn sẽ tự kê khai điểm, nộp báo cáo và đính kèm tài liệu minh chứng, đồng thời xuất hiện trong bảng <i>Theo Dõi Nộp Báo Cáo Của Các Đơn Vị</i>.
             </small>
           </div>
 
@@ -3632,11 +3661,12 @@ window.openCriterionCreateModal = function () {
           <div class="form-group" style="background:#f8fafc; padding:12px; border-radius:8px; border:1px solid #cbd5e1; margin-bottom:14px;">
             <label style="font-weight:700; color:#0f172a;">📌 Phân loại Tiêu chí / Báo cáo:</label>
             <select id="new-crit-is-report" style="font-weight:600; font-size:13.5px; padding:6px 10px;">
-              <option value="0">🎯 Hoạt động / Phong trào (Không nằm trong bảng Theo dõi nộp báo cáo)</option>
-              <option value="1">📋 Báo cáo định kỳ (Tự động đưa vào bảng THEO DÕI NỘP BÁO CÁO CỦA CÁC ĐƠN VỊ)</option>
+              <option value="0">🎯 Hoạt động / Phong trào (Admin tự chấm điểm - Đơn vị không nhập điểm/tài liệu)</option>
+              <option value="1">📋 Báo cáo định kỳ (Đơn vị nộp báo cáo & tài liệu - Theo dõi tiến độ)</option>
             </select>
-            <small style="color:#64748b; margin-top:4px; display:block; font-size:12px;">
-              💡 Chọn <b>"Báo cáo định kỳ"</b> nếu đây là báo cáo cần theo dõi tiến độ nộp của các đơn vị. Nếu là tiêu chí chấm điểm hoạt động thông thường, hãy chọn <b>"Hoạt động / Phong trào"</b>.
+            <small style="color:#64748b; margin-top:4px; display:block; font-size:12px; line-height:1.4;">
+              💡 <b>Hoạt động / Phong trào:</b> Admin (Ban Thường vụ) tự đánh giá và chấm điểm trực tiếp. Đơn vị cơ sở đoàn KHÔNG THỂ nhập điểm hay nộp tài liệu ở mục này.<br/>
+              💡 <b>Báo cáo định kỳ:</b> Đơn vị cơ sở đoàn sẽ tự kê khai điểm, nộp báo cáo và đính kèm tài liệu minh chứng, đồng thời xuất hiện trong bảng <i>Theo Dõi Nộp Báo Cáo Của Các Đơn Vị</i>.
             </small>
           </div>
 
@@ -5050,13 +5080,19 @@ function renderMasterMobileCardsView(activeUnits, filteredCriteria, isAdmin, mon
 
                       <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:6px; border-top:1px dashed #e2e8f0; flex-wrap:wrap; gap:6px;">
                         <div>
-                          ${hasProof ? `
-                            <span style="font-size:11px; color:#16a34a; font-weight:700; background:#dcfce7; padding:2px 6px; border-radius:4px;">
-                              📎 Có minh chứng / Báo cáo
-                            </span>
-                          ` : `
-                            <span style="font-size:11px; color:#94a3b8;">Chưa nộp file</span>
-                          `}
+                          ${(() => {
+                            const isActivity = Number(c.is_report) !== 1;
+                            if (isActivity) {
+                              return `<span style="font-size:11px; color:#0369a1; font-weight:700; background:#e0f2fe; padding:2px 6px; border-radius:4px; border:1px solid #bae6fd;">🎯 Hoạt động / Phong trào (Admin chấm)</span>`;
+                            }
+                            return hasProof ? `
+                              <span style="font-size:11px; color:#16a34a; font-weight:700; background:#dcfce7; padding:2px 6px; border-radius:4px;">
+                                📎 Có minh chứng / Báo cáo
+                              </span>
+                            ` : `
+                              <span style="font-size:11px; color:#94a3b8;">Chưa nộp file</span>
+                            `;
+                          })()}
                         </div>
 
                         <div style="display:flex; gap:6px;">
@@ -5070,11 +5106,12 @@ function renderMasterMobileCardsView(activeUnits, filteredCriteria, isAdmin, mon
                             <button class="btn btn-sm btn-primary" onclick="openSubmissionDetailModal(${u.id}, ${c.id})" style="font-size:11.5px; padding:3px 8px; font-weight:700; background:#0052cc;">
                               ✏️ Chấm Điểm
                             </button>
-                          ` : (u.id === (state.user && state.user.id) ? `
+                          ` : (u.id === (state.user && state.user.id) ? (
+                            Number(c.is_report) !== 1 ? '' : `
                             <button class="btn btn-sm btn-success" onclick="openUnitSubmitModal(${c.id}, ${u.id})" style="font-size:11.5px; padding:3px 8px; font-weight:700;">
                               📤 Nộp Báo Cáo
                             </button>
-                          ` : '')}
+                          `) : '')}
                         </div>
                       </div>
                     </div>
