@@ -689,12 +689,12 @@ function renderLoginView() {
           <form onsubmit="handleLoginSubmit(event)">
             <div class="form-group">
               <label>Tên đăng nhập (Username):</label>
-              <input type="text" id="login-username" placeholder="Nhập tên đăng nhập (VD: admin, donvi01 hoặc khách xem)" required />
+              <input type="text" id="login-username" placeholder="Nhập tên đăng nhập (VD: admin, donvi01 hoặc khách xem)" oninput="checkGuestInput(this.value)" required />
             </div>
 
             <div class="form-group">
               <label>Mật khẩu:</label>
-              <input type="password" id="login-password" placeholder="Nhập mật khẩu (Khách xem không cần mật khẩu)" />
+              <input type="password" id="login-password" placeholder="Nhập mật khẩu (Khách xem tự có mật khẩu)" />
             </div>
 
             <button type="submit" class="btn btn-primary" style="width: 100%; padding: 11px; font-size: 14.5px; font-weight: 700; margin-top: 8px;">
@@ -703,7 +703,7 @@ function renderLoginView() {
 
             <div style="text-align: center; margin-top: 10px;">
               <button type="button" class="btn btn-outline" onclick="onQuickSelectLogin('khachxem')" style="width: 100%; border-radius: 6px; font-size: 13px; padding: 8px 12px; font-weight: 700; color: #0284c7; border-color: #bae6fd; background: #f0f9ff; display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;">
-                👁️ Vào Nhanh Với Tư Cách Khách Xem (Không Cần Mật Khẩu)
+                👁️ Vào Nhanh Với Tư Cách Khách Xem (Tự Có Mật Khẩu & Vào Xem Luôn)
               </button>
             </div>
 
@@ -719,6 +719,14 @@ function renderLoginView() {
   `;
 }
 
+window.checkGuestInput = function (val) {
+  const v = (val || '').trim().toLowerCase();
+  if (v === 'khách xem' || v === 'khach xem' || v === 'khachxem') {
+    const pw = document.getElementById('login-password');
+    if (pw) pw.value = 'doan2026';
+  }
+};
+
 window.copyPublicWebLink = function () {
   navigator.clipboard.writeText(PUBLIC_WEB_URL);
   showToast(
@@ -732,11 +740,13 @@ window.onQuickSelectLogin = async function (username) {
   const uInput = document.getElementById('login-username');
   const pwInput = document.getElementById('login-password');
 
-  if (username === 'khachxem') {
+  if (username === 'khachxem' || username === 'khách xem' || username === 'khach xem') {
     if (uInput) uInput.value = 'khách xem';
     if (pwInput) pwInput.value = 'doan2026';
     showToast('⏳ Đang tự động đăng nhập tài khoản Khách xem...', 'info');
-    await performLogin('khách xem', 'doan2026');
+    setTimeout(async () => {
+      await performLogin('khách xem', 'doan2026');
+    }, 120);
     return;
   }
 
