@@ -682,7 +682,7 @@ function renderLoginView() {
               <option value="">-- Chọn tài khoản hoặc tự nhập bên dưới --</option>
               <option value="admin">★ BAN THƯỜNG VỤ ĐOÀN UBND TỈNH (Quản trị viên: admin)</option>
               ${unitOptions}
-              <option value="khachxem" style="font-weight:700; color:#0284c7;">41. Tài khoản Khách xem (khách xem)</option>
+              <option value="khachxem" style="font-weight:700; color:#0284c7;">41. Tài khoản Khách xem (Tự động vào - Không cần mật khẩu)</option>
             </select>
           </div>
 
@@ -694,12 +694,18 @@ function renderLoginView() {
 
             <div class="form-group">
               <label>Mật khẩu:</label>
-              <input type="password" id="login-password" placeholder="Nhập mật khẩu" required />
+              <input type="password" id="login-password" placeholder="Nhập mật khẩu (Khách xem không cần mật khẩu)" />
             </div>
 
             <button type="submit" class="btn btn-primary" style="width: 100%; padding: 11px; font-size: 14.5px; font-weight: 700; margin-top: 8px;">
               Đăng Nhập Hệ Thống Online
             </button>
+
+            <div style="text-align: center; margin-top: 10px;">
+              <button type="button" class="btn btn-outline" onclick="onQuickSelectLogin('khachxem')" style="width: 100%; border-radius: 6px; font-size: 13px; padding: 8px 12px; font-weight: 700; color: #0284c7; border-color: #bae6fd; background: #f0f9ff; display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;">
+                👁️ Vào Nhanh Với Tư Cách Khách Xem (Không Cần Mật Khẩu)
+              </button>
+            </div>
 
             <div style="text-align: center; margin-top: 14px; padding-top: 12px; border-top: 1px dashed #cbd5e1;">
               <button type="button" class="btn btn-outline btn-sm" onclick="showPWAInstallGuide()" style="border-radius: 20px; font-size: 12.5px; padding: 6px 16px; font-weight: 700; color: #0052cc; border-color: #93c5fd; background: #eff6ff; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
@@ -713,26 +719,6 @@ function renderLoginView() {
   `;
 }
 
-window.onQuickSelectLogin = function (username) {
-  if (!username) return;
-  const uInput = document.getElementById('login-username');
-  const pwInput = document.getElementById('login-password');
-  if (username === 'khachxem') {
-    if (uInput) uInput.value = 'khách xem';
-    if (pwInput) {
-      pwInput.value = 'doan2026';
-      pwInput.focus();
-    }
-    return;
-  }
-  if (uInput) uInput.value = username;
-  if (pwInput) {
-    pwInput.value = '';
-    pwInput.placeholder = 'Nhập mật khẩu...';
-    pwInput.focus();
-  }
-};
-
 window.copyPublicWebLink = function () {
   navigator.clipboard.writeText(PUBLIC_WEB_URL);
   showToast(
@@ -741,15 +727,30 @@ window.copyPublicWebLink = function () {
   );
 };
 
-window.onQuickSelectLogin = function (username) {
+window.onQuickSelectLogin = async function (username) {
   if (!username) return;
-  document.getElementById('login-username').value = username;
+  const uInput = document.getElementById('login-username');
   const pwInput = document.getElementById('login-password');
+
+  if (username === 'khachxem') {
+    if (uInput) uInput.value = 'khách xem';
+    if (pwInput) pwInput.value = 'doan2026';
+    showToast('⏳ Đang tự động đăng nhập tài khoản Khách xem...', 'info');
+    await performLogin('khách xem', 'doan2026');
+    return;
+  }
+
+  if (uInput) uInput.value = username;
+
   if (username === 'admin') {
-    // Admin demo convenience
-    pwInput.value = 'admin123';
-  } else {
-    // Units must type their own password for confidentiality
+    if (pwInput) {
+      pwInput.value = 'admin123';
+      pwInput.focus();
+    }
+    return;
+  }
+
+  if (pwInput) {
     pwInput.value = '';
     pwInput.placeholder = 'Nhập mật khẩu của đơn vị...';
     pwInput.focus();
@@ -799,12 +800,8 @@ async function performLogin(username, password) {
     return;
   }
 
-  // Look for guest account
+  // Tài khoản khách xem: TỰ ĐỘNG ĐĂNG NHẬP NGAY, KHÔNG CẦN MẬT KHẨU
   if (uTrim === 'khách xem' || uTrim === 'khach xem' || uTrim === 'khachxem') {
-    if (pTrim !== 'doan2026') {
-      showToast('Sai mật khẩu tài khoản Khách xem (Mật khẩu: doan2026)!', 'error');
-      return;
-    }
     const guestUser = {
       id: 9999,
       unit_code: 'KHACH',
