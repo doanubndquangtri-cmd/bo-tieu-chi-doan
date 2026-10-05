@@ -14,7 +14,7 @@ const LOGO_DOAN_SRC = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAakAAAHUCAY
 
 // -*- coding: utf-8 -*-
 const CLOUD_OWNER = 'doanubndquangtri-cmd';
-const CLOUD_REPO = 'bo-tieu-chi-doan-2026';
+const CLOUD_REPO = 'bo-tieu-chi-doan';
 const CLOUD_BRANCH = 'cloud-data';
 const PUBLIC_WEB_URL = `https://${CLOUD_OWNER}.github.io/${CLOUD_REPO}/`;
 
