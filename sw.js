@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tieuchidoan-v5';
+const CACHE_NAME = 'tieuchidoan-v7';
 const ASSETS_TO_CACHE = [
   './logo_doan.png',
   './icon-192.png',
