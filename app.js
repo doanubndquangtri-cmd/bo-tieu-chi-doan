@@ -599,6 +599,17 @@ function renderApp() {
         </button>
       </div>
     ` : ''}
+    ${state.user && state.user.role === 'guest' ? `
+      <div style="background: #fefce8; color: #854d0e; padding: 9px 20px; font-size: 13px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #fef08a; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:16px;">👀</span>
+          <span><b>Tài khoản Khách xem:</b> Bạn đang xem Bảng Tổng Hợp Chấm Điểm của 40 cơ sở Đoàn ở chế độ <b>Chỉ Xem (Read-only)</b>, không có quyền chỉnh sửa, thêm, xóa dữ liệu.</span>
+        </div>
+        <button class="btn btn-sm btn-outline" onclick="handleLogout()" style="font-size:12px; padding:3px 10px; background:#fff; border-color:#ca8a04; color:#854d0e; font-weight:700;">
+          Đăng xuất
+        </button>
+      </div>
+    ` : ''}
     ${renderNavTabs()}
     <div class="main-container">
       ${renderActiveTabContent()}
@@ -646,13 +657,14 @@ function renderLoginView() {
               <option value="">-- Chọn tài khoản hoặc tự nhập bên dưới --</option>
               <option value="admin">★ BAN THƯỜNG VỤ ĐOÀN UBND TỈNH (Quản trị viên: admin)</option>
               ${unitOptions}
+              <option value="khachxem" style="font-weight:700; color:#0284c7;">41. Tài khoản Khách xem (khách xem)</option>
             </select>
           </div>
 
           <form onsubmit="handleLoginSubmit(event)">
             <div class="form-group">
               <label>Tên đăng nhập (Username):</label>
-              <input type="text" id="login-username" placeholder="Nhập tên đăng nhập (VD: admin hoặc donvi01)" required />
+              <input type="text" id="login-username" placeholder="Nhập tên đăng nhập (VD: admin, donvi01 hoặc khách xem)" required />
             </div>
 
             <div class="form-group">
@@ -678,8 +690,17 @@ function renderLoginView() {
 
 window.onQuickSelectLogin = function (username) {
   if (!username) return;
-  document.getElementById('login-username').value = username;
+  const uInput = document.getElementById('login-username');
   const pwInput = document.getElementById('login-password');
+  if (username === 'khachxem') {
+    if (uInput) uInput.value = 'khách xem';
+    if (pwInput) {
+      pwInput.value = 'doan2026';
+      pwInput.focus();
+    }
+    return;
+  }
+  if (uInput) uInput.value = username;
   if (pwInput) {
     pwInput.value = '';
     pwInput.placeholder = 'Nhập mật khẩu...';
@@ -748,6 +769,32 @@ async function performLogin(username, password) {
     localStorage.setItem('doan2026_user', JSON.stringify(adminUser));
     state.activeTab = 'master';
     showToast(`Xin chào: <b>Ban Thường vụ Đoàn UBND tỉnh (Quản trị viên)</b>`, 'success');
+    renderApp();
+    syncFromCloudNow(true).catch(() => {});
+    return;
+  }
+
+  // Look for guest account
+  if (uTrim === 'khách xem' || uTrim === 'khach xem' || uTrim === 'khachxem') {
+    if (pTrim !== 'doan2026') {
+      showToast('Sai mật khẩu tài khoản Khách xem (Mật khẩu: doan2026)!', 'error');
+      return;
+    }
+    const guestUser = {
+      id: 9999,
+      unit_code: 'KHACH',
+      unit_name: 'Khách Xem / Đại Biểu',
+      username: 'khách xem',
+      role: 'guest',
+      is_active: 1,
+    };
+    state.user = guestUser;
+    state.isAdminSession = false;
+    localStorage.removeItem('doan2026_admin_authenticated');
+    sessionStorage.removeItem('doan2026_admin_authenticated');
+    localStorage.setItem('doan2026_user', JSON.stringify(guestUser));
+    state.activeTab = 'master';
+    showToast(`Xin chào: <b>Khách xem / Đại biểu (Chế độ chỉ xem)</b>`, 'success');
     renderApp();
     syncFromCloudNow(true).catch(() => {});
     return;
@@ -898,9 +945,11 @@ function renderHeader() {
           📊 Xuất Excel (.xlsx)
         </button>
 
-        <button class="btn btn-primary btn-sm" onclick="saveExcelToGoogleDrive()" title="Tự động xuất và lưu file Excel vào đúng thư mục Tháng trên Google Drive" style="background:#0284c7; border-color:#0284c7; font-weight:700;">
-          ☁️ Lưu Excel Vào Drive
-        </button>
+        ${isAdmin ? `
+          <button class="btn btn-primary btn-sm" onclick="saveExcelToGoogleDrive()" title="Tự động xuất và lưu file Excel vào đúng thư mục Tháng trên Google Drive" style="background:#0284c7; border-color:#0284c7; font-weight:700;">
+            ☁️ Lưu Excel Vào Drive
+          </button>
+        ` : ''}
 
         <button class="btn btn-sm" onclick="showPWAInstallGuide()" title="Cài đặt ứng dụng vào điện thoại" style="background: rgba(255,255,255,0.2); color:#fff; border: 1px solid rgba(255,255,255,0.4); font-size: 11.5px; padding: 5px 10px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
           📲 Cài App
@@ -1097,6 +1146,8 @@ window.saveExcelToGoogleDrive = async function () {
 
 function renderNavTabs() {
   const isAdmin = state.user && state.user.role === 'admin';
+  const isGuest = state.user && state.user.role === 'guest';
+
   if (isAdmin) {
     const tabs = [
       { id: 'master', label: '📋 Bảng Tổng Hợp (Chấm Điểm)' },
@@ -1105,6 +1156,25 @@ function renderNavTabs() {
       { id: 'criteria', label: `⚙️ Quản Lý Bộ Tiêu Chí & Hạn Nộp (${state.criteria.length})` },
       { id: 'ranking', label: '🏆 Bảng Xếp Hạng Thi Đua' },
       { id: 'admin_password', label: '🔐 Đổi Mật Khẩu Admin' },
+    ];
+    return `
+      <nav class="nav-tabs">
+        ${tabs
+          .map(
+            (t) => `
+          <div class="nav-tab ${state.activeTab === t.id ? 'active' : ''}" onclick="setTab('${t.id}')">
+            ${t.label}
+          </div>
+        `
+          )
+          .join('')}
+      </nav>
+    `;
+  } else if (isGuest) {
+    const tabs = [
+      { id: 'master', label: '📋 Bảng Tổng Hợp Chấm Điểm (Chỉ Xem)' },
+      { id: 'ranking', label: '🏆 Bảng Xếp Hạng Toàn Khối' },
+      { id: 'reports', label: '📅 Theo Dõi Báo Cáo Định Kỳ' },
     ];
     return `
       <nav class="nav-tabs">
@@ -1145,11 +1215,19 @@ function renderNavTabs() {
 }
 
 window.setTab = function (tabId) {
+  const isGuest = state.user && state.user.role === 'guest';
+  if (isGuest && tabId !== 'master' && tabId !== 'ranking' && tabId !== 'reports') {
+    return;
+  }
   state.activeTab = tabId;
   renderApp();
 };
 
 function renderActiveTabContent() {
+  const isGuest = state.user && state.user.role === 'guest';
+  if (isGuest && state.activeTab !== 'master' && state.activeTab !== 'ranking' && state.activeTab !== 'reports') {
+    state.activeTab = 'master';
+  }
   switch (state.activeTab) {
     case 'admin_password':
       return renderAdminPasswordTab();
