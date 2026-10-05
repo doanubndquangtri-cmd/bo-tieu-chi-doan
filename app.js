@@ -193,6 +193,31 @@ function getGoogleDriveScriptUrl() {
   return DEFAULT_GDRIVE_SCRIPT_URL;
 }
 
+function getFileIconAndBadge(filename) {
+  const ext = (filename || '').split('.').pop().toLowerCase();
+  if (['mp4', 'mov', 'avi', 'mkv', 'wmv', 'webm', '3gp', 'flv'].includes(ext)) {
+    return { icon: '🎬', label: 'Video', bg: '#fef2f2', color: '#991b1b', border: '#fecaca' };
+  }
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg', 'heic', 'heif'].includes(ext)) {
+    return { icon: '🖼️', label: 'Hình ảnh', bg: '#f0fdf4', color: '#166534', border: '#bbf7d0' };
+  }
+  if (['doc', 'docx', 'pdf', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'csv'].includes(ext)) {
+    return { icon: '📄', label: 'Văn bản', bg: '#eff6ff', color: '#1e40af', border: '#bfdbfe' };
+  }
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) {
+    return { icon: '📦', label: 'Tệp nén', bg: '#faf5ff', color: '#6b21a8', border: '#e9d5ff' };
+  }
+  return { icon: '📎', label: 'Tệp đính kèm', bg: '#f8fafc', color: '#334155', border: '#cbd5e1' };
+}
+
+function formatBytes(bytes) {
+  if (!bytes || bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
 async function uploadFileToCloud(fileDataB64, origName, unitId, critId) {
   if (!fileDataB64 || !origName) return { fileName: '', fileUrl: '' };
 
@@ -1832,6 +1857,17 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
   const open = isCriterionOpen(crit);
   const effDate = state.settings.effective_date || todayISO();
 
+  // Khởi tạo danh sách tệp đính kèm đa năng (nhiều file văn bản, hình ảnh, video)
+  window._pendingSubmissionFiles = [];
+  window._existingRetainedFiles = [];
+  if (sc) {
+    if (sc.files && Array.isArray(sc.files) && sc.files.length > 0) {
+      window._existingRetainedFiles = JSON.parse(JSON.stringify(sc.files));
+    } else if (sc.file_path) {
+      window._existingRetainedFiles = [{ name: sc.file_name || 'Tệp đính kèm', url: sc.file_path }];
+    }
+  }
+
   const isMulti = crit.score_type === 'multi';
   const curQty = sc && sc.quantity ? Number(sc.quantity) : 1;
   const curScore =
@@ -1844,7 +1880,7 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
   const modalRoot = document.getElementById('modal-root');
   modalRoot.innerHTML = `
     <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
-      <div class="modal-box">
+      <div class="modal-box" style="max-width: 620px;">
         <div class="modal-header">
           <span>📤 Nộp Báo Cáo / Kê Khai Tiêu Chí (${escapeHtml(crit.col_label)})</span>
           <button class="btn btn-sm btn-outline" onclick="closeModal()">✕</button>
@@ -1946,16 +1982,36 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
             />
           </div>
 
-          <div class="form-group">
-            <label>Đính kèm File Báo cáo / Hình ảnh / Maket (.pdf, .docx, .xlsx, .jpg, .png, .zip):</label>
-            <input type="file" id="sub-file" />
-            ${
-              sc && sc.file_name
-                ? `<div style="margin-top:4px; font-size:12px; color:#0369a1;">
-                    File hiện tại: <a href="${escapeHtml(sc.file_path)}" target="_blank"><b>${escapeHtml(sc.file_name)}</b></a>
-                  </div>`
-                : ''
-            }
+          <!-- PHẦN ĐÍNH KÈM TỆP ĐA NĂNG: VĂN BẢN, HÌNH ẢNH, VIDEO KHÔNG GIỚI HẠN -->
+          <div class="form-group" style="margin-bottom:12px;">
+            <label style="font-weight:700; color:#0f172a; display:flex; align-items:center; gap:6px;">
+              📎 Đính kèm Tệp Báo cáo / Văn bản / Hình ảnh / Video minh chứng:
+            </label>
+            <div style="font-size:12px; color:#475569; margin-bottom:8px; line-height:1.4;">
+              ✨ Hỗ trợ nộp <b>nhiều tệp cùng lúc</b>, không giới hạn định dạng (Văn bản Word, Excel, PDF, Hình ảnh, Video, v.v.).
+            </div>
+
+            <input
+              type="file"
+              id="sub-file-multi"
+              multiple
+              accept="*/*"
+              style="display:none;"
+              onchange="onSubFilesPicked(this)"
+            />
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <button
+                type="button"
+                class="btn btn-outline"
+                onclick="document.getElementById('sub-file-multi').click()"
+                style="display:inline-flex; align-items:center; gap:6px; font-weight:700; color:#0052cc; border:1.5px dashed #0052cc; background:#f0f7ff; padding:7px 14px; border-radius:6px; cursor:pointer;"
+              >
+                ➕ Chọn tệp đính kèm (Chọn nhiều tệp Văn bản, Ảnh, Video...)
+              </button>
+            </div>
+
+            <!-- Danh sách hiển thị các tệp đã chọn / đã nộp -->
+            <div id="sub-files-container" style="margin-top:10px; display:flex; flex-direction:column; gap:6px;"></div>
           </div>
         </div>
         <div class="modal-footer">
@@ -1986,6 +2042,110 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
       </div>
     </div>
   `;
+  renderSubFilesContainer();
+};
+
+window.renderSubFilesContainer = function () {
+  const container = document.getElementById('sub-files-container');
+  if (!container) return;
+
+  const retained = window._existingRetainedFiles || [];
+  const pending = window._pendingSubmissionFiles || [];
+
+  if (retained.length === 0 && pending.length === 0) {
+    container.innerHTML = `
+      <div style="font-size:12px; color:#94a3b8; font-style:italic; padding:4px 0;">
+        (Chưa chọn tệp nào. Bạn có thể bấm nút phía trên để chọn một hoặc nhiều tệp)
+      </div>
+    `;
+    return;
+  }
+
+  let html = '';
+
+  // 1. Các tệp đã nộp trước đó trên đám mây
+  if (retained.length > 0) {
+    html += retained.map((f, idx) => {
+      const typeInfo = getFileIconAndBadge(f.name);
+      return `
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; background:${typeInfo.bg}; padding:7px 10px; border-radius:6px; border:1px solid ${typeInfo.border};">
+          <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+            <span style="font-size:16px;">${typeInfo.icon}</span>
+            <div style="overflow:hidden;">
+              <div style="font-weight:700; color:${typeInfo.color}; font-size:12.5px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:270px;">
+                ${escapeHtml(f.name || 'Tệp đã nộp')}
+              </div>
+              <div style="font-size:11px; color:#64748b; display:flex; gap:6px; align-items:center;">
+                <span style="background:${typeInfo.border}; color:${typeInfo.color}; padding:1px 5px; border-radius:3px; font-weight:600;">${typeInfo.label}</span>
+                <span style="color:#059669; font-weight:600;">(Đã lưu trên hệ thống)</span>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex; gap:5px; align-items:center; flex-shrink:0;">
+            ${f.url ? `<a href="${escapeHtml(f.url)}" target="_blank" class="btn btn-sm btn-outline" style="font-size:11px; padding:2px 7px;">👁️ Xem</a>` : ''}
+            <button type="button" class="btn btn-sm btn-outline" onclick="removeRetainedFile(${idx})" style="color:#dc2626; border-color:#fca5a5; font-size:11px; padding:2px 7px;" title="Xóa tệp này">✕ Xóa</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // 2. Các tệp mới chọn chờ nộp
+  if (pending.length > 0) {
+    html += pending.map((f, idx) => {
+      const typeInfo = getFileIconAndBadge(f.name);
+      return `
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; background:#f8fafc; padding:7px 10px; border-radius:6px; border:1px dashed #0052cc;">
+          <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+            <span style="font-size:16px;">${typeInfo.icon}</span>
+            <div style="overflow:hidden;">
+              <div style="font-weight:700; color:#0f172a; font-size:12.5px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:270px;">
+                ${escapeHtml(f.name)}
+              </div>
+              <div style="font-size:11px; color:#475569; display:flex; gap:6px; align-items:center;">
+                <span style="background:#e0f2fe; color:#0369a1; padding:1px 5px; border-radius:3px; font-weight:600;">${typeInfo.label}</span>
+                <span>${formatBytes(f.size)}</span>
+                <span style="color:#2563eb; font-weight:600;">(Chờ tải lên)</span>
+              </div>
+            </div>
+          </div>
+          <div style="flex-shrink:0;">
+            <button type="button" class="btn btn-sm btn-outline" onclick="removePendingFile(${idx})" style="color:#dc2626; border-color:#fca5a5; font-size:11px; padding:2px 7px;" title="Bỏ chọn tệp này">✕ Bỏ</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  container.innerHTML = html;
+};
+
+window.onSubFilesPicked = function (input) {
+  if (!input.files || input.files.length === 0) return;
+  window._pendingSubmissionFiles = window._pendingSubmissionFiles || [];
+  for (let i = 0; i < input.files.length; i++) {
+    const f = input.files[i];
+    const exists = window._pendingSubmissionFiles.some(x => x.name === f.name && x.size === f.size);
+    if (!exists) {
+      window._pendingSubmissionFiles.push(f);
+    }
+  }
+  input.value = '';
+  renderSubFilesContainer();
+};
+
+window.removePendingFile = function (index) {
+  if (window._pendingSubmissionFiles) {
+    window._pendingSubmissionFiles.splice(index, 1);
+  }
+  renderSubFilesContainer();
+};
+
+window.removeRetainedFile = function (index) {
+  if (window._existingRetainedFiles) {
+    window._existingRetainedFiles.splice(index, 1);
+  }
+  renderSubFilesContainer();
 };
 
 window.onSubQuantityChange = function (stepScore, maxScore) {
@@ -2035,25 +2195,47 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
   const requestedScore = Number(document.getElementById('sub-score').value || 0);
   const reportContent = document.getElementById('sub-content').value.trim();
   const evidenceLink = document.getElementById('sub-link').value.trim();
-  const fileInput = document.getElementById('sub-file');
 
-  let uploadedName = '';
-  let uploadedUrl = '';
-  if (fileInput && fileInput.files && fileInput.files[0]) {
-    try {
-      const f = fileInput.files[0];
-      const b64 = await readFileAsDataURL(f);
-      const upRes = await uploadFileToCloud(b64, f.name, unitId, criterionId);
-      uploadedName = upRes.fileName;
-      uploadedUrl = upRes.fileUrl;
-    } catch (e) {
-      showToast('Lỗi tải file đính kèm: ' + e.message, 'error');
+  // Xử lý tải toàn bộ các tệp đính kèm (văn bản, hình ảnh, video) lên Google Drive
+  const pendingFiles = window._pendingSubmissionFiles || [];
+  const retainedFiles = window._existingRetainedFiles || [];
+
+  let newlyUploadedFiles = [];
+  if (pendingFiles.length > 0) {
+    for (let i = 0; i < pendingFiles.length; i++) {
+      const f = pendingFiles[i];
       if (btn) {
-        btn.disabled = false;
-        btn.textContent = '📤 Xác Nhận Nộp Báo Cáo Online';
+        btn.textContent = `⏳ Đang tải tệp (${i + 1}/${pendingFiles.length}): ${f.name.substring(0, 18)}...`;
       }
-      return;
+      showToast(`Đang tải (${i + 1}/${pendingFiles.length}): ${f.name}...`, 'info');
+      try {
+        const b64 = await readFileAsDataURL(f);
+        const upRes = await uploadFileToCloud(b64, f.name, unitId, criterionId);
+        newlyUploadedFiles.push({
+          name: f.name,
+          url: upRes.fileUrl || '',
+          size: f.size
+        });
+      } catch (e) {
+        showToast(`Lỗi khi tải file "${f.name}": ` + e.message, 'error');
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '📤 Xác Nhận Nộp Báo Cáo Online';
+        }
+        return;
+      }
     }
+  }
+
+  const finalFilesList = [...retainedFiles, ...newlyUploadedFiles];
+  let finalFileName = '';
+  let finalFileUrl = '';
+  if (finalFilesList.length === 1) {
+    finalFileName = finalFilesList[0].name;
+    finalFileUrl = finalFilesList[0].url;
+  } else if (finalFilesList.length > 1) {
+    finalFileName = `${finalFilesList.length} tệp đính kèm (${finalFilesList.map(x => x.name).join(', ')})`;
+    finalFileUrl = finalFilesList[0].url;
   }
 
   let statusMsg = '';
@@ -2077,8 +2259,9 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
     const existingIdx = db.scores.findIndex((s) => s.unit_id === unitId && s.criterion_id === criterionId);
     const existingRow = existingIdx >= 0 ? db.scores[existingIdx] : null;
 
-    const finalFileName = uploadedName || (existingRow ? existingRow.file_name : '');
-    const finalFileUrl = uploadedUrl || (existingRow ? existingRow.file_path : '');
+    const savedFileName = finalFileName || (existingRow ? existingRow.file_name : '');
+    const savedFileUrl = finalFileUrl || (existingRow ? existingRow.file_path : '');
+    const savedFilesList = finalFilesList.length > 0 ? finalFilesList : (existingRow && existingRow.files ? existingRow.files : []);
     const ts = nowISO();
 
     let awardedScore = null;
@@ -2098,8 +2281,9 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
       self_score: calcScore,
       report_content: reportContent,
       evidence_link: evidenceLink,
-      file_name: finalFileName,
-      file_path: finalFileUrl,
+      files: savedFilesList,
+      file_name: savedFileName,
+      file_path: savedFileUrl,
       submitted_at: ts,
       submitted_date: effDate,
       is_on_time: isOnTime,
@@ -2126,8 +2310,9 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
       awarded_score: awardedScore,
       report_content: reportContent,
       evidence_link: evidenceLink,
-      file_name: finalFileName,
-      file_path: finalFileUrl,
+      files: savedFilesList,
+      file_name: savedFileName,
+      file_path: savedFileUrl,
       status_text: statusMsg,
     });
     if (db.logs.length > 300) db.logs.length = 300;
@@ -2240,31 +2425,67 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
               }
             </div>
 
-            <!-- FILE BÁO CÁO ĐÍNH KÈM -->
-            <div class="form-group" style="margin-bottom:6px;">
-              <label style="font-weight:700; color:#0f172a;">📎 File báo cáo đính kèm:</label>
-              ${
-                sc.file_path
-                  ? `
-                <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; background:#eff6ff; padding:8px 12px; border-radius:6px; border:1px solid #bfdbfe; margin-bottom:8px;">
-                  <span style="font-weight:700; color:#1e40af; overflow:hidden; text-overflow:ellipsis; max-width:320px;">📄 ${escapeHtml(sc.file_name || 'Tệp đính kèm')}</span>
-                  <div style="display:flex; gap:6px;">
-                    <a href="${escapeHtml(sc.file_path)}" target="_blank" class="btn btn-sm btn-outline" style="font-size:11.5px; padding:3px 8px;">Xem file</a>
-                    <a href="${escapeHtml(sc.file_path)}" download="${escapeHtml(sc.file_name || 'minh_chung')}" target="_blank" class="btn btn-sm btn-primary" style="font-size:11.5px; padding:3px 8px; font-weight:700;">📥 Tải về</a>
+            <!-- FILE BÁO CÁO ĐÍNH KÈM / MINH CHỨNG -->
+            <div class="form-group" style="margin-bottom:8px;">
+              ${(() => {
+                let filesList = [];
+                if (sc.files && Array.isArray(sc.files) && sc.files.length > 0) {
+                  filesList = sc.files;
+                } else if (sc.file_path) {
+                  filesList = [{ name: sc.file_name || 'Tệp đính kèm', url: sc.file_path }];
+                }
+
+                return `
+                <label style="font-weight:700; color:#0f172a;">📎 Hồ sơ / Minh chứng đính kèm (${filesList.length} tệp):</label>
+                ${
+                  filesList.length > 0
+                    ? `
+                  <div style="display:flex; flex-direction:column; gap:6px; margin-top:6px; margin-bottom:8px;">
+                    ${filesList.map((f) => {
+                      const typeInfo = getFileIconAndBadge(f.name);
+                      return `
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; background:${typeInfo.bg}; padding:8px 12px; border-radius:6px; border:1px solid ${typeInfo.border};">
+                          <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+                            <span style="font-size:18px;">${typeInfo.icon}</span>
+                            <div style="overflow:hidden;">
+                              <div style="font-weight:700; color:${typeInfo.color}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:280px; font-size:13px;">
+                                ${escapeHtml(f.name || 'Tệp đính kèm')}
+                              </div>
+                              <div style="font-size:11px; color:#64748b; display:flex; gap:6px; align-items:center;">
+                                <span style="background:${typeInfo.border}; color:${typeInfo.color}; padding:1px 5px; border-radius:3px; font-weight:600;">${typeInfo.label}</span>
+                                ${f.size ? `<span>${formatBytes(f.size)}</span>` : ''}
+                              </div>
+                            </div>
+                          </div>
+                          <div style="display:flex; gap:6px; flex-shrink:0;">
+                            ${f.url ? `<a href="${escapeHtml(f.url)}" target="_blank" class="btn btn-sm btn-outline" style="font-size:11.5px; padding:3px 8px; font-weight:600;">👁️ Xem file</a>` : ''}
+                            ${f.url ? `<a href="${escapeHtml(f.url)}" download="${escapeHtml(f.name || 'minh_chung')}" target="_blank" class="btn btn-sm btn-primary" style="font-size:11.5px; padding:3px 8px; font-weight:700;">📥 Tải về</a>` : ''}
+                          </div>
+                        </div>
+                      `;
+                    }).join('')}
                   </div>
-                </div>
-              `
-                  : '<div style="color:#64748b; font-size:12px; margin-bottom:6px;"><i>Chưa có file đính kèm</i></div>'
-              }
+                `
+                    : '<div style="color:#64748b; font-size:12px; margin-bottom:6px; margin-top:4px;"><i>Chưa có tệp minh chứng đính kèm</i></div>'
+                }
+                `;
+              })()}
 
               ${
                 isAdmin
                   ? `
-                <div style="margin-top:6px; background:#f1f5f9; padding:8px 10px; border-radius:6px; border:1px dashed #94a3b8;">
+                <div style="margin-top:8px; background:#f1f5f9; padding:8px 10px; border-radius:6px; border:1px dashed #94a3b8;">
                   <label style="font-size:12px; font-weight:600; color:#334155; margin-bottom:4px; display:block;">
-                    ${sc.file_path ? '📤 Tải lên file mới để thay thế (nếu cần):' : '📤 Admin tải thêm file đính kèm cho ô này:'}
+                    📤 Admin tải thêm tệp đính kèm (Văn bản, Hình ảnh, Video tùy ý):
                   </label>
-                  <input type="file" id="modal-admin-file" style="font-size:12px;" />
+                  <input type="file" id="modal-admin-files" multiple accept="*/*" style="display:none;" onchange="onAdminFilesPicked(this)" />
+                  <div style="display:flex; gap:8px; align-items:center;">
+                    <button type="button" class="btn btn-outline" onclick="document.getElementById('modal-admin-files').click()" style="font-size:12px; padding:4px 10px; font-weight:600;">
+                      ➕ Chọn thêm tệp
+                    </button>
+                    <span id="admin-files-count" style="font-size:12px; color:#475569;"></span>
+                  </div>
+                  <div id="admin-files-container" style="margin-top:6px; display:flex; flex-direction:column; gap:4px;"></div>
                 </div>
               `
                   : ''
@@ -2301,13 +2522,57 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
       </div>
     </div>
   `;
+  window._adminPendingFiles = [];
+};
+
+window.onAdminFilesPicked = function (input) {
+  if (!input.files || input.files.length === 0) return;
+  window._adminPendingFiles = window._adminPendingFiles || [];
+  for (let i = 0; i < input.files.length; i++) {
+    const f = input.files[i];
+    const exists = window._adminPendingFiles.some(x => x.name === f.name && x.size === f.size);
+    if (!exists) {
+      window._adminPendingFiles.push(f);
+    }
+  }
+  input.value = '';
+  renderAdminFilesContainer();
+};
+
+window.renderAdminFilesContainer = function () {
+  const container = document.getElementById('admin-files-container');
+  if (!container) return;
+  const list = window._adminPendingFiles || [];
+  if (list.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+  container.innerHTML = list.map((f, idx) => {
+    const typeInfo = getFileIconAndBadge(f.name);
+    return `
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; background:#fff; padding:5px 8px; border-radius:4px; border:1px solid #cbd5e1; font-size:12px;">
+        <div style="display:flex; align-items:center; gap:6px; overflow:hidden;">
+          <span>${typeInfo.icon}</span>
+          <span style="font-weight:600; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:240px;">${escapeHtml(f.name)}</span>
+          <span style="color:#64748b; font-size:11px;">(${formatBytes(f.size)})</span>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline" onclick="removeAdminPendingFile(${idx})" style="color:#dc2626; border-color:#fca5a5; font-size:10px; padding:1px 5px;">✕</button>
+      </div>
+    `;
+  }).join('');
+};
+
+window.removeAdminPendingFile = function (index) {
+  if (window._adminPendingFiles) {
+    window._adminPendingFiles.splice(index, 1);
+  }
+  renderAdminFilesContainer();
 };
 
 window.saveAdminSubmissionDetail = async function (unitId, critId) {
   const scoreInput = document.getElementById('admin-modal-score');
   const contentInput = document.getElementById('modal-report-content');
   const linkInput = document.getElementById('modal-evidence-link');
-  const fileInput = document.getElementById('modal-admin-file');
   const btn = document.getElementById('btn-save-admin-detail');
 
   const newScore = scoreInput ? (scoreInput.value.trim() === '' ? null : Number(scoreInput.value)) : null;
@@ -2319,23 +2584,29 @@ window.saveAdminSubmissionDetail = async function (unitId, critId) {
     btn.textContent = '⏳ Đang lưu...';
   }
 
-  let uploadedName = '';
-  let uploadedUrl = '';
-  if (fileInput && fileInput.files && fileInput.files[0]) {
-    try {
-      showToast('Đang tải file đính kèm lên đám mây...', 'info');
-      const f = fileInput.files[0];
-      const b64 = await readFileAsDataURL(f);
-      const upRes = await uploadFileToCloud(b64, f.name, unitId, critId);
-      uploadedName = upRes.fileName;
-      uploadedUrl = upRes.fileUrl;
-    } catch (e) {
-      showToast('Lỗi khi tải file: ' + e.message, 'error');
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = '💾 Lưu Điểm & Toàn Bộ Chi Tiết';
+  const adminFiles = window._adminPendingFiles || [];
+  let newlyUploadedFiles = [];
+  if (adminFiles.length > 0) {
+    for (let i = 0; i < adminFiles.length; i++) {
+      const f = adminFiles[i];
+      if (btn) btn.textContent = `⏳ Đang tải tệp (${i + 1}/${adminFiles.length}): ${f.name.substring(0, 16)}...`;
+      showToast(`Đang tải (${i + 1}/${adminFiles.length}): ${f.name}...`, 'info');
+      try {
+        const b64 = await readFileAsDataURL(f);
+        const upRes = await uploadFileToCloud(b64, f.name, unitId, critId);
+        newlyUploadedFiles.push({
+          name: f.name,
+          url: upRes.fileUrl || '',
+          size: f.size
+        });
+      } catch (e) {
+        showToast('Lỗi khi tải file: ' + e.message, 'error');
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '💾 Lưu Điểm & Toàn Bộ Chi Tiết';
+        }
+        return;
       }
-      return;
     }
   }
 
@@ -2347,13 +2618,24 @@ window.saveAdminSubmissionDetail = async function (unitId, critId) {
       if (newScore !== null) db.scores[idx].score = newScore;
       db.scores[idx].report_content = newContent;
       db.scores[idx].evidence_link = newLink;
-      if (uploadedUrl) {
-        db.scores[idx].file_name = uploadedName;
-        db.scores[idx].file_path = uploadedUrl;
+      
+      // Ghép nối danh sách tệp đính kèm
+      let curFiles = [];
+      if (db.scores[idx].files && Array.isArray(db.scores[idx].files)) {
+        curFiles = db.scores[idx].files;
+      } else if (db.scores[idx].file_path) {
+        curFiles = [{ name: db.scores[idx].file_name || 'Tệp đính kèm', url: db.scores[idx].file_path }];
+      }
+      const mergedFiles = [...curFiles, ...newlyUploadedFiles];
+      if (mergedFiles.length > 0) {
+        db.scores[idx].files = mergedFiles;
+        db.scores[idx].file_name = mergedFiles.length === 1 ? mergedFiles[0].name : `${mergedFiles.length} tệp đính kèm (${mergedFiles.map(x => x.name).join(', ')})`;
+        db.scores[idx].file_path = mergedFiles[0].url;
       }
       db.scores[idx].updated_by = 'admin';
       db.scores[idx].submitted_at = nowISO();
     } else {
+      const mergedFiles = [...newlyUploadedFiles];
       db.scores.push({
         unit_id: unitId,
         criterion_id: critId,
@@ -2362,8 +2644,9 @@ window.saveAdminSubmissionDetail = async function (unitId, critId) {
         self_score: newScore,
         report_content: newContent,
         evidence_link: newLink,
-        file_name: uploadedName,
-        file_path: uploadedUrl,
+        files: mergedFiles,
+        file_name: mergedFiles.length === 1 ? mergedFiles[0].name : (mergedFiles.length > 1 ? `${mergedFiles.length} tệp đính kèm` : ''),
+        file_path: mergedFiles.length > 0 ? mergedFiles[0].url : '',
         submitted_at: nowISO(),
         submitted_date: todayISO(),
         is_on_time: 1,
