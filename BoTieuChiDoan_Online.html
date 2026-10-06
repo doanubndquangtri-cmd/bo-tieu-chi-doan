@@ -1899,7 +1899,17 @@ async function uploadFileToCloud(fileDataB64, origName, unitId, critId, onProgre
         customFolderUrl: customFolderUrl || '',
         customFolderName: customFolderName || '',
       };
-      const data = await uploadWithXHR(gdriveUrl, payload, onProgress);
+      let data = null;
+      try {
+        const res = await fetch(gdriveUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+        data = await res.json();
+      } catch (fErr) {
+        data = await uploadWithXHR(gdriveUrl, payload, onProgress);
+      }
       if (data) {
         if (data.status === 'success' && data.fileUrl) {
           if (data.isCustomFolder) {
@@ -7517,17 +7527,27 @@ window.uploadAdminDocument = async function () {
           fileData: b64,
           folderId: '1F5CdyDTQGUf0C21o7CCCAZkMOjgRKRJK'
         };
-        const json = await uploadWithXHR(gdriveUrl, payload, (pct, loaded, total) => {
-          const mapped = Math.round(10 + (pct * 0.85));
-          updateUploadProgress({
-            percent: mapped,
-            fileName: file.name,
-            fileIndex: 'Tệp 1 / 1',
-            loaded: loaded,
-            total: total,
-            statusText: `Đang truyền tệp lên Google Drive (${mapped}%)...`
+        let json = null;
+        try {
+          const resDoc = await fetch(gdriveUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload)
           });
-        });
+          json = await resDoc.json();
+        } catch (fErr) {
+          json = await uploadWithXHR(gdriveUrl, payload, (pct, loaded, total) => {
+            const mapped = Math.round(10 + (pct * 0.85));
+            updateUploadProgress({
+              percent: mapped,
+              fileName: file.name,
+              fileIndex: 'Tệp 1 / 1',
+              loaded: loaded,
+              total: total,
+              statusText: `Đang truyền tệp lên Google Drive (${mapped}%)...`
+            });
+          });
+        }
         if (json && json.fileUrl) {
           fileUrl = json.fileUrl;
         }
