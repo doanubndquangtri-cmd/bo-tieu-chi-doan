@@ -5679,40 +5679,22 @@ window.saveCriterionEdit = async function (critId) {
 
   const calculatedMonthLabel = (state.monthLabels && state.monthLabels[String(mGroup)]) || defaultMonthLabels[String(mGroup)] || `Tháng ${mGroup}`;
 
-  // Tự động đồng bộ đổi tên thư mục trên Google Drive (KHÔNG TẠO MỚI)
+  // Tự động đồng bộ đổi tên thư mục trên Google Drive (TUYỆT ĐỐI KHÔNG TẠO MỚI)
   const gdriveUrl = getGoogleDriveScriptUrl();
   const existingCrit = (state.criteria || []).find((x) => x.id === critId);
-  if (gdriveUrl && gdriveFolderName) {
+  let gdriveFolderUrl = (existingCrit && existingCrit.gdrive_folder_url) ? existingCrit.gdrive_folder_url : '';
+
+  if (gdriveUrl && gdriveFolderName && gdriveFolderUrl) {
     try {
-      if (existingCrit && existingCrit.gdrive_folder_url) {
-        // Đổi tên thư mục hiện có trên Google Drive
-        fetch(gdriveUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({
-            action: 'rename_folder',
-            folderUrl: existingCrit.gdrive_folder_url,
-            newName: gdriveFolderName
-          })
-        }).then(r => r.json()).catch(e => console.warn('Rename folder notice:', e));
-      } else {
-        // Chưa có thư mục thì mới tạo mới
-        fetch(gdriveUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({
-            action: 'create_criterion_folder',
-            folderName: gdriveFolderName,
-            monthLabel: calculatedMonthLabel,
-            title: title,
-            customFolderId: '1hR7VXnUyY2Ff7MjBvGGS2zRm_xlFwLBi'
-          })
-        }).then(r => r.json()).then(data => {
-          if (data && data.folderUrl) {
-            existingCrit.gdrive_folder_url = data.folderUrl;
-          }
-        }).catch(e => console.warn('Create crit folder notice:', e));
-      }
+      fetch(gdriveUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'rename_folder',
+          folderUrl: gdriveFolderUrl,
+          newName: gdriveFolderName
+        })
+      }).then(r => r.json()).catch(e => console.warn('Rename folder notice:', e));
     } catch (e) {}
   }
 
@@ -6042,10 +6024,18 @@ window.openDateSettingsModal = function () {
           </div>
 
           <div class="form-group" style="margin-top:16px; border-top:1px dashed #cbd5e1; padding-top:12px;">
-            <label style="font-weight:700; color:#1e3a8a;">📁 Đường Dẫn Tự Động Lưu File Lên Google Drive (Apps Script Web App):</label>
-            <input type="text" id="set-gdrive-url" value="${escapeHtml(state.settings.gdrive_script_url || DEFAULT_GDRIVE_SCRIPT_URL)}" placeholder="https://script.google.com/macros/s/.../exec" style="font-size:12px; font-family:monospace;" />
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <label style="font-weight:700; color:#1e3a8a; margin-bottom:0;">📁 Đường Dẫn Tự Động Lưu File Lên Google Drive (Apps Script Web App):</label>
+              <button type="button" id="btn-toggle-unlock-gdrive" class="btn btn-sm btn-outline" onclick="window.unlockGdriveSettings()" style="font-size:11px; padding:2px 8px; font-weight:700; color:#b45309; border-color:#fcd34d; background:#fffbeb;">
+                🔒 Mở khóa chỉnh sửa
+              </button>
+            </div>
+            <input type="text" id="set-gdrive-url" value="${escapeHtml(state.settings.gdrive_script_url || DEFAULT_GDRIVE_SCRIPT_URL)}" placeholder="https://script.google.com/macros/s/.../exec" style="font-size:12px; font-family:monospace; background:#f1f5f9; color:#64748b; cursor:not-allowed;" readonly />
+            <div id="gdrive-lock-hint" style="font-size:11px; color:#b45309; margin-top:4px;">
+              🔒 Đường dẫn Drive đang được khóa bảo vệ. Nhấn "Mở khóa chỉnh sửa" và nhập mật khẩu Admin để thay đổi.
+            </div>
             <div style="font-size:11px; color:#64748b; margin-top:4px;">
-              Tất cả file minh chứng nộp của 40 cơ sở Đoàn sẽ tự động tạo thư mục và lưu vào Google Drive của bạn (Thư mục gốc: <b>HỒ SƠ BÁO CÁO ĐOÀN 2026</b>).
+              Tất cả file minh chứng nộp của 40 cơ sở Đoàn sẽ tự động tạo thư mục và lưu vào Google Drive của bạn (Thư mục gốc: <b>HỒ SƠ BÁO CÁO ĐOÀN</b>).
             </div>
           </div>
         </div>
