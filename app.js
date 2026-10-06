@@ -2452,6 +2452,250 @@ window.closeModal = function () {
 };
 
 /* =========================================================================
+   CƠ CHẾ XÓA TỆP & TÀI LIỆU (TÙY CHỌN XÓA TỰ ĐỘNG TRÊN GOOGLE DRIVE)
+   ========================================================================= */
+async function requestDeleteFilesFromDrive(fileUrlsOrIds) {
+  if (!fileUrlsOrIds) return { ok: true, deletedCount: 0 };
+  const list = Array.isArray(fileUrlsOrIds) ? fileUrlsOrIds : [fileUrlsOrIds];
+  const validList = list.filter(Boolean);
+  if (validList.length === 0) return { ok: true, deletedCount: 0 };
+
+  const gdriveUrl = getGoogleDriveScriptUrl();
+  if (!gdriveUrl) return { ok: false, error: 'Chưa cấu hình URL Google Apps Script' };
+
+  try {
+    const payload = {
+      action: 'delete_files',
+      fileUrls: validList,
+    };
+    const res = await fetch(gdriveUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload),
+      redirect: 'follow',
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return { ok: true, data };
+    }
+  } catch (err) {
+    console.warn('Lỗi gọi xóa tệp trên Google Drive:', err);
+    return { ok: false, error: err.message };
+  }
+  return { ok: false };
+}
+
+function promptDeleteWithDriveOption({ title, message, fileNames, onConfirm }) {
+  const modalRoot = document.getElementById('modal-root');
+  if (!modalRoot) return;
+
+  const filesHtml = (fileNames && fileNames.length > 0)
+    ? `<div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; padding:8px 12px; margin:10px 0; font-size:12.5px; color:#334155; max-height:120px; overflow-y:auto;">
+        <b>Tệp liên quan (${fileNames.length} tệp):</b><br/>${fileNames.map(f => `• ${escapeHtml(f)}`).join('<br/>')}
+       </div>`
+    : '';
+
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+      <div class="modal-box" style="max-width: 520px; border-top: 5px solid #dc2626;">
+        <div class="modal-header" style="background:#fff; color:#dc2626; border-bottom:1px solid #fee2e2;">
+          <span style="font-weight: 800; font-size:16px;">🗑️ ${escapeHtml(title || 'Xác Nhận Xóa')}</span>
+          <button class="btn btn-sm btn-outline" onclick="closeModal()">✕</button>
+        </div>
+        <div class="modal-body" style="padding: 18px;">
+          <div style="font-size:14px; color:#1e293b; line-height:1.5; margin-bottom:12px;">
+            ${message}
+          </div>
+          ${filesHtml}
+          <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:10px 14px; margin-bottom:16px; font-size:12.5px; color:#92400e; line-height:1.5;">
+            💡 <b>Bạn có muốn xóa luôn tệp trên Google Drive không?</b><br/>
+            • <b>Xóa trên cả Google Drive:</b> Tự động đưa tệp vào Thùng rác Drive để dọn dẹp dung lượng trống.<br/>
+            • <b>Chỉ xóa trên Hệ thống:</b> Chỉ gỡ liên kết trên Web, tệp gốc vẫn lưu trữ an toàn trên Google Drive.
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <button class="btn btn-danger" id="btn-del-both" style="font-weight:700; padding:10px 14px; text-align:left; display:flex; align-items:center; justify-content:space-between; background:#dc2626;">
+              <span>🗑️ Xóa Trên Hệ Thống & Xóa Luôn Tệp Trên Google Drive</span>
+              <span style="font-size:11px; opacity:0.9;">(Dọn sạch Drive)</span>
+            </button>
+            <button class="btn btn-warning" id="btn-del-system-only" style="font-weight:700; padding:10px 14px; text-align:left; display:flex; align-items:center; justify-content:space-between; background:#d97706; color:#fff;">
+              <span>🗃️ Chỉ Xóa Trên Hệ Thống (Giữ Lại Tệp Trên Google Drive)</span>
+              <span style="font-size:11px; opacity:0.9;">(Bảo lưu tệp)</span>
+            </button>
+          </div>
+        </div>
+        <div class="modal-footer" style="padding:10px 18px; background:#f8fafc;">
+          <button class="btn btn-outline" onclick="closeModal()" style="font-weight:600;">Hủy Bỏ (Không Xóa)</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('btn-del-both').onclick = async () => {
+    closeModal();
+    await onConfirm(true);
+  };
+
+  document.getElementById('btn-del-system-only').onclick = async () => {
+    closeModal();
+    await onConfirm(false);
+  };
+}
+
+window.confirmDeleteUnitSubmissionFile = function (unitId, criterionId, fileIndex) {
+  const sc = getScoreObj(unitId, criterionId);
+  const unit = state.units.find((u) => u.id === unitId);
+  const crit = state.criteria.find((c) => c.id === criterionId);
+  if (!sc) return;
+
+  let filesList = [];
+  if (sc.files && Array.isArray(sc.files) && sc.files.length > 0) {
+    filesList = sc.files;
+  } else if (sc.file_path) {
+    filesList = [{ name: sc.file_name || 'Tệp đính kèm', url: sc.file_path }];
+  }
+
+  const targetFile = filesList[fileIndex];
+  if (!targetFile) return;
+
+  promptDeleteWithDriveOption({
+    title: 'Xóa Tệp Minh Chứng Của Đơn Vị',
+    message: `Bạn có chắc chắn muốn xóa tệp <b>"${escapeHtml(targetFile.name)}"</b> của đơn vị <b>${escapeHtml(unit ? unit.unit_name : 'Đơn vị')}</b> nộp cho tiêu chí <b>${escapeHtml(crit ? crit.col_label : '')}</b>?`,
+    fileNames: [targetFile.name],
+    onConfirm: async (deleteFromDrive) => {
+      showToast('Đang thực hiện xóa tệp...', 'info');
+      if (deleteFromDrive && targetFile.url) {
+        showToast('Đang đưa tệp vào Thùng rác Google Drive...', 'info');
+        await requestDeleteFilesFromDrive([targetFile.url]);
+      }
+
+      const res = await mutateCloudDB((db) => {
+        const item = (db.scores || []).find((x) => x.unit_id === unitId && x.criterion_id === criterionId);
+        if (!item) return;
+
+        let curFiles = [];
+        if (item.files && Array.isArray(item.files)) curFiles = item.files;
+        else if (item.file_path) curFiles = [{ name: item.file_name || 'Tệp đính kèm', url: item.file_path }];
+
+        curFiles.splice(fileIndex, 1);
+        item.files = curFiles;
+
+        if (curFiles.length === 0) {
+          item.file_name = '';
+          item.file_path = '';
+        } else if (curFiles.length === 1) {
+          item.file_name = curFiles[0].name;
+          item.file_path = curFiles[0].url;
+        } else {
+          item.file_name = `${curFiles.length} tệp đính kèm (${curFiles.map(x => x.name).join(', ')})`;
+          item.file_path = curFiles[0].url;
+        }
+      }, `Admin delete proof file of Unit ${unitId} in C${criterionId}`);
+
+      if (res.ok) {
+        showToast(deleteFromDrive ? 'Đã xóa tệp và dọn dẹp trên Google Drive!' : 'Đã xóa tệp khỏi hệ thống!', 'success');
+        renderApp();
+        openSubmissionDetailModal(unitId, criterionId);
+      } else {
+        showToast('Lỗi khi xóa tệp trên cơ sở dữ liệu!', 'error');
+      }
+    }
+  });
+};
+
+window.confirmDeleteAllUnitSubmissionFiles = function (unitId, criterionId) {
+  const sc = getScoreObj(unitId, criterionId);
+  const unit = state.units.find((u) => u.id === unitId);
+  const crit = state.criteria.find((c) => c.id === criterionId);
+  if (!sc) return;
+
+  let filesList = [];
+  if (sc.files && Array.isArray(sc.files) && sc.files.length > 0) {
+    filesList = sc.files;
+  } else if (sc.file_path) {
+    filesList = [{ name: sc.file_name || 'Tệp đính kèm', url: sc.file_path }];
+  }
+
+  if (filesList.length === 0) {
+    showToast('Không có tệp nào để xóa!', 'info');
+    return;
+  }
+
+  promptDeleteWithDriveOption({
+    title: 'Xóa Toàn Bộ Tệp Minh Chứng',
+    message: `Bạn có chắc chắn muốn xóa <b>toàn bộ ${filesList.length} tệp đính kèm</b> của đơn vị <b>${escapeHtml(unit ? unit.unit_name : 'Đơn vị')}</b> tại tiêu chí <b>${escapeHtml(crit ? crit.col_label : '')}</b>?`,
+    fileNames: filesList.map(f => f.name),
+    onConfirm: async (deleteFromDrive) => {
+      showToast('Đang thực hiện xóa toàn bộ tệp...', 'info');
+      if (deleteFromDrive) {
+        const urls = filesList.map(f => f.url).filter(Boolean);
+        if (urls.length > 0) {
+          showToast(`Đang xóa ${urls.length} tệp trên Google Drive...`, 'info');
+          await requestDeleteFilesFromDrive(urls);
+        }
+      }
+
+      const res = await mutateCloudDB((db) => {
+        const item = (db.scores || []).find((x) => x.unit_id === unitId && x.criterion_id === criterionId);
+        if (!item) return;
+        item.files = [];
+        item.file_name = '';
+        item.file_path = '';
+      }, `Admin delete all files of Unit ${unitId} in C${criterionId}`);
+
+      if (res.ok) {
+        showToast(deleteFromDrive ? 'Đã xóa sạch tất cả tệp trên Hệ thống & Google Drive!' : 'Đã xóa tất cả tệp trên Hệ thống!', 'success');
+        renderApp();
+        openSubmissionDetailModal(unitId, criterionId);
+      } else {
+        showToast('Lỗi khi cập nhật cơ sở dữ liệu!', 'error');
+      }
+    }
+  });
+};
+
+window.confirmResetUnitSubmission = function (unitId, criterionId) {
+  const sc = getScoreObj(unitId, criterionId);
+  const unit = state.units.find((u) => u.id === unitId);
+  const crit = state.criteria.find((c) => c.id === criterionId);
+  if (!sc) return;
+
+  let filesList = [];
+  if (sc.files && Array.isArray(sc.files) && sc.files.length > 0) {
+    filesList = sc.files;
+  } else if (sc.file_path) {
+    filesList = [{ name: sc.file_name || 'Tệp đính kèm', url: sc.file_path }];
+  }
+
+  promptDeleteWithDriveOption({
+    title: 'Hủy Toàn Bộ Bài Nộp & Gỡ Điểm',
+    message: `Bạn có chắc chắn muốn <b>HỦY TOÀN BỘ bài nộp</b> của đơn vị <b>${escapeHtml(unit ? unit.unit_name : 'Đơn vị')}</b> tại tiêu chí <b>${escapeHtml(crit ? crit.col_label : '')}</b>?<br/><span style="color:#dc2626; font-size:12.5px;">(Thao tác này sẽ gỡ điểm số, xóa toàn bộ nội dung báo cáo và xóa các tệp đính kèm)</span>`,
+    fileNames: filesList.map(f => f.name),
+    onConfirm: async (deleteFromDrive) => {
+      showToast('Đang hủy bài nộp...', 'info');
+      if (deleteFromDrive && filesList.length > 0) {
+        const urls = filesList.map(f => f.url).filter(Boolean);
+        if (urls.length > 0) {
+          showToast(`Đang dọn dẹp ${urls.length} tệp trên Google Drive...`, 'info');
+          await requestDeleteFilesFromDrive(urls);
+        }
+      }
+
+      const res = await mutateCloudDB((db) => {
+        db.scores = (db.scores || []).filter((x) => !(x.unit_id === unitId && x.criterion_id === criterionId));
+      }, `Admin reset submission of Unit ${unitId} in C${criterionId}`);
+
+      if (res.ok) {
+        showToast('Đã hủy toàn bộ bài nộp và gỡ điểm thành công!', 'success');
+        closeModal();
+        renderApp();
+      } else {
+        showToast('Lỗi khi hủy bài nộp trên cơ sở dữ liệu!', 'error');
+      }
+    }
+  });
+};
+
+/* =========================================================================
    MODAL XEM CHI TIẾT BÁO CÁO & MINH CHỨNG (DÀNH CHO ADMIN & ĐƠN VỊ)
    ========================================================================= */
 window.openSubmissionDetailModal = function (unitId, criterionId) {
@@ -2556,8 +2800,7 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
                 ${
                   filesList.length > 0
                     ? `
-                  <div style="display:flex; flex-direction:column; gap:6px; margin-top:6px; margin-bottom:8px;">
-                    ${filesList.map((f) => {
+                    ${filesList.map((f, fIdx) => {
                       const typeInfo = getFileIconAndBadge(f.name);
                       return `
                         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; background:${typeInfo.bg}; padding:8px 12px; border-radius:6px; border:1px solid ${typeInfo.border};">
@@ -2576,13 +2819,37 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
                           <div style="display:flex; gap:6px; flex-shrink:0;">
                             ${f.url ? `<a href="${escapeHtml(f.url)}" target="_blank" class="btn btn-sm btn-outline" style="font-size:11.5px; padding:3px 8px; font-weight:600;">👁️ Xem file</a>` : ''}
                             ${f.url ? `<a href="${escapeHtml(f.url)}" download="${escapeHtml(f.name || 'minh_chung')}" target="_blank" class="btn btn-sm btn-primary" style="font-size:11.5px; padding:3px 8px; font-weight:700;">📥 Tải về</a>` : ''}
+                            ${isAdmin ? `
+                              <button class="btn btn-sm btn-danger" onclick="confirmDeleteUnitSubmissionFile(${unit.id}, ${crit.id}, ${fIdx})" style="font-size:11.5px; padding:3px 8px; font-weight:700;" title="Xóa tệp này (có hỏi xóa trên Drive)">
+                                🗑️ Xóa
+                              </button>
+                            ` : ''}
                           </div>
                         </div>
                       `;
                     }).join('')}
                   </div>
+                  ${isAdmin ? `
+                    <div style="display:flex; gap:8px; margin-top:8px; margin-bottom:10px; flex-wrap:wrap;">
+                      <button type="button" class="btn btn-sm" onclick="confirmDeleteAllUnitSubmissionFiles(${unit.id}, ${crit.id})" style="background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; font-size:11.5px; font-weight:700; padding:4px 10px;">
+                        🗑️ Xóa toàn bộ ${filesList.length} tệp minh chứng mục này
+                      </button>
+                      <button type="button" class="btn btn-sm" onclick="confirmResetUnitSubmission(${unit.id}, ${crit.id})" style="background:#fef2f2; color:#dc2626; border:1px solid #f87171; font-size:11.5px; font-weight:700; padding:4px 10px;">
+                        ⚠️ Hủy toàn bộ bài nộp & gỡ điểm
+                      </button>
+                    </div>
+                  ` : ''}
                 `
-                    : '<div style="color:#64748b; font-size:12px; margin-bottom:6px; margin-top:4px;"><i>Chưa có tệp minh chứng đính kèm</i></div>'
+                    : `
+                  <div style="color:#64748b; font-size:12px; margin-bottom:6px; margin-top:4px;"><i>Chưa có tệp minh chứng đính kèm</i></div>
+                  ${isAdmin && (sc.report_content || sc.score !== null) ? `
+                    <div style="margin-top:6px; margin-bottom:8px;">
+                      <button type="button" class="btn btn-sm btn-danger" onclick="confirmResetUnitSubmission(${unit.id}, ${crit.id})" style="font-size:11.5px; padding:3px 8px; font-weight:700;">
+                        ⚠️ Hủy bài nộp & gỡ điểm mục này
+                      </button>
+                    </div>
+                  ` : ''}
+                `
                 }
                 `;
               })()}
@@ -5334,6 +5601,11 @@ function renderAdminDocsTab() {
               <option value="Tài liệu khác">📎 Tài liệu khác</option>
             </select>
             <input type="text" id="admin-doc-search" oninput="filterAdminDocs()" placeholder="🔍 Tìm kiếm văn bản..." style="padding:6px 12px; font-size:13px; border:1px solid #cbd5e1; border-radius:6px; width:210px;" />
+            ${isAdmin && docs.length > 0 ? `
+              <button class="btn btn-sm btn-outline" onclick="deleteFilteredAdminDocs()" style="color:#dc2626; border-color:#fca5a5; background:#fff5f5; font-size:12px; font-weight:700; padding:6px 12px; display:inline-flex; align-items:center; gap:4px;" title="Xóa tất cả các văn bản đang hiển thị trong mục này">
+                🗑️ Xóa các văn bản đang lọc
+              </button>
+            ` : ''}
           </div>
         </div>
 
@@ -5499,16 +5771,87 @@ window.uploadAdminDocument = async function () {
   }
 };
 
-window.deleteAdminDocument = async function (docId) {
-  if (!confirm('Bạn có chắc chắn muốn xóa văn bản này khỏi danh mục hệ thống?')) return;
-  const res = await mutateCloudDB((db) => {
-    db.admin_docs = (db.admin_docs || []).filter((d) => d.id !== docId);
-  }, 'Admin delete document ' + docId);
-  if (res.ok) {
-    showToast('Đã xóa văn bản khỏi danh mục!', 'success');
-    state.admin_docs = (state.admin_docs || []).filter((d) => d.id !== docId);
-    renderApp();
+window.deleteAdminDocument = function (docId) {
+  const doc = (state.admin_docs || []).find((d) => d.id === docId);
+  if (!doc) return;
+
+  promptDeleteWithDriveOption({
+    title: 'Xóa Văn Bản Khỏi Hệ Thống',
+    message: `Bạn có chắc chắn muốn xóa văn bản <b>"${escapeHtml(doc.title)}"</b> (Số: ${escapeHtml(doc.doc_number || 'Chưa rõ')})?`,
+    fileNames: doc.file_name ? [doc.file_name] : [],
+    onConfirm: async (deleteFromDrive) => {
+      showToast('Đang thực hiện xóa văn bản...', 'info');
+      if (deleteFromDrive && doc.file_url) {
+        showToast('Đang đưa tệp vào Thùng rác Google Drive...', 'info');
+        await requestDeleteFilesFromDrive([doc.file_url]);
+      }
+
+      const res = await mutateCloudDB((db) => {
+        db.admin_docs = (db.admin_docs || []).filter((d) => d.id !== docId);
+      }, 'Admin delete document ' + docId);
+
+      if (res.ok) {
+        showToast(deleteFromDrive ? 'Đã xóa văn bản và dọn dẹp trên Google Drive!' : 'Đã xóa văn bản khỏi hệ thống!', 'success');
+        state.admin_docs = (state.admin_docs || []).filter((d) => d.id !== docId);
+        renderApp();
+      } else {
+        showToast('Lỗi khi xóa văn bản khỏi cơ sở dữ liệu!', 'error');
+      }
+    }
+  });
+};
+
+window.deleteFilteredAdminDocs = function () {
+  const typeSelect = document.getElementById('admin-doc-type-filter');
+  const searchInput = document.getElementById('admin-doc-search');
+  const selectedType = typeSelect ? typeSelect.value.trim() : '';
+  const q = searchInput ? searchInput.value.toLowerCase().trim() : '';
+
+  const allDocs = state.admin_docs || [];
+  const matchedDocs = allDocs.filter((d) => {
+    const numText = (d.doc_number || '').toLowerCase();
+    const titleText = (d.title || '').toLowerCase();
+    const typeText = (d.doc_type || '').trim();
+    const matchesSearch = !q || numText.includes(q) || titleText.includes(q);
+    const matchesType = !selectedType || typeText === selectedType;
+    return matchesSearch && matchesType;
+  });
+
+  if (matchedDocs.length === 0) {
+    showToast('Không có văn bản nào trong mục đang lọc để xóa!', 'warning');
+    return;
   }
+
+  const categoryLabel = selectedType ? `mục "${selectedType}"` : (q ? `từ khóa "${q}"` : 'tất cả danh mục');
+
+  promptDeleteWithDriveOption({
+    title: `Xóa Toàn Bộ Văn Bản Theo Mục (${matchedDocs.length} văn bản)`,
+    message: `Bạn có chắc chắn muốn xóa <b>toàn bộ ${matchedDocs.length} văn bản</b> thuộc ${categoryLabel}?<br/><span style="color:#dc2626; font-size:12.5px;">Thao tác này sẽ gỡ bỏ tất cả các văn bản này khỏi danh mục hệ thống.</span>`,
+    fileNames: matchedDocs.map((d) => d.file_name || d.title),
+    onConfirm: async (deleteFromDrive) => {
+      showToast('Đang thực hiện xóa toàn bộ văn bản trong mục...', 'info');
+      if (deleteFromDrive) {
+        const urls = matchedDocs.map((d) => d.file_url).filter(Boolean);
+        if (urls.length > 0) {
+          showToast(`Đang xóa ${urls.length} tệp trên Google Drive...`, 'info');
+          await requestDeleteFilesFromDrive(urls);
+        }
+      }
+
+      const matchedIds = new Set(matchedDocs.map((d) => d.id));
+      const res = await mutateCloudDB((db) => {
+        db.admin_docs = (db.admin_docs || []).filter((d) => !matchedIds.has(d.id));
+      }, `Admin bulk delete ${matchedDocs.length} documents in ${categoryLabel}`);
+
+      if (res.ok) {
+        showToast(deleteFromDrive ? `Đã xóa sạch ${matchedDocs.length} văn bản trên Hệ thống & Google Drive!` : `Đã xóa ${matchedDocs.length} văn bản khỏi Hệ thống!`, 'success');
+        state.admin_docs = (state.admin_docs || []).filter((d) => !matchedIds.has(d.id));
+        renderApp();
+      } else {
+        showToast('Lỗi khi cập nhật cơ sở dữ liệu!', 'error');
+      }
+    }
+  });
 };
 
 window.filterAdminDocs = function () {
