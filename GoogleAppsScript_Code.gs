@@ -3,6 +3,27 @@
 // HỆ THỐNG QUẢN LÝ TIÊU CHÍ ĐOÀN CẤP CƠ SỞ NĂM 2026
 // =========================================================================================
 
+
+/**
+ * Tìm thư mục gốc tiếp nhận báo cáo của hệ thống trên Google Drive:
+ * Tự động nhận diện cả "HỒ SƠ BÁO CÁO ĐOÀN" hoặc "HỒ SƠ BÁO CÁO ĐOÀN 2026"
+ */
+function getRootReportFolder() {
+  var it = DriveApp.getRootFolder().getFolders();
+  while (it.hasNext()) {
+    var f = it.next();
+    var n = f.getName();
+    if (n.indexOf("HỒ SƠ BÁO CÁO ĐOÀN") > -1 || n.indexOf("H? SO BAO CAO DOAN") > -1) {
+      return f;
+    }
+  }
+  var newRoot = DriveApp.getRootFolder().createFolder("HỒ SƠ BÁO CÁO ĐOÀN");
+  try {
+    newRoot.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  } catch (e) {}
+  return newRoot;
+}
+
 var ROOT_FOLDER_NAME = "HỒ SƠ BÁO CÁO ĐOÀN 2026";
 var EXCEL_FOLDER_NAME = "BÁO CÁO TỔNG HỢP EXCEL ĐỊNH KỲ";
 var CLOUD_DATA_URL = "https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/cloud-data/cloud_db.json";
@@ -186,7 +207,7 @@ function doPost(e) {
       var blob = Utilities.newBlob(decodedBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
 
       // Thư mục gốc -> Thư mục Báo cáo định kỳ -> Thư mục Tháng
-      var rootFolder = getOrCreateFolder(DriveApp.getRootFolder(), ROOT_FOLDER_NAME);
+      var rootFolder = getRootReportFolder();
       rootFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 
       var excelFolder = getOrCreateFolder(rootFolder, EXCEL_FOLDER_NAME);
@@ -378,7 +399,7 @@ function doPost(e) {
       }
     }
     if (!rootFolder) {
-      rootFolder = getOrCreateFolder(DriveApp.getRootFolder(), ROOT_FOLDER_NAME);
+      rootFolder = getRootReportFolder();
       try {
         rootFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
       } catch (eR) {}
@@ -644,7 +665,7 @@ function exportScheduledExcelReport(force) {
     var xlsxBlob = exportRes.getBlob().setName(excelFileName);
 
     // Lưu vào đúng thư mục: HỒ SƠ BÁO CÁO ĐOÀN 2026 -> BÁO CÁO TỔNG HỢP EXCEL ĐỊNH KỲ -> Tháng MM-YYYY
-    var rootFolder = getOrCreateFolder(DriveApp.getRootFolder(), ROOT_FOLDER_NAME);
+    var rootFolder = getRootReportFolder();
     rootFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 
     var excelFolder = getOrCreateFolder(rootFolder, EXCEL_FOLDER_NAME);
@@ -743,7 +764,7 @@ function createJsonResponse(obj) {
  */
 function reorganizeAndStandardizeDriveFolders() {
   try {
-    var rootFolder = getOrCreateFolder(DriveApp.getRootFolder(), ROOT_FOLDER_NAME);
+    var rootFolder = getRootReportFolder();
     var targetPeriodFolderName = "Tháng 10-2026";
     var periodFolder = getOrCreateFolder(rootFolder, targetPeriodFolderName);
     try {
