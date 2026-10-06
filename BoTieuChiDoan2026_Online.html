@@ -2922,7 +2922,7 @@ function renderNavTabs() {
 
 window.setTab = function (tabId) {
   const isGuest = state.user && state.user.role === 'guest';
-  if (isGuest && tabId !== 'master' && tabId !== 'ranking' && tabId !== 'reports') {
+  if (isGuest && tabId !== 'master' && tabId !== 'ranking' && tabId !== 'reports' && tabId !== 'admin_docs') {
     return;
   }
   state.activeTab = tabId;
@@ -2931,7 +2931,7 @@ window.setTab = function (tabId) {
 
 function renderActiveTabContent() {
   const isGuest = state.user && state.user.role === 'guest';
-  if (isGuest && state.activeTab !== 'master' && state.activeTab !== 'ranking' && state.activeTab !== 'reports') {
+  if (isGuest && state.activeTab !== 'master' && state.activeTab !== 'ranking' && state.activeTab !== 'reports' && state.activeTab !== 'admin_docs') {
     state.activeTab = 'master';
   }
   switch (state.activeTab) {
@@ -5446,9 +5446,7 @@ function renderAdminCriteriaTab() {
           <button class="btn btn-danger btn-sm" onclick="resetAllEvaluationData()" style="font-weight:700; background:#dc2626; color:#fff;" title="Xóa toàn bộ tiêu chí, điểm số, tháng và thư mục trong bảng tổng hợp để tạo mới từ đầu">
             🗑️ Xóa Trắng Bảng Điểm (Tạo Mới)
           </button>
-          <button class="btn btn-sm" onclick="syncAllToDriveNow()" style="font-weight:700; background:#059669; color:#fff; display:inline-flex; align-items:center; gap:4px;" title="Tự động khởi tạo lại tất cả Thư mục Tháng, Tiêu chí và kéo các file đã nộp về Google Drive">
-            🔄 Đồng Bộ Thư Mục Drive
-          </button>
+
           <button class="btn btn-primary btn-sm" onclick="openCriterionCreateModal()" style="font-weight:700;">
             ➕ Thêm Tiêu Chí Mới
           </button>
@@ -5681,21 +5679,40 @@ window.saveCriterionEdit = async function (critId) {
 
   const calculatedMonthLabel = (state.monthLabels && state.monthLabels[String(mGroup)]) || defaultMonthLabels[String(mGroup)] || `Tháng ${mGroup}`;
 
-  // Khởi tạo/cập nhật thư mục Google Drive nếu có
+  // Tự động đồng bộ đổi tên thư mục trên Google Drive (KHÔNG TẠO MỚI)
   const gdriveUrl = getGoogleDriveScriptUrl();
+  const existingCrit = (state.criteria || []).find((x) => x.id === critId);
   if (gdriveUrl && gdriveFolderName) {
     try {
-      fetch(gdriveUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          action: 'create_criterion_folder',
-          folderName: gdriveFolderName,
-          monthLabel: calculatedMonthLabel,
-          title: title,
-          customFolderId: '1hR7VXnUyY2Ff7MjBvGGS2zRm_xlFwLBi'
-        })
-      }).then(r => r.json()).catch(e => console.warn('Edit crit folder notice:', e));
+      if (existingCrit && existingCrit.gdrive_folder_url) {
+        // Đổi tên thư mục hiện có trên Google Drive
+        fetch(gdriveUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'rename_folder',
+            folderUrl: existingCrit.gdrive_folder_url,
+            newName: gdriveFolderName
+          })
+        }).then(r => r.json()).catch(e => console.warn('Rename folder notice:', e));
+      } else {
+        // Chưa có thư mục thì mới tạo mới
+        fetch(gdriveUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'create_criterion_folder',
+            folderName: gdriveFolderName,
+            monthLabel: calculatedMonthLabel,
+            title: title,
+            customFolderId: '1hR7VXnUyY2Ff7MjBvGGS2zRm_xlFwLBi'
+          })
+        }).then(r => r.json()).then(data => {
+          if (data && data.folderUrl) {
+            existingCrit.gdrive_folder_url = data.folderUrl;
+          }
+        }).catch(e => console.warn('Create crit folder notice:', e));
+      }
     } catch (e) {}
   }
 
@@ -6117,7 +6134,7 @@ function renderRankingTab() {
                     ${formatScore(item.total) || '0'}
                   </td>
                   <td style="text-align:center;">
-                    ${totalReports > 0 ? `<span class="badge badge-success">${item.reportsDone} / ${totalReports}</span>` : `<span class="badge" style="background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1;">0 / 0</span>`}
+                    ${totalReports > 0 ? `<span class="badge badge-success" style="white-space:nowrap; display:inline-block; font-weight:700; padding:3px 10px; font-size:12px; min-width:48px; text-align:center;">${item.reportsDone} / ${totalReports}</span>` : `<span class="badge" style="white-space:nowrap; display:inline-block; font-weight:600; padding:3px 10px; font-size:12px; min-width:48px; text-align:center; background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1;">0 / 0</span>`}
                   </td>
                   ${monthGroups
                     .map((mg) => {
@@ -7459,7 +7476,10 @@ function renderAdminDocsTab() {
                         ⬇️ Tải về
                       </a>
                       ${isAdmin ? `
-                        <button class="btn btn-sm btn-danger" onclick="deleteAdminDocument('${d.id}')" style="padding:4px 8px; font-size:11.5px; display:inline-flex; align-items:center;" title="Xóa văn bản này (có tùy chọn xóa trên Drive)">
+                        <button class="btn btn-sm btn-outline" onclick="renameAdminDocument('${d.id}')" style="padding:4px 8px; font-size:11.5px; display:inline-flex; align-items:center; color:#0284c7; border-color:#bae6fd;" title="Đổi tên văn bản (Tự động đổi tên trên Google Drive)">
+                          ✏️
+                        </button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteAdminDocument('${d.id}')" style="padding:4px 8px; font-size:11.5px; display:inline-flex; align-items:center;" title="Xóa văn bản này (tự động xóa trên Google Drive)">
                           🗑️
                         </button>
                       ` : ''}
@@ -7831,3 +7851,43 @@ window.resetAllEvaluationData = async function() {
   </script>
 </body>
 </html>
+
+window.renameAdminDocument = async function (docId) {
+  const doc = (state.admin_docs || []).find((d) => d.id === docId);
+  if (!doc) return;
+
+  const newTitle = prompt('Nhập tên / trích yếu mới của văn bản:', doc.title || '');
+  if (!newTitle || !newTitle.trim() || newTitle.trim() === doc.title) return;
+
+  const trimmedTitle = newTitle.trim();
+  showToast('Đang cập nhật tên văn bản...', 'info');
+
+  const gdriveUrl = getGoogleDriveScriptUrl();
+  if (gdriveUrl && doc.file_url) {
+    try {
+      fetch(gdriveUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'rename_file',
+          fileUrl: doc.file_url,
+          newName: trimmedTitle
+        })
+      }).then(r => r.json()).catch(e => console.warn('Rename file on drive notice:', e));
+    } catch (e) {}
+  }
+
+  const res = await mutateCloudDB((db) => {
+    const d = (db.admin_docs || []).find((x) => x.id === docId);
+    if (d) {
+      d.title = trimmedTitle;
+    }
+  }, 'Admin rename document ' + docId);
+
+  if (res.ok) {
+    showToast('Đã đổi tên văn bản và đồng bộ lên Google Drive!', 'success');
+    renderApp();
+  } else {
+    showToast('Lỗi khi cập nhật tên văn bản!', 'error');
+  }
+};
