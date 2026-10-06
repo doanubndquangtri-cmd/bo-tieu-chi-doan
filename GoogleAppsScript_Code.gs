@@ -5,6 +5,7 @@
 
 // CẤU HÌNH THƯ MỤC GỐC VÀ DỰ PHÒNG
 var ROOT_FOLDER_NAME = "HỒ SƠ BÁO CÁO ĐOÀN";
+var ROOT_FOLDER_ID = "1hR7VXnUyY2Ff7MjBvGGS2zRm_xlFwLBi"; // ID thư mục HỒ SƠ BÁO CÁO ĐOÀN trên Google Drive của bạn
 var EXCEL_FOLDER_NAME = "BÁO CÁO TỔNG HỢP EXCEL ĐỊNH KỲ";
 var ADMIN_DOCS_FOLDER_NAME = "Hệ thống Văn bản";
 var ADMIN_DOCS_FOLDER_ID = "1F5CdyDTQGUf0C21o7CCCAZkMOjgRKRJK";
@@ -145,6 +146,15 @@ function getOrCreateFolder(parentFolder, folderName) {
  * Tìm hoặc tạo thư mục gốc "HỒ SƠ BÁO CÁO ĐOÀN" trên Google Drive
  */
 function getRootReportFolder() {
+  if (typeof ROOT_FOLDER_ID !== "undefined" && ROOT_FOLDER_ID && ROOT_FOLDER_ID.length > 5) {
+    try {
+      var directFolder = DriveApp.getFolderById(ROOT_FOLDER_ID);
+      if (directFolder && !directFolder.isTrashed()) {
+        return directFolder;
+      }
+    } catch (eDir) {}
+  }
+
   var it = DriveApp.getRootFolder().getFolders();
   while (it.hasNext()) {
     var f = it.next();
