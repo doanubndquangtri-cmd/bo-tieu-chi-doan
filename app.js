@@ -2231,6 +2231,13 @@ function renderUnitSubmitTab() {
                           : `<span class="badge" style="background:#eff6ff; color:#1d4ed8; font-size:11px; border:1px solid #bfdbfe; font-weight:700;">🎯 Hoạt động / Phong trào (Tự động chấm)</span>`
                       }
                     </div>
+                    ${c.gdrive_folder_url ? `
+                      <div style="margin-top:4px;">
+                        <a href="${escapeHtml(c.gdrive_folder_url)}" target="_blank" style="font-size:11px; font-weight:700; color:#15803d; text-decoration:none; display:inline-flex; align-items:center; gap:4px; background:#dcfce7; padding:2px 8px; border-radius:4px; border:1px solid #86efac;" title="Thư mục Google Drive tiếp nhận báo cáo của tiêu chí này">
+                          📁 Thư mục Google Drive tiếp nhận ↗
+                        </a>
+                      </div>
+                    ` : ''}
                     ${
                       isAdminScore
                         ? (sc && (sc.report_content || sc.admin_note)
@@ -2360,6 +2367,13 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
             <div style="font-weight:700; font-size:14px; color:#003d99; margin-bottom:6px;">
               ${escapeHtml(crit.title)}
             </div>
+            ${crit.gdrive_folder_url ? `
+              <div style="margin-top:6px; margin-bottom:4px;">
+                <a href="${escapeHtml(crit.gdrive_folder_url)}" target="_blank" style="font-size:12px; font-weight:700; color:#15803d; text-decoration:none; display:inline-flex; align-items:center; gap:4px; background:#dcfce7; padding:3px 10px; border-radius:4px; border:1px solid #86efac;" title="Mở thư mục tiếp nhận hồ sơ báo cáo của tiêu chí này trên Google Drive">
+                  📁 Thư mục Google Drive tiếp nhận báo cáo của tiêu chí này ↗
+                </a>
+              </div>
+            ` : ''}
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:6px 12px; font-size:12.5px; margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1;">
               <div>Quy định điểm: <b>${escapeHtml(crit.points_text.replace(/\n/g, ' - '))}</b></div>
               <div>Ngày bắt đầu nộp: <b style="color:#059669;">${formatDateVN(crit.start_date || '2026-01-01')}</b></div>
@@ -4172,6 +4186,9 @@ function renderAdminCriteriaTab() {
             🗑️ Xóa Trắng Bảng Điểm (Tạo Mới)
           </button>
 
+          <button class="btn btn-success btn-sm" onclick="syncMissingDriveFoldersNow()" style="font-weight:700; background:#15803d; color:#fff;" title="Khởi tạo thư mục Google Drive cho tất cả các tiêu chí còn thiếu">
+            📁 Đồng Bộ Link Drive (${(state.criteria || []).filter(x => !x.gdrive_folder_url).length > 0 ? 'Thiếu ' + (state.criteria || []).filter(x => !x.gdrive_folder_url).length + ' link' : 'Đầy đủ link'})
+          </button>
           <button class="btn btn-primary btn-sm" onclick="openCriterionCreateModal()" style="font-weight:700;">
             ➕ Thêm Tiêu Chí Mới
           </button>
@@ -4230,7 +4247,13 @@ function renderAdminCriteriaTab() {
                         📁 Thư mục Google Drive tiếp nhận ↗
                       </a>
                     </div>
-                  ` : ''}
+                  ` : `
+                    <div style="margin-top:4px;">
+                      <button onclick="createDriveFolderForCriterion(${c.id})" class="btn btn-sm" style="font-size:11px; font-weight:700; color:#b45309; background:#fef3c7; border:1px solid #fde68a; padding:2px 8px; border-radius:4px; cursor:pointer;" title="Bấm để khởi tạo thư mục lưu trữ tiếp nhận trên Google Drive">
+                        ⚡ Tạo Thư Mục Drive Ngay
+                      </button>
+                    </div>
+                  `}
                 </td>
                 <td style="text-align:center;">
                   ${(() => {
@@ -4336,6 +4359,27 @@ window.openCriterionEditModal = function (critId) {
               📁 Tên thư mục tự tạo trên Google Drive / Tiêu chí (*):
             </label>
             <input type="text" id="edit-crit-gdrive-folder-name" placeholder="VD: Báo cáo Tháng 10, Sinh hoạt chi đoàn..." value="${escapeHtml(c.gdrive_folder_name || c.title || '')}" style="background:#fff; font-size:14px; font-weight:600; padding:9px 12px; border:1.5px solid #22c55e; border-radius:6px; width:100%;" required />
+            
+            <div style="margin-top:12px; padding-top:10px; border-top:1px dashed #86efac;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                <label style="font-weight:700; color:#166534; font-size:13px; margin:0;">
+                  🔗 Đường link Thư mục Google Drive tiếp nhận:
+                </label>
+                ${c.gdrive_folder_url ? `
+                  <a href="${escapeHtml(c.gdrive_folder_url)}" target="_blank" style="color:#15803d; font-size:12px; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:3px; background:#dcfce7; padding:2px 8px; border-radius:4px; border:1px solid #86efac;">
+                    Mở xem trên Drive ↗
+                  </a>
+                ` : `
+                  <button type="button" onclick="createDriveFolderForCriterion(${c.id})" style="color:#b45309; font-size:11px; font-weight:700; background:#fef3c7; border:1px solid #fde68a; padding:2px 8px; border-radius:4px; cursor:pointer;">
+                    ⚡ Tạo Thư Mục Drive Ngay
+                  </button>
+                `}
+              </div>
+              <input type="text" id="edit-crit-gdrive-url" placeholder="https://drive.google.com/drive/folders/..." value="${escapeHtml(c.gdrive_folder_url || '')}" style="background:#fff; font-size:13px; padding:7px 10px; border:1px solid #86efac; border-radius:5px; width:100%;" />
+              <div style="font-size:11.5px; color:#166534; margin-top:4px;">
+                🔒 <b>Bảo lưu vĩnh viễn:</b> Đường link này luôn được giữ nguyên. Khi đổi tên tiêu chí ở trên, hệ thống sẽ tự động cập nhật đổi tên trên Google Drive mà <b>tuyệt đối không đổi link</b>.
+              </div>
+            </div>
           </div>
 
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
@@ -4403,23 +4447,53 @@ window.saveCriterionEdit = async function (critId) {
 
   const calculatedMonthLabel = (state.monthLabels && state.monthLabels[String(mGroup)]) || defaultMonthLabels[String(mGroup)] || `Tháng ${mGroup}`;
 
-  // Tự động đồng bộ đổi tên thư mục trên Google Drive (TUYỆT ĐỐI KHÔNG TẠO MỚI)
+  // Tự động bảo lưu đường link Drive và đổi tên thư mục trên Google Drive
   const gdriveUrl = getGoogleDriveScriptUrl();
   const existingCrit = (state.criteria || []).find((x) => x.id === critId);
-  let gdriveFolderUrl = (existingCrit && existingCrit.gdrive_folder_url) ? existingCrit.gdrive_folder_url : '';
+  const inputUrlEl = document.getElementById('edit-crit-gdrive-url');
+  const inputUrlVal = inputUrlEl ? inputUrlEl.value.trim() : '';
+  let gdriveFolderUrl = inputUrlVal || (existingCrit && existingCrit.gdrive_folder_url) ? (inputUrlVal || existingCrit.gdrive_folder_url) : '';
 
-  if (gdriveUrl && gdriveFolderName && gdriveFolderUrl) {
-    try {
-      fetch(gdriveUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({
-          action: 'rename_folder',
-          folderUrl: gdriveFolderUrl,
-          newName: gdriveFolderName
-        })
-      }).then(r => r.json()).catch(e => console.warn('Rename folder notice:', e));
-    } catch (e) {}
+  if (gdriveUrl && gdriveFolderName) {
+    if (gdriveFolderUrl) {
+      // ĐÃ CÓ LINK: Giữ nguyên link 100%, chỉ đổi tên trên Drive nếu tên bị thay đổi
+      const oldName = (existingCrit && (existingCrit.gdrive_folder_name || existingCrit.title)) || '';
+      if (gdriveFolderName !== oldName) {
+        try {
+          fetch(gdriveUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({
+              action: 'rename_folder',
+              folderUrl: gdriveFolderUrl,
+              newName: gdriveFolderName
+            })
+          }).then(r => r.json()).catch(e => console.warn('Rename folder notice:', e));
+        } catch (e) {}
+      }
+    } else {
+      // CHƯA CÓ LINK: Tự động khởi tạo thư mục mới trên Google Drive
+      try {
+        showToast('Đang khởi tạo thư mục trên Google Drive...', 'info');
+        const createRes = await fetch(gdriveUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'create_criterion_folder',
+            folderName: gdriveFolderName,
+            monthLabel: calculatedMonthLabel,
+            title: title,
+            customFolderId: '1hR7VXnUyY2Ff7MjBvGGS2zRm_xlFwLBi'
+          })
+        });
+        const createJson = await createRes.json();
+        if (createJson && createJson.folderUrl) {
+          gdriveFolderUrl = createJson.folderUrl;
+        }
+      } catch (e) {
+        console.warn('Auto create drive folder notice:', e);
+      }
+    }
   }
 
   showToast('Đang cập nhật tiêu chí...', 'info');
@@ -6591,5 +6665,109 @@ window.renameAdminDocument = async function (docId) {
     renderApp();
   } else {
     showToast('Lỗi khi cập nhật tên văn bản!', 'error');
+  }
+};
+
+/* =========================================================================
+   TIỆN ÍCH QUẢN LÝ VÀ ĐỒNG BỘ THƯ MỤC GOOGLE DRIVE TIẾP NHẬN
+   ========================================================================= */
+window.createDriveFolderForCriterion = async function (critId) {
+  const gdriveUrl = getGoogleDriveScriptUrl();
+  if (!gdriveUrl) {
+    showToast('Chưa cấu hình URL Google Apps Script!', 'error');
+    return;
+  }
+  const c = (state.criteria || []).find((x) => x.id === critId);
+  if (!c) return;
+
+  showToast(`Đang khởi tạo thư mục Drive cho: ${c.title.slice(0, 30)}...`, 'info');
+  try {
+    const res = await fetch(gdriveUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'create_criterion_folder',
+        folderName: c.gdrive_folder_name || c.title,
+        monthLabel: c.month_label,
+        title: c.title,
+        customFolderId: '1hR7VXnUyY2Ff7MjBvGGS2zRm_xlFwLBi'
+      })
+    });
+    const data = await res.json();
+    if (data && data.folderUrl) {
+      c.gdrive_folder_url = data.folderUrl;
+      c.gdrive_folder_name = c.gdrive_folder_name || c.title;
+      await mutateCloudDB((db) => {
+        const target = (db.criteria || []).find((x) => x.id === critId);
+        if (target) {
+          target.gdrive_folder_url = data.folderUrl;
+          target.gdrive_folder_name = target.gdrive_folder_name || target.title;
+        }
+      }, `Tạo thư mục Drive cho tiêu chí ${critId}`);
+      renderApp();
+      showToast('Đã khởi tạo thư mục Google Drive thành công!', 'success');
+    } else {
+      showToast('Apps Script không trả về URL thư mục.', 'error');
+    }
+  } catch (err) {
+    console.error('Lỗi tạo thư mục Drive:', err);
+    showToast('Lỗi khi gọi Google Apps Script: ' + err.message, 'error');
+  }
+};
+
+window.syncMissingDriveFoldersNow = async function () {
+  const gdriveUrl = getGoogleDriveScriptUrl();
+  if (!gdriveUrl) {
+    showToast('Chưa cấu hình URL Google Apps Script!', 'error');
+    return;
+  }
+  const missing = (state.criteria || []).filter((c) => !c.gdrive_folder_url);
+  if (missing.length === 0) {
+    showToast('Tất cả các tiêu chí đã có đường link Google Drive tiếp nhận!', 'success');
+    return;
+  }
+
+  showToast(`Bắt đầu đồng bộ thư mục Drive cho ${missing.length} tiêu chí còn thiếu...`, 'info');
+  let successCount = 0;
+  for (let i = 0; i < missing.length; i++) {
+    const c = missing[i];
+    try {
+      showToast(`Đang tạo (${i + 1}/${missing.length}): ${c.title.slice(0, 25)}...`, 'info');
+      const res = await fetch(gdriveUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'create_criterion_folder',
+          folderName: c.gdrive_folder_name || c.title,
+          monthLabel: c.month_label,
+          title: c.title,
+          customFolderId: '1hR7VXnUyY2Ff7MjBvGGS2zRm_xlFwLBi'
+        })
+      });
+      const data = await res.json();
+      if (data && data.folderUrl) {
+        c.gdrive_folder_url = data.folderUrl;
+        c.gdrive_folder_name = c.gdrive_folder_name || c.title;
+        successCount++;
+      }
+    } catch (err) {
+      console.warn('Lỗi tạo folder cho tiêu chí ' + c.id, err);
+    }
+  }
+
+  if (successCount > 0) {
+    await mutateCloudDB((db) => {
+      missing.forEach((mc) => {
+        const target = (db.criteria || []).find((x) => x.id === mc.id);
+        if (target && mc.gdrive_folder_url) {
+          target.gdrive_folder_url = mc.gdrive_folder_url;
+          target.gdrive_folder_name = mc.gdrive_folder_name;
+        }
+      });
+    }, `Đồng bộ thư mục Drive cho ${successCount} tiêu chí`);
+    renderApp();
+    showToast(`Đã đồng bộ thành công ${successCount} thư mục Google Drive!`, 'success');
+  } else {
+    showToast('Không thể tạo thư mục. Vui lòng kiểm tra lại quyền của Apps Script!', 'error');
   }
 };
