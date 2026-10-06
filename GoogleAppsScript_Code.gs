@@ -57,6 +57,48 @@ function doPost(e) {
     }
 
     // =====================================================================
+    // TRƯỜNG HỢP 4: XÓA TỆP TRÊN GOOGLE DRIVE THEO YÊU CẦU CỦA ADMIN
+    // (ĐƯA VÀO THÙNG RÁC GOOGLE DRIVE ĐỂ DỌN DẸP DUNG LƯỢNG NHANH CHÓNG)
+    // =====================================================================
+    if (data.action === "delete_file" || data.action === "delete_files") {
+      var idsToDelete = [];
+      if (data.fileId) idsToDelete.push(data.fileId);
+      if (Array.isArray(data.fileIds)) idsToDelete = idsToDelete.concat(data.fileIds);
+
+      var urls = Array.isArray(data.fileUrls) ? data.fileUrls : (data.fileUrl ? [data.fileUrl] : []);
+      urls.forEach(function(u) {
+        if (!u) return;
+        var m1 = String(u).match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+        if (m1 && m1[1]) idsToDelete.push(m1[1]);
+        var m2 = String(u).match(/[?&]id=([a-zA-Z0-9_-]+)/);
+        if (m2 && m2[1]) idsToDelete.push(m2[1]);
+      });
+
+      var uniqueIds = [];
+      idsToDelete.forEach(function(id) {
+        if (id && uniqueIds.indexOf(id) === -1) uniqueIds.push(id);
+      });
+
+      var deletedCount = 0;
+      var errors = [];
+      uniqueIds.forEach(function(fId) {
+        try {
+          var f = DriveApp.getFileById(fId);
+          f.setTrashed(true);
+          deletedCount++;
+        } catch (errDel) {
+          errors.push("ID " + fId + ": " + errDel.toString());
+        }
+      });
+
+      return createJsonResponse({
+        status: "success",
+        deletedCount: deletedCount,
+        totalRequested: uniqueIds.length,
+        errors: errors
+      });
+    }
+
     // =====================================================================
     // TRƯỜNG HỢP 3: ADMIN TẢI VĂN BẢN VÀO HỆ THỐNG VĂN BẢN (GOOGLE DRIVE)
     // =====================================================================
