@@ -3612,24 +3612,7 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
           <button class="btn btn-sm btn-outline" onclick="closeModal()">✕</button>
         </div>
         <div class="modal-body">
-          ${isActivityCrit ? `
-            <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:8px 12px; margin-bottom:12px; font-size:12.5px; color:#1e40af; font-weight:600;">
-              ⚡ <b>Tiêu chí Hoạt động / Phong trào:</b> Điểm số sẽ được hệ thống <b>tự động ghi nhận (${crit.max_score} điểm)</b> ngay khi đơn vị nộp đầy đủ minh chứng!
-            </div>
-          ` : ''}
-          ${(crit.gdrive_folder_name || crit.gdrive_folder_url) ? `
-            <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:13px; color:#166534; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-              <div>
-                <b>📁 Thư mục Google Drive tiếp nhận báo cáo:</b> ${crit.gdrive_folder_name ? `<span class="badge" style="background:#15803d; color:#fff; font-size:12px; margin-left:4px; padding:2px 8px;">${escapeHtml(crit.gdrive_folder_name)}</span>` : ''}<br/>
-                <span style="font-size:12px; color:#15803d;">Tất cả tệp đính kèm khi bạn bấm nộp sẽ được tự động đưa vào đúng thư mục Drive này cho Ban Thường vụ quản lý!</span>
-              </div>
-              ${crit.gdrive_folder_url ? `
-                <a href="${escapeHtml(crit.gdrive_folder_url)}" target="_blank" class="btn btn-sm" style="background:#16a34a; color:#fff; text-decoration:none; font-weight:700; padding:5px 12px; border-radius:6px; font-size:12px; display:inline-flex; align-items:center; gap:4px;">
-                  📂 Mở Thư Mục Drive ↗
-                </a>
-              ` : ''}
-            </div>
-          ` : ''}
+
           <div style="padding:12px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; margin-bottom:14px;">
             <div style="font-size:12px; color:#475569; margin-bottom:4px;">
               Đơn vị: <b>${escapeHtml(unit.unit_name)}</b> • Kỳ: <b>${escapeHtml(crit.month_label)}</b>
