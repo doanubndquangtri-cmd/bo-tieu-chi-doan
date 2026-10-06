@@ -181,9 +181,23 @@ function doPost(e) {
     // =====================================================================
     // TRƯỜNG HỢP 1: LƯU FILE EXCEL TỔNG HỢP TỪ WEB / APP
     // =====================================================================
-    if (data.action === "reorganize_drive" || data.action === "standardize_folders") {
-      var reorgRes = reorganizeAndStandardizeDriveFolders();
-      return createJsonResponse(reorgRes);
+    if (data.action === "create_folder" || data.action === "create_criterion_folder") {
+      var folderName = data.folderName || data.title || "";
+      if (!folderName) {
+        return createJsonResponse({ status: "error", message: "Tên thư mục không được để trống!" });
+      }
+      var cleanName = String(folderName).trim().replace(/[\/\\:*?"<>|]/g, "_");
+      var rootFolder = getRootReportFolder();
+      var newFolder = getOrCreateFolder(rootFolder, cleanName);
+      try {
+        newFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.EDIT);
+      } catch (errShare) {}
+      return createJsonResponse({
+        status: "success",
+        folderId: newFolder.getId(),
+        folderUrl: newFolder.getUrl(),
+        folderName: cleanName
+      });
     }
 
     if (data.action === "save_excel") {
