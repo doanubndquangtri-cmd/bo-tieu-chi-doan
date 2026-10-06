@@ -444,20 +444,7 @@ textarea:focus {
   white-space: normal;
 }
 
-/* Row 3: Points Description */
-.master-table tr.row-points th {
-  background: #f1f5f9;
-  color: #334155;
-  font-weight: 600;
-  font-style: italic;
-  text-align: center;
-  font-size: 11px;
-  height: 44px;
-  position: sticky;
-  top: 134px;
-  z-index: 30;
-  white-space: pre-line;
-}
+
 
 /* Row 4: Column Labels (Cột 1 .. Cột 131) */
 .master-table tr.row-cols th {
@@ -527,12 +514,7 @@ textarea:focus {
   z-index: 55 !important;
 }
 
-.master-table tr.row-points th.sticky-col-stt,
-.master-table tr.row-points th.sticky-col-unit,
-.master-table tr.row-points th.sticky-col-total {
-  top: 134px;
-  z-index: 50 !important;
-}
+
 
 .master-table tr.row-cols th.sticky-col-stt,
 .master-table tr.row-cols th.sticky-col-unit,
