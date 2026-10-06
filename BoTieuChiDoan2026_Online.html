@@ -431,11 +431,11 @@ textarea:focus {
 .master-table tr.row-banner th.banner-unit-cell {
   background: #003d99 !important;
   color: #ffffff !important;
-  left: 42px !important;
+  left: 34px !important;
   top: 0 !important;
   z-index: 65 !important;
-  width: 386px !important;
-  min-width: 386px !important;
+  width: 476px !important;
+  min-width: 476px !important;
   max-width: none !important;
   white-space: nowrap !important;
 }
@@ -476,30 +476,35 @@ textarea:focus {
 .master-table .sticky-col-stt {
   position: sticky;
   left: 0;
-  width: 42px;
-  min-width: 42px;
-  max-width: 42px;
+  width: 34px;
+  min-width: 34px;
+  max-width: 34px;
+  padding: 6px 2px !important;
   text-align: center;
   background: #f8fafc;
   z-index: 20;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .master-table .sticky-col-unit {
   position: sticky;
-  left: 42px;
-  width: 290px;
-  min-width: 290px;
-  max-width: 290px;
+  left: 34px;
+  width: 380px;
+  min-width: 380px;
+  max-width: 420px;
   text-align: left;
   background: #ffffff;
   z-index: 20;
   font-weight: 600;
+  white-space: normal !important;
+  word-break: break-word;
+  line-height: 1.4 !important;
+  padding: 8px 12px !important;
 }
 
 .master-table .sticky-col-total {
   position: sticky;
-  left: 332px;
+  left: 414px;
   width: 96px;
   min-width: 96px;
   max-width: 96px;
@@ -7829,10 +7834,6 @@ window.resetAllEvaluationData = async function() {
   }
 };
 
-  </script>
-</body>
-</html>
-
 window.renameAdminDocument = async function (docId) {
   const doc = (state.admin_docs || []).find((d) => d.id === docId);
   if (!doc) return;
@@ -7872,3 +7873,7 @@ window.renameAdminDocument = async function (docId) {
     showToast('Lỗi khi cập nhật tên văn bản!', 'error');
   }
 };
+
+  </script>
+</body>
+</html>
