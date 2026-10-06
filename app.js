@@ -50,29 +50,34 @@ function updateMasterHeaderTops() {
   if (!table) return;
   const rowBanner = table.querySelector('tr.row-banner');
   const rowTitles = table.querySelector('tr.row-titles');
-  const rowPoints = table.querySelector('tr.row-points');
   const rowCols = table.querySelector('tr.row-cols');
-  if (!rowBanner || !rowTitles || !rowPoints || !rowCols) return;
+  if (!rowBanner || !rowTitles || !rowCols) return;
 
   const hBanner = Math.round(rowBanner.getBoundingClientRect().height) || 38;
-  const hTitles = Math.round(rowTitles.getBoundingClientRect().height) || 96;
-  const hPoints = Math.round(rowPoints.getBoundingClientRect().height) || 44;
+  const hTitles = Math.round(rowTitles.getBoundingClientRect().height) || 60;
 
   const topTitles = hBanner;
-  const topPoints = topTitles + hTitles;
-  const topCols = topPoints + hPoints;
+  const topCols = topTitles + hTitles;
 
   rowBanner.querySelectorAll('th').forEach(th => {
     th.style.setProperty('top', '0px', 'important');
+    if (th.classList.contains('sticky-col-stt') || th.classList.contains('sticky-col-unit') || th.classList.contains('banner-unit-cell')) {
+      th.style.setProperty('background', '#003d99', 'important');
+      th.style.setProperty('color', '#ffffff', 'important');
+      th.style.setProperty('z-index', '65', 'important');
+    }
   });
   rowTitles.querySelectorAll('th').forEach(th => {
     th.style.setProperty('top', topTitles + 'px', 'important');
-  });
-  rowPoints.querySelectorAll('th').forEach(th => {
-    th.style.setProperty('top', topPoints + 'px', 'important');
+    if (th.classList.contains('sticky-col-stt') || th.classList.contains('sticky-col-unit') || th.classList.contains('sticky-col-total')) {
+      th.style.setProperty('z-index', '55', 'important');
+    }
   });
   rowCols.querySelectorAll('th').forEach(th => {
     th.style.setProperty('top', topCols + 'px', 'important');
+    if (th.classList.contains('sticky-col-stt') || th.classList.contains('sticky-col-unit') || th.classList.contains('sticky-col-total')) {
+      th.style.setProperty('z-index', '45', 'important');
+    }
   });
 }
 window.addEventListener('resize', updateMasterHeaderTops);
@@ -1582,6 +1587,7 @@ function renderMasterTableTab() {
                         ${escapeHtml(c.title)}
                       </div>
                       <div style="display:flex; flex-direction:column; gap:1px; margin-top:2px; font-size:10px; background:rgba(255,255,255,0.7); padding:2px 4px; border-radius:3px;">
+                        ${c.points_text ? `<span style="color:#b45309; font-weight:700;">⭐ ${escapeHtml(c.points_text)}</span>` : ''}
                         <span style="color:#059669; font-weight:700;">🟢 Mở: ${formatShortDateVN(c.start_date || '2026-01-01')}</span>
                         <span style="color:${open ? '#15803d' : '#b45309'}; font-weight:700;">
                           ⏰ Hạn: ${formatShortDateVN(c.deadline)}
@@ -1606,12 +1612,7 @@ function renderMasterTableTab() {
                 .join('')}
             </tr>
 
-            <tr class="row-points">
-              <th class="sticky-col-stt"></th>
-              <th class="sticky-col-unit"></th>
-              <th class="sticky-col-total"></th>
-              ${filteredCriteria.length === 0 ? '<th>—</th>' : filteredCriteria.map((c) => `<th>${escapeHtml(c.points_text)}</th>`).join('')}
-            </tr>
+
 
             <tr class="row-cols">
               <th class="sticky-col-stt"></th>
