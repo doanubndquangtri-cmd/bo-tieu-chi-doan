@@ -202,6 +202,11 @@ function doPost(e) {
       });
     }
 
+    if (data.action === "sync_all_to_drive") {
+      var syncRes = syncAllCriteriaAndFilesToGoogleDrive();
+      return createJsonResponse(syncRes);
+    }
+
     if (data.action === "save_excel") {
       var fileDataB64 = data.fileData;
       if (!fileDataB64) {
@@ -886,6 +891,89 @@ function reorganizeAndStandardizeDriveFolders() {
     return result;
   } catch (err) {
     Logger.log("Lỗi reorganize: " + err.toString());
+    return { status: "error", message: err.toString() };
+  }
+}
+
+/**
+ * HÀM TỰ ĐỘNG ĐỒNG BỘ TOÀN BỘ TIÊU CHÍ VÀ TỆP TỪ ĐÁM MÂY VÀO GOOGLE DRIVE:
+ * 1. Tự động tạo đầy đủ các thư mục Tiêu chí ("Kế hoạch tổ chức 70 năm...", "ngày 22/12", "Báo cáo tháng 10"...)
+ * 2. Tải tất cả các tệp đính kèm đang lưu dự phòng trên GitHub về đúng từng thư mục đơn vị trên Google Drive!
+ * 3. Chạy trực tiếp từ thanh công cụ Apps Script (Chọn hàm này rồi bấm Run) hoặc gọi tự động từ App!
+ */
+function syncAllCriteriaAndFilesToGoogleDrive() {
+  try {
+    var rootFolder = getRootReportFolder();
+    var res = UrlFetchApp.fetch(CLOUD_DATA_URL + "?t=" + new Date().getTime(), { muteHttpExceptions: true });
+    if (res.getResponseCode() !== 200) {
+      return { status: "error", message: "Không thể nạp dữ liệu cloud_db.json từ GitHub!" };
+    }
+    var db = JSON.parse(res.getContentText("UTF-8"));
+    var criteria = db.criteria || [];
+    var scores = db.scores || [];
+    var units = db.units || [];
+    
+    var unitsMap = {};
+    units.forEach(function(u) { unitsMap[u.id] = u; });
+
+    // 1. Tạo đầy đủ các thư mục tiêu chí trên Drive
+    var critFoldersMap = {};
+    var createdFolders = [];
+    criteria.forEach(function(c) {
+      var fName = (c.gdrive_folder_name || c.title || ("Cột " + c.col_number)).trim();
+      var cleanName = fName.replace(/[\/\\:*?"<>|]/g, "_");
+      var fObj = getOrCreateFolder(rootFolder, cleanName);
+      try {
+        fObj.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      } catch (eS) {}
+      critFoldersMap[c.id] = { folder: fObj, name: cleanName, url: fObj.getUrl() };
+      createdFolders.push(cleanName);
+    });
+
+    // 2. Chuyển các tệp từ GitHub vào đúng thư mục đơn vị trong tiêu chí
+    var importedFiles = 0;
+    scores.forEach(function(sc) {
+      var critInfo = critFoldersMap[sc.criterion_id];
+      if (!critInfo) return;
+      var u = unitsMap[sc.unit_id] || { username: "DV" + sc.unit_id, unit_name: "Đơn vị " + sc.unit_id };
+      var uInfo = resolveFullUnitInfo(u.username || ("DV" + u.id), u.unit_name || u.name);
+      var unitFolder = getOrCreateFolder(critInfo.folder, uInfo.folderName);
+      try {
+        unitFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      } catch (eU) {}
+
+      var files = Array.isArray(sc.files) ? sc.files : (sc.file_path ? [{ name: sc.file_name || 'Tệp', url: sc.file_path }] : []);
+      files.forEach(function(fItem) {
+        if (!fItem || !fItem.url) return;
+        var existing = unitFolder.getFilesByName(fItem.name);
+        if (existing.hasNext()) return; // Đã có file trên Drive
+
+        if (fItem.url.indexOf("http") === 0) {
+          try {
+            var fRes = UrlFetchApp.fetch(fItem.url, { muteHttpExceptions: true });
+            if (fRes.getResponseCode() === 200) {
+              var blob = fRes.getBlob().setName(fItem.name);
+              var driveFile = unitFolder.createFile(blob);
+              driveFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+              importedFiles++;
+            }
+          } catch (eDl) {
+            Logger.log("Lỗi tải tệp " + fItem.name + ": " + eDl.toString());
+          }
+        }
+      });
+    });
+
+    var resultMsg = "Đã tạo thành công " + createdFolders.length + " thư mục tiêu chí và đưa " + importedFiles + " tệp vào Google Drive!";
+    Logger.log(resultMsg);
+    return {
+      status: "success",
+      message: resultMsg,
+      createdFolders: createdFolders,
+      importedFiles: importedFiles
+    };
+  } catch (err) {
+    Logger.log("Lỗi syncAll: " + err.toString());
     return { status: "error", message: err.toString() };
   }
 }
