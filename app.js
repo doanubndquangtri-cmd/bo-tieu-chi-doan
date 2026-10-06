@@ -620,7 +620,7 @@ async function uploadFileToCloud(fileDataB64, origName, unitId, critId, onProgre
         criterionTitle,
         fileName: origName,
         fileData: fileDataB64,
-        customFolderId: customFolderId || '1hR7VXnUyY2Ff7MjBvGGS2zRm_xlFwLBi',
+        customFolderId: customFolderId || '1WOgWzwGOS-KfUb3Ar7_g0ieArF1oX_9S',
         customFolderUrl: customFolderUrl || '',
         customFolderName: customFolderName || '',
       };
@@ -4483,7 +4483,7 @@ window.saveCriterionEdit = async function (critId) {
             folderName: gdriveFolderName,
             monthLabel: calculatedMonthLabel,
             title: title,
-            customFolderId: '1hR7VXnUyY2Ff7MjBvGGS2zRm_xlFwLBi'
+            customFolderId: '1WOgWzwGOS-KfUb3Ar7_g0ieArF1oX_9S'
           })
         });
         const createJson = await createRes.json();
@@ -4539,7 +4539,7 @@ window.syncAllToDriveNow = async function () {
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
         action: 'sync_all_to_drive',
-        customFolderId: '1hR7VXnUyY2Ff7MjBvGGS2zRm_xlFwLBi',
+        customFolderId: '1WOgWzwGOS-KfUb3Ar7_g0ieArF1oX_9S',
         criteria: state.criteria || [],
         scores: state.scores || [],
         units: state.units || [],
@@ -4708,7 +4708,7 @@ window.saveNewCriterion = async function () {
           folderName: gdriveFolderName,
           monthLabel: mLabel,
           title: title,
-          customFolderId: '1hR7VXnUyY2Ff7MjBvGGS2zRm_xlFwLBi'
+          customFolderId: '1WOgWzwGOS-KfUb3Ar7_g0ieArF1oX_9S'
         })
       });
       const createJson = await createRes.json();
@@ -6690,7 +6690,7 @@ window.createDriveFolderForCriterion = async function (critId) {
         folderName: c.gdrive_folder_name || c.title,
         monthLabel: c.month_label,
         title: c.title,
-        customFolderId: '1hR7VXnUyY2Ff7MjBvGGS2zRm_xlFwLBi'
+        customFolderId: '1WOgWzwGOS-KfUb3Ar7_g0ieArF1oX_9S'
       })
     });
     const data = await res.json();
@@ -6741,7 +6741,7 @@ window.syncMissingDriveFoldersNow = async function () {
           folderName: c.gdrive_folder_name || c.title,
           monthLabel: c.month_label,
           title: c.title,
-          customFolderId: '1hR7VXnUyY2Ff7MjBvGGS2zRm_xlFwLBi'
+          customFolderId: '1WOgWzwGOS-KfUb3Ar7_g0ieArF1oX_9S'
         })
       });
       const data = await res.json();
