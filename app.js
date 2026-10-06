@@ -937,7 +937,9 @@ function getRankings() {
       const sc = getScoreObj(u.id, c.id);
       if (sc && sc.score !== null && sc.score !== '') {
         criteriaCount++;
-        if (Number(c.is_report) === 1 && Number(sc.score) > 0) {
+        const hasFiles = (sc.files && sc.files.length > 0) || !!sc.file_path || !!sc.file_name || !!sc.evidence_link || !!sc.report_content;
+        const hasScore = Number(sc.score) > 0;
+        if (Number(c.is_report) === 1 && (hasScore || hasFiles)) {
           reportsDone++;
         }
       }
@@ -1437,7 +1439,7 @@ window.exportToExcelClient = function () {
   const sheet2Rows = [s2Header];
   rankings.forEach((item) => {
     const u = item.unit;
-    const r = [item.rank, u.unit_code, u.unit_name, item.total, `${item.reportsDone} / ${totalReports || 17}`];
+    const r = [item.rank, u.unit_code, u.unit_name, item.total, totalReports > 0 ? `${item.reportsDone} / ${totalReports}` : "0 / 0"];
     monthGroups.forEach((mg) => {
       r.push(getUnitMonthScore(u.id, mg.key));
     });
@@ -1506,7 +1508,7 @@ window.saveExcelToGoogleDrive = async function () {
   const sheet2Rows = [s2Header];
   rankings.forEach((item) => {
     const u = item.unit;
-    const r = [item.rank, u.unit_code, u.unit_name, item.total, `${item.reportsDone} / ${totalReports || 17}`];
+    const r = [item.rank, u.unit_code, u.unit_name, item.total, totalReports > 0 ? `${item.reportsDone} / ${totalReports}` : "0 / 0"];
     monthGroups.forEach((mg) => {
       r.push(getUnitMonthScore(u.id, mg.key));
     });
@@ -4840,7 +4842,7 @@ function renderRankingTab() {
                     ${formatScore(item.total) || '0'}
                   </td>
                   <td style="text-align:center;">
-                    <span class="badge badge-success">${item.reportsDone} / ${totalReports || 17}</span>
+                    ${totalReports > 0 ? `<span class="badge badge-success">${item.reportsDone} / ${totalReports}</span>` : `<span class="badge" style="background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1;">0 / 0</span>`}
                   </td>
                   ${monthGroups
                     .map((mg) => {
