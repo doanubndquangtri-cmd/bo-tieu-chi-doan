@@ -54,8 +54,11 @@ window.showUploadProgressModal = function(title = 'Đang Tải Tệp Lên Hệ T
                 <div style="font-size: 12px; opacity: 0.95;" id="prog-sub-title">Đang truyền dữ liệu lên Google Drive...</div>
               </div>
             </div>
-            <div id="prog-percent-badge" style="background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.4); padding: 4px 12px; border-radius: 20px; font-weight: 800; font-size: 15px; min-width: 52px; text-align: center;">
-              0%
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <div id="prog-percent-badge" style="background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.4); padding: 4px 12px; border-radius: 20px; font-weight: 800; font-size: 15px; min-width: 52px; text-align: center;">
+                0%
+              </div>
+              <button type="button" onclick="hideUploadProgressModal()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.4); color: #ffffff; width: 28px; height: 28px; border-radius: 50%; font-size: 14px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; line-height: 1;" title="Đóng bảng thông báo">✕</button>
             </div>
           </div>
           
@@ -99,6 +102,8 @@ window.showUploadProgressModal = function(title = 'Đang Tải Tệp Lên Hệ T
     `;
     document.body.appendChild(overlay);
   }
+  const titleEl = document.getElementById('prog-modal-title');
+  if (titleEl) titleEl.textContent = title;
   overlay.style.display = 'block';
 };
 
@@ -136,9 +141,26 @@ window.updateUploadProgress = function({ percent = 0, fileName = '', fileIndex =
       `;
     }
   }
+
+  // Tự động tắt bảng thông báo khi hoàn thành 100% hoặc isDone
+  if (isDone || p >= 100) {
+    if (window._autoCloseProgressTimer) clearTimeout(window._autoCloseProgressTimer);
+    window._autoCloseProgressTimer = setTimeout(() => {
+      window.hideUploadProgressModal();
+    }, 1200);
+  } else {
+    if (window._autoCloseProgressTimer) {
+      clearTimeout(window._autoCloseProgressTimer);
+      window._autoCloseProgressTimer = null;
+    }
+  }
 };
 
 window.hideUploadProgressModal = function() {
+  if (window._autoCloseProgressTimer) {
+    clearTimeout(window._autoCloseProgressTimer);
+    window._autoCloseProgressTimer = null;
+  }
   const overlay = document.getElementById('upload-progress-overlay');
   if (overlay) {
     overlay.style.display = 'none';
@@ -2824,10 +2846,18 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
   }, `Unit ${unitId} submit C${criterionId}`);
 
   if (res.ok) {
+    updateUploadProgress({
+      percent: 100,
+      statusText: 'Đã hoàn tất lưu hồ sơ!',
+      isDone: true
+    });
+    await new Promise(r => setTimeout(r, 400));
+    hideUploadProgressModal();
     closeModal();
     renderApp();
     showToast(statusMsg, onTimeFlag ? 'success' : 'warning');
   } else {
+    hideUploadProgressModal();
     if (btn) {
       btn.disabled = false;
       btn.textContent = '📤 Xác Nhận Nộp Báo Cáo Online';
@@ -2838,6 +2868,9 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
 
 window.closeModal = function () {
   document.getElementById('modal-root').innerHTML = '';
+  if (typeof hideUploadProgressModal === 'function') {
+    hideUploadProgressModal();
+  }
 };
 
 /* =========================================================================
@@ -3459,10 +3492,18 @@ window.saveAdminSubmissionDetail = async function (unitId, critId) {
   }, `Admin updated detail U${unitId} C${critId}`);
 
   if (res.ok) {
+    updateUploadProgress({
+      percent: 100,
+      statusText: 'Đã lưu điểm và minh chứng thành công!',
+      isDone: true
+    });
+    await new Promise(r => setTimeout(r, 400));
+    hideUploadProgressModal();
     closeModal();
     showToast('🎉 Đã lưu điểm, nội dung và minh chứng thành công!', 'success');
     renderApp();
   } else {
+    hideUploadProgressModal();
     showToast('Lỗi khi lưu dữ liệu lên đám mây!', 'error');
     if (btn) {
       btn.disabled = false;
@@ -4263,10 +4304,7 @@ window.openCriterionEditModal = function (critId) {
           <button class="btn btn-sm btn-outline" onclick="closeModal()" style="color: #fff; border-color: rgba(255,255,255,0.4);">✕</button>
         </div>
         <div class="modal-body" style="padding: 20px;">
-          <div class="form-group">
-            <label>Nội dung Tiêu chí:</label>
-            <textarea id="edit-crit-title" rows="3" style="width:100%; padding:8px; font-family:inherit;">${escapeHtml(c.title)}</textarea>
-          </div>
+
 
           <div class="form-group">
             <label>Nhóm kỳ hạn / Tháng hoạt động:</label>
@@ -4294,19 +4332,18 @@ window.openCriterionEditModal = function (critId) {
             
           </div>
 
-          <div class="form-group" style="background:#f0fdf4; padding:12px; border-radius:8px; border:1px solid #bbf7d0; margin-bottom:14px;">
-            <label style="font-weight:700; color:#166534; display:flex; align-items:center; gap:6px;">
-              📁 Tên thư mục tự động tạo trên Google Drive (Tùy chọn):
+          <div class="form-group" style="background:#f0fdf4; padding:14px; border-radius:8px; border:1.5px solid #86efac; margin-bottom:14px;">
+            <label style="font-weight:700; color:#166534; font-size:13.5px; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+              📁 Tên thư mục tự tạo trên Google Drive / Tiêu chí (*):
             </label>
-            <input type="text" id="edit-crit-gdrive-folder-name" placeholder="VD: Báo cáo Tháng 1, Báo cáo Quý 1..." value="${escapeHtml(c.gdrive_folder_name || '')}" style="background:#fff; font-size:13.5px; margin-bottom:8px;" />
-            
+            <input type="text" id="edit-crit-gdrive-folder-name" placeholder="VD: Báo cáo Tháng 10, Sinh hoạt chi đoàn..." value="${escapeHtml(c.gdrive_folder_name || c.title || '')}" style="background:#fff; font-size:14px; font-weight:600; padding:9px 12px; border:1.5px solid #22c55e; border-radius:6px; width:100%; margin-bottom:8px;" required />
+            <div style="font-size:12px; color:#15803d; line-height:1.45; margin-bottom:8px;">
+              💡 <b>Tự động đồng bộ:</b> Tên này đồng thời là Tên tiêu chí trong bảng tính và Tên thư mục lưu trữ bài nộp trên Google Drive.
+            </div>
             <label style="font-weight:600; color:#166534; font-size:12px; display:block; margin-bottom:3px;">
               Hoặc dán Link thư mục Google Drive có sẵn (nếu có):
             </label>
-            <input type="text" id="edit-crit-gdrive-folder" placeholder="Dán link thư mục Google Drive (VD: https://drive.google.com/drive/folders/...)" value="${escapeHtml(c.gdrive_folder_url || '')}" style="background:#fff; font-size:12.5px;" />
-            <small style="color:#15803d; margin-top:5px; display:block; font-size:12px; line-height:1.4;">
-              💡 <b>Tự động tạo thư mục trên Drive:</b> Nếu bạn nhập tên (ví dụ: <code>Báo cáo tháng 1</code>), hệ thống sẽ <b>tự động tạo thư mục "Báo cáo tháng 1" trên Google Drive</b>. Khi các đoàn nộp bài, tệp sẽ tự động vào thư mục này. <i>Nếu bỏ trống thì vẫn như cũ, file tự động về thư mục [DVxx] từng đơn vị.</i>
-            </small>
+            <input type="text" id="edit-crit-gdrive-folder" placeholder="Dán link thư mục Google Drive (VD: https://drive.google.com/drive/folders/...)" value="${escapeHtml(c.gdrive_folder_url || '')}" style="background:#fff; font-size:12.5px; padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; width:100%;" />
           </div>
 
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
@@ -4346,10 +4383,16 @@ window.openCriterionEditModal = function (critId) {
 };
 
 window.saveCriterionEdit = async function (critId) {
-  const title = document.getElementById('edit-crit-title').value.trim();
+  const folderInput = document.getElementById('edit-crit-gdrive-folder-name');
+  const title = (folderInput ? folderInput.value : (document.getElementById('edit-crit-title') ? document.getElementById('edit-crit-title').value : '')).trim();
+  if (!title) {
+    showToast('Vui lòng nhập tên thư mục trên Google Drive / Tiêu chí!', 'error');
+    if (folderInput) folderInput.focus();
+    return;
+  }
   const mGroup = Number(document.getElementById('edit-crit-month').value);
   const isReport = Number(document.getElementById('edit-crit-is-report') ? document.getElementById('edit-crit-is-report').value : 0);
-  const gdriveFolderName = document.getElementById('edit-crit-gdrive-folder-name') ? document.getElementById('edit-crit-gdrive-folder-name').value.trim() : '';
+  const gdriveFolderName = title;
   const gdriveFolderUrl = document.getElementById('edit-crit-gdrive-folder') ? document.getElementById('edit-crit-gdrive-folder').value.trim() : '';
   const startDate = document.getElementById('edit-crit-start-date').value || '2026-01-01';
   const deadline = document.getElementById('edit-crit-deadline').value;
@@ -4409,9 +4452,18 @@ window.openCriterionCreateModal = function () {
           <button class="btn btn-sm btn-outline" onclick="closeModal()" style="color: #fff; border-color: rgba(255,255,255,0.4);">✕</button>
         </div>
         <div class="modal-body" style="padding: 20px;">
-          <div class="form-group">
-            <label>Tên / Nội dung tiêu chí mới*:</label>
-            <input type="text" id="new-crit-title" placeholder="VD: Báo cáo chuyên đề chuyển đổi số, sinh hoạt chi đoàn..." required />
+          <div class="form-group" style="background:#f0fdf4; padding:14px; border-radius:8px; border:1.5px solid #86efac; margin-bottom:14px;">
+            <label style="font-weight:700; color:#166534; font-size:13.5px; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+              📁 Tên thư mục tự tạo trên Google Drive (*):
+            </label>
+            <input type="text" id="new-crit-gdrive-folder-name" placeholder="VD: Báo cáo Tháng 10, Sinh hoạt chi đoàn, Kế hoạch 26/3..." style="background:#fff; font-size:14px; font-weight:600; padding:9px 12px; border:1.5px solid #22c55e; border-radius:6px; width:100%; margin-bottom:8px;" required />
+            <div style="font-size:12px; color:#15803d; line-height:1.45; margin-bottom:8px;">
+              💡 <b>Tự động đồng bộ 2 trong 1:</b> Tên này sẽ <b>tự động làm Tên tiêu chí trong bảng cột / nhóm này</b>, đồng thời <b>tự động tạo thư mục trên Google Drive</b>. Bạn <b>không cần phải nhập lại lần 2</b>!
+            </div>
+            <label style="font-weight:600; color:#166534; font-size:12px; display:block; margin-bottom:3px;">
+              Hoặc dán Link thư mục Google Drive có sẵn (nếu có):
+            </label>
+            <input type="text" id="new-crit-gdrive-folder" placeholder="Dán link thư mục Google Drive (VD: https://drive.google.com/drive/folders/...)" style="background:#fff; font-size:12.5px; padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; width:100%;" />
           </div>
 
           <div class="form-group">
@@ -4443,22 +4495,6 @@ window.openCriterionCreateModal = function () {
               <option value="1">📋 Báo cáo định kỳ (Đơn vị nộp báo cáo & tài liệu - Theo dõi tiến độ)</option>
               <option value="2">👑 Admin tự chấm điểm (Ban Thường vụ tự chấm - Đơn vị không nhập điểm/tài liệu)</option>
             </select>
-            
-          </div>
-
-          <div class="form-group" style="background:#f0fdf4; padding:12px; border-radius:8px; border:1px solid #bbf7d0; margin-bottom:14px;">
-            <label style="font-weight:700; color:#166534; display:flex; align-items:center; gap:6px;">
-              📁 Tên thư mục tự động tạo trên Google Drive (Tùy chọn):
-            </label>
-            <input type="text" id="new-crit-gdrive-folder-name" placeholder="VD: Báo cáo Tháng 1, Báo cáo Quý 1..." style="background:#fff; font-size:13.5px; margin-bottom:8px;" />
-            
-            <label style="font-weight:600; color:#166534; font-size:12px; display:block; margin-bottom:3px;">
-              Hoặc dán Link thư mục Google Drive có sẵn (nếu có):
-            </label>
-            <input type="text" id="new-crit-gdrive-folder" placeholder="Dán link thư mục Google Drive (VD: https://drive.google.com/drive/folders/...)" style="background:#fff; font-size:12.5px;" />
-            <small style="color:#15803d; margin-top:5px; display:block; font-size:12px; line-height:1.4;">
-              💡 <b>Tự động tạo thư mục trên Drive:</b> Nếu bạn nhập tên (ví dụ: <code>Báo cáo tháng 1</code>), hệ thống sẽ <b>tự động tạo thư mục "Báo cáo tháng 1" trên Google Drive</b>. Khi các đoàn nộp bài, tệp sẽ tự động vào thư mục này. <i>Nếu bỏ trống thì vẫn như cũ, file tự động về thư mục [DVxx] từng đơn vị.</i>
-            </small>
           </div>
 
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
@@ -4504,9 +4540,11 @@ window.toggleCustomGroupInput = function(val) {
 };
 
 window.saveNewCriterion = async function () {
-  const title = document.getElementById('new-crit-title').value.trim();
+  const folderInput = document.getElementById('new-crit-gdrive-folder-name');
+  const title = (folderInput ? folderInput.value : '').trim();
   if (!title) {
-    showToast('Vui lòng nhập tên / nội dung tiêu chí!', 'error');
+    showToast('Vui lòng nhập tên thư mục tự tạo trên Google Drive!', 'error');
+    if (folderInput) folderInput.focus();
     return;
   }
   const monthVal = document.getElementById('new-crit-month').value;
@@ -4515,8 +4553,8 @@ window.saveNewCriterion = async function () {
   const startDate = document.getElementById('new-crit-start-date').value || '2026-01-01';
   const deadline = document.getElementById('new-crit-deadline').value || '2026-10-20';
   const isReport = Number(document.getElementById('new-crit-is-report') ? document.getElementById('new-crit-is-report').value : 0);
-  const gdriveFolderName = document.getElementById('new-crit-gdrive-folder-name') ? document.getElementById('new-crit-gdrive-folder-name').value.trim() : '';
-  const gdriveFolderUrl = document.getElementById('new-crit-gdrive-folder') ? document.getElementById('new-crit-gdrive-folder').value.trim() : '';
+  const gdriveFolderName = title;
+  let gdriveFolderUrl = document.getElementById('new-crit-gdrive-folder') ? document.getElementById('new-crit-gdrive-folder').value.trim() : '';
   const pointsText = document.getElementById('new-crit-points').value.trim() || '(5 điểm)';
   const maxS = Number(document.getElementById('new-crit-max').value || 5);
 
@@ -4524,6 +4562,30 @@ window.saveNewCriterion = async function () {
   if (btn) {
     btn.disabled = true;
     btn.textContent = '⏳ Đang lưu tiêu chí lên Đám mây...';
+  }
+
+  showToast('Đang tạo và lưu tiêu chí mới...', 'info');
+
+  // Khởi tạo thư mục trên Google Drive ngay lập tức nếu có Script
+  const gdriveUrl = getGoogleDriveScriptUrl();
+  if (gdriveUrl && !gdriveFolderUrl && gdriveFolderName) {
+    try {
+      showToast('Đang khởi tạo thư mục trên Google Drive...', 'info');
+      const createRes = await fetch(gdriveUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'create_folder',
+          folderName: gdriveFolderName
+        })
+      });
+      const createJson = await createRes.json();
+      if (createJson && createJson.folderUrl) {
+        gdriveFolderUrl = createJson.folderUrl;
+      }
+    } catch (e) {
+      console.warn('Auto create drive folder notice:', e);
+    }
   }
 
   showToast('Đang tạo và lưu tiêu chí mới...', 'info');
@@ -5932,7 +5994,17 @@ const ADMIN_DOCS_GDRIVE_URL = 'https://drive.google.com/drive/u/9/folders/1F5Cdy
 
 function renderAdminDocsTab() {
   const isAdmin = state.user && state.user.role === 'admin';
-  const docs = (state.admin_docs || []).slice().reverse();
+  const seenDocKeys = new Set();
+  const uniqueDocs = [];
+  for (const d of (state.admin_docs || [])) {
+    if (!d) continue;
+    const k = d.id || `${d.doc_number}_${d.title}_${d.file_name}`;
+    if (!seenDocKeys.has(k)) {
+      seenDocKeys.add(k);
+      uniqueDocs.push(d);
+    }
+  }
+  const docs = uniqueDocs.reverse();
 
   return `
     <div class="panel">
@@ -6118,7 +6190,16 @@ window.uploadAdminDocument = async function () {
     btn.disabled = true;
     btn.textContent = '⏳ Đang tải lên Google Drive...';
   }
-  showToast('Đang tải văn bản lên thư mục Hệ Thống Văn Bản Google Drive...', 'info');
+  
+  showUploadProgressModal('Đang Đăng Tải Văn Bản Lên Google Drive');
+  updateUploadProgress({
+    percent: 10,
+    fileName: file.name,
+    fileIndex: 'Tệp 1 / 1',
+    loaded: 0,
+    total: file.size,
+    statusText: 'Đang đọc và chuẩn bị dữ liệu...'
+  });
 
   try {
     const b64 = await readFileAsDataURL(file);
@@ -6136,22 +6217,36 @@ window.uploadAdminDocument = async function () {
           fileData: b64,
           folderId: '1F5CdyDTQGUf0C21o7CCCAZkMOjgRKRJK'
         };
-        const res = await fetch(gdriveUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(payload)
+        const json = await uploadWithXHR(gdriveUrl, payload, (pct, loaded, total) => {
+          const mapped = Math.round(10 + (pct * 0.85));
+          updateUploadProgress({
+            percent: mapped,
+            fileName: file.name,
+            fileIndex: 'Tệp 1 / 1',
+            loaded: loaded,
+            total: total,
+            statusText: `Đang truyền tệp lên Google Drive (${mapped}%)...`
+          });
         });
-        const json = await res.json();
         if (json && json.fileUrl) {
           fileUrl = json.fileUrl;
         }
         if (json && json.folderStatus === 'fallback_permission_needed') {
-          showToast('⚠️ File đã tải lên thành công! Tuy nhiên thư mục Google Drive chưa được mở quyền "Người chỉnh sửa" (Editor) nên tạm lưu ở Drive hệ thống. Vui lòng vào Google Drive mở quyền Editor cho thư mục!', 'warning');
+          showToast('⚠️ File đã tải lên thành công! Tuy nhiên thư mục Google Drive chưa được mở quyền "Người chỉnh sửa" (Editor) nên tạm lưu ở Drive hệ thống.', 'warning');
         }
       } catch (e) {
         console.warn('Google Drive direct upload notice:', e);
       }
     }
+
+    updateUploadProgress({
+      percent: 98,
+      fileName: file.name,
+      fileIndex: 'Tệp 1 / 1',
+      loaded: file.size,
+      total: file.size,
+      statusText: 'Đang lưu vào cơ sở dữ liệu trực tuyến...'
+    });
 
     const docId = 'doc_' + Date.now();
     let downloadUrl = '';
@@ -6175,20 +6270,49 @@ window.uploadAdminDocument = async function () {
 
     const resDb = await mutateCloudDB((db) => {
       db.admin_docs = db.admin_docs || [];
+      db.admin_docs = db.admin_docs.filter(d => d.id !== docId);
       db.admin_docs.push(newDoc);
     }, 'Admin upload document ' + title);
 
     if (resDb.ok) {
+      updateUploadProgress({
+        percent: 100,
+        fileName: file.name,
+        fileIndex: 'Tệp 1 / 1',
+        loaded: file.size,
+        total: file.size,
+        statusText: 'Đã hoàn tất đăng tải văn bản!',
+        isDone: true
+      });
+      await new Promise(r => setTimeout(r, 400));
+      hideUploadProgressModal();
+
+      // Reset form
+      if (titleInput) titleInput.value = '';
+      if (numberInput) numberInput.value = '';
+      if (fileInput) fileInput.value = '';
+
       showToast('Đã đăng tải văn bản thành công lên Hệ Thống Văn Bản Google Drive!', 'success');
-      state.admin_docs = state.admin_docs || [];
-      state.admin_docs.push(newDoc);
+      
+      // Khử trùng lặp triệt để để đảm bảo hiển thị đúng 1 dòng duy nhất
+      if (Array.isArray(state.admin_docs)) {
+        const seenIds = new Set();
+        state.admin_docs = state.admin_docs.filter(d => {
+          if (!d || !d.id || seenIds.has(d.id)) return false;
+          seenIds.add(d.id);
+          return true;
+        });
+      }
       renderApp();
     } else {
+      hideUploadProgressModal();
       showToast('Lỗi khi lưu dữ liệu văn bản vào cơ sở dữ liệu!', 'error');
     }
   } catch (err) {
+    hideUploadProgressModal();
     showToast('Lỗi tải văn bản: ' + err.message, 'error');
   } finally {
+    hideUploadProgressModal();
     if (btn) {
       btn.disabled = false;
       btn.textContent = '🚀 Đăng Tải Lên Google Drive';
