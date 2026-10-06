@@ -4385,7 +4385,6 @@ window.saveCriterionEdit = async function (critId) {
   const mGroup = Number(document.getElementById('edit-crit-month').value);
   const isReport = Number(document.getElementById('edit-crit-is-report') ? document.getElementById('edit-crit-is-report').value : 0);
   const gdriveFolderName = title;
-  const gdriveFolderUrl = document.getElementById('edit-crit-gdrive-folder') ? document.getElementById('edit-crit-gdrive-folder').value.trim() : '';
   const startDate = document.getElementById('edit-crit-start-date').value || '2026-01-01';
   const deadline = document.getElementById('edit-crit-deadline').value;
   const pointsText = document.getElementById('edit-crit-points').value.trim();
