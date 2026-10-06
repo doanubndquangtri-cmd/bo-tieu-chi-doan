@@ -92,8 +92,13 @@ body {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex-wrap: wrap;
+  background: rgba(0, 0, 0, 0.15);
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(4px);
 }
 
 .date-pill {
@@ -399,18 +404,40 @@ textarea:focus {
   vertical-align: middle;
 }
 
-/* Row 1: Title Banner */
+/* Row 1: Title Banner - CỐ ĐỊNH CHẮC CHẮN NỀN XANH CHỮ TRẮNG KHÔNG BAO GIỜ BỊ MẤT KHI CUỘN */
 .master-table tr.row-banner th {
-  background: #003d99;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 800;
+  background: #003d99 !important;
+  color: #ffffff !important;
+  font-size: 13.5px !important;
+  font-weight: 800 !important;
   text-align: left;
   padding: 8px 14px;
   height: 38px;
   position: sticky;
-  top: 0;
-  z-index: 40;
+  top: 0 !important;
+  z-index: 60 !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+
+.master-table tr.row-banner th.sticky-col-stt {
+  background: #003d99 !important;
+  color: #ffffff !important;
+  left: 0 !important;
+  top: 0 !important;
+  z-index: 65 !important;
+}
+
+.master-table tr.row-banner th.sticky-col-unit,
+.master-table tr.row-banner th.banner-unit-cell {
+  background: #003d99 !important;
+  color: #ffffff !important;
+  left: 42px !important;
+  top: 0 !important;
+  z-index: 65 !important;
+  width: 386px !important;
+  min-width: 386px !important;
+  max-width: none !important;
+  white-space: nowrap !important;
 }
 
 /* Row 2: Criterion Names */
@@ -430,20 +457,7 @@ textarea:focus {
   white-space: normal;
 }
 
-/* Row 3: Points Description */
-.master-table tr.row-points th {
-  background: #f1f5f9;
-  color: #334155;
-  font-weight: 600;
-  font-style: italic;
-  text-align: center;
-  font-size: 11px;
-  height: 44px;
-  position: sticky;
-  top: 134px;
-  z-index: 30;
-  white-space: pre-line;
-}
+
 
 /* Row 4: Column Labels (Cột 1 .. Cột 131) */
 .master-table tr.row-cols th {
@@ -513,12 +527,7 @@ textarea:focus {
   z-index: 55 !important;
 }
 
-.master-table tr.row-points th.sticky-col-stt,
-.master-table tr.row-points th.sticky-col-unit,
-.master-table tr.row-points th.sticky-col-total {
-  top: 134px;
-  z-index: 50 !important;
-}
+
 
 .master-table tr.row-cols th.sticky-col-stt,
 .master-table tr.row-cols th.sticky-col-unit,
@@ -1265,6 +1274,236 @@ textarea:focus {
   <div id="toast-root" class="toast-container"></div>
   <script>
 
+// =========================================================================
+// HỆ THỐNG TIẾN TRÌNH TẢI TỆP CHUẨN XÁC (%) VÀ GIAO DIỆN HIỆN ĐẠI
+// =========================================================================
+function uploadWithXHR(url, payload, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url, true);
+    xhr.setRequestHeader('Content-Type', 'text/plain;charset=utf-8');
+
+    if (xhr.upload && onProgress) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && e.total > 0) {
+          const percent = Math.round((e.loaded / e.total) * 100);
+          onProgress(percent, e.loaded, e.total);
+        }
+      };
+    }
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 400) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          resolve(data);
+        } catch (err) {
+          resolve({ status: 'success', raw: xhr.responseText });
+        }
+      } else {
+        reject(new Error(`HTTP ${xhr.status}: ${xhr.statusText}`));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error('Lỗi kết nối mạng khi tải tệp lên Google Drive!'));
+    xhr.ontimeout = () => reject(new Error('Hết thời gian chờ (Timeout khi tải tệp)!'));
+    xhr.timeout = 300000; // 5 phút cho tệp lớn (video/pdf)
+
+    xhr.send(JSON.stringify(payload));
+  });
+}
+
+window.showUploadProgressModal = function(title = 'Đang Tải Tệp Lên Hệ Thống') {
+  let overlay = document.getElementById('upload-progress-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'upload-progress-overlay';
+    overlay.innerHTML = `
+      <div style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(5px); z-index: 99999999; display: flex; align-items: center; justify-content: center; padding: 16px;">
+        <div style="background: #ffffff; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4); width: 100%; max-width: 480px; overflow: hidden; border: 1px solid #cbd5e1; font-family: inherit;">
+          <div style="background: linear-gradient(135deg, #003d99, #0284c7); padding: 16px 20px; color: #ffffff; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 26px;">📤</span>
+              <div>
+                <div style="font-weight: 800; font-size: 15px; letter-spacing: 0.3px;" id="prog-modal-title">${escapeHtml(title)}</div>
+                <div style="font-size: 12px; opacity: 0.95;" id="prog-sub-title">Đang truyền dữ liệu lên Google Drive...</div>
+              </div>
+            </div>
+            <div id="prog-percent-badge" style="background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.4); padding: 4px 12px; border-radius: 20px; font-weight: 800; font-size: 15px; min-width: 52px; text-align: center;">
+              0%
+            </div>
+          </div>
+          
+          <div style="padding: 20px 22px;">
+            <!-- File info box -->
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; background: #f8fafc; padding: 10px 14px; border-radius: 10px; border: 1px solid #e2e8f0;">
+              <div style="display: flex; align-items: center; gap: 10px; overflow: hidden;">
+                <span style="font-size: 22px;" id="prog-file-icon">📄</span>
+                <div style="overflow: hidden;">
+                  <div id="prog-file-name" style="font-weight: 700; color: #0f172a; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 250px;">
+                    Đang chuẩn bị...
+                  </div>
+                  <div id="prog-file-index" style="font-size: 11.5px; color: #64748b; font-weight: 600;">
+                    Tệp 1 / 1
+                  </div>
+                </div>
+              </div>
+              <div id="prog-size-text" style="font-size: 12px; font-weight: 700; color: #0284c7; white-space: nowrap;">
+                0 B / 0 B
+              </div>
+            </div>
+
+            <!-- Main Progress Bar -->
+            <div style="height: 18px; background: #e2e8f0; border-radius: 12px; overflow: hidden; position: relative; box-shadow: inset 0 2px 4px rgba(0,0,0,0.06); margin-bottom: 12px;">
+              <div id="prog-bar-inner" style="height: 100%; width: 0%; background: linear-gradient(90deg, #0284c7 0%, #3b82f6 50%, #10b981 100%); border-radius: 12px; transition: width 0.15s ease-out; box-shadow: 0 0 10px rgba(2, 132, 199, 0.5);"></div>
+            </div>
+
+            <!-- Status detail text -->
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #475569;">
+              <div id="prog-status-text" style="display: flex; align-items: center; gap: 6px;">
+                <span class="spinner-small" style="display: inline-block; width: 12px; height: 12px; border: 2px solid #0284c7; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;"></span>
+                <span>Đang xử lý...</span>
+              </div>
+              <div id="prog-percent-text" style="font-weight: 800; color: #0f172a; font-size: 15px;">
+                0%
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = 'block';
+};
+
+window.updateUploadProgress = function({ percent = 0, fileName = '', fileIndex = '', loaded = 0, total = 0, statusText = '', isDone = false }) {
+  const p = Math.max(0, Math.min(100, Math.round(percent)));
+  const bar = document.getElementById('prog-bar-inner');
+  const badge = document.getElementById('prog-percent-badge');
+  const txt = document.getElementById('prog-percent-text');
+  const fName = document.getElementById('prog-file-name');
+  const fIdx = document.getElementById('prog-file-index');
+  const fSize = document.getElementById('prog-size-text');
+  const statusEl = document.getElementById('prog-status-text');
+  const iconEl = document.getElementById('prog-file-icon');
+
+  if (bar) bar.style.width = p + '%';
+  if (badge) badge.textContent = p + '%';
+  if (txt) txt.textContent = p + '%';
+  if (fileName && fName) {
+    fName.textContent = fileName;
+    fName.title = fileName;
+    const typeInfo = getFileIconAndBadge(fileName);
+    if (iconEl) iconEl.textContent = typeInfo.icon || '📄';
+  }
+  if (fileIndex && fIdx) fIdx.textContent = fileIndex;
+  if (loaded && total && fSize) {
+    fSize.textContent = `${formatBytes(loaded)} / ${formatBytes(total)}`;
+  }
+  if (statusText && statusEl) {
+    if (isDone) {
+      statusEl.innerHTML = `<span style="color:#10b981; font-weight:700;">✅ ${escapeHtml(statusText)}</span>`;
+    } else {
+      statusEl.innerHTML = `
+        <span class="spinner-small" style="display: inline-block; width: 12px; height: 12px; border: 2px solid #0284c7; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;"></span>
+        <span>${escapeHtml(statusText)}</span>
+      `;
+    }
+  }
+};
+
+window.hideUploadProgressModal = function() {
+  const overlay = document.getElementById('upload-progress-overlay');
+  if (overlay) {
+    overlay.style.display = 'none';
+  }
+};
+
+
+window.openFileInlinePreviewModal = function(fileUrl, fileName) {
+  if (!fileUrl) {
+    showToast('Tệp này chưa có liên kết đường dẫn hợp lệ!', 'warning');
+    return;
+  }
+  fileName = fileName || 'Văn bản đính kèm';
+  
+  // Xử lý link Google Drive sang chế độ nhúng xem trước (preview)
+  let embedUrl = fileUrl;
+  const driveMatch = fileUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || fileUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (driveMatch && driveMatch[1]) {
+    embedUrl = `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
+  } else if (/\.(doc|docx|xls|xlsx|ppt|pptx)$/i.test(fileName)) {
+    embedUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`;
+  }
+
+  const isImg = /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(fileName);
+  const isVideo = /\.(mp4|mov|webm|avi|mkv)$/i.test(fileName);
+
+  let contentHtml = '';
+  if (isImg) {
+    contentHtml = `
+      <div style="width:100%; height:72vh; display:flex; align-items:center; justify-content:center; background:#0f172a; border-radius:6px; overflow:hidden;">
+        <img src="${escapeHtml(fileUrl)}" alt="${escapeHtml(fileName)}" style="max-width:100%; max-height:100%; object-fit:contain;" />
+      </div>
+    `;
+  } else if (isVideo) {
+    contentHtml = `
+      <div style="width:100%; height:72vh; display:flex; align-items:center; justify-content:center; background:#000; border-radius:6px; overflow:hidden;">
+        <video src="${escapeHtml(fileUrl)}" controls autoplay style="max-width:100%; max-height:100%;"></video>
+      </div>
+    `;
+  } else {
+    contentHtml = `
+      <div style="position:relative; width:100%; height:75vh; background:#f8fafc; border-radius:6px; overflow:hidden;">
+        <iframe src="${escapeHtml(embedUrl)}" style="width:100%; height:100%; border:none;" allow="autoplay" loading="lazy"></iframe>
+      </div>
+    `;
+  }
+
+  // Tải về url an toàn
+  const dlUrl = driveMatch && driveMatch[1] 
+    ? `https://drive.google.com/uc?export=download&id=${driveMatch[1]}` 
+    : fileUrl;
+
+  const modalRoot = document.getElementById('modal-root');
+  const previewContainer = document.createElement('div');
+  previewContainer.id = 'inline-file-preview-modal';
+  previewContainer.innerHTML = `
+    <div class="modal-backdrop" style="z-index: 999999; background: rgba(15, 23, 42, 0.75); display:flex; align-items:center; justify-content:center; padding:16px;" onclick="if(event.target===this) window.closeFileInlinePreviewModal()">
+      <div class="modal-box" style="max-width: 960px; width: 95vw; max-height: 92vh; display: flex; flex-direction: column; padding: 0; border-radius: 10px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);">
+        <div style="background: #003d99; color: #fff; padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid #1e40af;">
+          <div style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
+            <span style="font-size: 18px;">📄</span>
+            <span style="font-weight: 700; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 550px;" title="${escapeHtml(fileName)}">
+              ${escapeHtml(fileName)}
+            </span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+            <a href="${escapeHtml(dlUrl)}" target="_blank" download="${escapeHtml(fileName)}" class="btn btn-sm btn-primary" style="background:#0284c7; border:none; font-weight:700; font-size:12px; padding:4px 10px; text-decoration:none;">
+              📥 Tải về máy
+            </a>
+            <a href="${escapeHtml(fileUrl)}" target="_blank" class="btn btn-sm" style="background:rgba(255,255,255,0.2); color:#fff; border:1px solid rgba(255,255,255,0.4); font-size:12px; padding:4px 10px; text-decoration:none;">
+              🔗 Mở tab mới
+            </a>
+            <button class="modal-close" onclick="window.closeFileInlinePreviewModal()" style="color:#fff; font-size:20px; padding:0 6px; cursor:pointer; background:none; border:none;">✕</button>
+          </div>
+        </div>
+        <div style="padding: 10px; background: #0f172a; flex: 1; overflow: hidden;">
+          ${contentHtml}
+        </div>
+      </div>
+    </div>
+  `;
+  modalRoot.appendChild(previewContainer);
+};
+
+window.closeFileInlinePreviewModal = function() {
+  const el = document.getElementById('inline-file-preview-modal');
+  if (el) el.remove();
+};
+
+
 const UNIT_NAMES_FALLBACK = {
   "DV": "Đoàn UBND Tỉnh",
   "0": "Đoàn UBND Tỉnh",
@@ -1316,29 +1555,34 @@ function updateMasterHeaderTops() {
   if (!table) return;
   const rowBanner = table.querySelector('tr.row-banner');
   const rowTitles = table.querySelector('tr.row-titles');
-  const rowPoints = table.querySelector('tr.row-points');
   const rowCols = table.querySelector('tr.row-cols');
-  if (!rowBanner || !rowTitles || !rowPoints || !rowCols) return;
+  if (!rowBanner || !rowTitles || !rowCols) return;
 
   const hBanner = Math.round(rowBanner.getBoundingClientRect().height) || 38;
-  const hTitles = Math.round(rowTitles.getBoundingClientRect().height) || 96;
-  const hPoints = Math.round(rowPoints.getBoundingClientRect().height) || 44;
+  const hTitles = Math.round(rowTitles.getBoundingClientRect().height) || 60;
 
   const topTitles = hBanner;
-  const topPoints = topTitles + hTitles;
-  const topCols = topPoints + hPoints;
+  const topCols = topTitles + hTitles;
 
   rowBanner.querySelectorAll('th').forEach(th => {
     th.style.setProperty('top', '0px', 'important');
+    if (th.classList.contains('sticky-col-stt') || th.classList.contains('sticky-col-unit') || th.classList.contains('banner-unit-cell')) {
+      th.style.setProperty('background', '#003d99', 'important');
+      th.style.setProperty('color', '#ffffff', 'important');
+      th.style.setProperty('z-index', '65', 'important');
+    }
   });
   rowTitles.querySelectorAll('th').forEach(th => {
     th.style.setProperty('top', topTitles + 'px', 'important');
-  });
-  rowPoints.querySelectorAll('th').forEach(th => {
-    th.style.setProperty('top', topPoints + 'px', 'important');
+    if (th.classList.contains('sticky-col-stt') || th.classList.contains('sticky-col-unit') || th.classList.contains('sticky-col-total')) {
+      th.style.setProperty('z-index', '55', 'important');
+    }
   });
   rowCols.querySelectorAll('th').forEach(th => {
     th.style.setProperty('top', topCols + 'px', 'important');
+    if (th.classList.contains('sticky-col-stt') || th.classList.contains('sticky-col-unit') || th.classList.contains('sticky-col-total')) {
+      th.style.setProperty('z-index', '45', 'important');
+    }
   });
 }
 window.addEventListener('resize', updateMasterHeaderTops);
@@ -1386,18 +1630,18 @@ const state = {
   sampleScores: [],
   logs: [],
   monthLabels: {
-    '1': 'Tháng 01/2026',
-    '2': 'Tháng 02/2026',
-    '3': 'Tháng 03/2026',
-    '4': 'Tháng 04/2026',
-    '5': 'Tháng 05/2026',
-    '6': 'Tháng 06/2026',
-    '7': 'Tháng 07/2026',
-    '8': 'Tháng 08/2026',
-    '9': 'Tháng 09/2026',
-    '10': 'Tháng 10/2026',
-    '11': 'Tháng 11/2026',
-    '12': 'Tháng 12/2026',
+    '1': 'Tháng 1',
+    '2': 'Tháng 2',
+    '3': 'Tháng 3',
+    '4': 'Tháng 4',
+    '5': 'Tháng 5',
+    '6': 'Tháng 6',
+    '7': 'Tháng 7',
+    '8': 'Tháng 8',
+    '9': 'Tháng 9',
+    '10': 'Tháng 10',
+    '11': 'Tháng 11',
+    '12': 'Tháng 12',
     '13': 'Thường xuyên & Cuối năm'
   },
 
@@ -1572,7 +1816,7 @@ function extractDriveFolderId(urlOrId) {
   return '';
 }
 
-async function uploadFileToCloud(fileDataB64, origName, unitId, critId) {
+async function uploadFileToCloud(fileDataB64, origName, unitId, critId, onProgress) {
   if (!fileDataB64 || !origName) return { fileName: '', fileUrl: '' };
 
   const crit = (state.criteria || []).find((c) => c.id === critId);
@@ -1633,15 +1877,9 @@ async function uploadFileToCloud(fileDataB64, origName, unitId, critId) {
         customFolderUrl: customFolderUrl || '',
         customFolderName: customFolderName || '',
       };
-      const res = await fetch(gdriveUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload),
-        redirect: 'follow',
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.status === 'success' && data.fileUrl) {
+      const data = await uploadWithXHR(gdriveUrl, payload, onProgress);
+      if (data) {
+        if (data.status === 'success' && data.fileUrl) {
           if (data.isCustomFolder) {
             showToast('Đã lưu file thành công vào Thư mục Google Drive của Tiêu chí!', 'success');
           } else {
@@ -2374,9 +2612,6 @@ function renderHeader() {
         </button>
 
         ${isAdmin ? `
-          <button class="btn btn-sm" onclick="reorganizeGoogleDriveFolders()" title="Chuẩn hóa tên đơn vị & Gom các đơn vị vào thư mục Tháng trên Google Drive" style="background:#059669; color:#fff; border:1px solid #047857; font-weight:700;">
-            🔄 Sắp Xếp Drive
-          </button>
           <button class="btn btn-primary btn-sm" onclick="saveExcelToGoogleDrive()" title="Tự động xuất và lưu file Excel vào đúng thư mục Tháng trên Google Drive" style="background:#0284c7; border-color:#0284c7; font-weight:700;">
             ☁️ Lưu Excel Vào Drive
           </button>
@@ -2407,7 +2642,7 @@ window.exportToExcelClient = function () {
   const criteria = state.criteria;
 
   // Sheet 1: Exact 131-column structure matching raw_criteria.csv
-  const row0 = [state.settings.header_title || 'BỘ TIÊU CHÍ ĐOÀN CẤP CƠ SỞ NĂM 2026'];
+  const row0 = [state.settings.header_title || 'BỘ TIÊU CHÍ ĐOÀN CẤP CƠ SỞ'];
   const row1 = ['ĐƠN VỊ', 'TỔNG ĐIỂM', ...criteria.map((c) => c.title)];
   const row2 = ['', '', ...criteria.map((c) => c.points_text)];
   const row3 = ['Cột 1', 'Cột 2', ...criteria.map((c) => c.col_label)];
@@ -2477,7 +2712,7 @@ window.saveExcelToGoogleDrive = async function () {
   const criteria = state.criteria;
 
   // Sheet 1: BANG TONG HOP
-  const row0 = [state.settings.header_title || 'BỘ TIÊU CHÍ ĐOÀN CẤP CƠ SỞ NĂM 2026'];
+  const row0 = [state.settings.header_title || 'BỘ TIÊU CHÍ ĐOÀN CẤP CƠ SỞ'];
   const row1 = ['ĐƠN VỊ', 'TỔNG ĐIỂM', ...criteria.map((c) => c.title)];
   const row2 = ['', '', ...criteria.map((c) => c.points_text)];
   const row3 = ['Cột 1', 'Cột 2', ...criteria.map((c) => c.col_label)];
@@ -2757,9 +2992,9 @@ function renderMasterTableTab() {
     });
   }
 
-  monthPills.push({ val: -2, label: 'Điểm danh vắng (-5đ)' });
+  
 
-  const headerTitle = state.settings.header_title || 'BỘ TIÊU CHÍ ĐOÀN CẤP CƠ SỞ NĂM 2026';
+  const headerTitle = state.settings.header_title || 'BỘ TIÊU CHÍ ĐOÀN CẤP CƠ SỞ';
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
 
@@ -2816,8 +3051,8 @@ function renderMasterTableTab() {
           <thead>
             <tr class="row-banner">
               <th class="sticky-col-stt">#</th>
-              <th class="sticky-col-unit" colspan="2">${escapeHtml(headerTitle)}</th>
-              <th colspan="${filteredCriteria.length}">
+              <th class="sticky-col-unit banner-unit-cell" colspan="2" style="background:#003d99 !important; color:#ffffff !important; font-weight:800 !important; min-width:386px !important; z-index:65 !important;">${escapeHtml(headerTitle)}</th>
+              <th colspan="${Math.max(1, filteredCriteria.length)}">
                 ${
                   isAdmin
                     ? '💡 Admin có thể nhập/sửa điểm trực tiếp vào từng ô bên dưới (Nhấn Enter hoặc click ra ngoài để tự động lưu lên Đám mây Online). Click biểu tượng 📎 để xem báo cáo đơn vị nộp.'
@@ -2830,7 +3065,12 @@ function renderMasterTableTab() {
               <th class="sticky-col-stt">STT</th>
               <th class="sticky-col-unit">ĐƠN VỊ</th>
               <th class="sticky-col-total">TỔNG ĐIỂM</th>
-              ${filteredCriteria
+              ${filteredCriteria.length === 0 ? `
+                <th style="min-width:320px; font-weight:700; color:#334155; background:#e2e8f0; text-align:center; padding:18px; font-size:13px;">
+                  📋 CHƯA CÓ TIÊU CHÍ NÀO TRONG BẢNG<br/>
+                  <span style="font-weight:400; font-size:11.5px; color:#64748b;">(Quản trị viên vui lòng vào tab <b>"Quản lý Tiêu chí"</b> để tạo mới các tiêu chí, kỳ hạn nộp và thư mục Drive)</span>
+                </th>
+              ` : filteredCriteria
                 .map((c) => {
                   const open = isCriterionOpen(c);
                   return `
@@ -2843,6 +3083,7 @@ function renderMasterTableTab() {
                         ${escapeHtml(c.title)}
                       </div>
                       <div style="display:flex; flex-direction:column; gap:1px; margin-top:2px; font-size:10px; background:rgba(255,255,255,0.7); padding:2px 4px; border-radius:3px;">
+                        ${c.points_text ? `<span style="color:#b45309; font-weight:700;">⭐ ${escapeHtml(c.points_text)}</span>` : ''}
                         <span style="color:#059669; font-weight:700;">🟢 Mở: ${formatShortDateVN(c.start_date || '2026-01-01')}</span>
                         <span style="color:${open ? '#15803d' : '#b45309'}; font-weight:700;">
                           ⏰ Hạn: ${formatShortDateVN(c.deadline)}
@@ -2867,18 +3108,13 @@ function renderMasterTableTab() {
                 .join('')}
             </tr>
 
-            <tr class="row-points">
-              <th class="sticky-col-stt"></th>
-              <th class="sticky-col-unit"></th>
-              <th class="sticky-col-total"></th>
-              ${filteredCriteria.map((c) => `<th>${escapeHtml(c.points_text)}</th>`).join('')}
-            </tr>
+
 
             <tr class="row-cols">
               <th class="sticky-col-stt"></th>
               <th class="sticky-col-unit">Cột 1</th>
               <th class="sticky-col-total">Cột 2</th>
-              ${filteredCriteria.map((c) => `<th>${escapeHtml(c.col_label)}</th>`).join('')}
+              ${filteredCriteria.length === 0 ? '<th>Chưa có cột</th>' : filteredCriteria.map((c) => `<th>${escapeHtml(c.col_label)}</th>`).join('')}
             </tr>
           </thead>
 
@@ -2899,7 +3135,7 @@ function renderMasterTableTab() {
                     </div>
                   </td>
                   <td class="sticky-col-total" id="total-cell-${u.id}">${formatScore(total)}</td>
-                  ${filteredCriteria.map((c) => renderMasterScoreCell(u, c, isAdmin)).join('')}
+                  ${filteredCriteria.length === 0 ? '<td style="color:#94a3b8; font-style:italic; text-align:center;">—</td>' : filteredCriteria.map((c) => renderMasterScoreCell(u, c, isAdmin)).join('')}
                 </tr>
               `;
               })
@@ -3699,21 +3935,63 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
 
   let newlyUploadedFiles = [];
   if (pendingFiles.length > 0) {
+    showUploadProgressModal('Đang Nộp Báo Cáo Online');
     for (let i = 0; i < pendingFiles.length; i++) {
       const f = pendingFiles[i];
+      const fileLabel = `Tệp ${i + 1} / ${pendingFiles.length}`;
       if (btn) {
-        btn.textContent = `⏳ Đang tải tệp (${i + 1}/${pendingFiles.length}): ${f.name.substring(0, 18)}...`;
+        btn.textContent = `⏳ Đang tải (${i + 1}/${pendingFiles.length}): ${f.name.substring(0, 16)}...`;
       }
-      showToast(`Đang tải (${i + 1}/${pendingFiles.length}): ${f.name}...`, 'info');
+      updateUploadProgress({
+        percent: 0,
+        fileName: f.name,
+        fileIndex: fileLabel,
+        loaded: 0,
+        total: f.size || 0,
+        statusText: 'Đang chuẩn bị tệp...'
+      });
+
       try {
         const b64 = await readFileAsDataURL(f);
-        const upRes = await uploadFileToCloud(b64, f.name, unitId, criterionId);
+        updateUploadProgress({
+          percent: 5,
+          fileName: f.name,
+          fileIndex: fileLabel,
+          loaded: 0,
+          total: f.size || 0,
+          statusText: 'Đang truyền dữ liệu lên Google Drive...'
+        });
+
+        const upRes = await uploadFileToCloud(b64, f.name, unitId, criterionId, (percent, loaded, total) => {
+          const mappedPercent = Math.round(5 + (percent * 0.9));
+          updateUploadProgress({
+            percent: mappedPercent,
+            fileName: f.name,
+            fileIndex: fileLabel,
+            loaded: loaded,
+            total: total,
+            statusText: `Đang tải lên Google Drive (${mappedPercent}%)...`
+          });
+        });
+
+        updateUploadProgress({
+          percent: 100,
+          fileName: f.name,
+          fileIndex: fileLabel,
+          loaded: f.size || 0,
+          total: f.size || 0,
+          statusText: 'Đã lưu trữ thành công trên Google Drive!',
+          isDone: true
+        });
+        await new Promise(r => setTimeout(r, 250));
+
         newlyUploadedFiles.push({
           name: f.name,
           url: upRes.fileUrl || '',
           size: f.size
         });
       } catch (e) {
+        hideUploadProgressModal();
         showToast(`Lỗi khi tải file "${f.name}": ` + e.message, 'error');
         if (btn) {
           btn.disabled = false;
@@ -3722,6 +4000,11 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
         return;
       }
     }
+    updateUploadProgress({
+      percent: 100,
+      statusText: 'Đang ghi nhận điểm & lưu hồ sơ Online...',
+      isDone: false
+    });
   }
 
   const finalFilesList = [...retainedFiles, ...newlyUploadedFiles];
@@ -4198,7 +4481,7 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
                             </div>
                           </div>
                           <div style="display:flex; gap:6px; flex-shrink:0;">
-                            ${f.url ? `<a href="${escapeHtml(f.url)}" target="_blank" class="btn btn-sm btn-outline" style="font-size:11.5px; padding:3px 8px; font-weight:600;">👁️ Xem file</a>` : ''}
+                            ${f.url ? `<button type="button" onclick="openFileInlinePreviewModal('${escapeHtml(f.url)}', '${escapeHtml(f.name || 'Tệp đính kèm')}')" class="btn btn-sm btn-outline" style="font-size:11.5px; padding:3px 8px; font-weight:600; cursor:pointer; background:#fff; color:#0284c7; border-color:#0284c7;">👁️ Xem file</button>` : ''}
                             ${f.url ? `<a href="${escapeHtml(f.url)}" download="${escapeHtml(f.name || 'minh_chung')}" target="_blank" class="btn btn-sm btn-primary" style="font-size:11.5px; padding:3px 8px; font-weight:700;">📥 Tải về</a>` : ''}
                             ${isAdmin ? `
                               <button class="btn btn-sm btn-danger" onclick="confirmDeleteUnitSubmissionFile(${unit.id}, ${crit.id}, ${fIdx})" style="font-size:11.5px; padding:3px 8px; font-weight:700;" title="Xóa tệp này (có hỏi xóa trên Drive)">
@@ -4351,19 +4634,49 @@ window.saveAdminSubmissionDetail = async function (unitId, critId) {
   const adminFiles = window._adminPendingFiles || [];
   let newlyUploadedFiles = [];
   if (adminFiles.length > 0) {
+    showUploadProgressModal('Quản Trị Viên Lưu Minh Chứng');
     for (let i = 0; i < adminFiles.length; i++) {
       const f = adminFiles[i];
-      if (btn) btn.textContent = `⏳ Đang tải tệp (${i + 1}/${adminFiles.length}): ${f.name.substring(0, 16)}...`;
-      showToast(`Đang tải (${i + 1}/${adminFiles.length}): ${f.name}...`, 'info');
+      const fileLabel = `Tệp ${i + 1} / ${adminFiles.length}`;
+      if (btn) btn.textContent = `⏳ Đang tải (${i + 1}/${adminFiles.length}): ${f.name.substring(0, 16)}...`;
+      updateUploadProgress({
+        percent: 0,
+        fileName: f.name,
+        fileIndex: fileLabel,
+        loaded: 0,
+        total: f.size || 0,
+        statusText: 'Đang chuẩn bị tệp...'
+      });
       try {
         const b64 = await readFileAsDataURL(f);
-        const upRes = await uploadFileToCloud(b64, f.name, unitId, critId);
+        const upRes = await uploadFileToCloud(b64, f.name, unitId, critId, (percent, loaded, total) => {
+          const mappedPercent = Math.round(5 + (percent * 0.9));
+          updateUploadProgress({
+            percent: mappedPercent,
+            fileName: f.name,
+            fileIndex: fileLabel,
+            loaded: loaded,
+            total: total,
+            statusText: `Đang tải lên Drive (${mappedPercent}%)...`
+          });
+        });
+        updateUploadProgress({
+          percent: 100,
+          fileName: f.name,
+          fileIndex: fileLabel,
+          loaded: f.size || 0,
+          total: f.size || 0,
+          statusText: 'Đã lưu trữ thành công trên Google Drive!',
+          isDone: true
+        });
+        await new Promise(r => setTimeout(r, 200));
         newlyUploadedFiles.push({
           name: f.name,
           url: upRes.fileUrl || '',
           size: f.size
         });
       } catch (e) {
+        hideUploadProgressModal();
         showToast('Lỗi khi tải file: ' + e.message, 'error');
         if (btn) {
           btn.disabled = false;
@@ -4750,7 +5063,7 @@ function renderAdminReportsTab() {
               ${l.report_content ? `<div style="font-size:11.5px; color:#334155; background:#f8fafc; padding:6px 8px; border-radius:4px; margin-bottom:6px; border:1px solid #f1f5f9;">${escapeHtml(l.report_content)}</div>` : ''}
               <div style="display:flex; gap:6px; flex-wrap:wrap;">
                 ${l.evidence_link ? `<a href="${escapeHtml(l.evidence_link)}" target="_blank" class="btn btn-sm btn-outline" style="font-size:11px; padding:3px 8px;">🔗 Link minh chứng</a>` : ''}
-                ${l.file_path ? `<a href="${escapeHtml(l.file_path)}" target="_blank" class="btn btn-sm btn-primary" style="font-size:11px; padding:3px 8px; background:#0284c7;">📎 ${escapeHtml(l.file_name || 'Xem file')}</a>` : ''}
+                ${l.file_path ? `<button type="button" onclick="openFileInlinePreviewModal('${escapeHtml(l.file_path)}', '${escapeHtml(l.file_name || 'Minh chứng')}')" class="btn btn-sm btn-primary" style="font-size:11px; padding:3px 8px; background:#0284c7; border:none; cursor:pointer;">👁️ ${escapeHtml(l.file_name || 'Xem file')}</button>` : ''}
               </div>
             </div>
           `).join('')}
@@ -5091,6 +5404,9 @@ function renderAdminCriteriaTab() {
           <button class="btn btn-warning btn-sm" onclick="toggleMonthLock(${mf}, 0)">
             🔒 Khóa đúng hạn
           </button>
+          <button class="btn btn-danger btn-sm" onclick="resetAllEvaluationData()" style="font-weight:700; background:#dc2626; color:#fff;" title="Xóa toàn bộ tiêu chí, điểm số, tháng và thư mục trong bảng tổng hợp để tạo mới từ đầu">
+            🗑️ Xóa Trắng Bảng Điểm (Tạo Mới)
+          </button>
           <button class="btn btn-primary btn-sm" onclick="openCriterionCreateModal()" style="font-weight:700;">
             ➕ Thêm Tiêu Chí Mới
           </button>
@@ -5101,11 +5417,8 @@ function renderAdminCriteriaTab() {
         <select onchange="state.criteriaMonthFilter = Number(this.value); renderApp();">
           <option value="0" ${mf === 0 ? 'selected' : ''}>-- Tất cả các kỳ hạn / tháng (${state.criteria.length} tiêu chí) --</option>
           ${[
-            ...Array.from({length: 12}, (_, i) => [String(i+1), `Tháng ${String(i+1).padStart(2, '0')}/2026`]),
+            ...Array.from({length: 12}, (_, i) => [String(i+1), `Tháng ${String(i+1).padStart(2, '0')}`]),
             ['13', 'Thường xuyên & Cuối năm'],
-            ['14', 'Tháng Thanh niên (Tháng 3)'],
-            ['15', 'Chiến dịch Tình nguyện Hè (Tháng 6-8)'],
-            ['16', 'Đợt thi đua cao điểm 26/3'],
             ...Object.entries(state.monthLabels || {}).filter(([k]) => Number(k) > 16)
           ].map(([k, v]) => {
             const count = state.criteria.filter(c => Number(c.month_group) === Number(k)).length;
@@ -5233,14 +5546,11 @@ window.openCriterionEditModal = function (critId) {
           <div class="form-group">
             <label>Nhóm kỳ hạn / Tháng hoạt động:</label>
             <select id="edit-crit-month">
-              <optgroup label="12 Tháng trong năm 2026">
-                ${Array.from({length: 12}, (_, i) => `<option value="${i+1}" ${Number(c.month_group) === (i+1) ? 'selected' : ''}>Tháng ${String(i+1).padStart(2, '0')}/2026</option>`).join('')}
+              <optgroup label="12 Tháng trong năm">
+                ${Array.from({length: 12}, (_, i) => `<option value="${i+1}" ${Number(c.month_group) === (i+1) ? 'selected' : ''}>Tháng ${String(i+1).padStart(2, '0')}</option>`).join('')}
               </optgroup>
-              <optgroup label="Hoạt động thường xuyên & Đợt cao điểm">
+              <optgroup label="Hoạt động thường xuyên & Cuối năm">
                 <option value="13" ${Number(c.month_group) === 13 ? 'selected' : ''}>Thường xuyên & Cuối năm</option>
-                <option value="14" ${Number(c.month_group) === 14 ? 'selected' : ''}>Tháng Thanh niên (Tháng 3)</option>
-                <option value="15" ${Number(c.month_group) === 15 ? 'selected' : ''}>Chiến dịch Tình nguyện Hè (Tháng 6-8)</option>
-                <option value="16" ${Number(c.month_group) === 16 ? 'selected' : ''}>Đợt thi đua cao điểm 26/3</option>
                 ${Object.entries(state.monthLabels || {})
                   .filter(([k]) => Number(k) > 16)
                   .map(([k, v]) => `<option value="${k}" ${Number(c.month_group) === Number(k) ? 'selected' : ''}>${escapeHtml(v)}</option>`)
@@ -5256,11 +5566,7 @@ window.openCriterionEditModal = function (critId) {
               <option value="1" ${Number(c.is_report) === 1 ? 'selected' : ''}>📋 Báo cáo định kỳ (Đơn vị nộp báo cáo & tài liệu - Theo dõi tiến độ)</option>
               <option value="2" ${Number(c.is_report) === 2 ? 'selected' : ''}>👑 Admin tự chấm điểm (Ban Thường vụ tự chấm - Đơn vị không nhập điểm/tài liệu)</option>
             </select>
-            <small style="color:#64748b; margin-top:4px; display:block; font-size:12px; line-height:1.4;">
-              💡 <b>Hoạt động / Phong trào:</b> Đơn vị tham gia nộp tài liệu / minh chứng hoạt động, hệ thống tự động ghi nhận và tự động chấm điểm.<br/>
-              💡 <b>Báo cáo định kỳ:</b> Đơn vị tự kê khai điểm, nộp báo cáo & tài liệu, xuất hiện trong bảng <i>Theo Dõi Nộp Báo Cáo</i>.<br/>
-              💡 <b>Admin tự chấm điểm:</b> Ban Thường vụ (Admin) tự đánh giá và chấm điểm trực tiếp. Đơn vị đoàn KHÔNG THỂ nhập điểm hay nộp tài liệu ở mục này.
-            </small>
+            
           </div>
 
           <div class="form-group" style="background:#f0fdf4; padding:12px; border-radius:8px; border:1px solid #bbf7d0; margin-bottom:14px;">
@@ -5386,14 +5692,11 @@ window.openCriterionCreateModal = function () {
           <div class="form-group">
             <label>Nhóm kỳ hạn / Tháng hoạt động:</label>
             <select id="new-crit-month" onchange="window.toggleCustomGroupInput(this.value)">
-              <optgroup label="12 Tháng trong năm 2026">
-                ${Array.from({length: 12}, (_, i) => `<option value="${i+1}" ${i+1 === 10 ? 'selected' : ''}>Tháng ${String(i+1).padStart(2, '0')}/2026</option>`).join('')}
+              <optgroup label="12 Tháng trong năm">
+                ${Array.from({length: 12}, (_, i) => `<option value="${i+1}" ${i+1 === 10 ? 'selected' : ''}>Tháng ${String(i+1).padStart(2, '0')}</option>`).join('')}
               </optgroup>
-              <optgroup label="Hoạt động thường xuyên & Đợt cao điểm">
+              <optgroup label="Hoạt động thường xuyên & Cuối năm">
                 <option value="13">Thường xuyên & Cuối năm</option>
-                <option value="14">Tháng Thanh niên (Tháng 3)</option>
-                <option value="15">Chiến dịch Tình nguyện Hè (Tháng 6-8)</option>
-                <option value="16">Đợt thi đua cao điểm 26/3</option>
                 ${Object.entries(state.monthLabels || {})
                   .filter(([k]) => Number(k) > 16)
                   .map(([k, v]) => `<option value="${k}">${escapeHtml(v)}</option>`)
@@ -5415,11 +5718,7 @@ window.openCriterionCreateModal = function () {
               <option value="1">📋 Báo cáo định kỳ (Đơn vị nộp báo cáo & tài liệu - Theo dõi tiến độ)</option>
               <option value="2">👑 Admin tự chấm điểm (Ban Thường vụ tự chấm - Đơn vị không nhập điểm/tài liệu)</option>
             </select>
-            <small style="color:#64748b; margin-top:4px; display:block; font-size:12px; line-height:1.4;">
-              💡 <b>Hoạt động / Phong trào:</b> Đơn vị tham gia nộp tài liệu / minh chứng hoạt động, hệ thống tự động ghi nhận và tự động chấm điểm.<br/>
-              💡 <b>Báo cáo định kỳ:</b> Đơn vị tự kê khai điểm, nộp báo cáo & tài liệu, xuất hiện trong bảng <i>Theo Dõi Nộp Báo Cáo</i>.<br/>
-              💡 <b>Admin tự chấm điểm:</b> Ban Thường vụ (Admin) tự đánh giá và chấm điểm trực tiếp. Đơn vị đoàn KHÔNG THỂ nhập điểm hay nộp tài liệu ở mục này.
-            </small>
+            
           </div>
 
           <div class="form-group" style="background:#f0fdf4; padding:12px; border-radius:8px; border:1px solid #bbf7d0; margin-bottom:14px;">
@@ -7321,6 +7620,37 @@ window.reorganizeGoogleDriveFolders = async function() {
     }
   } catch (err) {
     showToast('Lỗi kết nối Google Drive: ' + err.message, 'error');
+  }
+};
+
+
+window.resetAllEvaluationData = async function() {
+  const code = prompt(
+    'CẢNH BÁO NGUY HIỂM:\n\n' +
+    'Thao tác này sẽ XÓA SẠCH TOÀN BỘ tiêu chí, điểm số, kỳ hạn/tháng và các liên kết thư mục trong Bảng tổng hợp chấm điểm để Admin tạo lại từ đầu!\n\n' +
+    'Tài khoản đăng nhập của 40 cơ sở Đoàn và Admin vẫn được giữ nguyên.\n\n' +
+    'Để xác nhận, vui lòng nhập chữ "XOA" vào ô bên dưới:'
+  );
+  if (code !== 'XOA' && code !== 'xoa') {
+    if (code !== null) showToast('Mã xác nhận không đúng. Đã hủy thao tác!', 'info');
+    return;
+  }
+
+  showToast('Đang tiến hành xóa toàn bộ dữ liệu bảng tổng hợp...', 'info');
+  const res = await mutateCloudDB((db) => {
+    db.criteria = [];
+    db.scores = [];
+    db.sample_scores = [];
+    db.logs = [];
+    db.month_labels = {};
+    db.written_reports = [];
+  }, 'Admin reset all evaluation data to start fresh');
+
+  if (res.ok) {
+    showToast('Đã xóa sạch toàn bộ dữ liệu bảng điểm thành công! Bây giờ bạn có thể tạo lại mới từ đầu.', 'success');
+    renderApp();
+  } else {
+    showToast('Lỗi khi xóa dữ liệu!', 'error');
   }
 };
 
