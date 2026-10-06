@@ -12,9 +12,11 @@ function getRootReportFolder() {
   var it = DriveApp.getRootFolder().getFolders();
   while (it.hasNext()) {
     var f = it.next();
-    var n = f.getName();
-    if (n.indexOf("HỒ SƠ BÁO CÁO ĐOÀN") > -1 || n.indexOf("H? SO BAO CAO DOAN") > -1) {
-      return f;
+    if (!f.isTrashed()) {
+      var n = f.getName();
+      if (n.indexOf("HỒ SƠ BÁO CÁO ĐOÀN") > -1 || n.indexOf("H? SO BAO CAO DOAN") > -1) {
+        return f;
+      }
     }
   }
   var newRoot = DriveApp.getRootFolder().createFolder("HỒ SƠ BÁO CÁO ĐOÀN");
@@ -742,8 +744,11 @@ function setupAutomatedTrigger() {
 
 function getOrCreateFolder(parentFolder, folderName) {
   var folders = parentFolder.getFoldersByName(folderName);
-  if (folders.hasNext()) {
-    return folders.next();
+  while (folders.hasNext()) {
+    var f = folders.next();
+    if (!f.isTrashed()) {
+      return f;
+    }
   }
   return parentFolder.createFolder(folderName);
 }
