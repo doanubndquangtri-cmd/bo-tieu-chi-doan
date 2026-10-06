@@ -409,6 +409,56 @@ function doPost(e) {
     }
 
     // ---------------------------------------------------------------------
+    // TRƯỜNG HỢP 5B: ĐỔI TÊN TỆP HOẶC THƯ MỤC TRÊN GOOGLE DRIVE (KHÔNG TẠO MỚI)
+    // ---------------------------------------------------------------------
+    if (data.action === "rename_file" || data.action === "rename_folder") {
+      var targetId = data.fileId || data.folderId;
+      var targetUrl = data.fileUrl || data.folderUrl;
+      var newName = (data.newName || data.title || "").trim();
+
+      if (!targetId && targetUrl) {
+        var mF = String(targetUrl).match(/\/folders\/([a-zA-Z0-9_-]+)/);
+        if (mF && mF[1]) targetId = mF[1];
+        var mFl = String(targetUrl).match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+        if (mFl && mFl[1]) targetId = mFl[1];
+        var mId = String(targetUrl).match(/[?&]id=([a-zA-Z0-9_-]+)/);
+        if (mId && mId[1]) targetId = mId[1];
+      }
+
+      if (!targetId || !newName) {
+        return createJsonResponse({ status: "error", message: "Thiếu ID hoặc Tên mới cần đổi!" });
+      }
+
+      var renamed = false;
+      var objType = "unknown";
+      try {
+        var fileObj = DriveApp.getFileById(targetId);
+        fileObj.setName(newName);
+        renamed = true;
+        objType = "file";
+      } catch (errF) {
+        try {
+          var folderObj = DriveApp.getFolderById(targetId);
+          folderObj.setName(newName);
+          renamed = true;
+          objType = "folder";
+        } catch (errFo) {}
+      }
+
+      if (renamed) {
+        return createJsonResponse({
+          status: "success",
+          message: "Đã đổi tên thành công trên Google Drive!",
+          targetId: targetId,
+          newName: newName,
+          type: objType
+        });
+      } else {
+        return createJsonResponse({ status: "error", message: "Không tìm thấy tệp hoặc thư mục trên Drive!" });
+      }
+    }
+
+    // ---------------------------------------------------------------------
     // TRƯỜNG HỢP 6 (MẶC ĐỊNH): CƠ SỞ ĐOÀN NỘP MINH CHỨNG / BÁO CÁO TIÊU CHÍ
     // CẤU TRÚC LƯU TRỮ CHUẨN MỰC:
     // HỒ SƠ BÁO CÁO ĐOÀN
