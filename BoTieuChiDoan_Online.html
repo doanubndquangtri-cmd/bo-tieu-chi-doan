@@ -1490,6 +1490,8 @@ async function uploadFileToCloud(fileDataB64, origName, unitId, critId) {
   // Lấy ID thư mục Google Drive nếu tiêu chí có chỉ định link thư mục Drive riêng
   const customFolderId = crit && crit.gdrive_folder_url ? extractDriveFolderId(crit.gdrive_folder_url) : '';
   const customFolderUrl = crit && crit.gdrive_folder_url ? crit.gdrive_folder_url : '';
+  // Tên thư mục riêng tự động tạo trên Google Drive nếu Admin có nhập chữ
+  const customFolderName = crit && crit.gdrive_folder_name ? crit.gdrive_folder_name.trim() : '';
 
   const gdriveUrl = getGoogleDriveScriptUrl();
   if (gdriveUrl) {
@@ -1505,6 +1507,7 @@ async function uploadFileToCloud(fileDataB64, origName, unitId, critId) {
         fileData: fileDataB64,
         customFolderId: customFolderId || '',
         customFolderUrl: customFolderUrl || '',
+        customFolderName: customFolderName || '',
       };
       const res = await fetch(gdriveUrl, {
         method: 'POST',
@@ -3228,15 +3231,17 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
               ⚡ <b>Tiêu chí Hoạt động / Phong trào:</b> Điểm số sẽ được hệ thống <b>tự động ghi nhận (${crit.max_score} điểm)</b> ngay khi đơn vị nộp đầy đủ minh chứng!
             </div>
           ` : ''}
-          ${crit.gdrive_folder_url ? `
+          ${(crit.gdrive_folder_name || crit.gdrive_folder_url) ? `
             <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:10px 14px; margin-bottom:12px; font-size:13px; color:#166534; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
               <div>
-                <b>📁 Thư mục Google Drive tiếp nhận báo cáo:</b><br/>
-                <span style="font-size:12px; color:#15803d;">Tất cả tệp đính kèm khi bạn bấm nộp sẽ được tự động đưa vào đúng thư mục Drive do Ban Thường vụ quản lý!</span>
+                <b>📁 Thư mục Google Drive tiếp nhận báo cáo:</b> ${crit.gdrive_folder_name ? `<span class="badge" style="background:#15803d; color:#fff; font-size:12px; margin-left:4px; padding:2px 8px;">${escapeHtml(crit.gdrive_folder_name)}</span>` : ''}<br/>
+                <span style="font-size:12px; color:#15803d;">Tất cả tệp đính kèm khi bạn bấm nộp sẽ được tự động đưa vào đúng thư mục Drive này cho Ban Thường vụ quản lý!</span>
               </div>
-              <a href="${escapeHtml(crit.gdrive_folder_url)}" target="_blank" class="btn btn-sm" style="background:#16a34a; color:#fff; text-decoration:none; font-weight:700; padding:5px 12px; border-radius:6px; font-size:12px; display:inline-flex; align-items:center; gap:4px;">
-                📂 Mở Thư Mục Drive ↗
-              </a>
+              ${crit.gdrive_folder_url ? `
+                <a href="${escapeHtml(crit.gdrive_folder_url)}" target="_blank" class="btn btn-sm" style="background:#16a34a; color:#fff; text-decoration:none; font-weight:700; padding:5px 12px; border-radius:6px; font-size:12px; display:inline-flex; align-items:center; gap:4px;">
+                  📂 Mở Thư Mục Drive ↗
+                </a>
+              ` : ''}
             </div>
           ` : ''}
           <div style="padding:12px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; margin-bottom:14px;">
@@ -5132,12 +5137,16 @@ window.openCriterionEditModal = function (critId) {
 
           <div class="form-group" style="background:#f0fdf4; padding:12px; border-radius:8px; border:1px solid #bbf7d0; margin-bottom:14px;">
             <label style="font-weight:700; color:#166534; display:flex; align-items:center; gap:6px;">
-              📁 Link Thư Mục Google Drive Nhận Báo Cáo / Minh Chứng (Tùy chọn):
+              📁 Tên thư mục tự động tạo trên Google Drive (Tùy chọn):
             </label>
-            <input type="text" id="edit-crit-gdrive-folder" placeholder="Dán link thư mục Google Drive (VD: https://drive.google.com/drive/folders/...)" value="${escapeHtml(c.gdrive_folder_url || '')}" style="background:#fff; font-size:13px;" />
+            <input type="text" id="edit-crit-gdrive-folder-name" placeholder="VD: Báo cáo Tháng 1, Báo cáo Quý 1..." value="${escapeHtml(c.gdrive_folder_name || '')}" style="background:#fff; font-size:13.5px; margin-bottom:8px;" />
+            
+            <label style="font-weight:600; color:#166534; font-size:12px; display:block; margin-bottom:3px;">
+              Hoặc dán Link thư mục Google Drive có sẵn (nếu có):
+            </label>
+            <input type="text" id="edit-crit-gdrive-folder" placeholder="Dán link thư mục Google Drive (VD: https://drive.google.com/drive/folders/...)" value="${escapeHtml(c.gdrive_folder_url || '')}" style="background:#fff; font-size:12.5px;" />
             <small style="color:#15803d; margin-top:5px; display:block; font-size:12px; line-height:1.4;">
-              💡 <b>Tự động phân loại thư mục:</b> Khi Admin dán link thư mục Google Drive tại đây, các cơ sở Đoàn nộp báo cáo cho tiêu chí này sẽ tự động được tạo thư mục con <code>[DVxx] Tên Đơn Vị</code> ngay trong thư mục Drive này và lưu tệp vào đó!<br/>
-              ⚠️ <i>Lưu ý: Thư mục trên Google Drive cần được cài đặt quyền <b>"Bất kỳ ai có liên kết" ➔ "Người chỉnh sửa" (Editor)</b> để hệ thống có quyền ghi tệp vào.</i>
+              💡 <b>Tự động tạo thư mục trên Drive:</b> Nếu bạn nhập tên (ví dụ: <code>Báo cáo tháng 1</code>), hệ thống sẽ <b>tự động tạo thư mục "Báo cáo tháng 1" trên Google Drive</b>. Khi các đoàn nộp bài, tệp sẽ tự động vào thư mục này. <i>Nếu bỏ trống thì vẫn như cũ, file tự động về thư mục [DVxx] từng đơn vị.</i>
             </small>
           </div>
 
@@ -5181,6 +5190,7 @@ window.saveCriterionEdit = async function (critId) {
   const title = document.getElementById('edit-crit-title').value.trim();
   const mGroup = Number(document.getElementById('edit-crit-month').value);
   const isReport = Number(document.getElementById('edit-crit-is-report') ? document.getElementById('edit-crit-is-report').value : 0);
+  const gdriveFolderName = document.getElementById('edit-crit-gdrive-folder-name') ? document.getElementById('edit-crit-gdrive-folder-name').value.trim() : '';
   const gdriveFolderUrl = document.getElementById('edit-crit-gdrive-folder') ? document.getElementById('edit-crit-gdrive-folder').value.trim() : '';
   const startDate = document.getElementById('edit-crit-start-date').value || '2026-01-01';
   const deadline = document.getElementById('edit-crit-deadline').value;
@@ -5208,6 +5218,7 @@ window.saveCriterionEdit = async function (critId) {
     c.start_date = startDate;
     c.deadline = deadline;
     c.is_report = isReport;
+    c.gdrive_folder_name = gdriveFolderName;
     c.gdrive_folder_url = gdriveFolderUrl;
     c.points_text = pointsText;
     c.default_score = maxS;
@@ -5285,12 +5296,16 @@ window.openCriterionCreateModal = function () {
 
           <div class="form-group" style="background:#f0fdf4; padding:12px; border-radius:8px; border:1px solid #bbf7d0; margin-bottom:14px;">
             <label style="font-weight:700; color:#166534; display:flex; align-items:center; gap:6px;">
-              📁 Link Thư Mục Google Drive Nhận Báo Cáo / Minh Chứng (Tùy chọn):
+              📁 Tên thư mục tự động tạo trên Google Drive (Tùy chọn):
             </label>
-            <input type="text" id="new-crit-gdrive-folder" placeholder="Dán link thư mục Google Drive (VD: https://drive.google.com/drive/folders/...)" style="background:#fff; font-size:13px;" />
+            <input type="text" id="new-crit-gdrive-folder-name" placeholder="VD: Báo cáo Tháng 1, Báo cáo Quý 1..." style="background:#fff; font-size:13.5px; margin-bottom:8px;" />
+            
+            <label style="font-weight:600; color:#166534; font-size:12px; display:block; margin-bottom:3px;">
+              Hoặc dán Link thư mục Google Drive có sẵn (nếu có):
+            </label>
+            <input type="text" id="new-crit-gdrive-folder" placeholder="Dán link thư mục Google Drive (VD: https://drive.google.com/drive/folders/...)" style="background:#fff; font-size:12.5px;" />
             <small style="color:#15803d; margin-top:5px; display:block; font-size:12px; line-height:1.4;">
-              💡 <b>Tự động phân loại thư mục:</b> Khi Admin dán link thư mục Google Drive tại đây, các cơ sở Đoàn nộp báo cáo cho tiêu chí này sẽ tự động được tạo thư mục con <code>[DVxx] Tên Đơn Vị</code> ngay trong thư mục Drive này và lưu tệp vào đó!<br/>
-              ⚠️ <i>Lưu ý: Thư mục trên Google Drive cần được cài đặt quyền <b>"Bất kỳ ai có liên kết" ➔ "Người chỉnh sửa" (Editor)</b> để hệ thống có quyền ghi tệp vào.</i>
+              💡 <b>Tự động tạo thư mục trên Drive:</b> Nếu bạn nhập tên (ví dụ: <code>Báo cáo tháng 1</code>), hệ thống sẽ <b>tự động tạo thư mục "Báo cáo tháng 1" trên Google Drive</b>. Khi các đoàn nộp bài, tệp sẽ tự động vào thư mục này. <i>Nếu bỏ trống thì vẫn như cũ, file tự động về thư mục [DVxx] từng đơn vị.</i>
             </small>
           </div>
 
@@ -5348,6 +5363,7 @@ window.saveNewCriterion = async function () {
   const startDate = document.getElementById('new-crit-start-date').value || '2026-01-01';
   const deadline = document.getElementById('new-crit-deadline').value || '2026-10-20';
   const isReport = Number(document.getElementById('new-crit-is-report') ? document.getElementById('new-crit-is-report').value : 0);
+  const gdriveFolderName = document.getElementById('new-crit-gdrive-folder-name') ? document.getElementById('new-crit-gdrive-folder-name').value.trim() : '';
   const gdriveFolderUrl = document.getElementById('new-crit-gdrive-folder') ? document.getElementById('new-crit-gdrive-folder').value.trim() : '';
   const pointsText = document.getElementById('new-crit-points').value.trim() || '(5 điểm)';
   const maxS = Number(document.getElementById('new-crit-max').value || 5);
@@ -5410,6 +5426,7 @@ window.saveNewCriterion = async function () {
       unit_step_label: 'hoạt động',
       allow_unit_submit: 1,
       is_report: isReport,
+      gdrive_folder_name: gdriveFolderName,
       gdrive_folder_url: gdriveFolderUrl,
       lock_override: 0,
     };
