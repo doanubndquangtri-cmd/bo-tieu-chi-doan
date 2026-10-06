@@ -1895,7 +1895,7 @@ async function uploadFileToCloud(fileDataB64, origName, unitId, critId, onProgre
         criterionTitle,
         fileName: origName,
         fileData: fileDataB64,
-        customFolderId: customFolderId || '',
+        customFolderId: customFolderId || '1hR7VXnUyY2Ff7MjBvGGS2zRm_xlFwLBi',
         customFolderUrl: customFolderUrl || '',
         customFolderName: customFolderName || '',
       };
@@ -5690,7 +5690,8 @@ window.saveCriterionEdit = async function (critId) {
           action: 'create_criterion_folder',
           folderName: gdriveFolderName,
           monthLabel: calculatedMonthLabel,
-          title: title
+          title: title,
+          customFolderId: '1hR7VXnUyY2Ff7MjBvGGS2zRm_xlFwLBi'
         })
       }).then(r => r.json()).catch(e => console.warn('Edit crit folder notice:', e));
     } catch (e) {}
@@ -5739,6 +5740,7 @@ window.syncAllToDriveNow = async function () {
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
         action: 'sync_all_to_drive',
+        customFolderId: '1hR7VXnUyY2Ff7MjBvGGS2zRm_xlFwLBi',
         criteria: state.criteria || [],
         scores: state.scores || [],
         units: state.units || [],
@@ -5906,7 +5908,8 @@ window.saveNewCriterion = async function () {
           action: 'create_criterion_folder',
           folderName: gdriveFolderName,
           monthLabel: mLabel,
-          title: title
+          title: title,
+          customFolderId: '1hR7VXnUyY2Ff7MjBvGGS2zRm_xlFwLBi'
         })
       });
       const createJson = await createRes.json();
