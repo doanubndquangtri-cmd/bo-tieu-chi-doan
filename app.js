@@ -1,4 +1,151 @@
 
+// =========================================================================
+// HỆ THỐNG TIẾN TRÌNH TẢI TỆP CHUẨN XÁC (%) VÀ GIAO DIỆN HIỆN ĐẠI
+// =========================================================================
+function uploadWithXHR(url, payload, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url, true);
+    xhr.setRequestHeader('Content-Type', 'text/plain;charset=utf-8');
+
+    if (xhr.upload && onProgress) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && e.total > 0) {
+          const percent = Math.round((e.loaded / e.total) * 100);
+          onProgress(percent, e.loaded, e.total);
+        }
+      };
+    }
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 400) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          resolve(data);
+        } catch (err) {
+          resolve({ status: 'success', raw: xhr.responseText });
+        }
+      } else {
+        reject(new Error(`HTTP ${xhr.status}: ${xhr.statusText}`));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error('Lỗi kết nối mạng khi tải tệp lên Google Drive!'));
+    xhr.ontimeout = () => reject(new Error('Hết thời gian chờ (Timeout khi tải tệp)!'));
+    xhr.timeout = 300000; // 5 phút cho tệp lớn (video/pdf)
+
+    xhr.send(JSON.stringify(payload));
+  });
+}
+
+window.showUploadProgressModal = function(title = 'Đang Tải Tệp Lên Hệ Thống') {
+  let overlay = document.getElementById('upload-progress-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'upload-progress-overlay';
+    overlay.innerHTML = `
+      <div style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(5px); z-index: 99999999; display: flex; align-items: center; justify-content: center; padding: 16px;">
+        <div style="background: #ffffff; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4); width: 100%; max-width: 480px; overflow: hidden; border: 1px solid #cbd5e1; font-family: inherit;">
+          <div style="background: linear-gradient(135deg, #003d99, #0284c7); padding: 16px 20px; color: #ffffff; display: flex; align-items: center; justify-content: space-between;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 26px;">📤</span>
+              <div>
+                <div style="font-weight: 800; font-size: 15px; letter-spacing: 0.3px;" id="prog-modal-title">${escapeHtml(title)}</div>
+                <div style="font-size: 12px; opacity: 0.95;" id="prog-sub-title">Đang truyền dữ liệu lên Google Drive...</div>
+              </div>
+            </div>
+            <div id="prog-percent-badge" style="background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.4); padding: 4px 12px; border-radius: 20px; font-weight: 800; font-size: 15px; min-width: 52px; text-align: center;">
+              0%
+            </div>
+          </div>
+          
+          <div style="padding: 20px 22px;">
+            <!-- File info box -->
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; background: #f8fafc; padding: 10px 14px; border-radius: 10px; border: 1px solid #e2e8f0;">
+              <div style="display: flex; align-items: center; gap: 10px; overflow: hidden;">
+                <span style="font-size: 22px;" id="prog-file-icon">📄</span>
+                <div style="overflow: hidden;">
+                  <div id="prog-file-name" style="font-weight: 700; color: #0f172a; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 250px;">
+                    Đang chuẩn bị...
+                  </div>
+                  <div id="prog-file-index" style="font-size: 11.5px; color: #64748b; font-weight: 600;">
+                    Tệp 1 / 1
+                  </div>
+                </div>
+              </div>
+              <div id="prog-size-text" style="font-size: 12px; font-weight: 700; color: #0284c7; white-space: nowrap;">
+                0 B / 0 B
+              </div>
+            </div>
+
+            <!-- Main Progress Bar -->
+            <div style="height: 18px; background: #e2e8f0; border-radius: 12px; overflow: hidden; position: relative; box-shadow: inset 0 2px 4px rgba(0,0,0,0.06); margin-bottom: 12px;">
+              <div id="prog-bar-inner" style="height: 100%; width: 0%; background: linear-gradient(90deg, #0284c7 0%, #3b82f6 50%, #10b981 100%); border-radius: 12px; transition: width 0.15s ease-out; box-shadow: 0 0 10px rgba(2, 132, 199, 0.5);"></div>
+            </div>
+
+            <!-- Status detail text -->
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #475569;">
+              <div id="prog-status-text" style="display: flex; align-items: center; gap: 6px;">
+                <span class="spinner-small" style="display: inline-block; width: 12px; height: 12px; border: 2px solid #0284c7; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;"></span>
+                <span>Đang xử lý...</span>
+              </div>
+              <div id="prog-percent-text" style="font-weight: 800; color: #0f172a; font-size: 15px;">
+                0%
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = 'block';
+};
+
+window.updateUploadProgress = function({ percent = 0, fileName = '', fileIndex = '', loaded = 0, total = 0, statusText = '', isDone = false }) {
+  const p = Math.max(0, Math.min(100, Math.round(percent)));
+  const bar = document.getElementById('prog-bar-inner');
+  const badge = document.getElementById('prog-percent-badge');
+  const txt = document.getElementById('prog-percent-text');
+  const fName = document.getElementById('prog-file-name');
+  const fIdx = document.getElementById('prog-file-index');
+  const fSize = document.getElementById('prog-size-text');
+  const statusEl = document.getElementById('prog-status-text');
+  const iconEl = document.getElementById('prog-file-icon');
+
+  if (bar) bar.style.width = p + '%';
+  if (badge) badge.textContent = p + '%';
+  if (txt) txt.textContent = p + '%';
+  if (fileName && fName) {
+    fName.textContent = fileName;
+    fName.title = fileName;
+    const typeInfo = getFileIconAndBadge(fileName);
+    if (iconEl) iconEl.textContent = typeInfo.icon || '📄';
+  }
+  if (fileIndex && fIdx) fIdx.textContent = fileIndex;
+  if (loaded && total && fSize) {
+    fSize.textContent = `${formatBytes(loaded)} / ${formatBytes(total)}`;
+  }
+  if (statusText && statusEl) {
+    if (isDone) {
+      statusEl.innerHTML = `<span style="color:#10b981; font-weight:700;">✅ ${escapeHtml(statusText)}</span>`;
+    } else {
+      statusEl.innerHTML = `
+        <span class="spinner-small" style="display: inline-block; width: 12px; height: 12px; border: 2px solid #0284c7; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;"></span>
+        <span>${escapeHtml(statusText)}</span>
+      `;
+    }
+  }
+};
+
+window.hideUploadProgressModal = function() {
+  const overlay = document.getElementById('upload-progress-overlay');
+  if (overlay) {
+    overlay.style.display = 'none';
+  }
+};
+
+
 window.openFileInlinePreviewModal = function(fileUrl, fileName) {
   if (!fileUrl) {
     showToast('Tệp này chưa có liên kết đường dẫn hợp lệ!', 'warning');
@@ -394,7 +541,7 @@ function extractDriveFolderId(urlOrId) {
   return '';
 }
 
-async function uploadFileToCloud(fileDataB64, origName, unitId, critId) {
+async function uploadFileToCloud(fileDataB64, origName, unitId, critId, onProgress) {
   if (!fileDataB64 || !origName) return { fileName: '', fileUrl: '' };
 
   const crit = (state.criteria || []).find((c) => c.id === critId);
@@ -455,15 +602,9 @@ async function uploadFileToCloud(fileDataB64, origName, unitId, critId) {
         customFolderUrl: customFolderUrl || '',
         customFolderName: customFolderName || '',
       };
-      const res = await fetch(gdriveUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(payload),
-        redirect: 'follow',
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.status === 'success' && data.fileUrl) {
+      const data = await uploadWithXHR(gdriveUrl, payload, onProgress);
+      if (data) {
+        if (data.status === 'success' && data.fileUrl) {
           if (data.isCustomFolder) {
             showToast('Đã lưu file thành công vào Thư mục Google Drive của Tiêu chí!', 'success');
           } else {
@@ -2522,21 +2663,63 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
 
   let newlyUploadedFiles = [];
   if (pendingFiles.length > 0) {
+    showUploadProgressModal('Đang Nộp Báo Cáo Online');
     for (let i = 0; i < pendingFiles.length; i++) {
       const f = pendingFiles[i];
+      const fileLabel = `Tệp ${i + 1} / ${pendingFiles.length}`;
       if (btn) {
-        btn.textContent = `⏳ Đang tải tệp (${i + 1}/${pendingFiles.length}): ${f.name.substring(0, 18)}...`;
+        btn.textContent = `⏳ Đang tải (${i + 1}/${pendingFiles.length}): ${f.name.substring(0, 16)}...`;
       }
-      showToast(`Đang tải (${i + 1}/${pendingFiles.length}): ${f.name}...`, 'info');
+      updateUploadProgress({
+        percent: 0,
+        fileName: f.name,
+        fileIndex: fileLabel,
+        loaded: 0,
+        total: f.size || 0,
+        statusText: 'Đang chuẩn bị tệp...'
+      });
+
       try {
         const b64 = await readFileAsDataURL(f);
-        const upRes = await uploadFileToCloud(b64, f.name, unitId, criterionId);
+        updateUploadProgress({
+          percent: 5,
+          fileName: f.name,
+          fileIndex: fileLabel,
+          loaded: 0,
+          total: f.size || 0,
+          statusText: 'Đang truyền dữ liệu lên Google Drive...'
+        });
+
+        const upRes = await uploadFileToCloud(b64, f.name, unitId, criterionId, (percent, loaded, total) => {
+          const mappedPercent = Math.round(5 + (percent * 0.9));
+          updateUploadProgress({
+            percent: mappedPercent,
+            fileName: f.name,
+            fileIndex: fileLabel,
+            loaded: loaded,
+            total: total,
+            statusText: `Đang tải lên Google Drive (${mappedPercent}%)...`
+          });
+        });
+
+        updateUploadProgress({
+          percent: 100,
+          fileName: f.name,
+          fileIndex: fileLabel,
+          loaded: f.size || 0,
+          total: f.size || 0,
+          statusText: 'Đã lưu trữ thành công trên Google Drive!',
+          isDone: true
+        });
+        await new Promise(r => setTimeout(r, 250));
+
         newlyUploadedFiles.push({
           name: f.name,
           url: upRes.fileUrl || '',
           size: f.size
         });
       } catch (e) {
+        hideUploadProgressModal();
         showToast(`Lỗi khi tải file "${f.name}": ` + e.message, 'error');
         if (btn) {
           btn.disabled = false;
@@ -2545,6 +2728,11 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
         return;
       }
     }
+    updateUploadProgress({
+      percent: 100,
+      statusText: 'Đang ghi nhận điểm & lưu hồ sơ Online...',
+      isDone: false
+    });
   }
 
   const finalFilesList = [...retainedFiles, ...newlyUploadedFiles];
@@ -3174,19 +3362,49 @@ window.saveAdminSubmissionDetail = async function (unitId, critId) {
   const adminFiles = window._adminPendingFiles || [];
   let newlyUploadedFiles = [];
   if (adminFiles.length > 0) {
+    showUploadProgressModal('Quản Trị Viên Lưu Minh Chứng');
     for (let i = 0; i < adminFiles.length; i++) {
       const f = adminFiles[i];
-      if (btn) btn.textContent = `⏳ Đang tải tệp (${i + 1}/${adminFiles.length}): ${f.name.substring(0, 16)}...`;
-      showToast(`Đang tải (${i + 1}/${adminFiles.length}): ${f.name}...`, 'info');
+      const fileLabel = `Tệp ${i + 1} / ${adminFiles.length}`;
+      if (btn) btn.textContent = `⏳ Đang tải (${i + 1}/${adminFiles.length}): ${f.name.substring(0, 16)}...`;
+      updateUploadProgress({
+        percent: 0,
+        fileName: f.name,
+        fileIndex: fileLabel,
+        loaded: 0,
+        total: f.size || 0,
+        statusText: 'Đang chuẩn bị tệp...'
+      });
       try {
         const b64 = await readFileAsDataURL(f);
-        const upRes = await uploadFileToCloud(b64, f.name, unitId, critId);
+        const upRes = await uploadFileToCloud(b64, f.name, unitId, critId, (percent, loaded, total) => {
+          const mappedPercent = Math.round(5 + (percent * 0.9));
+          updateUploadProgress({
+            percent: mappedPercent,
+            fileName: f.name,
+            fileIndex: fileLabel,
+            loaded: loaded,
+            total: total,
+            statusText: `Đang tải lên Drive (${mappedPercent}%)...`
+          });
+        });
+        updateUploadProgress({
+          percent: 100,
+          fileName: f.name,
+          fileIndex: fileLabel,
+          loaded: f.size || 0,
+          total: f.size || 0,
+          statusText: 'Đã lưu trữ thành công trên Google Drive!',
+          isDone: true
+        });
+        await new Promise(r => setTimeout(r, 200));
         newlyUploadedFiles.push({
           name: f.name,
           url: upRes.fileUrl || '',
           size: f.size
         });
       } catch (e) {
+        hideUploadProgressModal();
         showToast('Lỗi khi tải file: ' + e.message, 'error');
         if (btn) {
           btn.disabled = false;
