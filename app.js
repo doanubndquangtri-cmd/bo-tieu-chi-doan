@@ -120,18 +120,18 @@ const state = {
   sampleScores: [],
   logs: [],
   monthLabels: {
-    '1': 'Tháng 01/2026',
-    '2': 'Tháng 02/2026',
-    '3': 'Tháng 03/2026',
-    '4': 'Tháng 04/2026',
-    '5': 'Tháng 05/2026',
-    '6': 'Tháng 06/2026',
-    '7': 'Tháng 07/2026',
-    '8': 'Tháng 08/2026',
-    '9': 'Tháng 09/2026',
-    '10': 'Tháng 10/2026',
-    '11': 'Tháng 11/2026',
-    '12': 'Tháng 12/2026',
+    '1': 'Tháng 1',
+    '2': 'Tháng 2',
+    '3': 'Tháng 3',
+    '4': 'Tháng 4',
+    '5': 'Tháng 5',
+    '6': 'Tháng 6',
+    '7': 'Tháng 7',
+    '8': 'Tháng 8',
+    '9': 'Tháng 9',
+    '10': 'Tháng 10',
+    '11': 'Tháng 11',
+    '12': 'Tháng 12',
     '13': 'Thường xuyên & Cuối năm'
   },
 
@@ -1141,7 +1141,7 @@ window.exportToExcelClient = function () {
   const criteria = state.criteria;
 
   // Sheet 1: Exact 131-column structure matching raw_criteria.csv
-  const row0 = [state.settings.header_title || 'BỘ TIÊU CHÍ ĐOÀN CẤP CƠ SỞ NĂM 2026'];
+  const row0 = [state.settings.header_title || 'BỘ TIÊU CHÍ ĐOÀN CẤP CƠ SỞ'];
   const row1 = ['ĐƠN VỊ', 'TỔNG ĐIỂM', ...criteria.map((c) => c.title)];
   const row2 = ['', '', ...criteria.map((c) => c.points_text)];
   const row3 = ['Cột 1', 'Cột 2', ...criteria.map((c) => c.col_label)];
@@ -1211,7 +1211,7 @@ window.saveExcelToGoogleDrive = async function () {
   const criteria = state.criteria;
 
   // Sheet 1: BANG TONG HOP
-  const row0 = [state.settings.header_title || 'BỘ TIÊU CHÍ ĐOÀN CẤP CƠ SỞ NĂM 2026'];
+  const row0 = [state.settings.header_title || 'BỘ TIÊU CHÍ ĐOÀN CẤP CƠ SỞ'];
   const row1 = ['ĐƠN VỊ', 'TỔNG ĐIỂM', ...criteria.map((c) => c.title)];
   const row2 = ['', '', ...criteria.map((c) => c.points_text)];
   const row3 = ['Cột 1', 'Cột 2', ...criteria.map((c) => c.col_label)];
@@ -1491,9 +1491,9 @@ function renderMasterTableTab() {
     });
   }
 
-  monthPills.push({ val: -2, label: 'Điểm danh vắng (-5đ)' });
+  
 
-  const headerTitle = state.settings.header_title || 'BỘ TIÊU CHÍ ĐOÀN CẤP CƠ SỞ NĂM 2026';
+  const headerTitle = state.settings.header_title || 'BỘ TIÊU CHÍ ĐOÀN CẤP CƠ SỞ';
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
 
@@ -1550,8 +1550,8 @@ function renderMasterTableTab() {
           <thead>
             <tr class="row-banner">
               <th class="sticky-col-stt">#</th>
-              <th class="sticky-col-unit" colspan="2">${escapeHtml(headerTitle)}</th>
-              <th colspan="${filteredCriteria.length}">
+              <th class="sticky-col-unit banner-unit-cell" colspan="2" style="background:#003d99 !important; color:#ffffff !important; font-weight:800 !important; min-width:386px !important; z-index:65 !important;">${escapeHtml(headerTitle)}</th>
+              <th colspan="${Math.max(1, filteredCriteria.length)}">
                 ${
                   isAdmin
                     ? '💡 Admin có thể nhập/sửa điểm trực tiếp vào từng ô bên dưới (Nhấn Enter hoặc click ra ngoài để tự động lưu lên Đám mây Online). Click biểu tượng 📎 để xem báo cáo đơn vị nộp.'
@@ -1564,7 +1564,12 @@ function renderMasterTableTab() {
               <th class="sticky-col-stt">STT</th>
               <th class="sticky-col-unit">ĐƠN VỊ</th>
               <th class="sticky-col-total">TỔNG ĐIỂM</th>
-              ${filteredCriteria
+              ${filteredCriteria.length === 0 ? `
+                <th style="min-width:320px; font-weight:700; color:#334155; background:#e2e8f0; text-align:center; padding:18px; font-size:13px;">
+                  📋 CHƯA CÓ TIÊU CHÍ NÀO TRONG BẢNG<br/>
+                  <span style="font-weight:400; font-size:11.5px; color:#64748b;">(Quản trị viên vui lòng vào tab <b>"Quản lý Tiêu chí"</b> để tạo mới các tiêu chí, kỳ hạn nộp và thư mục Drive)</span>
+                </th>
+              ` : filteredCriteria
                 .map((c) => {
                   const open = isCriterionOpen(c);
                   return `
@@ -1605,14 +1610,14 @@ function renderMasterTableTab() {
               <th class="sticky-col-stt"></th>
               <th class="sticky-col-unit"></th>
               <th class="sticky-col-total"></th>
-              ${filteredCriteria.map((c) => `<th>${escapeHtml(c.points_text)}</th>`).join('')}
+              ${filteredCriteria.length === 0 ? '<th>—</th>' : filteredCriteria.map((c) => `<th>${escapeHtml(c.points_text)}</th>`).join('')}
             </tr>
 
             <tr class="row-cols">
               <th class="sticky-col-stt"></th>
               <th class="sticky-col-unit">Cột 1</th>
               <th class="sticky-col-total">Cột 2</th>
-              ${filteredCriteria.map((c) => `<th>${escapeHtml(c.col_label)}</th>`).join('')}
+              ${filteredCriteria.length === 0 ? '<th>Chưa có cột</th>' : filteredCriteria.map((c) => `<th>${escapeHtml(c.col_label)}</th>`).join('')}
             </tr>
           </thead>
 
@@ -1633,7 +1638,7 @@ function renderMasterTableTab() {
                     </div>
                   </td>
                   <td class="sticky-col-total" id="total-cell-${u.id}">${formatScore(total)}</td>
-                  ${filteredCriteria.map((c) => renderMasterScoreCell(u, c, isAdmin)).join('')}
+                  ${filteredCriteria.length === 0 ? '<td style="color:#94a3b8; font-style:italic; text-align:center;">—</td>' : filteredCriteria.map((c) => renderMasterScoreCell(u, c, isAdmin)).join('')}
                 </tr>
               `;
               })
@@ -3825,6 +3830,9 @@ function renderAdminCriteriaTab() {
           <button class="btn btn-warning btn-sm" onclick="toggleMonthLock(${mf}, 0)">
             🔒 Khóa đúng hạn
           </button>
+          <button class="btn btn-danger btn-sm" onclick="resetAllEvaluationData()" style="font-weight:700; background:#dc2626; color:#fff;" title="Xóa toàn bộ tiêu chí, điểm số, tháng và thư mục trong bảng tổng hợp để tạo mới từ đầu">
+            🗑️ Xóa Trắng Bảng Điểm (Tạo Mới)
+          </button>
           <button class="btn btn-primary btn-sm" onclick="openCriterionCreateModal()" style="font-weight:700;">
             ➕ Thêm Tiêu Chí Mới
           </button>
@@ -3835,11 +3843,8 @@ function renderAdminCriteriaTab() {
         <select onchange="state.criteriaMonthFilter = Number(this.value); renderApp();">
           <option value="0" ${mf === 0 ? 'selected' : ''}>-- Tất cả các kỳ hạn / tháng (${state.criteria.length} tiêu chí) --</option>
           ${[
-            ...Array.from({length: 12}, (_, i) => [String(i+1), `Tháng ${String(i+1).padStart(2, '0')}/2026`]),
+            ...Array.from({length: 12}, (_, i) => [String(i+1), `Tháng ${String(i+1).padStart(2, '0')}`]),
             ['13', 'Thường xuyên & Cuối năm'],
-            ['14', 'Tháng Thanh niên (Tháng 3)'],
-            ['15', 'Chiến dịch Tình nguyện Hè (Tháng 6-8)'],
-            ['16', 'Đợt thi đua cao điểm 26/3'],
             ...Object.entries(state.monthLabels || {}).filter(([k]) => Number(k) > 16)
           ].map(([k, v]) => {
             const count = state.criteria.filter(c => Number(c.month_group) === Number(k)).length;
@@ -3967,14 +3972,11 @@ window.openCriterionEditModal = function (critId) {
           <div class="form-group">
             <label>Nhóm kỳ hạn / Tháng hoạt động:</label>
             <select id="edit-crit-month">
-              <optgroup label="12 Tháng trong năm 2026">
-                ${Array.from({length: 12}, (_, i) => `<option value="${i+1}" ${Number(c.month_group) === (i+1) ? 'selected' : ''}>Tháng ${String(i+1).padStart(2, '0')}/2026</option>`).join('')}
+              <optgroup label="12 Tháng trong năm">
+                ${Array.from({length: 12}, (_, i) => `<option value="${i+1}" ${Number(c.month_group) === (i+1) ? 'selected' : ''}>Tháng ${String(i+1).padStart(2, '0')}</option>`).join('')}
               </optgroup>
-              <optgroup label="Hoạt động thường xuyên & Đợt cao điểm">
+              <optgroup label="Hoạt động thường xuyên & Cuối năm">
                 <option value="13" ${Number(c.month_group) === 13 ? 'selected' : ''}>Thường xuyên & Cuối năm</option>
-                <option value="14" ${Number(c.month_group) === 14 ? 'selected' : ''}>Tháng Thanh niên (Tháng 3)</option>
-                <option value="15" ${Number(c.month_group) === 15 ? 'selected' : ''}>Chiến dịch Tình nguyện Hè (Tháng 6-8)</option>
-                <option value="16" ${Number(c.month_group) === 16 ? 'selected' : ''}>Đợt thi đua cao điểm 26/3</option>
                 ${Object.entries(state.monthLabels || {})
                   .filter(([k]) => Number(k) > 16)
                   .map(([k, v]) => `<option value="${k}" ${Number(c.month_group) === Number(k) ? 'selected' : ''}>${escapeHtml(v)}</option>`)
@@ -4120,14 +4122,11 @@ window.openCriterionCreateModal = function () {
           <div class="form-group">
             <label>Nhóm kỳ hạn / Tháng hoạt động:</label>
             <select id="new-crit-month" onchange="window.toggleCustomGroupInput(this.value)">
-              <optgroup label="12 Tháng trong năm 2026">
-                ${Array.from({length: 12}, (_, i) => `<option value="${i+1}" ${i+1 === 10 ? 'selected' : ''}>Tháng ${String(i+1).padStart(2, '0')}/2026</option>`).join('')}
+              <optgroup label="12 Tháng trong năm">
+                ${Array.from({length: 12}, (_, i) => `<option value="${i+1}" ${i+1 === 10 ? 'selected' : ''}>Tháng ${String(i+1).padStart(2, '0')}</option>`).join('')}
               </optgroup>
-              <optgroup label="Hoạt động thường xuyên & Đợt cao điểm">
+              <optgroup label="Hoạt động thường xuyên & Cuối năm">
                 <option value="13">Thường xuyên & Cuối năm</option>
-                <option value="14">Tháng Thanh niên (Tháng 3)</option>
-                <option value="15">Chiến dịch Tình nguyện Hè (Tháng 6-8)</option>
-                <option value="16">Đợt thi đua cao điểm 26/3</option>
                 ${Object.entries(state.monthLabels || {})
                   .filter(([k]) => Number(k) > 16)
                   .map(([k, v]) => `<option value="${k}">${escapeHtml(v)}</option>`)
@@ -6055,5 +6054,36 @@ window.reorganizeGoogleDriveFolders = async function() {
     }
   } catch (err) {
     showToast('Lỗi kết nối Google Drive: ' + err.message, 'error');
+  }
+};
+
+
+window.resetAllEvaluationData = async function() {
+  const code = prompt(
+    'CẢNH BÁO NGUY HIỂM:\n\n' +
+    'Thao tác này sẽ XÓA SẠCH TOÀN BỘ tiêu chí, điểm số, kỳ hạn/tháng và các liên kết thư mục trong Bảng tổng hợp chấm điểm để Admin tạo lại từ đầu!\n\n' +
+    'Tài khoản đăng nhập của 40 cơ sở Đoàn và Admin vẫn được giữ nguyên.\n\n' +
+    'Để xác nhận, vui lòng nhập chữ "XOA" vào ô bên dưới:'
+  );
+  if (code !== 'XOA' && code !== 'xoa') {
+    if (code !== null) showToast('Mã xác nhận không đúng. Đã hủy thao tác!', 'info');
+    return;
+  }
+
+  showToast('Đang tiến hành xóa toàn bộ dữ liệu bảng tổng hợp...', 'info');
+  const res = await mutateCloudDB((db) => {
+    db.criteria = [];
+    db.scores = [];
+    db.sample_scores = [];
+    db.logs = [];
+    db.month_labels = {};
+    db.written_reports = [];
+  }, 'Admin reset all evaluation data to start fresh');
+
+  if (res.ok) {
+    showToast('Đã xóa sạch toàn bộ dữ liệu bảng điểm thành công! Bây giờ bạn có thể tạo lại mới từ đầu.', 'success');
+    renderApp();
+  } else {
+    showToast('Lỗi khi xóa dữ liệu!', 'error');
   }
 };
