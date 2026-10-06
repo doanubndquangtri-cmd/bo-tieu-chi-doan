@@ -391,18 +391,40 @@ textarea:focus {
   vertical-align: middle;
 }
 
-/* Row 1: Title Banner */
+/* Row 1: Title Banner - CỐ ĐỊNH CHẮC CHẮN NỀN XANH CHỮ TRẮNG KHÔNG BAO GIỜ BỊ MẤT KHI CUỘN */
 .master-table tr.row-banner th {
-  background: #003d99;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 800;
+  background: #003d99 !important;
+  color: #ffffff !important;
+  font-size: 13.5px !important;
+  font-weight: 800 !important;
   text-align: left;
   padding: 8px 14px;
   height: 38px;
   position: sticky;
-  top: 0;
-  z-index: 40;
+  top: 0 !important;
+  z-index: 60 !important;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+}
+
+.master-table tr.row-banner th.sticky-col-stt {
+  background: #003d99 !important;
+  color: #ffffff !important;
+  left: 0 !important;
+  top: 0 !important;
+  z-index: 65 !important;
+}
+
+.master-table tr.row-banner th.sticky-col-unit,
+.master-table tr.row-banner th.banner-unit-cell {
+  background: #003d99 !important;
+  color: #ffffff !important;
+  left: 42px !important;
+  top: 0 !important;
+  z-index: 65 !important;
+  width: 386px !important;
+  min-width: 386px !important;
+  max-width: none !important;
+  white-space: nowrap !important;
 }
 
 /* Row 2: Criterion Names */
