@@ -1296,7 +1296,7 @@ const state = {
   monthFilter: 0,
   unitMonthFilter: 0,
   searchQuery: '',
-  sortBy: 'order',
+  sortBy: 'score_desc',
   criteriaSearch: '',
   criteriaMonthFilter: 0,
   logFilterUnit: 0,
@@ -1599,6 +1599,7 @@ function ingestCloudDB(db) {
     settings.use_custom_date === '1' && settings.custom_date ? settings.custom_date : realToday;
 
   state.settings = settings;
+  state.admin_docs = db.admin_docs || [];
   const allUsers = db.units || [];
   state.allAccounts = allUsers;
   state.units = allUsers
@@ -2416,6 +2417,7 @@ function renderNavTabs() {
       { id: 'units', label: `👥 Quản Lý Đơn Vị & Tài Khoản (${state.units.length})` },
       { id: 'criteria', label: `⚙️ Quản Lý Bộ Tiêu Chí & Hạn Nộp (${state.criteria.length})` },
       { id: 'ranking', label: '🏆 Bảng Xếp Hạng Thi Đua' },
+      { id: 'admin_docs', label: '📂 Hệ Thống Văn Bản' },
       { id: 'admin_password', label: '🔐 Đổi Mật Khẩu Admin' },
     ];
     return `
@@ -2436,6 +2438,7 @@ function renderNavTabs() {
       { id: 'master', label: '📋 Bảng Tổng Hợp Chấm Điểm (Chỉ Xem)' },
       { id: 'ranking', label: '🏆 Bảng Xếp Hạng Toàn Khối' },
       { id: 'reports', label: '📅 Theo Dõi Báo Cáo Định Kỳ' },
+      { id: 'admin_docs', label: '📂 Hệ Thống Văn Bản' },
     ];
     return `
       <nav class="nav-tabs">
@@ -2456,6 +2459,7 @@ function renderNavTabs() {
       { id: 'master', label: '📋 Xem Bảng Tổng Hợp (Chấm Điểm)' },
       { id: 'reports', label: '📅 Theo Dõi Báo Cáo & Nhật Ký Toàn Đoàn' },
       { id: 'ranking', label: '🏆 Bảng Xếp Hạng Toàn Khối' },
+      { id: 'admin_docs', label: '📂 Hệ Thống Văn Bản' },
       { id: 'unit_password', label: '🔐 Đổi Mật Khẩu Đơn Vị' },
       { id: 'unit_history', label: '🕒 Lịch Sử Đã Nộp' },
     ];
@@ -2492,6 +2496,8 @@ function renderActiveTabContent() {
   switch (state.activeTab) {
     case 'admin_password':
       return renderAdminPasswordTab();
+    case 'admin_docs':
+      return renderAdminDocsTab();
     case 'master':
       return renderMasterTableTab();
     case 'reports':
@@ -2535,8 +2541,16 @@ function getFilteredUnits() {
         u.username.toLowerCase().includes(q)
     );
   }
-  if (state.sortBy === 'score_desc') {
-    list = [...list].sort((a, b) => getUnitTotalScore(b.id) - getUnitTotalScore(a.id));
+  if (state.sortBy === 'order') {
+    list = [...list].sort((a, b) => (a.display_order || 0) - (b.display_order || 0) || a.id - b.id);
+  } else {
+    // Sắp xếp tổng điểm nào cao thì tự động lên đầu tiên. Cứ thế điểm ai cao thì nằm trước.
+    list = [...list].sort((a, b) => {
+      const sA = getUnitTotalScore(a.id);
+      const sB = getUnitTotalScore(b.id);
+      if (Math.abs(sB - sA) > 0.0001) return sB - sA;
+      return (a.display_order || 0) - (b.display_order || 0) || a.id - b.id;
+    });
   }
   return list;
 }
@@ -2621,8 +2635,8 @@ function renderMasterTableTab() {
             style="width: 210px;"
           />
           <select onchange="onSortByChange(this.value)">
-            <option value="order" ${state.sortBy === 'order' ? 'selected' : ''}>Thứ tự chuẩn (1 → ${state.units.length})</option>
-            <option value="score_desc" ${state.sortBy === 'score_desc' ? 'selected' : ''}>Xếp hạng Tổng điểm (Cao → Thấp)</option>
+            <option value="score_desc" ${state.sortBy === 'score_desc' ? 'selected' : ''}>🏆 Xếp hạng Tổng điểm (Cao → Thấp) [Tự động]</option>
+            <option value="order" ${state.sortBy === 'order' ? 'selected' : ''}>Thứ tự đơn vị (1 → ${state.units.length})</option>
           </select>
         </div>
       </div>
@@ -2841,6 +2855,10 @@ window.onAdminInlineScoreChange = async function (inputEl) {
     if (numVal !== null) {
       inputEl.classList.add(numVal < 0 ? 'neg-score' : 'pos-score');
     }
+    // Cập nhật lại xếp hạng tự động nếu đang sắp xếp theo điểm
+    if (state.sortBy !== 'order') {
+      setTimeout(() => renderApp(), 400);
+    }
 
     // Immediately update evidence-dot on the cell
     const cellTd = document.getElementById(`cell-${unitId}-${critId}`);
@@ -3016,10 +3034,12 @@ function renderUnitSubmitTab() {
                 const st = getCriterionStatus(c);
                 const scoreVal = sc && sc.score !== null && sc.score !== '' ? Number(sc.score) : null;
                 const startDate = c.start_date || '2026-01-01';
-                const isActivity = Number(c.is_report) !== 1;
+                const isReport = Number(c.is_report) === 1;
+                const isAdminScore = Number(c.is_report) === 2;
+                const isActivity = !isReport && !isAdminScore;
 
                 return `
-                <tr style="${isActivity ? 'background: #fbfdff;' : ''}">
+                <tr style="${isAdminScore ? 'background: #fbfdff;' : ''}">
                   <td style="text-align:center; font-weight:700; color:#7c2d12; background:#fff7ed;">
                     ${escapeHtml(c.col_label)}
                   </td>
@@ -3030,13 +3050,15 @@ function renderUnitSubmitTab() {
                     <div style="font-weight:600; color:#0f172a; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                       <span>${escapeHtml(c.title)}</span>
                       ${
-                        isActivity
-                          ? `<span class="badge" style="background:#eff6ff; color:#1d4ed8; font-size:11px; border:1px solid #bfdbfe; font-weight:700;">🎯 Hoạt động / Phong trào (Admin chấm)</span>`
-                          : `<span class="badge" style="background:#fef2f2; color:#b91c1c; font-size:11px; border:1px solid #fecaca; font-weight:700;">📋 Báo cáo định kỳ</span>`
+                        isAdminScore
+                          ? `<span class="badge" style="background:#fef3c7; color:#b45309; font-size:11px; border:1px solid #fde68a; font-weight:700;">👑 Admin tự chấm điểm</span>`
+                          : isReport
+                          ? `<span class="badge" style="background:#fef2f2; color:#b91c1c; font-size:11px; border:1px solid #fecaca; font-weight:700;">📋 Báo cáo định kỳ</span>`
+                          : `<span class="badge" style="background:#eff6ff; color:#1d4ed8; font-size:11px; border:1px solid #bfdbfe; font-weight:700;">🎯 Hoạt động / Phong trào (Tự động chấm)</span>`
                       }
                     </div>
                     ${
-                      isActivity
+                      isAdminScore
                         ? (sc && (sc.report_content || sc.admin_note)
                             ? `<div style="margin-top:4px; font-size:12px; color:#0369a1;">
                                 👑 <b>Nhận xét của Admin:</b> ${escapeHtml(sc.admin_note || sc.report_content)}
@@ -3061,7 +3083,7 @@ function renderUnitSubmitTab() {
                   </td>
                   <td style="text-align:center;">
                     ${
-                      isActivity
+                      isAdminScore
                         ? (scoreVal !== null
                             ? `<span class="badge badge-success">✅ Admin đã chấm</span>`
                             : `<span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;">🔒 Admin tự chấm</span>`)
@@ -3073,15 +3095,15 @@ function renderUnitSubmitTab() {
                   </td>
                   <td style="text-align:center;">
                     ${
-                      isActivity
+                      isAdminScore
                         ? (scoreVal !== null || (sc && (sc.report_content || sc.admin_note))
                             ? `<button class="btn btn-sm btn-outline" onclick="openSubmissionDetailModal(${unit.id}, ${c.id})" style="font-size:12px; font-weight:600; color:#0052cc;">
                                 👁️ Xem điểm
                               </button>`
                             : `<span style="font-size:12px; color:#64748b; font-style:italic;">🔒 Chờ Admin chấm</span>`)
                         : (st.canSubmit
-                            ? `<button class="btn btn-sm ${sc ? 'btn-outline' : 'btn-primary'}" onclick="openUnitSubmitModal(${c.id})" style="font-weight:700;">
-                                ${sc ? '✏️ Cập nhật' : '📤 Nộp báo cáo'}
+                            ? `<button class="btn btn-sm ${sc ? 'btn-outline' : (isActivity ? 'btn-success' : 'btn-primary')}" onclick="openUnitSubmitModal(${c.id})" style="font-weight:700;">
+                                ${sc ? '✏️ Cập nhật' : (isActivity ? '📤 Nộp minh chứng' : '📤 Nộp báo cáo')}
                               </button>`
                             : `<button class="btn btn-sm btn-outline" onclick="openUnitSubmitModal(${c.id})" style="opacity:0.85; font-size:12px; font-weight:600;" title="${st.label}">
                                 ${sc ? '👁️ Xem bài nộp' : '🔒 ' + st.label}
@@ -3114,10 +3136,11 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
   if (!crit) return;
 
   const isAdmin = state.user && state.user.role === 'admin';
-  const isActivity = Number(crit.is_report) !== 1;
+  const isAdminScore = Number(crit.is_report) === 2;
+  const isActivityCrit = Number(crit.is_report) === 0;
 
-  if (isActivity && !isAdmin) {
-    showToast('Tiêu chí này thuộc phần Hoạt động / Phong trào do Admin tự chấm điểm. Đơn vị không tự nhập điểm hoặc nộp tài liệu!', 'info');
+  if (isAdminScore && !isAdmin) {
+    showToast('Tiêu chí này thuộc phần Admin tự chấm điểm. Đơn vị không tự nhập điểm hoặc nộp tài liệu!', 'info');
     openSubmissionDetailModal(unitId, criterionId);
     return;
   }
@@ -3155,6 +3178,11 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
           <button class="btn btn-sm btn-outline" onclick="closeModal()">✕</button>
         </div>
         <div class="modal-body">
+          ${isActivityCrit ? `
+            <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:8px 12px; margin-bottom:12px; font-size:12.5px; color:#1e40af; font-weight:600;">
+              ⚡ <b>Tiêu chí Hoạt động / Phong trào:</b> Điểm số sẽ được hệ thống <b>tự động ghi nhận (${crit.max_score} điểm)</b> ngay khi đơn vị nộp đầy đủ minh chứng!
+            </div>
+          ` : ''}
           <div style="padding:12px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; margin-bottom:14px;">
             <div style="font-size:12px; color:#475569; margin-bottom:4px;">
               Đơn vị: <b>${escapeHtml(unit.unit_name)}</b> • Kỳ: <b>${escapeHtml(crit.month_label)}</b>
@@ -3442,10 +3470,11 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
   const startDate = crit.start_date || '2026-01-01';
   const isAdmin = state.user && state.user.role === 'admin';
   const isUnlocked = Number(crit.lock_override) === 1;
-  const isActivity = Number(crit.is_report) !== 1;
+  const isAdminScore = Number(crit.is_report) === 2;
+  const isActivityCrit = Number(crit.is_report) === 0;
 
-  if (isActivity && !isAdmin) {
-    showToast('Tiêu chí này thuộc phần Hoạt động / Phong trào do Admin tự chấm điểm. Đơn vị không thể tự nộp!', 'error');
+  if (isAdminScore && !isAdmin) {
+    showToast('Tiêu chí này thuộc phần Admin tự chấm điểm. Đơn vị không thể tự nộp!', 'error');
     return;
   }
 
@@ -3467,7 +3496,11 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
 
   const qtyEl = document.getElementById('sub-quantity');
   const quantity = qtyEl ? Number(qtyEl.value || 1) : 1;
-  const requestedScore = Number(document.getElementById('sub-score').value || 0);
+  let requestedScore = Number(document.getElementById('sub-score').value || 0);
+  // Tự động chấm điểm tối đa cho Hoạt động / Phong trào nếu chưa điền điểm
+  if (isActivityCrit && (!requestedScore || requestedScore <= 0)) {
+    requestedScore = Number(crit.max_score);
+  }
   const reportContent = document.getElementById('sub-content').value.trim();
   const evidenceLink = document.getElementById('sub-link').value.trim();
 
@@ -4657,10 +4690,12 @@ function renderAdminCriteriaTab() {
                 <td><span class="badge badge-info">${escapeHtml(c.month_label)}</span></td>
                 <td style="font-weight:600; line-height:1.4;">${escapeHtml(c.title)}</td>
                 <td style="text-align:center;">
-                  ${Number(c.is_report) === 1
-                    ? '<span class="badge badge-success" title="Hiển thị trong bảng Theo Dõi Báo Cáo">📋 Báo cáo</span>'
-                    : '<span class="badge" style="background:#f1f5f9; color:#475569;" title="Chỉ tính điểm hoạt động">🎯 Hoạt động</span>'
-                  }
+                  ${(() => {
+                    const rep = Number(c.is_report);
+                    if (rep === 1) return '<span class="badge badge-success" title="Hiển thị trong bảng Theo Dõi Báo Cáo">📋 Báo cáo</span>';
+                    if (rep === 2) return '<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;" title="Ban Thường vụ tự chấm điểm">👑 Admin chấm</span>';
+                    return '<span class="badge" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-weight:700;" title="Đơn vị nộp - Tự động chấm điểm">🎯 Hoạt động</span>';
+                  })()}
                 </td>
                 <td style="font-size:12px; white-space:pre-line;">${escapeHtml(c.points_text || c.max_score + ' điểm')}</td>
                 <td style="text-align:center; font-weight:700; color:#0052cc;">${c.max_score}</td>
@@ -4750,14 +4785,16 @@ window.openCriterionEditModal = function (critId) {
           </div>
 
           <div class="form-group" style="background:#f8fafc; padding:12px; border-radius:8px; border:1px solid #cbd5e1; margin-bottom:14px;">
-            <label style="font-weight:700; color:#0f172a;">📌 Phân loại Tiêu chí / Báo cáo:</label>
+            <label style="font-weight:700;">📌 Phân loại Tiêu chí / Báo cáo:</label>
             <select id="edit-crit-is-report" style="font-weight:600; font-size:13.5px; padding:6px 10px;">
-              <option value="0" ${Number(c.is_report) !== 1 ? 'selected' : ''}>🎯 Hoạt động / Phong trào (Admin tự chấm điểm - Đơn vị không nhập điểm/tài liệu)</option>
+              <option value="0" ${Number(c.is_report) === 0 ? 'selected' : ''}>🎯 Hoạt động / Phong trào (Đơn vị nộp minh chứng - Tự động chấm điểm)</option>
               <option value="1" ${Number(c.is_report) === 1 ? 'selected' : ''}>📋 Báo cáo định kỳ (Đơn vị nộp báo cáo & tài liệu - Theo dõi tiến độ)</option>
+              <option value="2" ${Number(c.is_report) === 2 ? 'selected' : ''}>👑 Admin tự chấm điểm (Ban Thường vụ tự chấm - Đơn vị không nhập điểm/tài liệu)</option>
             </select>
             <small style="color:#64748b; margin-top:4px; display:block; font-size:12px; line-height:1.4;">
-              💡 <b>Hoạt động / Phong trào:</b> Admin (Ban Thường vụ) tự đánh giá và chấm điểm trực tiếp. Đơn vị cơ sở đoàn KHÔNG THỂ nhập điểm hay nộp tài liệu ở mục này.<br/>
-              💡 <b>Báo cáo định kỳ:</b> Đơn vị cơ sở đoàn sẽ tự kê khai điểm, nộp báo cáo và đính kèm tài liệu minh chứng, đồng thời xuất hiện trong bảng <i>Theo Dõi Nộp Báo Cáo Của Các Đơn Vị</i>.
+              💡 <b>Hoạt động / Phong trào:</b> Đơn vị tham gia nộp tài liệu / minh chứng hoạt động, hệ thống tự động ghi nhận và tự động chấm điểm.<br/>
+              💡 <b>Báo cáo định kỳ:</b> Đơn vị tự kê khai điểm, nộp báo cáo & tài liệu, xuất hiện trong bảng <i>Theo Dõi Nộp Báo Cáo</i>.<br/>
+              💡 <b>Admin tự chấm điểm:</b> Ban Thường vụ (Admin) tự đánh giá và chấm điểm trực tiếp. Đơn vị đoàn KHÔNG THỂ nhập điểm hay nộp tài liệu ở mục này.
             </small>
           </div>
 
@@ -4888,14 +4925,16 @@ window.openCriterionCreateModal = function () {
           </div>
 
           <div class="form-group" style="background:#f8fafc; padding:12px; border-radius:8px; border:1px solid #cbd5e1; margin-bottom:14px;">
-            <label style="font-weight:700; color:#0f172a;">📌 Phân loại Tiêu chí / Báo cáo:</label>
+            <label style="font-weight:700;">📌 Phân loại Tiêu chí / Báo cáo:</label>
             <select id="new-crit-is-report" style="font-weight:600; font-size:13.5px; padding:6px 10px;">
-              <option value="0">🎯 Hoạt động / Phong trào (Admin tự chấm điểm - Đơn vị không nhập điểm/tài liệu)</option>
+              <option value="0" selected>🎯 Hoạt động / Phong trào (Đơn vị nộp minh chứng - Tự động chấm điểm)</option>
               <option value="1">📋 Báo cáo định kỳ (Đơn vị nộp báo cáo & tài liệu - Theo dõi tiến độ)</option>
+              <option value="2">👑 Admin tự chấm điểm (Ban Thường vụ tự chấm - Đơn vị không nhập điểm/tài liệu)</option>
             </select>
             <small style="color:#64748b; margin-top:4px; display:block; font-size:12px; line-height:1.4;">
-              💡 <b>Hoạt động / Phong trào:</b> Admin (Ban Thường vụ) tự đánh giá và chấm điểm trực tiếp. Đơn vị cơ sở đoàn KHÔNG THỂ nhập điểm hay nộp tài liệu ở mục này.<br/>
-              💡 <b>Báo cáo định kỳ:</b> Đơn vị cơ sở đoàn sẽ tự kê khai điểm, nộp báo cáo và đính kèm tài liệu minh chứng, đồng thời xuất hiện trong bảng <i>Theo Dõi Nộp Báo Cáo Của Các Đơn Vị</i>.
+              💡 <b>Hoạt động / Phong trào:</b> Đơn vị tham gia nộp tài liệu / minh chứng hoạt động, hệ thống tự động ghi nhận và tự động chấm điểm.<br/>
+              💡 <b>Báo cáo định kỳ:</b> Đơn vị tự kê khai điểm, nộp báo cáo & tài liệu, xuất hiện trong bảng <i>Theo Dõi Nộp Báo Cáo</i>.<br/>
+              💡 <b>Admin tự chấm điểm:</b> Ban Thường vụ (Admin) tự đánh giá và chấm điểm trực tiếp. Đơn vị đoàn KHÔNG THỂ nhập điểm hay nộp tài liệu ở mục này.
             </small>
           </div>
 
@@ -6310,9 +6349,12 @@ function renderMasterMobileCardsView(activeUnits, filteredCriteria, isAdmin, mon
                       <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; padding-top:6px; border-top:1px dashed #e2e8f0; flex-wrap:wrap; gap:6px;">
                         <div>
                           ${(() => {
-                            const isActivity = Number(c.is_report) !== 1;
-                            if (isActivity) {
-                              return `<span style="font-size:11px; color:#0369a1; font-weight:700; background:#e0f2fe; padding:2px 6px; border-radius:4px; border:1px solid #bae6fd;">🎯 Hoạt động / Phong trào (Admin chấm)</span>`;
+                            const rep = Number(c.is_report);
+                            if (rep === 2) {
+                              return `<span style="font-size:11px; color:#b45309; font-weight:700; background:#fef3c7; padding:2px 6px; border-radius:4px; border:1px solid #fde68a;">👑 Admin tự chấm điểm</span>`;
+                            }
+                            if (rep === 0) {
+                              return `<span style="font-size:11px; color:#0369a1; font-weight:700; background:#e0f2fe; padding:2px 6px; border-radius:4px; border:1px solid #bae6fd;">🎯 Hoạt động / Phong trào (Tự động chấm)</span>`;
                             }
                             return hasProof ? `
                               <span style="font-size:11px; color:#16a34a; font-weight:700; background:#dcfce7; padding:2px 6px; border-radius:4px;">
@@ -6336,9 +6378,9 @@ function renderMasterMobileCardsView(activeUnits, filteredCriteria, isAdmin, mon
                               ✏️ Chấm Điểm
                             </button>
                           ` : (u.id === (state.user && state.user.id) ? (
-                            Number(c.is_report) !== 1 ? '' : `
+                            Number(c.is_report) === 2 ? '' : `
                             <button class="btn btn-sm btn-success" onclick="openUnitSubmitModal(${c.id}, ${u.id})" style="font-size:11.5px; padding:3px 8px; font-weight:700;">
-                              📤 Nộp Báo Cáo
+                              ${Number(c.is_report) === 0 ? '📤 Nộp Minh Chứng' : '📤 Nộp Báo Cáo'}
                             </button>
                           `) : '')}
                         </div>
@@ -6354,6 +6396,273 @@ function renderMasterMobileCardsView(activeUnits, filteredCriteria, isAdmin, mon
     </div>
   `;
 }
+
+// ============================================================================
+// HỆ THỐNG VĂN BẢN & CHỈ ĐẠO BAN THƯỜNG VỤ ĐOÀN (GOOGLE DRIVE)
+// Thư mục lưu trữ: https://drive.google.com/drive/u/9/folders/1F5CdyDTQGUf0C21o7CCCAZkMOjgRKRJK
+// ============================================================================
+const ADMIN_DOCS_GDRIVE_URL = 'https://drive.google.com/drive/u/9/folders/1F5CdyDTQGUf0C21o7CCCAZkMOjgRKRJK';
+
+function renderAdminDocsTab() {
+  const isAdmin = state.user && state.user.role === 'admin';
+  const docs = (state.admin_docs || []).slice().reverse();
+
+  return `
+    <div class="panel">
+      <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; background:linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color:#fff; border-radius:10px 10px 0 0; padding:14px 18px;">
+        <div>
+          <div class="panel-title" style="font-size:17px; font-weight:800; display:flex; align-items:center; gap:8px;">
+            📂 HỆ THỐNG VĂN BẢN & CHỈ ĐẠO ĐOÀN CẤP TRÊN
+          </div>
+          <div style="font-size:12.5px; opacity:0.9; margin-top:3px;">
+            Lưu trữ tập trung các Văn bản, Kế hoạch, Hướng dẫn, Thông báo chính thức trên Google Drive
+          </div>
+        </div>
+
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <a href="${ADMIN_DOCS_GDRIVE_URL}" target="_blank" class="btn btn-warning" style="font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(0,0,0,0.15); background:#f59e0b; color:#fff; border:none; padding:8px 14px; border-radius:6px;">
+            🔗 Mở Thư Mục Google Drive
+          </a>
+        </div>
+      </div>
+
+      <div class="panel-body" style="padding:18px;">
+        <div style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:12px 16px; margin-bottom:18px; display:flex; align-items:flex-start; gap:10px;">
+          <div style="font-size:20px;">ℹ️</div>
+          <div style="font-size:13px; color:#0369a1; line-height:1.5;">
+            <b>Quy định lưu trữ:</b> Thư mục này chứa tất cả văn bản, tài liệu, quyết định và kế hoạch do <b>Ban Thường vụ (Admin)</b> đăng tải lên. Chỉ có Admin mới có quyền tải lên và quản lý thư mục này. Các cơ sở Đoàn có thể tra cứu và tải tài liệu về để triển khai thực hiện.
+          </div>
+        </div>
+
+        ${isAdmin ? `
+        <!-- Form tải lên tài liệu mới dành cho Admin -->
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:16px 20px; margin-bottom:24px; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+          <div style="font-weight:800; font-size:15px; color:#0f172a; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+            📤 Đăng Tải Văn Bản Mới Lên Google Drive
+          </div>
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-bottom:14px;">
+            <div>
+              <label style="font-size:12px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Số / Ký hiệu văn bản:</label>
+              <input type="text" id="admin-doc-number" placeholder="VD: 15-HD/ĐTN, 02-KH/ĐTN..." style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;" />
+            </div>
+            <div>
+              <label style="font-size:12px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Ngày ban hành:</label>
+              <input type="date" id="admin-doc-date" value="${todayISO()}" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;" />
+            </div>
+            <div>
+              <label style="font-size:12px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Loại văn bản:</label>
+              <select id="admin-doc-type" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                <option value="Hướng dẫn">Hướng dẫn</option>
+                <option value="Kế hoạch">Kế hoạch</option>
+                <option value="Thông báo">Thông báo</option>
+                <option value="Quyết định">Quyết định</option>
+                <option value="Công văn">Công văn</option>
+                <option value="Tài liệu khác">Tài liệu khác</option>
+              </select>
+            </div>
+          </div>
+          <div style="margin-bottom:14px;">
+            <label style="font-size:12px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Trích yếu / Tên nội dung văn bản (*):</label>
+            <input type="text" id="admin-doc-title" placeholder="VD: Hướng dẫn thực hiện Bộ tiêu chí đánh giá công tác Đoàn năm 2026..." style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;" />
+          </div>
+          <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+            <div style="flex:1; min-width:240px;">
+              <input type="file" id="admin-doc-file" style="font-size:13px;" />
+            </div>
+            <button class="btn btn-primary" id="btn-upload-admin-doc" onclick="uploadAdminDocument()" style="font-weight:700; padding:9px 18px; display:inline-flex; align-items:center; gap:6px;">
+              🚀 Đăng Tải Lên Google Drive
+            </button>
+          </div>
+        </div>
+        ` : ''}
+
+        <!-- Danh sách văn bản -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+          <div style="font-weight:800; font-size:15px; color:#0f172a;">
+            📋 Danh Sách Văn Bản & Tài Liệu Chỉ Đạo (${docs.length})
+          </div>
+          <div style="position:relative;">
+            <input type="text" id="admin-doc-search" oninput="filterAdminDocs(this.value)" placeholder="🔍 Tìm kiếm văn bản..." style="padding:6px 10px 6px 30px; font-size:13px; border:1px solid #cbd5e1; border-radius:6px; width:240px;" />
+            <span style="position:absolute; left:8px; top:7px; color:#94a3b8; font-size:12px;">🔍</span>
+          </div>
+        </div>
+
+        <div class="table-container" style="background:#fff; border-radius:8px; border:1px solid #e2e8f0; overflow-x:auto;">
+          <table class="table" id="admin-docs-table" style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead>
+              <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0;">
+                <th style="width:50px; text-align:center;">STT</th>
+                <th style="width:120px;">Số / Ký hiệu</th>
+                <th style="width:110px; text-align:center;">Ngày ban hành</th>
+                <th>Trích yếu nội dung văn bản</th>
+                <th style="width:110px; text-align:center;">Loại văn bản</th>
+                <th style="width:160px; text-align:center;">Tệp đính kèm</th>
+                <th style="width:130px; text-align:center;">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${docs.length === 0 ? `
+                <tr>
+                  <td colspan="7" style="text-align:center; padding:30px; color:#94a3b8; font-style:italic;">
+                    Chưa có văn bản nào được đăng tải. Bạn có thể bấm "Mở Thư Mục Google Drive" để xem trên Drive.
+                  </td>
+                </tr>
+              ` : docs.map((d, idx) => `
+                <tr style="border-bottom:1px solid #f1f5f9;" class="admin-doc-row">
+                  <td style="text-align:center; font-weight:700; color:#64748b;">${idx + 1}</td>
+                  <td style="font-weight:700; color:#0369a1;" class="doc-num-cell">${escapeHtml(d.doc_number || '-')}</td>
+                  <td style="text-align:center; color:#475569;">${formatDateVN(d.doc_date || todayISO())}</td>
+                  <td style="font-weight:600; color:#0f172a; line-height:1.4;" class="doc-title-cell">${escapeHtml(d.title || d.file_name)}</td>
+                  <td style="text-align:center;"><span class="badge badge-info">${escapeHtml(d.doc_type || 'Văn bản')}</span></td>
+                  <td style="text-align:center;">
+                    <a href="${escapeHtml(d.file_url || ADMIN_DOCS_GDRIVE_URL)}" target="_blank" style="font-weight:700; color:#0284c7; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
+                      📎 ${escapeHtml(d.file_name || 'Xem tệp')}
+                    </a>
+                  </td>
+                  <td style="text-align:center;">
+                    <a href="${escapeHtml(d.file_url || ADMIN_DOCS_GDRIVE_URL)}" target="_blank" class="btn btn-sm btn-outline" style="padding:3px 8px; font-size:11.5px; font-weight:700; color:#0284c7; text-decoration:none;">
+                      👁️ Xem
+                    </a>
+                    ${isAdmin ? `
+                      <button class="btn btn-sm btn-danger" onclick="deleteAdminDocument('${d.id}')" style="padding:3px 6px; font-size:11.5px; margin-left:4px;" title="Xóa văn bản này">
+                        🗑️
+                      </button>
+                    ` : ''}
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+window.uploadAdminDocument = async function () {
+  const fileInput = document.getElementById('admin-doc-file');
+  const titleInput = document.getElementById('admin-doc-title');
+  const numberInput = document.getElementById('admin-doc-number');
+  const dateInput = document.getElementById('admin-doc-date');
+  const typeInput = document.getElementById('admin-doc-type');
+  const btn = document.getElementById('btn-upload-admin-doc');
+
+  const title = (titleInput ? titleInput.value : '').trim();
+  const docNumber = (numberInput ? numberInput.value : '').trim();
+  const docDate = (dateInput ? dateInput.value : '') || todayISO();
+  const docType = typeInput ? typeInput.value : 'Hướng dẫn';
+
+  if (!title) {
+    showToast('Vui lòng nhập trích yếu / tên nội dung văn bản!', 'error');
+    if (titleInput) titleInput.focus();
+    return;
+  }
+
+  const file = fileInput && fileInput.files && fileInput.files[0];
+  if (!file) {
+    showToast('Vui lòng chọn tệp văn bản đính kèm!', 'error');
+    return;
+  }
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Đang tải lên Google Drive...';
+  }
+  showToast('Đang tải văn bản lên thư mục Hệ Thống Văn Bản Google Drive...', 'info');
+
+  try {
+    const b64 = await readFileAsDataURL(file);
+    const gdriveUrl = getGoogleDriveScriptUrl();
+    let fileUrl = ADMIN_DOCS_GDRIVE_URL;
+
+    if (gdriveUrl) {
+      try {
+        const payload = {
+          action: 'admin_upload_doc',
+          isAdminDoc: true,
+          fileName: file.name,
+          docTitle: title,
+          docNumber: docNumber,
+          fileData: b64,
+          folderId: '1F5CdyDTQGUf0C21o7CCCAZkMOjgRKRJK'
+        };
+        const res = await fetch(gdriveUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload)
+        });
+        const json = await res.json();
+        if (json && json.fileUrl) {
+          fileUrl = json.fileUrl;
+        }
+      } catch (e) {
+        console.warn('Google Drive direct upload notice:', e);
+      }
+    }
+
+    const docId = 'doc_' + Date.now();
+    const newDoc = {
+      id: docId,
+      doc_number: docNumber,
+      doc_date: docDate,
+      doc_type: docType,
+      title: title,
+      file_name: file.name,
+      file_url: fileUrl,
+      file_size: file.size,
+      uploaded_at: nowISO(),
+      uploaded_by: 'admin'
+    };
+
+    const resDb = await mutateCloudDB((db) => {
+      db.admin_docs = db.admin_docs || [];
+      db.admin_docs.push(newDoc);
+    }, 'Admin upload document ' + title);
+
+    if (resDb.ok) {
+      showToast('Đã đăng tải văn bản thành công lên Hệ Thống Văn Bản Google Drive!', 'success');
+      state.admin_docs = state.admin_docs || [];
+      state.admin_docs.push(newDoc);
+      renderApp();
+    } else {
+      showToast('Lỗi khi lưu dữ liệu văn bản vào cơ sở dữ liệu!', 'error');
+    }
+  } catch (err) {
+    showToast('Lỗi tải văn bản: ' + err.message, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '🚀 Đăng Tải Lên Google Drive';
+    }
+  }
+};
+
+window.deleteAdminDocument = async function (docId) {
+  if (!confirm('Bạn có chắc chắn muốn xóa văn bản này khỏi danh mục hệ thống?')) return;
+  const res = await mutateCloudDB((db) => {
+    db.admin_docs = (db.admin_docs || []).filter((d) => d.id !== docId);
+  }, 'Admin delete document ' + docId);
+  if (res.ok) {
+    showToast('Đã xóa văn bản khỏi danh mục!', 'success');
+    state.admin_docs = (state.admin_docs || []).filter((d) => d.id !== docId);
+    renderApp();
+  }
+};
+
+window.filterAdminDocs = function (query) {
+  const q = (query || '').toLowerCase().trim();
+  const rows = document.querySelectorAll('.admin-doc-row');
+  rows.forEach((r) => {
+    const numCell = r.querySelector('.doc-num-cell');
+    const titleCell = r.querySelector('.doc-title-cell');
+    const text = ((numCell ? numCell.textContent : '') + ' ' + (titleCell ? titleCell.textContent : '')).toLowerCase();
+    if (!q || text.includes(q)) {
+      r.style.display = '';
+    } else {
+      r.style.display = 'none';
+    }
+  });
+};
 
   </script>
 </body>
