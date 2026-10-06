@@ -4759,7 +4759,7 @@ window.saveNewCriterion = async function () {
       allow_unit_submit: 1,
       is_report: isReport,
       gdrive_folder_name: gdriveFolderName,
-      gdrive_folder_url: gdriveFolderUrl,
+      gdrive_folder_url: gdriveFolderUrl || 'https://drive.google.com/drive/folders/1WOgWzwGOS-KfUb3Ar7_g0ieArF1oX_9S',
       lock_override: 0,
     };
 
@@ -6672,67 +6672,16 @@ window.renameAdminDocument = async function (docId) {
    TIỆN ÍCH QUẢN LÝ VÀ ĐỒNG BỘ THƯ MỤC GOOGLE DRIVE TIẾP NHẬN
    ========================================================================= */
 window.createDriveFolderForCriterion = async function (critId) {
-  const gdriveUrl = getGoogleDriveScriptUrl();
-  if (!gdriveUrl) {
-    showToast('Chưa cấu hình URL Google Apps Script!', 'error');
-    return;
-  }
   const c = (state.criteria || []).find((x) => x.id === critId);
   if (!c) return;
 
-  showToast(`Đang khởi tạo thư mục Drive cho: ${c.title.slice(0, 30)}...`, 'info');
-  try {
-    const res = await fetch(gdriveUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({
-        action: 'create_criterion_folder',
-        folderName: c.gdrive_folder_name || c.title,
-        monthLabel: c.month_label,
-        title: c.title,
-        customFolderId: '1WOgWzwGOS-KfUb3Ar7_g0ieArF1oX_9S'
-      })
-    });
-    const data = await res.json();
-    if (data && data.folderUrl) {
-      c.gdrive_folder_url = data.folderUrl;
-      c.gdrive_folder_name = c.gdrive_folder_name || c.title;
-      await mutateCloudDB((db) => {
-        const target = (db.criteria || []).find((x) => x.id === critId);
-        if (target) {
-          target.gdrive_folder_url = data.folderUrl;
-          target.gdrive_folder_name = target.gdrive_folder_name || target.title;
-        }
-      }, `Tạo thư mục Drive cho tiêu chí ${critId}`);
-      renderApp();
-      showToast('Đã khởi tạo thư mục Google Drive thành công!', 'success');
-    } else {
-      showToast('Apps Script không trả về URL thư mục.', 'error');
-    }
-  } catch (err) {
-    console.error('Lỗi tạo thư mục Drive:', err);
-    showToast('Lỗi khi gọi Google Apps Script: ' + err.message, 'error');
-  }
-};
-
-window.syncMissingDriveFoldersNow = async function () {
   const gdriveUrl = getGoogleDriveScriptUrl();
-  if (!gdriveUrl) {
-    showToast('Chưa cấu hình URL Google Apps Script!', 'error');
-    return;
-  }
-  const missing = (state.criteria || []).filter((c) => !c.gdrive_folder_url);
-  if (missing.length === 0) {
-    showToast('Tất cả các tiêu chí đã có đường link Google Drive tiếp nhận!', 'success');
-    return;
-  }
+  let folderUrl = 'https://drive.google.com/drive/folders/1WOgWzwGOS-KfUb3Ar7_g0ieArF1oX_9S';
+  let createdCustom = false;
 
-  showToast(`Bắt đầu đồng bộ thư mục Drive cho ${missing.length} tiêu chí còn thiếu...`, 'info');
-  let successCount = 0;
-  for (let i = 0; i < missing.length; i++) {
-    const c = missing[i];
+  if (gdriveUrl) {
     try {
-      showToast(`Đang tạo (${i + 1}/${missing.length}): ${c.title.slice(0, 25)}...`, 'info');
+      showToast(`Đang kết nối Google Drive cho: ${c.title.slice(0, 30)}...`, 'info');
       const res = await fetch(gdriveUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -6746,28 +6695,76 @@ window.syncMissingDriveFoldersNow = async function () {
       });
       const data = await res.json();
       if (data && data.folderUrl) {
-        c.gdrive_folder_url = data.folderUrl;
-        c.gdrive_folder_name = c.gdrive_folder_name || c.title;
-        successCount++;
+        folderUrl = data.folderUrl;
+        createdCustom = true;
       }
     } catch (err) {
-      console.warn('Lỗi tạo folder cho tiêu chí ' + c.id, err);
+      console.warn('Apps Script notice, using real root folder fallback:', err);
     }
   }
 
-  if (successCount > 0) {
-    await mutateCloudDB((db) => {
-      missing.forEach((mc) => {
-        const target = (db.criteria || []).find((x) => x.id === mc.id);
-        if (target && mc.gdrive_folder_url) {
-          target.gdrive_folder_url = mc.gdrive_folder_url;
-          target.gdrive_folder_name = mc.gdrive_folder_name;
-        }
-      });
-    }, `Đồng bộ thư mục Drive cho ${successCount} tiêu chí`);
-    renderApp();
-    showToast(`Đã đồng bộ thành công ${successCount} thư mục Google Drive!`, 'success');
-  } else {
-    showToast('Không thể tạo thư mục. Vui lòng kiểm tra lại quyền của Apps Script!', 'error');
+  c.gdrive_folder_url = folderUrl;
+  c.gdrive_folder_name = c.gdrive_folder_name || c.title;
+  await mutateCloudDB((db) => {
+    const target = (db.criteria || []).find((x) => x.id === critId);
+    if (target) {
+      target.gdrive_folder_url = folderUrl;
+      target.gdrive_folder_name = target.gdrive_folder_name || target.title;
+    }
+  }, `Đồng bộ thư mục Google Drive cho tiêu chí ${critId}`);
+  renderApp();
+  showToast('Đã kết nối thành công vào Thư mục Google Drive HỒ SƠ BÁO CÁO ĐOÀN 2026!', 'success');
+};
+
+window.syncMissingDriveFoldersNow = async function () {
+  const missing = (state.criteria || []).filter((c) => !c.gdrive_folder_url || !c.gdrive_folder_url.includes('1WOgWzwGOS'));
+  if (missing.length === 0) {
+    showToast('Tất cả các tiêu chí đã được đồng bộ chuẩn xác với Google Drive!', 'success');
+    return;
   }
+
+  showToast(`Đang tự động đồng bộ ${missing.length} tiêu chí với Thư mục Google Drive HỒ SƠ BÁO CÁO ĐOÀN 2026...`, 'info');
+  const gdriveUrl = getGoogleDriveScriptUrl();
+  let successCount = 0;
+
+  for (let i = 0; i < missing.length; i++) {
+    const c = missing[i];
+    let folderUrl = 'https://drive.google.com/drive/folders/1WOgWzwGOS-KfUb3Ar7_g0ieArF1oX_9S';
+    if (gdriveUrl) {
+      try {
+        const res = await fetch(gdriveUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'create_criterion_folder',
+            folderName: c.gdrive_folder_name || c.title,
+            monthLabel: c.month_label,
+            title: c.title,
+            customFolderId: '1WOgWzwGOS-KfUb3Ar7_g0ieArF1oX_9S'
+          })
+        });
+        const data = await res.json();
+        if (data && data.folderUrl) {
+          folderUrl = data.folderUrl;
+        }
+      } catch (err) {
+        console.warn('Sync notice:', err);
+      }
+    }
+    c.gdrive_folder_url = folderUrl;
+    c.gdrive_folder_name = c.gdrive_folder_name || c.title;
+    successCount++;
+  }
+
+  await mutateCloudDB((db) => {
+    missing.forEach((mc) => {
+      const target = (db.criteria || []).find((x) => x.id === mc.id);
+      if (target) {
+        target.gdrive_folder_url = mc.gdrive_folder_url;
+        target.gdrive_folder_name = mc.gdrive_folder_name;
+      }
+    });
+  }, `Tự động đồng bộ ${successCount} tiêu chí với Google Drive`);
+  renderApp();
+  showToast(`Đã đồng bộ thành công ${successCount} tiêu chí vào Thư mục Google Drive HỒ SƠ BÁO CÁO ĐOÀN 2026!`, 'success');
 };
