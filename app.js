@@ -520,7 +520,7 @@ async function fetchCloudDB() {
   return { sha: meta.sha, db };
 }
 
-const DEFAULT_GDRIVE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbygY7PYSIWMD60Dz4gGIYGNUCHoZu2r3vO9qFNjTvM60G5klsG2ho4MY509CJs6flHjCg/exec';
+const DEFAULT_GDRIVE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz8IFWbS2ntXPOG4phot9PnF3C4REwi5gqdZIWe304v5tMlB-PSX-PngjDVQbeh6AqX/exec';
 
 function getGoogleDriveScriptUrl() {
   if (state.settings && state.settings.gdrive_script_url && state.settings.gdrive_script_url.trim()) {
