@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Hệ Thống Quản Lý & Tổng Hợp Bộ Tiêu Chí Đoàn Cấp Cơ Sở Năm 2026</title>
+  <title>Hệ Thống Quản Lý & Tổng Hợp Bộ Tiêu Chí Đoàn Cấp Cơ Sở</title>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
 :root {
@@ -1908,6 +1908,9 @@ async function uploadFileToCloud(fileDataB64, origName, unitId, critId, onProgre
             showToast('Đã lưu file thành công vào Google Drive!', 'success');
           }
           return { fileName: origName, fileUrl: data.fileUrl };
+        } else if (data.status === 'error') {
+          console.error('Google Drive Script Error:', data.message);
+          showToast('⚠️ Google Drive: ' + (data.message || 'Lỗi script'), 'warning');
         }
       }
     } catch (gErr) {
@@ -5431,6 +5434,9 @@ function renderAdminCriteriaTab() {
           <button class="btn btn-danger btn-sm" onclick="resetAllEvaluationData()" style="font-weight:700; background:#dc2626; color:#fff;" title="Xóa toàn bộ tiêu chí, điểm số, tháng và thư mục trong bảng tổng hợp để tạo mới từ đầu">
             🗑️ Xóa Trắng Bảng Điểm (Tạo Mới)
           </button>
+          <button class="btn btn-sm" onclick="syncAllToDriveNow()" style="font-weight:700; background:#059669; color:#fff; display:inline-flex; align-items:center; gap:4px;" title="Tự động khởi tạo lại tất cả Thư mục Tháng, Tiêu chí và kéo các file đã nộp về Google Drive">
+            🔄 Đồng Bộ Thư Mục Drive
+          </button>
           <button class="btn btn-primary btn-sm" onclick="openCriterionCreateModal()" style="font-weight:700;">
             ➕ Thêm Tiêu Chí Mới
           </button>
@@ -5651,15 +5657,34 @@ window.saveCriterionEdit = async function (critId) {
   const maxS = Number(document.getElementById('edit-crit-max').value || 5);
 
   const defaultMonthLabels = {
-    '1': 'Tháng 01/2026', '2': 'Tháng 02/2026', '3': 'Tháng 03/2026',
-    '4': 'Tháng 04/2026', '5': 'Tháng 05/2026', '6': 'Tháng 06/2026',
-    '7': 'Tháng 07/2026', '8': 'Tháng 08/2026', '9': 'Tháng 09/2026',
-    '10': 'Tháng 10/2026', '11': 'Tháng 11/2026', '12': 'Tháng 12/2026',
+    '1': 'Tháng 01', '2': 'Tháng 02', '3': 'Tháng 03',
+    '4': 'Tháng 04', '5': 'Tháng 05', '6': 'Tháng 06',
+    '7': 'Tháng 07', '8': 'Tháng 08', '9': 'Tháng 09',
+    '10': 'Tháng 10', '11': 'Tháng 11', '12': 'Tháng 12',
     '13': 'Thường xuyên & Cuối năm',
     '14': 'Tháng Thanh niên (Tháng 3)',
     '15': 'Chiến dịch Tình nguyện Hè (Tháng 6-8)',
     '16': 'Đợt thi đua cao điểm 26/3'
   };
+
+  const calculatedMonthLabel = (state.monthLabels && state.monthLabels[String(mGroup)]) || defaultMonthLabels[String(mGroup)] || `Tháng ${mGroup}`;
+
+  // Khởi tạo/cập nhật thư mục Google Drive nếu có
+  const gdriveUrl = getGoogleDriveScriptUrl();
+  if (gdriveUrl && gdriveFolderName) {
+    try {
+      fetch(gdriveUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'create_criterion_folder',
+          folderName: gdriveFolderName,
+          monthLabel: calculatedMonthLabel,
+          title: title
+        })
+      }).then(r => r.json()).catch(e => console.warn('Edit crit folder notice:', e));
+    } catch (e) {}
+  }
 
   showToast('Đang cập nhật tiêu chí...', 'info');
   const res = await mutateCloudDB((db) => {
@@ -5667,7 +5692,7 @@ window.saveCriterionEdit = async function (critId) {
     if (!c) return;
     c.title = title;
     c.month_group = mGroup;
-    c.month_label = (db.month_labels && db.month_labels[String(mGroup)]) || defaultMonthLabels[String(mGroup)] || c.month_label;
+    c.month_label = (db.month_labels && db.month_labels[String(mGroup)]) || defaultMonthLabels[String(mGroup)] || calculatedMonthLabel;
     c.start_date = startDate;
     c.deadline = deadline;
     c.is_report = isReport;
@@ -5679,7 +5704,6 @@ window.saveCriterionEdit = async function (critId) {
     c.unit_step_score = maxS;
 
     // AUTOMATICALLY RE-SORT CHRONOLOGICALLY BY DEADLINE!
-    // If deadline changed from 20/10 to 03/03, it jumps forward automatically!
     sortCriteriaChronologically(db.criteria || []);
   }, `Edit criterion ${critId}`);
 
@@ -5689,6 +5713,36 @@ window.saveCriterionEdit = async function (critId) {
     showToast('Đã lưu thay đổi tiêu chí thành công!', 'success');
   } else {
     showToast('Lỗi khi lưu tiêu chí, vui lòng thử lại!', 'error');
+  }
+};
+
+window.syncAllToDriveNow = async function () {
+  const gdriveUrl = getGoogleDriveScriptUrl();
+  if (!gdriveUrl) {
+    showToast('Chưa cấu hình URL Google Apps Script trong Cài Đặt!', 'error');
+    return;
+  }
+  showToast('Đang khởi tạo & đồng bộ toàn bộ Thư mục lên Google Drive...', 'info');
+  try {
+    const res = await fetch(gdriveUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'sync_all_to_drive',
+        criteria: state.criteria || [],
+        scores: state.scores || [],
+        units: state.units || [],
+        writtenReports: state.writtenReports || []
+      })
+    });
+    const json = await res.json();
+    if (json && json.status === 'success') {
+      showToast(json.message || 'Đồng bộ Google Drive thành công!', 'success');
+    } else {
+      showToast('Lỗi đồng bộ Google Drive: ' + (json ? json.message : 'Chưa rõ'), 'error');
+    }
+  } catch (err) {
+    showToast('Lỗi kết nối Google Drive: ' + err.message, 'error');
   }
 };
 
@@ -5810,17 +5864,39 @@ window.saveNewCriterion = async function () {
 
   showToast('Đang tạo và lưu tiêu chí mới...', 'info');
 
+  const defaultMonthLabels = {
+    '1': 'Tháng 01', '2': 'Tháng 02', '3': 'Tháng 03',
+    '4': 'Tháng 04', '5': 'Tháng 05', '6': 'Tháng 06',
+    '7': 'Tháng 07', '8': 'Tháng 08', '9': 'Tháng 09',
+    '10': 'Tháng 10', '11': 'Tháng 11', '12': 'Tháng 12',
+    '13': 'Thường xuyên & Cuối năm',
+    '14': 'Tháng Thanh niên (Tháng 3)',
+    '15': 'Chiến dịch Tình nguyện Hè (Tháng 6-8)',
+    '16': 'Đợt thi đua cao điểm 26/3'
+  };
+
+  let mGroup = 10;
+  let mLabel = 'Tháng 10';
+  if (monthVal === '__NEW_CUSTOM__' && customGroupName) {
+    mLabel = customGroupName;
+  } else {
+    mGroup = Number(monthVal);
+    mLabel = (state.monthLabels && state.monthLabels[String(mGroup)]) || defaultMonthLabels[String(mGroup)] || `Tháng ${String(mGroup).padStart(2, '0')}`;
+  }
+
   // Khởi tạo thư mục trên Google Drive ngay lập tức nếu có Script
   const gdriveUrl = getGoogleDriveScriptUrl();
-  if (gdriveUrl && !gdriveFolderUrl && gdriveFolderName) {
+  if (gdriveUrl && gdriveFolderName) {
     try {
       showToast('Đang khởi tạo thư mục trên Google Drive...', 'info');
       const createRes = await fetch(gdriveUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
-          action: 'create_folder',
-          folderName: gdriveFolderName
+          action: 'create_criterion_folder',
+          folderName: gdriveFolderName,
+          monthLabel: mLabel,
+          title: title
         })
       });
       const createJson = await createRes.json();
@@ -5834,23 +5910,9 @@ window.saveNewCriterion = async function () {
 
   showToast('Đang tạo và lưu tiêu chí mới...', 'info');
 
-  const defaultMonthLabels = {
-    '1': 'Tháng 01/2026', '2': 'Tháng 02/2026', '3': 'Tháng 03/2026',
-    '4': 'Tháng 04/2026', '5': 'Tháng 05/2026', '6': 'Tháng 06/2026',
-    '7': 'Tháng 07/2026', '8': 'Tháng 08/2026', '9': 'Tháng 09/2026',
-    '10': 'Tháng 10/2026', '11': 'Tháng 11/2026', '12': 'Tháng 12/2026',
-    '13': 'Thường xuyên & Cuối năm',
-    '14': 'Tháng Thanh niên (Tháng 3)',
-    '15': 'Chiến dịch Tình nguyện Hè (Tháng 6-8)',
-    '16': 'Đợt thi đua cao điểm 26/3'
-  };
-
   const res = await mutateCloudDB((db) => {
     db.criteria = Array.isArray(db.criteria) ? db.criteria : [];
     db.month_labels = db.month_labels || {};
-
-    let mGroup = 10;
-    let mLabel = 'Tháng 10/2026';
 
     if (monthVal === '__NEW_CUSTOM__' && customGroupName) {
       const keys = Object.keys(db.month_labels).map(k => Number(k)).filter(n => !isNaN(n));
