@@ -1211,3 +1211,22 @@ textarea:focus {
   }
 }
 
+
+
+/* Special override for Reports tracking spreadsheet (single header row, top must be 0) */
+#reports-spreadsheet-wrapper .master-table tr.row-titles th,
+#reports-spreadsheet-wrapper .master-table thead th,
+.reports-table tr.row-titles th,
+.reports-table thead th {
+  top: 0 !important;
+}
+
+#reports-spreadsheet-wrapper .master-table thead .sticky-col-stt,
+#reports-spreadsheet-wrapper .master-table thead .sticky-col-unit,
+#reports-spreadsheet-wrapper .master-table thead .sticky-col-total,
+.reports-table thead .sticky-col-stt,
+.reports-table thead .sticky-col-unit,
+.reports-table thead .sticky-col-total {
+  top: 0 !important;
+  z-index: 55 !important;
+}
