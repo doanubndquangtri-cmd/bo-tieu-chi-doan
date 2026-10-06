@@ -1,4 +1,87 @@
 
+window.openFileInlinePreviewModal = function(fileUrl, fileName) {
+  if (!fileUrl) {
+    showToast('Tệp này chưa có liên kết đường dẫn hợp lệ!', 'warning');
+    return;
+  }
+  fileName = fileName || 'Văn bản đính kèm';
+  
+  // Xử lý link Google Drive sang chế độ nhúng xem trước (preview)
+  let embedUrl = fileUrl;
+  const driveMatch = fileUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || fileUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (driveMatch && driveMatch[1]) {
+    embedUrl = `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
+  } else if (/\.(doc|docx|xls|xlsx|ppt|pptx)$/i.test(fileName)) {
+    embedUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`;
+  }
+
+  const isImg = /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(fileName);
+  const isVideo = /\.(mp4|mov|webm|avi|mkv)$/i.test(fileName);
+
+  let contentHtml = '';
+  if (isImg) {
+    contentHtml = `
+      <div style="width:100%; height:72vh; display:flex; align-items:center; justify-content:center; background:#0f172a; border-radius:6px; overflow:hidden;">
+        <img src="${escapeHtml(fileUrl)}" alt="${escapeHtml(fileName)}" style="max-width:100%; max-height:100%; object-fit:contain;" />
+      </div>
+    `;
+  } else if (isVideo) {
+    contentHtml = `
+      <div style="width:100%; height:72vh; display:flex; align-items:center; justify-content:center; background:#000; border-radius:6px; overflow:hidden;">
+        <video src="${escapeHtml(fileUrl)}" controls autoplay style="max-width:100%; max-height:100%;"></video>
+      </div>
+    `;
+  } else {
+    contentHtml = `
+      <div style="position:relative; width:100%; height:75vh; background:#f8fafc; border-radius:6px; overflow:hidden;">
+        <iframe src="${escapeHtml(embedUrl)}" style="width:100%; height:100%; border:none;" allow="autoplay" loading="lazy"></iframe>
+      </div>
+    `;
+  }
+
+  // Tải về url an toàn
+  const dlUrl = driveMatch && driveMatch[1] 
+    ? `https://drive.google.com/uc?export=download&id=${driveMatch[1]}` 
+    : fileUrl;
+
+  const modalRoot = document.getElementById('modal-root');
+  const previewContainer = document.createElement('div');
+  previewContainer.id = 'inline-file-preview-modal';
+  previewContainer.innerHTML = `
+    <div class="modal-backdrop" style="z-index: 999999; background: rgba(15, 23, 42, 0.75); display:flex; align-items:center; justify-content:center; padding:16px;" onclick="if(event.target===this) window.closeFileInlinePreviewModal()">
+      <div class="modal-box" style="max-width: 960px; width: 95vw; max-height: 92vh; display: flex; flex-direction: column; padding: 0; border-radius: 10px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);">
+        <div style="background: #003d99; color: #fff; padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid #1e40af;">
+          <div style="display: flex; align-items: center; gap: 8px; overflow: hidden;">
+            <span style="font-size: 18px;">📄</span>
+            <span style="font-weight: 700; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 550px;" title="${escapeHtml(fileName)}">
+              ${escapeHtml(fileName)}
+            </span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+            <a href="${escapeHtml(dlUrl)}" target="_blank" download="${escapeHtml(fileName)}" class="btn btn-sm btn-primary" style="background:#0284c7; border:none; font-weight:700; font-size:12px; padding:4px 10px; text-decoration:none;">
+              📥 Tải về máy
+            </a>
+            <a href="${escapeHtml(fileUrl)}" target="_blank" class="btn btn-sm" style="background:rgba(255,255,255,0.2); color:#fff; border:1px solid rgba(255,255,255,0.4); font-size:12px; padding:4px 10px; text-decoration:none;">
+              🔗 Mở tab mới
+            </a>
+            <button class="modal-close" onclick="window.closeFileInlinePreviewModal()" style="color:#fff; font-size:20px; padding:0 6px; cursor:pointer; background:none; border:none;">✕</button>
+          </div>
+        </div>
+        <div style="padding: 10px; background: #0f172a; flex: 1; overflow: hidden;">
+          ${contentHtml}
+        </div>
+      </div>
+    </div>
+  `;
+  modalRoot.appendChild(previewContainer);
+};
+
+window.closeFileInlinePreviewModal = function() {
+  const el = document.getElementById('inline-file-preview-modal');
+  if (el) el.remove();
+};
+
+
 const UNIT_NAMES_FALLBACK = {
   "DV": "Đoàn UBND Tỉnh",
   "0": "Đoàn UBND Tỉnh",
@@ -2938,7 +3021,7 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
                             </div>
                           </div>
                           <div style="display:flex; gap:6px; flex-shrink:0;">
-                            ${f.url ? `<a href="${escapeHtml(f.url)}" target="_blank" class="btn btn-sm btn-outline" style="font-size:11.5px; padding:3px 8px; font-weight:600;">👁️ Xem file</a>` : ''}
+                            ${f.url ? `<button type="button" onclick="openFileInlinePreviewModal('${escapeHtml(f.url)}', '${escapeHtml(f.name || 'Tệp đính kèm')}')" class="btn btn-sm btn-outline" style="font-size:11.5px; padding:3px 8px; font-weight:600; cursor:pointer; background:#fff; color:#0284c7; border-color:#0284c7;">👁️ Xem file</button>` : ''}
                             ${f.url ? `<a href="${escapeHtml(f.url)}" download="${escapeHtml(f.name || 'minh_chung')}" target="_blank" class="btn btn-sm btn-primary" style="font-size:11.5px; padding:3px 8px; font-weight:700;">📥 Tải về</a>` : ''}
                             ${isAdmin ? `
                               <button class="btn btn-sm btn-danger" onclick="confirmDeleteUnitSubmissionFile(${unit.id}, ${crit.id}, ${fIdx})" style="font-size:11.5px; padding:3px 8px; font-weight:700;" title="Xóa tệp này (có hỏi xóa trên Drive)">
@@ -3490,7 +3573,7 @@ function renderAdminReportsTab() {
               ${l.report_content ? `<div style="font-size:11.5px; color:#334155; background:#f8fafc; padding:6px 8px; border-radius:4px; margin-bottom:6px; border:1px solid #f1f5f9;">${escapeHtml(l.report_content)}</div>` : ''}
               <div style="display:flex; gap:6px; flex-wrap:wrap;">
                 ${l.evidence_link ? `<a href="${escapeHtml(l.evidence_link)}" target="_blank" class="btn btn-sm btn-outline" style="font-size:11px; padding:3px 8px;">🔗 Link minh chứng</a>` : ''}
-                ${l.file_path ? `<a href="${escapeHtml(l.file_path)}" target="_blank" class="btn btn-sm btn-primary" style="font-size:11px; padding:3px 8px; background:#0284c7;">📎 ${escapeHtml(l.file_name || 'Xem file')}</a>` : ''}
+                ${l.file_path ? `<button type="button" onclick="openFileInlinePreviewModal('${escapeHtml(l.file_path)}', '${escapeHtml(l.file_name || 'Minh chứng')}')" class="btn btn-sm btn-primary" style="font-size:11px; padding:3px 8px; background:#0284c7; border:none; cursor:pointer;">👁️ ${escapeHtml(l.file_name || 'Xem file')}</button>` : ''}
               </div>
             </div>
           `).join('')}
