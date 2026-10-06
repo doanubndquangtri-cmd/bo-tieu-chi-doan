@@ -68,13 +68,33 @@ function doPost(e) {
         return createJsonResponse({ status: "error", message: "Không tìm thấy dữ liệu file!" });
       }
 
+      var contentType = "";
       if (fileDataB64.indexOf(",") > -1) {
-        fileDataB64 = fileDataB64.split(",")[1];
+        var parts = fileDataB64.split(",");
+        var header = parts[0];
+        fileDataB64 = parts[1];
+        var match = header.match(/:(.*?);/);
+        if (match) contentType = match[1];
       }
       var decodedBytes = Utilities.base64Decode(fileDataB64);
-      var blob = Utilities.newBlob(decodedBytes, "application/octet-stream", originalName);
+      if (!contentType) {
+        if (originalName.match(/\.pdf$/i)) contentType = "application/pdf";
+        else if (originalName.match(/\.docx$/i)) contentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        else if (originalName.match(/\.doc$/i)) contentType = "application/msword";
+        else if (originalName.match(/\.xlsx$/i)) contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        else if (originalName.match(/\.xls$/i)) contentType = "application/vnd.ms-excel";
+        else if (originalName.match(/\.jpg|\.jpeg$/i)) contentType = "image/jpeg";
+        else if (originalName.match(/\.png$/i)) contentType = "image/png";
+        else contentType = "application/octet-stream";
+      }
+      var blob = Utilities.newBlob(decodedBytes, contentType, originalName);
 
-      var targetFolder = DriveApp.getFolderById(ADMIN_DOCS_FOLDER_ID);
+      var targetFolder = null;
+      try {
+        targetFolder = DriveApp.getFolderById(ADMIN_DOCS_FOLDER_ID);
+      } catch (errF) {
+        targetFolder = getOrCreateFolder(DriveApp.getRootFolder(), "Hệ thống Văn bản");
+      }
       targetFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 
       var file = targetFolder.createFile(blob);
