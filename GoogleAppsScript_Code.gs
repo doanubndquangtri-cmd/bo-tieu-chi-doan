@@ -57,12 +57,13 @@ function doPost(e) {
     }
 
     // =====================================================================
+    // =====================================================================
     // TRƯỜNG HỢP 3: ADMIN TẢI VĂN BẢN VÀO HỆ THỐNG VĂN BẢN (GOOGLE DRIVE)
     // =====================================================================
     if (data.action === "admin_upload_doc" || data.isAdminDoc) {
       var fileDataB64 = data.fileData;
       var originalName = data.fileName || "VanBan";
-      var ADMIN_DOCS_FOLDER_ID = "1F5CdyDTQGUf0C21o7CCCAZkMOjgRKRJK";
+      var ADMIN_DOCS_FOLDER_ID = data.folderId || "1F5CdyDTQGUf0C21o7CCCAZkMOjgRKRJK";
 
       if (!fileDataB64) {
         return createJsonResponse({ status: "error", message: "Không tìm thấy dữ liệu file!" });
@@ -90,15 +91,22 @@ function doPost(e) {
       var blob = Utilities.newBlob(decodedBytes, contentType, originalName);
 
       var targetFolder = null;
+      var isDirectFolder = true;
       try {
         targetFolder = DriveApp.getFolderById(ADMIN_DOCS_FOLDER_ID);
       } catch (errF) {
+        isDirectFolder = false;
+        Logger.log("Chưa có quyền truy cập trực tiếp thư mục " + ADMIN_DOCS_FOLDER_ID + ", chuyển về thư mục gốc: " + errF);
         targetFolder = getOrCreateFolder(DriveApp.getRootFolder(), "Hệ thống Văn bản");
       }
-      targetFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      try {
+        targetFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      } catch (eShare) {}
 
       var file = targetFolder.createFile(blob);
-      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      try {
+        file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      } catch (eFShare) {}
       var fileId = file.getId();
 
       return createJsonResponse({
@@ -107,12 +115,15 @@ function doPost(e) {
         fileName: originalName,
         fileUrl: "https://drive.google.com/file/d/" + fileId + "/view?usp=sharing",
         downloadUrl: "https://drive.google.com/uc?export=download&id=" + fileId,
-        folderUrl: "https://drive.google.com/drive/folders/" + ADMIN_DOCS_FOLDER_ID
+        folderUrl: "https://drive.google.com/drive/folders/" + (isDirectFolder ? ADMIN_DOCS_FOLDER_ID : targetFolder.getId()),
+        isDirectFolder: isDirectFolder,
+        folderStatus: isDirectFolder ? "ok" : "fallback_permission_needed"
       });
     }
 
     // =====================================================================
     // TRƯỜNG HỢP 2: TẢI TẬP MINH CHỨNG CỦA CƠ SỞ ĐOÀN HOẶC ADMIN NỘP
+    // HỖ TRỢ ĐƯỜNG LINK THƯ MỤC GOOGLE DRIVE RIÊNG DO ADMIN DÁN VÀO TIÊU CHÍ
     // =====================================================================
     var fileDataB64 = data.fileData; // base64 string
     var originalName = data.fileName || "minh_chung";
@@ -121,6 +132,7 @@ function doPost(e) {
     var criterionTitle = data.criterionTitle || "Tiêu chí";
     var colLabel = data.colLabel || "Cột";
     var monthLabel = data.monthLabel || "Chung";
+    var customFolderId = data.customFolderId || data.folderId || "";
 
     if (!fileDataB64) {
       return createJsonResponse({ status: "error", message: "Không tìm thấy dữ liệu file!" });
@@ -161,15 +173,32 @@ function doPost(e) {
 
     var blob = Utilities.newBlob(decodedBytes, contentType, originalName);
 
-    // 1. Thư mục gốc: "HỒ SƠ BÁO CÁO ĐOÀN 2026"
-    var rootFolder = getOrCreateFolder(DriveApp.getRootFolder(), ROOT_FOLDER_NAME);
-    rootFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    // 1. Thư mục tiếp nhận: Dùng thư mục Google Drive do Admin chỉ định cho tiêu chí nếu có
+    var parentFolder = null;
+    var isCustomFolder = false;
+    if (customFolderId && String(customFolderId).trim().length > 5) {
+      try {
+        parentFolder = DriveApp.getFolderById(String(customFolderId).trim());
+        isCustomFolder = true;
+      } catch (errCust) {
+        Logger.log("Không truy cập được customFolderId: " + customFolderId + ", lỗi: " + errCust);
+      }
+    }
 
-    // 2. Thư mục riêng của từng Đơn vị: "[DV01] Tên Đơn Vị"
-    // Mỗi đơn vị là 1 thư mục riêng gọn gàng, tất cả file (văn bản, ảnh, video) nộp của đơn vị đó nằm trọn trong thư mục này
+    // Nếu không có customFolderId hoặc thư mục chưa cấp quyền, dùng thư mục gốc mặc định
+    if (!parentFolder) {
+      parentFolder = getOrCreateFolder(DriveApp.getRootFolder(), ROOT_FOLDER_NAME);
+      try {
+        parentFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      } catch (eR) {}
+    }
+
+    // 2. Thư mục riêng của từng Đơn vị: "[DV01] Tên Đơn Vị" được tạo tự động bên trong thư mục tiếp nhận
     var unitFolderName = "[" + unitCode + "] " + unitName;
-    var unitFolder = getOrCreateFolder(rootFolder, unitFolderName);
-    unitFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    var unitFolder = getOrCreateFolder(parentFolder, unitFolderName);
+    try {
+      unitFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (eU) {}
 
     var targetFolder = unitFolder;
 
@@ -180,7 +209,9 @@ function doPost(e) {
     blob.setName(finalFileName);
 
     var file = targetFolder.createFile(blob);
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    try {
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (eF) {}
 
     var fileId = file.getId();
     return createJsonResponse({
@@ -189,7 +220,10 @@ function doPost(e) {
       fileName: finalFileName,
       originalName: originalName,
       fileUrl: "https://drive.google.com/file/d/" + fileId + "/view?usp=sharing",
-      downloadUrl: "https://drive.google.com/uc?export=download&id=" + fileId
+      downloadUrl: "https://drive.google.com/uc?export=download&id=" + fileId,
+      folderUrl: targetFolder.getUrl ? targetFolder.getUrl() : "",
+      parentFolderUrl: parentFolder.getUrl ? parentFolder.getUrl() : "",
+      isCustomFolder: isCustomFolder
     });
 
   } catch (error) {
