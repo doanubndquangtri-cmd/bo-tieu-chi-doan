@@ -3088,7 +3088,7 @@ function renderMasterTableTab() {
           <thead>
             <tr class="row-banner">
               <th class="sticky-col-stt">#</th>
-              <th class="sticky-col-unit banner-unit-cell" colspan="2" style="background:#003d99 !important; color:#ffffff !important; font-weight:800 !important; min-width:386px !important; z-index:65 !important;">${escapeHtml(headerTitle)}</th>
+              <th class="sticky-col-unit banner-unit-cell" colspan="2" style="background:#003d99 !important; color:#ffffff !important; font-weight:800 !important; min-width:476px !important; z-index:65 !important;">${escapeHtml(headerTitle)}</th>
               <th colspan="${Math.max(1, filteredCriteria.length)}">
                 ${
                   isAdmin
@@ -3165,7 +3165,7 @@ function renderMasterTableTab() {
                   <td class="sticky-col-stt">${rIdx + 1}</td>
                   <td class="sticky-col-unit" title="${escapeHtml(u.unit_name)} (TK: ${escapeHtml(u.username)})">
                     <div style="display:flex; align-items:center; justify-content:space-between; gap:4px;">
-                      <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                      <span style="white-space:normal; line-height:1.4; font-weight:600; color:#0f172a; word-break:break-word;">
                         ${escapeHtml(u.unit_name)}
                       </span>
                       ${isCurrentUnit ? '<span class="badge badge-info">Đơn vị bạn</span>' : ''}
@@ -4502,7 +4502,7 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
                           <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
                             <span style="font-size:18px;">${typeInfo.icon}</span>
                             <div style="overflow:hidden;">
-                              <div style="font-weight:700; color:${typeInfo.color}; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:280px; font-size:13px;">
+                              <div style="font-weight:700; color:${typeInfo.color}; white-space:normal; line-height:1.4; font-weight:600; color:#0f172a; word-break:break-word; max-width:280px; font-size:13px;">
                                 ${escapeHtml(f.name || 'Tệp đính kèm')}
                               </div>
                               <div style="font-size:11px; color:#64748b; display:flex; gap:6px; align-items:center;">
