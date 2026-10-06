@@ -1337,9 +1337,6 @@ function renderHeader() {
         </button>
 
         ${isAdmin ? `
-          <button class="btn btn-sm" onclick="reorganizeGoogleDriveFolders()" title="Chuẩn hóa tên đơn vị & Gom các đơn vị vào thư mục Tháng trên Google Drive" style="background:#059669; color:#fff; border:1px solid #047857; font-weight:700;">
-            🔄 Sắp Xếp Drive
-          </button>
           <button class="btn btn-primary btn-sm" onclick="saveExcelToGoogleDrive()" title="Tự động xuất và lưu file Excel vào đúng thư mục Tháng trên Google Drive" style="background:#0284c7; border-color:#0284c7; font-weight:700;">
             ☁️ Lưu Excel Vào Drive
           </button>
@@ -4294,11 +4291,7 @@ window.openCriterionEditModal = function (critId) {
               <option value="1" ${Number(c.is_report) === 1 ? 'selected' : ''}>📋 Báo cáo định kỳ (Đơn vị nộp báo cáo & tài liệu - Theo dõi tiến độ)</option>
               <option value="2" ${Number(c.is_report) === 2 ? 'selected' : ''}>👑 Admin tự chấm điểm (Ban Thường vụ tự chấm - Đơn vị không nhập điểm/tài liệu)</option>
             </select>
-            <small style="color:#64748b; margin-top:4px; display:block; font-size:12px; line-height:1.4;">
-              💡 <b>Hoạt động / Phong trào:</b> Đơn vị tham gia nộp tài liệu / minh chứng hoạt động, hệ thống tự động ghi nhận và tự động chấm điểm.<br/>
-              💡 <b>Báo cáo định kỳ:</b> Đơn vị tự kê khai điểm, nộp báo cáo & tài liệu, xuất hiện trong bảng <i>Theo Dõi Nộp Báo Cáo</i>.<br/>
-              💡 <b>Admin tự chấm điểm:</b> Ban Thường vụ (Admin) tự đánh giá và chấm điểm trực tiếp. Đơn vị đoàn KHÔNG THỂ nhập điểm hay nộp tài liệu ở mục này.
-            </small>
+            
           </div>
 
           <div class="form-group" style="background:#f0fdf4; padding:12px; border-radius:8px; border:1px solid #bbf7d0; margin-bottom:14px;">
@@ -4450,11 +4443,7 @@ window.openCriterionCreateModal = function () {
               <option value="1">📋 Báo cáo định kỳ (Đơn vị nộp báo cáo & tài liệu - Theo dõi tiến độ)</option>
               <option value="2">👑 Admin tự chấm điểm (Ban Thường vụ tự chấm - Đơn vị không nhập điểm/tài liệu)</option>
             </select>
-            <small style="color:#64748b; margin-top:4px; display:block; font-size:12px; line-height:1.4;">
-              💡 <b>Hoạt động / Phong trào:</b> Đơn vị tham gia nộp tài liệu / minh chứng hoạt động, hệ thống tự động ghi nhận và tự động chấm điểm.<br/>
-              💡 <b>Báo cáo định kỳ:</b> Đơn vị tự kê khai điểm, nộp báo cáo & tài liệu, xuất hiện trong bảng <i>Theo Dõi Nộp Báo Cáo</i>.<br/>
-              💡 <b>Admin tự chấm điểm:</b> Ban Thường vụ (Admin) tự đánh giá và chấm điểm trực tiếp. Đơn vị đoàn KHÔNG THỂ nhập điểm hay nộp tài liệu ở mục này.
-            </small>
+            
           </div>
 
           <div class="form-group" style="background:#f0fdf4; padding:12px; border-radius:8px; border:1px solid #bbf7d0; margin-bottom:14px;">
