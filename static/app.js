@@ -4749,16 +4749,8 @@ window.openDateSettingsModal = function () {
           </div>
 
           <div class="form-group" style="margin-top:16px; border-top:1px dashed #cbd5e1; padding-top:12px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-              <label style="font-weight:700; color:#1e3a8a; margin-bottom:0;">📁 Đường Dẫn Tự Động Lưu File Lên Google Drive (Apps Script Web App):</label>
-              <button type="button" id="btn-toggle-unlock-gdrive" class="btn btn-sm btn-outline" onclick="window.unlockGdriveSettings()" style="font-size:11px; padding:2px 8px; font-weight:700; color:#b45309; border-color:#fcd34d; background:#fffbeb;">
-                🔒 Mở khóa chỉnh sửa
-              </button>
-            </div>
-            <input type="text" id="set-gdrive-url" value="${escapeHtml(state.settings.gdrive_script_url || DEFAULT_GDRIVE_SCRIPT_URL)}" placeholder="https://script.google.com/macros/s/.../exec" style="font-size:12px; font-family:monospace; background:#f1f5f9; color:#64748b; cursor:not-allowed;" readonly />
-            <div id="gdrive-lock-hint" style="font-size:11px; color:#b45309; margin-top:4px;">
-              🔒 Đường dẫn Drive đang được khóa bảo vệ. Nhấn "Mở khóa chỉnh sửa" và nhập mật khẩu Admin để thay đổi.
-            </div>
+            <label style="font-weight:700; color:#1e3a8a; display:block; margin-bottom:6px;">📁 Đường Dẫn Tự Động Lưu File Lên Google Drive (Apps Script Web App):</label>
+            <input type="text" id="set-gdrive-url" value="${escapeHtml(state.settings.gdrive_script_url || DEFAULT_GDRIVE_SCRIPT_URL)}" placeholder="https://script.google.com/macros/s/.../exec" style="font-size:12px; font-family:monospace; width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; background:#fff; color:#0f172a;" />
             <div style="font-size:11px; color:#64748b; margin-top:4px;">
               Tất cả file minh chứng nộp của 40 cơ sở Đoàn sẽ tự động tạo thư mục và lưu vào Google Drive của bạn (Thư mục gốc: <b>HỒ SƠ BÁO CÁO ĐOÀN</b>).
             </div>
