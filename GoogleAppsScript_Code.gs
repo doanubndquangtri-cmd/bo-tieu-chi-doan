@@ -175,6 +175,7 @@ function doPost(e) {
     var colLabel = data.colLabel || "Cột";
     var monthLabel = data.monthLabel || "Chung";
     var customFolderId = data.customFolderId || data.folderId || "";
+    var customFolderName = data.customFolderName || data.folderName || "";
 
     if (!fileDataB64) {
       return createJsonResponse({ status: "error", message: "Không tìm thấy dữ liệu file!" });
@@ -233,6 +234,16 @@ function doPost(e) {
       try {
         parentFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
       } catch (eR) {}
+    }
+
+    // TỰ ĐỘNG TẠO THƯ MỤC TRÊN DRIVE THEO TÊN ADMIN NHẬP (Ví dụ: "Báo cáo Tháng 1", "Báo cáo Quý 1"...):
+    if (customFolderName && String(customFolderName).trim()) {
+      var cleanFolderName = String(customFolderName).trim().replace(/[\/\\:*?"<>|]/g, "_");
+      parentFolder = getOrCreateFolder(parentFolder, cleanFolderName);
+      try {
+        parentFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      } catch (eCF) {}
+      isCustomFolder = true;
     }
 
     // 2. Thư mục riêng của từng Đơn vị: "[DV01] Tên Đơn Vị" được tạo tự động bên trong thư mục tiếp nhận
