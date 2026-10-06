@@ -5594,14 +5594,7 @@ window.openCriterionEditModal = function (critId) {
             <label style="font-weight:700; color:#166534; font-size:13.5px; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
               📁 Tên thư mục tự tạo trên Google Drive / Tiêu chí (*):
             </label>
-            <input type="text" id="edit-crit-gdrive-folder-name" placeholder="VD: Báo cáo Tháng 10, Sinh hoạt chi đoàn..." value="${escapeHtml(c.gdrive_folder_name || c.title || '')}" style="background:#fff; font-size:14px; font-weight:600; padding:9px 12px; border:1.5px solid #22c55e; border-radius:6px; width:100%; margin-bottom:8px;" required />
-            <div style="font-size:12px; color:#15803d; line-height:1.45; margin-bottom:8px;">
-              💡 <b>Tự động đồng bộ:</b> Tên này đồng thời là Tên tiêu chí trong bảng tính và Tên thư mục lưu trữ bài nộp trên Google Drive.
-            </div>
-            <label style="font-weight:600; color:#166534; font-size:12px; display:block; margin-bottom:3px;">
-              Hoặc dán Link thư mục Google Drive có sẵn (nếu có):
-            </label>
-            <input type="text" id="edit-crit-gdrive-folder" placeholder="Dán link thư mục Google Drive (VD: https://drive.google.com/drive/folders/...)" value="${escapeHtml(c.gdrive_folder_url || '')}" style="background:#fff; font-size:12.5px; padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; width:100%;" />
+            <input type="text" id="edit-crit-gdrive-folder-name" placeholder="VD: Báo cáo Tháng 10, Sinh hoạt chi đoàn..." value="${escapeHtml(c.gdrive_folder_name || c.title || '')}" style="background:#fff; font-size:14px; font-weight:600; padding:9px 12px; border:1.5px solid #22c55e; border-radius:6px; width:100%;" required />
           </div>
 
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
@@ -5714,14 +5707,7 @@ window.openCriterionCreateModal = function () {
             <label style="font-weight:700; color:#166534; font-size:13.5px; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
               📁 Tên thư mục tự tạo trên Google Drive (*):
             </label>
-            <input type="text" id="new-crit-gdrive-folder-name" placeholder="VD: Báo cáo Tháng 10, Sinh hoạt chi đoàn, Kế hoạch 26/3..." style="background:#fff; font-size:14px; font-weight:600; padding:9px 12px; border:1.5px solid #22c55e; border-radius:6px; width:100%; margin-bottom:8px;" required />
-            <div style="font-size:12px; color:#15803d; line-height:1.45; margin-bottom:8px;">
-              💡 <b>Tự động đồng bộ 2 trong 1:</b> Tên này sẽ <b>tự động làm Tên tiêu chí trong bảng cột / nhóm này</b>, đồng thời <b>tự động tạo thư mục trên Google Drive</b>. Bạn <b>không cần phải nhập lại lần 2</b>!
-            </div>
-            <label style="font-weight:600; color:#166534; font-size:12px; display:block; margin-bottom:3px;">
-              Hoặc dán Link thư mục Google Drive có sẵn (nếu có):
-            </label>
-            <input type="text" id="new-crit-gdrive-folder" placeholder="Dán link thư mục Google Drive (VD: https://drive.google.com/drive/folders/...)" style="background:#fff; font-size:12.5px; padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; width:100%;" />
+            <input type="text" id="new-crit-gdrive-folder-name" placeholder="VD: Báo cáo Tháng 10, Sinh hoạt chi đoàn, Kế hoạch 26/3..." style="background:#fff; font-size:14px; font-weight:600; padding:9px 12px; border:1.5px solid #22c55e; border-radius:6px; width:100%;" required />
           </div>
 
           <div class="form-group">
@@ -7280,13 +7266,7 @@ function renderAdminDocsTab() {
       </div>
 
       <div class="panel-body" style="padding:18px;">
-        <div style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:12px 16px; margin-bottom:18px; display:flex; align-items:flex-start; gap:10px;">
-          <div style="font-size:20px;">ℹ️</div>
-          <div style="font-size:13px; color:#0369a1; line-height:1.5;">
-            <b>Quy định lưu trữ:</b> Thư mục này chứa tất cả văn bản, tài liệu, quyết định và kế hoạch do <b>Ban Thường vụ (Admin)</b> đăng tải lên. Chỉ có Admin mới có quyền tải lên và quản lý thư mục này. Các cơ sở Đoàn có thể tra cứu và tải tài liệu về để triển khai thực hiện.<br/>
-            💡 <b>Cài đặt Google Drive:</b> Vui lòng đảm bảo thư mục Google Drive <a href="${escapeHtml(ADMIN_DOCS_GDRIVE_URL)}" target="_blank" style="text-decoration:underline; font-weight:700; color:#0284c7;">Hệ thống Văn bản ↗</a> đã được cấp quyền <b>"Bất kỳ ai có đường liên kết" ➔ "Người chỉnh sửa" (Editor)</b> để các văn bản đăng tải sẽ tự động xuất hiện ngay trong thư mục này.
-          </div>
-        </div>
+
 
         ${isAdmin ? `
         <!-- Form tải lên tài liệu mới dành cho Admin -->
