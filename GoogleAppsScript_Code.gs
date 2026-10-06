@@ -7,6 +7,151 @@ var ROOT_FOLDER_NAME = "HỒ SƠ BÁO CÁO ĐOÀN 2026";
 var EXCEL_FOLDER_NAME = "BÁO CÁO TỔNG HỢP EXCEL ĐỊNH KỲ";
 var CLOUD_DATA_URL = "https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/cloud-data/cloud_db.json";
 
+
+// =========================================================================================
+// DANH SÁCH 40 ĐƠN VỊ CƠ SỞ ĐOÀN VÀ ĐOÀN UBND TỈNH (QUẢNG TRỊ - 2026)
+// =========================================================================================
+var UNIT_NAMES_MAP = {
+  "DV": "Đoàn UBND Tỉnh",
+  "0": "Đoàn UBND Tỉnh",
+  "admin": "Đoàn UBND Tỉnh",
+  "1": "Chi đoàn cơ sở BQL Khu kinh tế tỉnh Quảng Trị",
+  "DV01": "Chi đoàn cơ sở BQL Khu kinh tế tỉnh Quảng Trị",
+  "DV1": "Chi đoàn cơ sở BQL Khu kinh tế tỉnh Quảng Trị",
+  "2": "Chi đoàn cơ sở Công ty TNHH MTV XSKT Quảng Bình",
+  "DV02": "Chi đoàn cơ sở Công ty TNHH MTV XSKT Quảng Bình",
+  "DV2": "Chi đoàn cơ sở Công ty TNHH MTV XSKT Quảng Bình",
+  "3": "Đoàn cơ sở Công ty CP Việt Trung Quảng Bình",
+  "DV03": "Đoàn cơ sở Công ty CP Việt Trung Quảng Bình",
+  "DV3": "Đoàn cơ sở Công ty CP Việt Trung Quảng Bình",
+  "4": "Đoàn cơ sở Công ty TNHH MTV QLKT CTTL Quảng Trị",
+  "DV04": "Đoàn cơ sở Công ty TNHH MTV QLKT CTTL Quảng Trị",
+  "DV4": "Đoàn cơ sở Công ty TNHH MTV QLKT CTTL Quảng Trị",
+  "5": "Chi đoàn cơ sở Sở Tư pháp tỉnh Quảng Trị",
+  "DV05": "Chi đoàn cơ sở Sở Tư pháp tỉnh Quảng Trị",
+  "DV5": "Chi đoàn cơ sở Sở Tư pháp tỉnh Quảng Trị",
+  "6": "Đoàn cơ sở Chi cục Hải quan Khu vực IX",
+  "DV06": "Đoàn cơ sở Chi cục Hải quan Khu vực IX",
+  "DV6": "Đoàn cơ sở Chi cục Hải quan Khu vực IX",
+  "7": "Đoàn cơ sở Bệnh viện Đa khoa tỉnh Quảng Trị",
+  "DV07": "Đoàn cơ sở Bệnh viện Đa khoa tỉnh Quảng Trị",
+  "DV7": "Đoàn cơ sở Bệnh viện Đa khoa tỉnh Quảng Trị",
+  "8": "Đoàn cơ sở Công ty TNHH MTV KTCTTL Quảng Bình",
+  "DV08": "Đoàn cơ sở Công ty TNHH MTV KTCTTL Quảng Bình",
+  "DV8": "Đoàn cơ sở Công ty TNHH MTV KTCTTL Quảng Bình",
+  "9": "Chi đoàn cơ sở Sở Tài chính tỉnh Quảng Trị",
+  "DV09": "Chi đoàn cơ sở Sở Tài chính tỉnh Quảng Trị",
+  "DV9": "Chi đoàn cơ sở Sở Tài chính tỉnh Quảng Trị",
+  "10": "Đoàn cơ sở Sở Nông nghiệp và Môi trường tỉnh Quảng Trị",
+  "DV10": "Đoàn cơ sở Sở Nông nghiệp và Môi trường tỉnh Quảng Trị",
+  "11": "Đoàn cơ sở Sở Xây dựng tỉnh Quảng Trị",
+  "DV11": "Đoàn cơ sở Sở Xây dựng tỉnh Quảng Trị",
+  "12": "Chi đoàn cơ sở VP UBND tỉnh Quảng Trị",
+  "DV12": "Chi đoàn cơ sở VP UBND tỉnh Quảng Trị",
+  "13": "Chi đoàn Thanh tra tỉnh",
+  "DV13": "Chi đoàn Thanh tra tỉnh",
+  "14": "Chi đoàn cơ sở Thống kê tỉnh Quảng Trị",
+  "DV14": "Chi đoàn cơ sở Thống kê tỉnh Quảng Trị",
+  "15": "Đoàn trường CĐ Kỹ thuật Công - Nông nghiệp Quảng Trị",
+  "DV15": "Đoàn trường CĐ Kỹ thuật Công - Nông nghiệp Quảng Trị",
+  "16": "Chi đoàn cơ sở Cơ quan Đảng ủy UBND tỉnh",
+  "DV16": "Chi đoàn cơ sở Cơ quan Đảng ủy UBND tỉnh",
+  "17": "Chi đoàn cơ sở Sở Nội vụ tỉnh Quảng Trị",
+  "DV17": "Chi đoàn cơ sở Sở Nội vụ tỉnh Quảng Trị",
+  "18": "Đoàn trường CĐ Y tế Quảng Trị",
+  "DV18": "Đoàn trường CĐ Y tế Quảng Trị",
+  "19": "Đoàn cơ sở Sở Khoa học và Công nghệ tỉnh Quảng Trị",
+  "DV19": "Đoàn cơ sở Sở Khoa học và Công nghệ tỉnh Quảng Trị",
+  "20": "Chi đoàn cơ sở Sở Ngoại vụ tỉnh Quảng Trị",
+  "DV20": "Chi đoàn cơ sở Sở Ngoại vụ tỉnh Quảng Trị",
+  "21": "Đoàn cơ sở Sở Văn hóa, thể thao và Du lịch tỉnh Quảng Trị",
+  "DV21": "Đoàn cơ sở Sở Văn hóa, thể thao và Du lịch tỉnh Quảng Trị",
+  "22": "Đoàn cơ sở Công ty CP Tổng công ty Thương mại Quảng Trị",
+  "DV22": "Đoàn cơ sở Công ty CP Tổng công ty Thương mại Quảng Trị",
+  "23": "Đoàn cơ sở Vườn Quốc gia Phong Nha - Kẻ Bàng",
+  "DV23": "Đoàn cơ sở Vườn Quốc gia Phong Nha - Kẻ Bàng",
+  "24": "Đoàn trường CĐ Nghề Quảng Trị",
+  "DV24": "Đoàn trường CĐ Nghề Quảng Trị",
+  "25": "Đoàn cơ sở Công ty TNHH MTV Lâm - Công nghiệp Long Đại",
+  "DV25": "Đoàn cơ sở Công ty TNHH MTV Lâm - Công nghiệp Long Đại",
+  "26": "Đoàn trường CĐ Kỹ thuật Quảng Trị",
+  "DV26": "Đoàn trường CĐ Kỹ thuật Quảng Trị",
+  "27": "Chi đoàn cơ sở Trung tâm phát triển Quỹ đất tỉnh Quảng Trị",
+  "DV27": "Chi đoàn cơ sở Trung tâm phát triển Quỹ đất tỉnh Quảng Trị",
+  "28": "Đoàn Trường CĐ Sư phạm Quảng Trị",
+  "DV28": "Đoàn Trường CĐ Sư phạm Quảng Trị",
+  "29": "Chi đoàn cơ sở Chi cục Dự trữ Nhà nước khu vực IX",
+  "DV29": "Chi đoàn cơ sở Chi cục Dự trữ Nhà nước khu vực IX",
+  "30": "Chi đoàn cơ sở Công ty Cổ phần nước sạch Quảng Trị",
+  "DV30": "Chi đoàn cơ sở Công ty Cổ phần nước sạch Quảng Trị",
+  "31": "Đoàn Trung tâm GDNN-GDTX tỉnh Quảng Trị",
+  "DV31": "Đoàn Trung tâm GDNN-GDTX tỉnh Quảng Trị",
+  "32": "Chi đoàn cơ sở Công ty Cổ phần Lệ Ninh",
+  "DV32": "Chi đoàn cơ sở Công ty Cổ phần Lệ Ninh",
+  "33": "Chi đoàn cơ sở Sở Công thương tỉnh Quảng Trị",
+  "DV33": "Chi đoàn cơ sở Sở Công thương tỉnh Quảng Trị",
+  "34": "Đoàn cơ sở Sở Y tế tỉnh Quảng Trị",
+  "DV34": "Đoàn cơ sở Sở Y tế tỉnh Quảng Trị",
+  "35": "Đoàn cơ sở Thuế tỉnh Quảng Trị",
+  "DV35": "Đoàn cơ sở Thuế tỉnh Quảng Trị",
+  "36": "Chi đoàn cơ sở Trung tâm Xúc tiến Đầu tư, Thương mại và Du lịch",
+  "DV36": "Chi đoàn cơ sở Trung tâm Xúc tiến Đầu tư, Thương mại và Du lịch",
+  "37": "Đoàn cơ sở Công ty TNHH MTV Cao su Quảng Trị",
+  "DV37": "Đoàn cơ sở Công ty TNHH MTV Cao su Quảng Trị",
+  "38": "Chi đoàn cơ sở Bảo hiểm xã hội tỉnh Quảng Trị",
+  "DV38": "Chi đoàn cơ sở Bảo hiểm xã hội tỉnh Quảng Trị",
+  "39": "Chi đoàn cơ sở BQL Dự án Đầu tư xây dựng CTDD, CN & HTKT",
+  "DV39": "Chi đoàn cơ sở BQL Dự án Đầu tư xây dựng CTDD, CN & HTKT",
+  "40": "Chi đoàn cơ sở Ban Quản lý dự án Đầu tư xây dựng CTGT",
+  "DV40": "Chi đoàn cơ sở Ban Quản lý dự án Đầu tư xây dựng CTGT"
+};
+
+/**
+ * Hàm chuẩn hóa tên và thư mục đơn vị:
+ * - DV / Admin: Luôn là "Đoàn UBND Tỉnh" -> [DV] Đoàn UBND Tỉnh
+ * - DV01..DV40: Luôn có tên đầy đủ -> [DVxx] Tên đầy đủ
+ */
+function resolveFullUnitInfo(unitCode, unitName) {
+  var code = String(unitCode || "").trim();
+  var name = String(unitName || "").trim();
+
+  // Kiểm tra nếu là DV / admin / Đoàn UBND Tỉnh
+  if (!code || code === "0" || code.toUpperCase() === "DV" || code.toLowerCase() === "admin" || name.indexOf("UBND") > -1) {
+    return {
+      unitCode: "DV",
+      unitName: "Đoàn UBND Tỉnh",
+      folderName: "[DV] Đoàn UBND Tỉnh"
+    };
+  }
+
+  // Chuẩn hóa mã DV (DV01..DV40)
+  var numMatch = code.match(/\d+/);
+  var numStr = "";
+  if (numMatch) {
+    var num = parseInt(numMatch[0], 10);
+    numStr = String(num);
+    code = "DV" + (num < 10 ? "0" + num : num);
+  }
+
+  // Nếu tên bị thiếu hoặc chỉ là "Đơn vị" chung chung
+  if (!name || name === "Đơn vị" || /^Đơn vị/i.test(name) || name === code) {
+    if (UNIT_NAMES_MAP[code]) {
+      name = UNIT_NAMES_MAP[code];
+    } else if (numStr && UNIT_NAMES_MAP[numStr]) {
+      name = UNIT_NAMES_MAP[numStr];
+    } else if (numMatch && UNIT_NAMES_MAP["DV" + numMatch[0]]) {
+      name = UNIT_NAMES_MAP["DV" + numMatch[0]];
+    }
+  }
+
+  var finalName = name || ("Đoàn cơ sở / Chi đoàn " + code);
+  return {
+    unitCode: code,
+    unitName: finalName,
+    folderName: "[" + code + "] " + finalName
+  };
+}
+
 function doPost(e) {
   try {
     var rawData = e.postData.contents;
@@ -15,6 +160,11 @@ function doPost(e) {
     // =====================================================================
     // TRƯỜNG HỢP 1: LƯU FILE EXCEL TỔNG HỢP TỪ WEB / APP
     // =====================================================================
+    if (data.action === "reorganize_drive" || data.action === "standardize_folders") {
+      var reorgRes = reorganizeAndStandardizeDriveFolders();
+      return createJsonResponse(reorgRes);
+    }
+
     if (data.action === "save_excel") {
       var fileDataB64 = data.fileData;
       if (!fileDataB64) {
@@ -216,39 +366,47 @@ function doPost(e) {
 
     var blob = Utilities.newBlob(decodedBytes, contentType, originalName);
 
-    // 1. Thư mục tiếp nhận: Dùng thư mục Google Drive do Admin chỉ định cho tiêu chí nếu có
-    var parentFolder = null;
+    // 1. Thư mục gốc tiếp nhận: Dùng thư mục do Admin chỉ định nếu có, hoặc ROOT_FOLDER_NAME
+    var rootFolder = null;
     var isCustomFolder = false;
     if (customFolderId && String(customFolderId).trim().length > 5) {
       try {
-        parentFolder = DriveApp.getFolderById(String(customFolderId).trim());
+        rootFolder = DriveApp.getFolderById(String(customFolderId).trim());
         isCustomFolder = true;
       } catch (errCust) {
         Logger.log("Không truy cập được customFolderId: " + customFolderId + ", lỗi: " + errCust);
       }
     }
-
-    // Nếu không có customFolderId hoặc thư mục chưa cấp quyền, dùng thư mục gốc mặc định
-    if (!parentFolder) {
-      parentFolder = getOrCreateFolder(DriveApp.getRootFolder(), ROOT_FOLDER_NAME);
+    if (!rootFolder) {
+      rootFolder = getOrCreateFolder(DriveApp.getRootFolder(), ROOT_FOLDER_NAME);
       try {
-        parentFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+        rootFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
       } catch (eR) {}
     }
 
-    // TỰ ĐỘNG TẠO THƯ MỤC TRÊN DRIVE THEO TÊN ADMIN NHẬP (Ví dụ: "Báo cáo Tháng 1", "Báo cáo Quý 1"...):
+    // 2. Thư mục Thời gian / Tên tiêu chí Admin chỉ định:
+    // TẤT CẢ CÁC ĐƠN VỊ ĐỀU NẰM BÊN TRONG THƯ MỤC NÀY (Ví dụ: Tháng 10-2026 hoặc "Báo cáo Tháng 10"...)
+    var periodFolderName = "";
     if (customFolderName && String(customFolderName).trim()) {
-      var cleanFolderName = String(customFolderName).trim().replace(/[\/\\:*?"<>|]/g, "_");
-      parentFolder = getOrCreateFolder(parentFolder, cleanFolderName);
-      try {
-        parentFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-      } catch (eCF) {}
+      periodFolderName = String(customFolderName).trim().replace(/[\/\\:*?"<>|]/g, "_");
       isCustomFolder = true;
+    } else if (monthLabel && String(monthLabel).trim() && String(monthLabel).trim() !== "Chung") {
+      periodFolderName = String(monthLabel).trim().replace(/[\/\\:*?"<>|]/g, "_");
+    } else {
+      var now = new Date();
+      periodFolderName = "Tháng " + Utilities.formatDate(now, "GMT+7", "MM-yyyy");
     }
 
-    // 2. Thư mục riêng của từng Đơn vị: "[DV01] Tên Đơn Vị" được tạo tự động bên trong thư mục tiếp nhận
-    var unitFolderName = "[" + unitCode + "] " + unitName;
-    var unitFolder = getOrCreateFolder(parentFolder, unitFolderName);
+    var periodFolder = getOrCreateFolder(rootFolder, periodFolderName);
+    try {
+      periodFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (ePF) {}
+
+    // 3. Chuẩn hóa tên đơn vị:
+    // - Riêng DV / Admin: Tên luôn là "Đoàn UBND Tỉnh" -> [DV] Đoàn UBND Tỉnh
+    // - Các đơn vị DV01..DV40: Luôn có tên đầy đủ -> [DVxx] Tên đầy đủ
+    var unitInfo = resolveFullUnitInfo(unitCode, unitName);
+    var unitFolder = getOrCreateFolder(periodFolder, unitInfo.folderName);
     try {
       unitFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
     } catch (eU) {}
@@ -571,4 +729,123 @@ function setSheetValuesSafe(sheet, data) {
 
 function createJsonResponse(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+
+/**
+ * HÀM SẮP XẾP & CHUẨN HÓA TOÀN BỘ THƯ MỤC GOOGLE DRIVE:
+ * 1. Đổi tên toàn bộ thư mục [DV] Đơn vị -> [DV] Đoàn UBND Tỉnh
+ * 2. Đổi tên [DVxx] Đơn vị -> [DVxx] Tên đầy đủ (DV01, DV02, DV09...)
+ * 3. Đưa TẤT CẢ các đơn vị (kể cả DV16, DV01..DV40, DV Đoàn UBND Tỉnh) vào bên trong thư mục Tháng 10-2026!
+ * 4. Nếu bên trong đơn vị có thư mục con Tháng lộn ngược (như Tháng 10 trong DV16), di chuyển file ra và xóa thư mục con thừa.
+ * 
+ * Có thể chạy trực tiếp từ Apps Script Editor (chọn hàm này rồi bấm Run) hoặc gọi qua Web API!
+ */
+function reorganizeAndStandardizeDriveFolders() {
+  try {
+    var rootFolder = getOrCreateFolder(DriveApp.getRootFolder(), ROOT_FOLDER_NAME);
+    var targetPeriodFolderName = "Tháng 10-2026";
+    var periodFolder = getOrCreateFolder(rootFolder, targetPeriodFolderName);
+    try {
+      periodFolder.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (eP) {}
+
+    var renamedCount = 0;
+    var movedCount = 0;
+    var cleanedSubFolders = 0;
+    var logs = [];
+
+    var subFolders = rootFolder.getFolders();
+    var foldersToProcess = [];
+    while (subFolders.hasNext()) {
+      foldersToProcess.push(subFolders.next());
+    }
+
+    foldersToProcess.forEach(function(folder) {
+      var fName = folder.getName();
+      // Bỏ qua thư mục báo cáo excel và thư mục kỳ đích
+      if (fName === EXCEL_FOLDER_NAME || fName === targetPeriodFolderName || fName.indexOf("BÁO CÁO") === 0) {
+        return;
+      }
+
+      // Nhận diện thư mục đơn vị: [DV...] hoặc chứa DV hoặc Đơn vị
+      var matchCode = fName.match(/\[(DV\d*|\d+)\]/i) || fName.match(/^(DV\d*|\d+)/i);
+      var rawCode = matchCode ? matchCode[1] : "";
+      if (!rawCode && (fName.indexOf("Đơn vị") > -1 || fName.indexOf("Chi đoàn") > -1 || fName.indexOf("Đoàn") > -1)) {
+        var mNum = fName.match(/\d+/);
+        if (mNum) rawCode = "DV" + mNum[0];
+        else rawCode = "DV";
+      }
+
+      if (rawCode || fName.indexOf("[DV") > -1) {
+        // 1. Chuẩn hóa tên đơn vị
+        var info = resolveFullUnitInfo(rawCode, fName);
+        if (fName !== info.folderName) {
+          folder.setName(info.folderName);
+          renamedCount++;
+          logs.push("Đã đổi tên: '" + fName + "' -> '" + info.folderName + "'");
+        }
+
+        // 2. Dọn dẹp nếu bên trong có thư mục con Tháng lộn ngược (như Tháng 10-2026 trong DV16)
+        var innerSubFolders = folder.getFolders();
+        var innerList = [];
+        while (innerSubFolders.hasNext()) {
+          innerList.push(innerSubFolders.next());
+        }
+
+        innerList.forEach(function(innerF) {
+          var innerName = innerF.getName();
+          if (innerName.indexOf("Tháng") > -1 || innerName.indexOf("Kỳ") > -1 || innerName.indexOf("Báo cáo") > -1) {
+            var innerFiles = innerF.getFiles();
+            while (innerFiles.hasNext()) {
+              var iFile = innerFiles.next();
+              folder.addFile(iFile);
+              innerF.removeFile(iFile);
+            }
+            innerF.setTrashed(true);
+            cleanedSubFolders++;
+            logs.push("Đã dọn dẹp thư mục con thừa '" + innerName + "' bên trong " + info.folderName);
+          }
+        });
+
+        // 3. Di chuyển thư mục đơn vị này vào bên trong Tháng 10-2026
+        periodFolder.addFolder(folder);
+        rootFolder.removeFolder(folder);
+        movedCount++;
+        logs.push("Đã di chuyển " + info.folderName + " vào trong " + targetPeriodFolderName);
+      }
+    });
+
+    // Quét thêm bên trong periodFolder để đảm bảo tên tất cả đơn vị đã vào đây đều chuẩn
+    var inPeriodFolders = periodFolder.getFolders();
+    while (inPeriodFolders.hasNext()) {
+      var inf = inPeriodFolders.next();
+      var inName = inf.getName();
+      var mC = inName.match(/\[(DV\d*|\d+)\]/i);
+      if (mC) {
+        var rC = mC[1];
+        var properInfo = resolveFullUnitInfo(rC, inName);
+        if (inName !== properInfo.folderName) {
+          inf.setName(properInfo.folderName);
+          renamedCount++;
+          logs.push("Đã chuẩn hóa tên trong kỳ: '" + inName + "' -> '" + properInfo.folderName + "'");
+        }
+      }
+    }
+
+    var result = {
+      status: "success",
+      message: "Hoàn tất! Đã đổi tên chuẩn cho " + renamedCount + " thư mục và đưa " + movedCount + " đơn vị vào bên trong " + targetPeriodFolderName + ".",
+      renamedCount: renamedCount,
+      movedCount: movedCount,
+      cleanedSubFolders: cleanedSubFolders,
+      targetFolder: targetPeriodFolderName,
+      logs: logs
+    };
+    Logger.log(JSON.stringify(result));
+    return result;
+  } catch (err) {
+    Logger.log("Lỗi reorganize: " + err.toString());
+    return { status: "error", message: err.toString() };
+  }
 }
