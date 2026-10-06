@@ -1414,7 +1414,7 @@ function renderMasterTableTab() {
 
       <div class="mobile-scroll-hint">👉 Vuốt ngón tay sang trái / phải để xem 131 cột điểm tiêu chí 👈</div>
       <div class="spreadsheet-wrapper" id="master-spreadsheet-wrapper">
-        <table class="master-table">
+        <table class="master-table reports-table">
           <thead>
             <tr class="row-banner">
               <th class="sticky-col-stt">#</th>
@@ -5190,11 +5190,7 @@ function renderAdminDocsTab() {
           </div>
         </div>
 
-        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-          <a href="${ADMIN_DOCS_GDRIVE_URL}" target="_blank" class="btn btn-warning" style="font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(0,0,0,0.15); background:#f59e0b; color:#fff; border:none; padding:8px 14px; border-radius:6px;">
-            🔗 Mở Thư Mục Google Drive
-          </a>
-        </div>
+
       </div>
 
       <div class="panel-body" style="padding:18px;">
@@ -5225,6 +5221,7 @@ function renderAdminDocsTab() {
               <select id="admin-doc-type" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
                 <option value="Hướng dẫn">Hướng dẫn</option>
                 <option value="Kế hoạch">Kế hoạch</option>
+                <option value="Báo cáo">Báo cáo</option>
                 <option value="Thông báo">Thông báo</option>
                 <option value="Quyết định">Quyết định</option>
                 <option value="Công văn">Công văn</option>
@@ -5248,13 +5245,22 @@ function renderAdminDocsTab() {
         ` : ''}
 
         <!-- Danh sách văn bản -->
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
           <div style="font-weight:800; font-size:15px; color:#0f172a;">
-            📋 Danh Sách Văn Bản & Tài Liệu Chỉ Đạo (${docs.length})
+            📋 Danh Sách Văn Bản & Tài Liệu Chỉ Đạo (<span id="admin-docs-count">${docs.length}</span>)
           </div>
-          <div style="position:relative;">
-            <input type="text" id="admin-doc-search" oninput="filterAdminDocs(this.value)" placeholder="🔍 Tìm kiếm văn bản..." style="padding:6px 10px 6px 30px; font-size:13px; border:1px solid #cbd5e1; border-radius:6px; width:240px;" />
-            <span style="position:absolute; left:8px; top:7px; color:#94a3b8; font-size:12px;">🔍</span>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <select id="admin-doc-type-filter" onchange="filterAdminDocs()" style="padding:6px 10px; font-size:13px; font-weight:600; border:1px solid #cbd5e1; border-radius:6px; background:#fff; color:#334155; cursor:pointer;">
+              <option value="">📁 Tất cả loại văn bản</option>
+              <option value="Hướng dẫn">📘 Hướng dẫn</option>
+              <option value="Kế hoạch">📅 Kế hoạch</option>
+              <option value="Báo cáo">📊 Báo cáo</option>
+              <option value="Thông báo">📢 Thông báo</option>
+              <option value="Quyết định">⚖️ Quyết định</option>
+              <option value="Công văn">✉️ Công văn</option>
+              <option value="Tài liệu khác">📎 Tài liệu khác</option>
+            </select>
+            <input type="text" id="admin-doc-search" oninput="filterAdminDocs()" placeholder="🔍 Tìm kiếm văn bản..." style="padding:6px 12px; font-size:13px; border:1px solid #cbd5e1; border-radius:6px; width:210px;" />
           </div>
         </div>
 
@@ -5284,15 +5290,18 @@ function renderAdminDocsTab() {
                   <td style="font-weight:700; color:#0369a1;" class="doc-num-cell">${escapeHtml(d.doc_number || '-')}</td>
                   <td style="text-align:center; color:#475569;">${formatDateVN(d.doc_date || todayISO())}</td>
                   <td style="font-weight:600; color:#0f172a; line-height:1.4;" class="doc-title-cell">${escapeHtml(d.title || d.file_name)}</td>
-                  <td style="text-align:center;"><span class="badge badge-info">${escapeHtml(d.doc_type || 'Văn bản')}</span></td>
+                  <td style="text-align:center;" class="doc-type-cell"><span class="badge badge-info">${escapeHtml(d.doc_type || 'Văn bản')}</span></td>
                   <td style="text-align:center;">
                     <a href="${escapeHtml(d.file_url || ADMIN_DOCS_GDRIVE_URL)}" target="_blank" style="font-weight:700; color:#0284c7; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
                       📎 ${escapeHtml(d.file_name || 'Xem tệp')}
                     </a>
                   </td>
-                  <td style="text-align:center;">
-                    <a href="${escapeHtml(d.file_url || ADMIN_DOCS_GDRIVE_URL)}" target="_blank" class="btn btn-sm btn-outline" style="padding:3px 8px; font-size:11.5px; font-weight:700; color:#0284c7; text-decoration:none;">
+                  <td style="text-align:center; white-space:nowrap;">
+                    <a href="${escapeHtml(d.file_url || ADMIN_DOCS_GDRIVE_URL)}" target="_blank" class="btn btn-sm btn-outline" style="padding:3px 8px; font-size:11.5px; font-weight:700; color:#0284c7; text-decoration:none;" title="Xem văn bản trực tuyến">
                       👁️ Xem
+                    </a>
+                    <a href="${escapeHtml(d.download_url || (d.file_url ? (d.file_url.includes('/file/d/') ? 'https://drive.google.com/uc?export=download&id=' + d.file_url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/)[1] : d.file_url) : '#'))}" target="_blank" download="${escapeHtml(d.file_name || 'van_ban')}" class="btn btn-sm btn-success" style="padding:3px 8px; font-size:11.5px; font-weight:700; margin-left:4px; text-decoration:none; display:inline-flex; align-items:center; gap:2px; background:#16a34a; color:#fff;" title="Tải văn bản về máy">
+                      ⬇️ Tải về
                     </a>
                     ${isAdmin ? `
                       <button class="btn btn-sm btn-danger" onclick="deleteAdminDocument('${d.id}')" style="padding:3px 6px; font-size:11.5px; margin-left:4px;" title="Xóa văn bản này">
@@ -5372,6 +5381,11 @@ window.uploadAdminDocument = async function () {
     }
 
     const docId = 'doc_' + Date.now();
+    let downloadUrl = '';
+    if (fileUrl && fileUrl.includes('/file/d/')) {
+      const m = fileUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (m) downloadUrl = 'https://drive.google.com/uc?export=download&id=' + m[1];
+    }
     const newDoc = {
       id: docId,
       doc_number: docNumber,
@@ -5380,6 +5394,7 @@ window.uploadAdminDocument = async function () {
       title: title,
       file_name: file.name,
       file_url: fileUrl,
+      download_url: downloadUrl,
       file_size: file.size,
       uploaded_at: nowISO(),
       uploaded_by: 'admin'
@@ -5420,17 +5435,34 @@ window.deleteAdminDocument = async function (docId) {
   }
 };
 
-window.filterAdminDocs = function (query) {
-  const q = (query || '').toLowerCase().trim();
+window.filterAdminDocs = function () {
+  const searchInput = document.getElementById('admin-doc-search');
+  const typeSelect = document.getElementById('admin-doc-type-filter');
+  const q = searchInput ? searchInput.value.toLowerCase().trim() : '';
+  const selectedType = typeSelect ? typeSelect.value.trim() : '';
+
   const rows = document.querySelectorAll('.admin-doc-row');
+  let visibleCount = 0;
   rows.forEach((r) => {
     const numCell = r.querySelector('.doc-num-cell');
     const titleCell = r.querySelector('.doc-title-cell');
-    const text = ((numCell ? numCell.textContent : '') + ' ' + (titleCell ? titleCell.textContent : '')).toLowerCase();
-    if (!q || text.includes(q)) {
+    const typeCell = r.querySelector('.doc-type-cell');
+
+    const numText = numCell ? numCell.textContent.toLowerCase() : '';
+    const titleText = titleCell ? titleCell.textContent.toLowerCase() : '';
+    const typeText = typeCell ? typeCell.textContent.trim() : '';
+
+    const matchesSearch = !q || numText.includes(q) || titleText.includes(q);
+    const matchesType = !selectedType || typeText.includes(selectedType);
+
+    if (matchesSearch && matchesType) {
       r.style.display = '';
+      visibleCount++;
     } else {
       r.style.display = 'none';
     }
   });
+
+  const countEl = document.getElementById('admin-docs-count');
+  if (countEl) countEl.textContent = String(visibleCount);
 };
