@@ -1271,6 +1271,408 @@ textarea:focus {
   z-index: 55 !important;
 }
 
+
+/* =========================================================================
+   NOTIFICATION BELL & DROPDOWN STYLES
+   ========================================================================= */
+.notification-bell-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.notification-bell-btn {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  font-size: 15px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.notification-bell-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.notification-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  min-width: 18px;
+  height: 18px;
+  line-height: 18px;
+  border-radius: 9px;
+  text-align: center;
+  padding: 0 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+  animation: pulse-badge 2s infinite;
+}
+
+@keyframes pulse-badge {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+.notification-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 380px;
+  max-width: 90vw;
+  background: #ffffff;
+  border-radius: 10px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  border: 1px solid #cbd5e1;
+  z-index: 1000;
+  overflow: hidden;
+  color: #0f172a;
+  text-align: left;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.notification-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: #003d99;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.notification-list {
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.notification-item {
+  padding: 10px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  position: relative;
+}
+
+.notification-item:hover {
+  background: #f8fafc;
+}
+
+.notification-item.unread {
+  background: #f0fdf4;
+  border-left: 3px solid #16a34a;
+}
+
+.notification-title {
+  font-weight: 700;
+  font-size: 12.5px;
+  color: #0f172a;
+  margin-bottom: 3px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.notification-time {
+  font-size: 10.5px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.notification-desc {
+  font-size: 12px;
+  color: #334155;
+  line-height: 1.4;
+}
+
+.notification-files {
+  margin-top: 5px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.notification-file-pill {
+  font-size: 10.5px;
+  background: #e0f2fe;
+  color: #0369a1;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* =========================================================================
+   FLOATING CHAT WIDGET STYLES
+   ========================================================================= */
+.floating-chat-trigger {
+  position: fixed;
+  bottom: 22px;
+  right: 22px;
+  background: linear-gradient(135deg, #0052cc 0%, #1e40af 100%);
+  color: #ffffff;
+  padding: 11px 18px;
+  border-radius: 30px;
+  box-shadow: 0 4px 16px rgba(0, 82, 204, 0.4);
+  cursor: pointer;
+  z-index: 990;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 13.5px;
+  transition: all 0.25s ease;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+}
+
+.floating-chat-trigger:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 6px 20px rgba(0, 82, 204, 0.5);
+  background: linear-gradient(135deg, #003d99 0%, #172554 100%);
+}
+
+.chat-badge {
+  background: #ef4444;
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 800;
+  min-width: 18px;
+  height: 18px;
+  line-height: 18px;
+  border-radius: 9px;
+  text-align: center;
+  padding: 0 4px;
+}
+
+.chat-widget-box {
+  position: fixed;
+  bottom: 80px;
+  right: 22px;
+  width: 390px;
+  max-width: calc(100vw - 30px);
+  height: 520px;
+  max-height: calc(100vh - 110px);
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.25);
+  border: 1px solid #cbd5e1;
+  z-index: 995;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: slideUp 0.2s ease-out;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.chat-header {
+  background: linear-gradient(90deg, #003d99 0%, #0052cc 100%);
+  color: #ffffff;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chat-header-title {
+  font-weight: 800;
+  font-size: 13.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chat-header-user {
+  font-size: 11.5px;
+  color: #bfdbfe;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
+}
+
+.chat-close-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: #fff;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-close-btn:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.chat-messages-body {
+  flex: 1;
+  padding: 14px;
+  overflow-y: auto;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chat-message-row {
+  display: flex;
+  flex-direction: column;
+  max-width: 85%;
+}
+
+.chat-message-row.mine {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.chat-message-row.theirs {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.chat-sender-name {
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 2px;
+  color: #0369a1;
+}
+
+.chat-sender-name.admin {
+  color: #b91c1c;
+}
+
+.chat-message-bubble {
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.chat-message-row.mine .chat-message-bubble {
+  background: #0052cc;
+  color: #ffffff;
+  border-bottom-right-radius: 2px;
+}
+
+.chat-message-row.theirs .chat-message-bubble {
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
+  border-bottom-left-radius: 2px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.chat-message-time {
+  font-size: 10px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+.chat-input-row {
+  padding: 10px 12px;
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.chat-input-field {
+  flex: 1;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.chat-input-field:focus {
+  border-color: #0052cc;
+}
+
+.chat-send-btn {
+  background: #0052cc;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.chat-send-btn:hover {
+  background: #003d99;
+}
+
+/* Category Filter Pills */
+.filter-pills-bar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.filter-pill-btn {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 20px;
+  padding: 5px 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.filter-pill-btn:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+.filter-pill-btn.active {
+  background: #0052cc;
+  color: #ffffff;
+  border-color: #0052cc;
+  box-shadow: 0 2px 6px rgba(0, 82, 204, 0.3);
+}
+
   </style>
 </head>
 <body>
@@ -1644,6 +2046,11 @@ function _getCloudToken() {
 }
 
 const state = {
+  notifications: [],
+  notificationsOpen: false,
+  chatMessages: [],
+  chatOpen: false,
+  reportTypeFilter: 'all', // 'all' | 'activity' | 'report' | 'admin'
   mobileViewMode: 'cards', // 'cards' | 'table'
   mobileReportsViewMode: 'cards', // 'cards' | 'table'
   mobileExpandedUnit: null,
@@ -2043,6 +2450,8 @@ function ingestCloudDB(db) {
 
   state.settings = settings;
   state.admin_docs = db.admin_docs || [];
+  state.notifications = Array.isArray(db.notifications) ? db.notifications : [];
+  state.chatMessages = Array.isArray(db.chat_messages) ? db.chat_messages : [];
   const allUsers = db.units || [];
   state.allAccounts = allUsers;
   state.units = allUsers
@@ -2159,7 +2568,7 @@ function getUnitTotalScore(unitId) {
   let sum = 0;
   for (const c of state.criteria) {
     const sc = getScoreObj(unitId, c.id);
-    if (sc && sc.score !== null && sc.score !== undefined && sc.score !== '') {
+    if (sc && sc.score !== null && sc.score !== undefined && sc.score !== '' && sc.approval_status !== 'pending') {
       sum += Number(sc.score);
     }
   }
@@ -2171,7 +2580,7 @@ function getUnitMonthScore(unitId, monthGroup) {
   for (const c of state.criteria) {
     if (Number(c.month_group) === Number(monthGroup)) {
       const sc = getScoreObj(unitId, c.id);
-      if (sc && sc.score !== null && sc.score !== undefined && sc.score !== '') {
+      if (sc && sc.score !== null && sc.score !== undefined && sc.score !== '' && sc.approval_status !== 'pending') {
         sum += Number(sc.score);
       }
     }
@@ -2314,6 +2723,7 @@ function renderApp() {
     <div class="main-container">
       ${renderActiveTabContent()}
     </div>
+    ${renderFloatingChatWidget()}
   `;
   requestAnimationFrame(updateMasterHeaderTops);
 }
@@ -2631,6 +3041,20 @@ function renderHeader() {
       </div>
 
       <div class="header-actions">
+        <!-- CHUÔNG THÔNG BÁO CHO ADMIN & CÁC ĐƠN VỊ -->
+        <div class="notification-bell-container" id="notif-bell-container">
+          <button class="btn btn-sm notification-bell-btn" onclick="toggleNotificationPanel(event)" title="Thông báo hệ thống (bấm để xem các lượt nộp văn bản)">
+            🔔
+            ${(() => {
+              const isAdminUser = state.user && state.user.role === 'admin';
+              const unreadList = (state.notifications || []).filter(n => isAdminUser ? !n.read : (n.unit_id === (state.user && state.user.id) && !n.read_by_unit));
+              const unreadCount = unreadList.length;
+              return unreadCount > 0 ? `<span class="notification-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>` : '';
+            })()}
+          </button>
+          ${state.notificationsOpen ? renderNotificationDropdown() : ''}
+        </div>
+
         <button class="btn btn-sm btn-outline" onclick="syncFromCloudNow(false)" style="background:rgba(255,255,255,0.15); color:#fff; border-color:rgba(255,255,255,0.3);" title="Tải dữ liệu mới nhất từ đám mây">
           🔄 Đồng bộ
         </button>
@@ -3490,10 +3914,12 @@ function renderUnitSubmitTab() {
                 const startDate = c.start_date || '2026-01-01';
                 const isReport = Number(c.is_report) === 1;
                 const isAdminScore = Number(c.is_report) === 2;
-                const isActivity = !isReport && !isAdminScore;
+                const isBlankContent = Number(c.is_report) === 3;
+                const isActivity = !isReport && !isAdminScore && !isBlankContent;
+                const isPending = sc && (sc.approval_status === 'pending' || (sc.score === null && ((sc.files && sc.files.length > 0) || sc.file_path || sc.report_content || sc.evidence_link)));
 
                 return `
-                <tr style="${isAdminScore ? 'background: #fbfdff;' : ''}">
+                <tr style="${isAdminScore ? 'background: #fbfdff;' : (isBlankContent ? 'background: #f8fafc;' : '')}">
                   <td style="text-align:center; font-weight:700; color:#7c2d12; background:#fff7ed;">
                     ${escapeHtml(c.col_label)}
                   </td>
@@ -3506,6 +3932,8 @@ function renderUnitSubmitTab() {
                       ${
                         isAdminScore
                           ? `<span class="badge" style="background:#fef3c7; color:#b45309; font-size:11px; border:1px solid #fde68a; font-weight:700;">👑 Admin tự chấm điểm</span>`
+                          : isBlankContent
+                          ? `<span class="badge" style="background:#f1f5f9; color:#475569; font-size:11px; border:1px solid #cbd5e1; font-weight:700;">📝 Nội dung trống</span>`
                           : isReport
                           ? `<span class="badge" style="background:#fef2f2; color:#b91c1c; font-size:11px; border:1px solid #fecaca; font-weight:700;">📋 Báo cáo định kỳ</span>`
                           : `<span class="badge" style="background:#eff6ff; color:#1d4ed8; font-size:11px; border:1px solid #bfdbfe; font-weight:700;">🎯 Hoạt động / Phong trào (Tự động chấm)</span>`
@@ -3544,19 +3972,33 @@ function renderUnitSubmitTab() {
                   </td>
                   <td style="text-align:center;">
                     ${
-                      isAdminScore
+                      isBlankContent
+                        ? `<span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;">Admin ghi chú</span>`
+                        : isAdminScore
                         ? (scoreVal !== null
                             ? `<span class="badge badge-success">✅ Admin đã chấm</span>`
                             : `<span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;">🔒 Admin tự chấm</span>`)
-                        : `<span class="badge ${st.badgeClass}">${st.label}</span>`
+                        : (isPending
+                            ? `<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;">⏳ Chờ Admin duyệt</span>`
+                            : `<span class="badge ${st.badgeClass}">${st.label}</span>`)
                     }
                   </td>
                   <td style="text-align:center; font-weight:800; font-size:14px; color:${scoreVal !== null ? (scoreVal < 0 ? '#dc2626' : '#16a34a') : '#94a3b8'};">
-                    ${scoreVal !== null ? formatScore(scoreVal) + ' đ' : '-'}
+                    ${
+                      isBlankContent
+                        ? '-'
+                        : scoreVal !== null
+                        ? formatScore(scoreVal) + ' đ'
+                        : isPending
+                        ? `<span style="font-size:11.5px; color:#d97706; font-weight:700;">(+${formatScore(sc.self_score)}đ chờ duyệt)</span>`
+                        : '-'
+                    }
                   </td>
                   <td style="text-align:center;">
                     ${
-                      isAdminScore
+                      isBlankContent
+                        ? `<span style="font-size:11.5px; color:#94a3b8; font-style:italic;">Không nộp</span>`
+                        : isAdminScore
                         ? (scoreVal !== null || (sc && (sc.report_content || sc.admin_note))
                             ? `<button class="btn btn-sm btn-outline" onclick="openSubmissionDetailModal(${unit.id}, ${c.id})" style="font-size:12px; font-weight:600; color:#0052cc;">
                                 👁️ Xem điểm
@@ -3884,12 +4326,16 @@ window.renderSubFilesContainer = function () {
 window.onSubFilesPicked = function (input) {
   if (!input.files || input.files.length === 0) return;
   window._pendingSubmissionFiles = window._pendingSubmissionFiles || [];
+  const retained = window._existingRetainedFiles || [];
   for (let i = 0; i < input.files.length; i++) {
     const f = input.files[i];
-    const exists = window._pendingSubmissionFiles.some(x => x.name === f.name && x.size === f.size);
-    if (!exists) {
-      window._pendingSubmissionFiles.push(f);
+    const isDupPending = window._pendingSubmissionFiles.some(x => (x.name || '').toLowerCase() === f.name.toLowerCase());
+    const isDupRetained = retained.some(x => (x.name || '').toLowerCase() === f.name.toLowerCase());
+    if (isDupPending || isDupRetained) {
+      showToast(`⚠️ Tệp "${f.name}" đã tồn tại! Vui lòng không tải lên tệp trùng tên.`, 'error');
+      continue;
     }
+    window._pendingSubmissionFiles.push(f);
   }
   input.value = '';
   renderSubFilesContainer();
@@ -4084,11 +4530,15 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
     const ts = nowISO();
 
     let awardedScore = null;
+    let approvalStatus = 'pending';
     if (isOnTime === 1) {
-      awardedScore = calcScore;
-      statusMsg = `Đúng hạn (${formatDateVN(effDate)} <= ${formatDateVN(crit.deadline)}) - Đã tự động cộng +${awardedScore} điểm Online!`;
+      // Yêu cầu: Quá trình chấm điểm tự động phải đợi Admin duyệt file, văn bản xong mới có mục Xác nhận chấm điểm!
+      awardedScore = existingRow && existingRow.updated_by === 'admin' ? existingRow.score : null;
+      approvalStatus = 'pending';
+      statusMsg = `Đã nộp thành công! Hồ sơ đang chờ Ban Thường vụ (Admin) duyệt file & xác nhận chấm điểm (+${calcScore}đ).`;
     } else {
       awardedScore = existingRow && existingRow.updated_by === 'admin' ? existingRow.score : null;
+      approvalStatus = 'expired';
       statusMsg = `Quá hạn nộp (${formatDateVN(effDate)} > ${formatDateVN(crit.deadline)}) - Không được tự động tính điểm`;
     }
 
@@ -4096,6 +4546,8 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
       unit_id: unitId,
       criterion_id: criterionId,
       score: awardedScore,
+      pending_score: calcScore,
+      approval_status: approvalStatus,
       quantity: quantity,
       self_score: calcScore,
       report_content: reportContent,
@@ -4135,6 +4587,29 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
       status_text: statusMsg,
     });
     if (db.logs.length > 300) db.logs.length = 300;
+
+    // Tự động tạo thông báo chuông (Notification Bell) cho Admin
+    const targetUnit = (state.units || []).find(u => u.id === unitId) || {};
+    db.notifications = db.notifications || [];
+    db.notifications.unshift({
+      id: 'notif_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      unit_id: unitId,
+      unit_name: targetUnit.unit_name || `Đơn vị #${unitId}`,
+      criterion_id: criterionId,
+      criterion_title: crit.title,
+      col_label: crit.col_label,
+      files: savedFilesList,
+      file_name: savedFileName,
+      file_path: savedFileUrl,
+      evidence_link: evidenceLink,
+      report_content: reportContent,
+      self_score: calcScore,
+      submitted_at: ts,
+      read: false,
+      read_by_unit: true,
+      created_at: nowISO()
+    });
+    if (db.notifications.length > 200) db.notifications.length = 200;
   }, `Unit ${unitId} submit C${criterionId}`);
 
   if (res.ok) {
@@ -4610,6 +5085,39 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
             </div>
           </div>
 
+          <!-- ADMIN PHÊ DUYỆT BÀI NỘP & XÁC NHẬN CHẤM ĐIỂM -->
+          ${
+            isAdmin && (sc.approval_status === 'pending' || (sc.score === null && ((sc.files && sc.files.length > 0) || sc.file_path || sc.report_content || sc.evidence_link)))
+              ? `
+            <div style="background:#eff6ff; border:2px solid #3b82f6; border-radius:8px; padding:12px 16px; margin-bottom:14px; box-shadow:0 2px 6px rgba(59,130,246,0.15);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <div style="font-weight:800; color:#1e40af; font-size:14px; display:flex; align-items:center; gap:6px;">
+                  <span>⏳</span>
+                  <span>HỒ SƠ ĐANG CHỜ PHÊ DUYỆT & XÁC NHẬN CHẤM ĐIỂM</span>
+                </div>
+                <span class="badge badge-warning" style="font-weight:700;">Chờ Duyệt</span>
+              </div>
+              <div style="font-size:12.5px; color:#334155; margin-bottom:10px; line-height:1.4;">
+                Đơn vị đã nộp đầy đủ hồ sơ/minh chứng. Điểm tự động đề xuất: <b>${formatScore(sc.self_score || crit.default_score || crit.max_score)} điểm</b>.<br/>
+                Vui lòng kiểm tra các văn bản/tệp đính kèm ở bên dưới và bấm nút <b>Xác nhận chấm điểm</b> để chính thức cộng điểm vào hệ thống.
+              </div>
+              <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <button type="button" class="btn btn-success" onclick="approveUnitSubmission(${unit.id}, ${crit.id}, ${sc.self_score || crit.default_score || crit.max_score})" style="font-weight:800; font-size:13.5px; padding:8px 18px; background:#16a34a; border-color:#15803d; box-shadow:0 2px 4px rgba(22,163,74,0.3);">
+                  ✅ Xác Nhận Chấm Điểm (+${formatScore(sc.self_score || crit.default_score || crit.max_score)}đ)
+                </button>
+                <button type="button" class="btn btn-danger btn-sm" onclick="rejectUnitSubmission(${unit.id}, ${crit.id})" style="font-weight:700; padding:7px 14px;">
+                  ❌ Không Duyệt (Từ chối)
+                </button>
+              </div>
+            </div>
+          ` : (sc.approval_status === 'approved' ? `
+            <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:8px 12px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+              <span style="color:#166534; font-size:12.5px; font-weight:700;">✅ Bài nộp đã được Admin duyệt & xác nhận chấm điểm: +${formatScore(sc.score)}đ</span>
+              <span class="badge badge-success">Đã Duyệt</span>
+            </div>
+          ` : '')
+          }
+
           <!-- ADMIN ĐIỀU CHỈNH / PHÊ DUYỆT ĐIỂM -->
           ${
             isAdmin
@@ -4647,10 +5155,12 @@ window.onAdminFilesPicked = function (input) {
   window._adminPendingFiles = window._adminPendingFiles || [];
   for (let i = 0; i < input.files.length; i++) {
     const f = input.files[i];
-    const exists = window._adminPendingFiles.some(x => x.name === f.name && x.size === f.size);
-    if (!exists) {
-      window._adminPendingFiles.push(f);
+    const isDup = window._adminPendingFiles.some(x => (x.name || '').toLowerCase() === f.name.toLowerCase());
+    if (isDup) {
+      showToast(`⚠️ Tệp "${f.name}" đã tồn tại! Vui lòng không tải lên tệp trùng tên.`, 'error');
+      continue;
     }
+    window._adminPendingFiles.push(f);
   }
   input.value = '';
   renderAdminFilesContainer();
@@ -4762,7 +5272,10 @@ window.saveAdminSubmissionDetail = async function (unitId, critId) {
     db.scores = db.scores || [];
     const idx = db.scores.findIndex((s) => s.unit_id === unitId && s.criterion_id === critId);
     if (idx >= 0) {
-      if (newScore !== null) db.scores[idx].score = newScore;
+      if (newScore !== null) {
+        db.scores[idx].score = newScore;
+        db.scores[idx].approval_status = 'approved';
+      }
       db.scores[idx].report_content = newContent;
       db.scores[idx].evidence_link = newLink;
       
@@ -4891,7 +5404,17 @@ window.executeBatchFillColumn = async function (criterionId) {
 function renderAdminReportsTab() {
   const isAdmin = state.user && state.user.role === 'admin';
   const activeUnits = state.units.filter((u) => Number(u.is_active) === 1);
-  const reportCriteria = state.criteria.filter((c) => Number(c.is_report) === 1);
+
+  state.reportTypeFilter = state.reportTypeFilter || 'all';
+  const allCriteria = state.criteria || [];
+  const activityCriteria = allCriteria.filter(c => Number(c.is_report) === 0);
+  const reportCriteria = allCriteria.filter(c => Number(c.is_report) === 1);
+  const adminCriteria = allCriteria.filter(c => Number(c.is_report) === 2);
+
+  let targetCriteria = allCriteria;
+  if (state.reportTypeFilter === 'activity') targetCriteria = activityCriteria;
+  else if (state.reportTypeFilter === 'report') targetCriteria = reportCriteria;
+  else if (state.reportTypeFilter === 'admin') targetCriteria = adminCriteria;
 
   const filteredLogs = state.logs.filter((l) => {
     if (Number(state.logFilterUnit) === 0) return true;
@@ -4919,17 +5442,34 @@ function renderAdminReportsTab() {
       </div>
     ` : ''}
 
-    <!-- MA TRẬN THEO DÕI NỘP BÁO CÁO ĐỊNH KỲ -->
+    <!-- MA TRẬN THEO DÕI NỘP BÁO CÁO & MINH CHỨNG TOÀN KHỐI -->
     <div class="panel">
-      <div class="panel-header">
+      <div class="panel-header" style="flex-wrap:wrap; gap:10px;">
         <div class="panel-title">
-          📊 THEO DÕI NỘP BÁO CÁO CỦA CÁC ĐƠN VỊ
+          📊 THEO DÕI NỘP BÁO CÁO & HOẠT ĐỘNG CỦA CÁC ĐƠN VỊ (${targetCriteria.length} TIÊU CHÍ)
         </div>
-        <div style="font-size:12.5px; color:#475569;">
-          <span class="badge badge-success">✅ Đã nộp đúng hạn (Có điểm)</span>
-          <span class="badge badge-warning">⚠️ Nộp trễ hạn (0 điểm)</span>
+        <div style="font-size:12px; color:#475569; display:flex; gap:6px; flex-wrap:wrap;">
+          <span class="badge badge-success">✅ Đã nộp / Đã duyệt (Có điểm)</span>
+          <span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;">⏳ Chờ Admin duyệt</span>
+          <span class="badge badge-warning">⚠️ Nộp trễ hạn</span>
           <span class="badge badge-danger">❌ Chưa nộp</span>
         </div>
+      </div>
+
+      <!-- THANH LỌC LIÊN KẾT: TẤT CẢ / BÁO CÁO / HOẠT ĐỘNG / ADMIN CHẤM -->
+      <div class="filter-pills-bar" style="padding:10px 16px 2px 16px;">
+        <button class="filter-pill-btn ${state.reportTypeFilter === 'all' ? 'active' : ''}" onclick="state.reportTypeFilter = 'all'; renderApp();">
+          🌐 Tất Cả Tiêu Chí (${allCriteria.length})
+        </button>
+        <button class="filter-pill-btn ${state.reportTypeFilter === 'report' ? 'active' : ''}" onclick="state.reportTypeFilter = 'report'; renderApp();">
+          📋 Báo Cáo Định Kỳ (${reportCriteria.length})
+        </button>
+        <button class="filter-pill-btn ${state.reportTypeFilter === 'activity' ? 'active' : ''}" onclick="state.reportTypeFilter = 'activity'; renderApp();">
+          🎯 Hoạt Động / Phong Trào (${activityCriteria.length})
+        </button>
+        <button class="filter-pill-btn ${state.reportTypeFilter === 'admin' ? 'active' : ''}" onclick="state.reportTypeFilter = 'admin'; renderApp();">
+          👑 Admin Tự Chấm Điểm (${adminCriteria.length})
+        </button>
       </div>
 
       ${isMobile && state.mobileReportsViewMode === 'cards' ? `
@@ -4942,14 +5482,15 @@ function renderAdminReportsTab() {
           <div class="mobile-units-list">
             ${activeUnits.map((u, idx) => {
               let doneCount = 0;
-              const critStatusList = reportCriteria.map(c => {
+              const critStatusList = targetCriteria.map(c => {
                 const sc = getScoreObj(u.id, c.id);
-                const hasScore = sc && sc.score !== null && sc.score !== '' && Number(sc.score) > 0;
+                const hasScore = sc && sc.score !== null && sc.score !== '' && Number(sc.score) > 0 && sc.approval_status !== 'pending';
                 if (hasScore) doneCount++;
-                const isLate = sc && Number(sc.is_on_time) === 0 && !hasScore;
-                return { c, sc, hasScore, isLate };
+                const isPending = sc && (sc.approval_status === 'pending' || (sc.score === null && ((sc.files && sc.files.length > 0) || sc.file_path || sc.report_content || sc.evidence_link)));
+                const isLate = sc && Number(sc.is_on_time) === 0 && !hasScore && !isPending;
+                return { c, sc, hasScore, isPending, isLate };
               });
-              const pct = reportCriteria.length > 0 ? Math.round((doneCount / reportCriteria.length) * 100) : 0;
+              const pct = targetCriteria.length > 0 ? Math.round((doneCount / targetCriteria.length) * 100) : 0;
               const isExpanded = state.mobileExpandedReportUnit === u.id;
 
               return `
@@ -5003,6 +5544,8 @@ function renderAdminReportsTab() {
                               ${
                                 hasScore
                                   ? `<span class="badge badge-success">+${formatScore(sc.score)}đ</span>`
+                                  : isPending
+                                  ? `<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;">⏳ Chờ duyệt</span>`
                                   : isLate
                                   ? `<span class="badge badge-warning">Trễ hạn</span>`
                                   : `<span class="badge badge-danger">Chưa nộp</span>`
@@ -5041,18 +5584,27 @@ function renderAdminReportsTab() {
           <button class="btn-scroll-step" onclick="scrollTableHorizontally('reports-spreadsheet-wrapper', -250)">◀ Cuộn Sang Trái</button>
           <button class="btn-scroll-step" onclick="scrollTableHorizontally('reports-spreadsheet-wrapper', 250)">Cuộn Sang Phải ▶</button>
         </div>
-        <div class="spreadsheet-wrapper" id="reports-spreadsheet-wrapper" style="max-height: 450px;">
+        <div class="spreadsheet-wrapper" id="reports-spreadsheet-wrapper" style="max-height: 480px;">
           <table class="master-table">
             <thead>
               <tr class="row-titles">
                 <th class="sticky-col-stt">STT</th>
                 <th class="sticky-col-unit">ĐƠN VỊ</th>
-                <th class="sticky-col-total">Đúng hạn</th>
-                ${reportCriteria
+                <th class="sticky-col-total">Đã Đạt</th>
+                ${targetCriteria
                   .map(
                     (c) => `
-                  <th style="min-width:115px;">
-                    <div>${escapeHtml(c.title)}</div>
+                  <th style="min-width:125px;">
+                    <div style="font-weight:700;">${escapeHtml(c.col_label || '')}: ${escapeHtml(c.title)}</div>
+                    <div style="margin-top:3px; display:flex; gap:4px; justify-content:center; flex-wrap:wrap;">
+                      ${(() => {
+                        const rep = Number(c.is_report);
+                        if (rep === 1) return '<span class="badge badge-success" style="font-size:9.5px; padding:1px 5px;">📋 Báo cáo</span>';
+                        if (rep === 2) return '<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-size:9.5px; font-weight:700; padding:1px 5px;">👑 Admin chấm</span>';
+                        if (rep === 3) return '<span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-size:9.5px; font-weight:700; padding:1px 5px;">📝 Nội dung trống</span>';
+                        return '<span class="badge" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-size:9.5px; font-weight:700; padding:1px 5px;">🎯 Hoạt động</span>';
+                      })()}
+                    </div>
                     <div style="font-size:10px; color:#15803d; margin-top:3px;">Hạn: ${formatShortDateVN(c.deadline)} (${c.max_score}đ)</div>
                   </th>
                 `
@@ -5064,23 +5616,26 @@ function renderAdminReportsTab() {
               ${activeUnits
                 .map((u, idx) => {
                   let doneCount = 0;
-                  const cells = reportCriteria
+                  const cells = targetCriteria
                     .map((c) => {
                       const sc = getScoreObj(u.id, c.id);
-                      const hasScore = sc && sc.score !== null && sc.score !== '' && Number(sc.score) > 0;
+                      const hasScore = sc && sc.score !== null && sc.score !== '' && Number(sc.score) > 0 && sc.approval_status !== 'pending';
                       if (hasScore) doneCount++;
-                      const isLate = sc && Number(sc.is_on_time) === 0 && !hasScore;
+                      const isPending = sc && (sc.approval_status === 'pending' || (sc.score === null && ((sc.files && sc.files.length > 0) || sc.file_path || sc.report_content || sc.evidence_link)));
+                      const isLate = sc && Number(sc.is_on_time) === 0 && !hasScore && !isPending;
 
                       return `
                       <td style="text-align:center; cursor:pointer;" onclick="${
-                        sc ? `openSubmissionDetailModal(${u.id}, ${c.id})` : `openUnitSubmitModal(${c.id}, ${u.id})`
+                        sc ? `openSubmissionDetailModal(${u.id}, ${c.id})` : (Number(c.is_report) === 2 ? `openSubmissionDetailModal(${u.id}, ${c.id})` : `openUnitSubmitModal(${c.id}, ${u.id})`)
                       }">
                         ${
                           hasScore
                             ? `<span class="badge badge-success">+${formatScore(sc.score)}đ</span>`
+                            : isPending
+                            ? `<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;" title="Đã nộp minh chứng, chờ Admin duyệt">+${formatScore(sc.self_score)}đ ⏳</span>`
                             : isLate
                             ? `<span class="badge badge-warning">Trễ hạn</span>`
-                            : `<span style="color:#cbd5e1;">—</span>`
+                            : (Number(c.is_report) === 3 ? `<span style="color:#94a3b8; font-size:11px;">—</span>` : `<span style="color:#cbd5e1;">—</span>`)
                         }
                       </td>
                     `;
@@ -5091,7 +5646,7 @@ function renderAdminReportsTab() {
                   <tr>
                     <td class="sticky-col-stt">${idx + 1}</td>
                     <td class="sticky-col-unit">${escapeHtml(u.unit_name)}</td>
-                    <td class="sticky-col-total">${doneCount}/${reportCriteria.length}</td>
+                    <td class="sticky-col-total" style="font-weight:700; color:#0052cc;">${doneCount}/${targetCriteria.length}</td>
                     ${cells}
                   </tr>
                 `;
@@ -5171,7 +5726,19 @@ function renderAdminReportsTab() {
                     <tr>
                       <td style="white-space:nowrap; font-size:12px;">${escapeHtml(l.submitted_at)}</td>
                       <td style="font-weight:600;">${escapeHtml(l.unit_name)}</td>
-                      <td><b>${escapeHtml(l.col_label)}:</b> ${escapeHtml(l.criterion_title)}</td>
+                      <td>
+                        <div style="font-weight:600; display:flex; align-items:center; gap:6px;">
+                          <span><b>${escapeHtml(l.col_label || '')}:</b> ${escapeHtml(l.criterion_title || '')}</span>
+                          ${(() => {
+                            const foundCrit = (state.criteria || []).find(c => c.id === l.criterion_id);
+                            const rep = foundCrit ? Number(foundCrit.is_report) : 0;
+                            if (rep === 1) return '<span class="badge badge-success" style="font-size:9.5px;">📋 Báo cáo</span>';
+                            if (rep === 2) return '<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-size:9.5px;">👑 Admin chấm</span>';
+                            if (rep === 3) return '<span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-size:9.5px;">📝 Nội dung trống</span>';
+                            return '<span class="badge" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-size:9.5px;">🎯 Hoạt động</span>';
+                          })()}
+                        </div>
+                      </td>
                       <td style="white-space:nowrap; font-size:12px;">
                         Nộp: <b>${formatDateVN(l.submitted_date)}</b><br/>
                         Hạn: ${formatDateVN(l.deadline)}
@@ -5560,6 +6127,7 @@ function renderAdminCriteriaTab() {
                     const rep = Number(c.is_report);
                     if (rep === 1) return '<span class="badge badge-success" title="Hiển thị trong bảng Theo Dõi Báo Cáo">📋 Báo cáo</span>';
                     if (rep === 2) return '<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;" title="Ban Thường vụ tự chấm điểm">👑 Admin chấm</span>';
+                    if (rep === 3) return '<span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-weight:700;" title="Nội dung trống / Ghi chú admin">📝 Nội dung trống</span>';
                     return '<span class="badge" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-weight:700;" title="Đơn vị nộp - Tự động chấm điểm">🎯 Hoạt động</span>';
                   })()}
                 </td>
@@ -5579,7 +6147,8 @@ function renderAdminCriteriaTab() {
                   }
                 </td>
                 <td style="text-align:center; white-space:nowrap;">
-                  <button class="btn btn-sm btn-primary" onclick="openCriterionEditModal(${c.id})" title="Chỉnh sửa ngày/điểm/tên">✏️ Sửa</button>
+                  <button class="btn btn-sm" onclick="duplicateCriterion(${c.id})" style="background:#e0e7ff; color:#3730a3; border:1px solid #c7d2fe; font-weight:700;" title="Nhân đôi tiêu chí này">📋 Nhân đôi</button>
+                  <button class="btn btn-sm btn-primary" onclick="openCriterionEditModal(${c.id})" style="margin-left:4px;" title="Chỉnh sửa ngày/điểm/tên">✏️ Sửa</button>
                   <button class="btn btn-sm btn-danger" onclick="window.deleteCriterion(${c.id})" style="margin-left:4px;" title="Xóa hẳn tiêu chí này">🗑️ Xóa</button>
                 </td>
               </tr>
@@ -5650,6 +6219,7 @@ window.openCriterionEditModal = function (critId) {
               <option value="0" ${Number(c.is_report) === 0 ? 'selected' : ''}>🎯 Hoạt động / Phong trào (Đơn vị nộp minh chứng - Tự động chấm điểm)</option>
               <option value="1" ${Number(c.is_report) === 1 ? 'selected' : ''}>📋 Báo cáo định kỳ (Đơn vị nộp báo cáo & tài liệu - Theo dõi tiến độ)</option>
               <option value="2" ${Number(c.is_report) === 2 ? 'selected' : ''}>👑 Admin tự chấm điểm (Ban Thường vụ tự chấm - Đơn vị không nhập điểm/tài liệu)</option>
+              <option value="3" ${Number(c.is_report) === 3 ? 'selected' : ''}>📝 Nội dung trống (Admin tự thêm nội dung vào)</option>
             </select>
             
           </div>
@@ -5723,6 +6293,13 @@ window.saveCriterionEdit = async function (critId) {
   const title = (folderInput ? folderInput.value : (document.getElementById('edit-crit-title') ? document.getElementById('edit-crit-title').value : '')).trim();
   if (!title) {
     showToast('Vui lòng nhập tên thư mục trên Google Drive / Tiêu chí!', 'error');
+    if (folderInput) folderInput.focus();
+    return;
+  }
+  // Kiểm tra trùng tên tiêu chí
+  const isDuplicateCrit = (state.criteria || []).some(c => c.id !== critId && (c.title || '').trim().toLowerCase() === title.toLowerCase());
+  if (isDuplicateCrit) {
+    showToast(`⚠️ Tên tiêu chí "${title}" đã tồn tại! Vui lòng đặt tên khác, không được tạo tiêu chí trùng tên.`, 'error');
     if (folderInput) folderInput.focus();
     return;
   }
@@ -5912,6 +6489,7 @@ window.openCriterionCreateModal = function () {
               <option value="0" selected>🎯 Hoạt động / Phong trào (Đơn vị nộp minh chứng - Tự động chấm điểm)</option>
               <option value="1">📋 Báo cáo định kỳ (Đơn vị nộp báo cáo & tài liệu - Theo dõi tiến độ)</option>
               <option value="2">👑 Admin tự chấm điểm (Ban Thường vụ tự chấm - Đơn vị không nhập điểm/tài liệu)</option>
+              <option value="3">📝 Nội dung trống (Admin tự thêm nội dung vào)</option>
             </select>
           </div>
 
@@ -5961,7 +6539,14 @@ window.saveNewCriterion = async function () {
   const folderInput = document.getElementById('new-crit-gdrive-folder-name');
   const title = (folderInput ? folderInput.value : '').trim();
   if (!title) {
-    showToast('Vui lòng nhập tên thư mục tự tạo trên Google Drive!', 'error');
+    showToast('Vui lòng nhập tên thư mục tự tạo trên Google Drive / Tiêu chí!', 'error');
+    if (folderInput) folderInput.focus();
+    return;
+  }
+  // Kiểm tra trùng tên tiêu chí
+  const isDuplicateCrit = (state.criteria || []).some(c => (c.title || '').trim().toLowerCase() === title.toLowerCase());
+  if (isDuplicateCrit) {
+    showToast(`⚠️ Tên tiêu chí "${title}" đã tồn tại! Vui lòng đặt tên khác, không được tạo tiêu chí trùng tên.`, 'error');
     if (folderInput) folderInput.focus();
     return;
   }
@@ -7621,6 +8206,13 @@ window.uploadAdminDocument = async function () {
     return;
   }
 
+  // Kiểm tra trùng tên văn bản tải lên
+  const isDupDoc = (state.admin_docs || []).some(d => (d.file_name && d.file_name.toLowerCase() === file.name.toLowerCase()) || (d.title && d.title.trim().toLowerCase() === title.toLowerCase()));
+  if (isDupDoc) {
+    showToast(`⚠️ Văn bản hoặc tệp "${file.name}" đã tồn tại trên hệ thống! Vui lòng không tải lên tệp trùng tên.`, 'error');
+    return;
+  }
+
   if (btn) {
     btn.disabled = true;
     btn.textContent = '⏳ Đang tải lên Google Drive...';
@@ -8088,6 +8680,426 @@ window.syncMissingDriveFoldersNow = async function () {
   renderApp();
   showToast(`Đã đồng bộ thành công ${successCount} tiêu chí vào Thư mục Google Drive HỒ SƠ BÁO CÁO ĐOÀN 2026!`, 'success');
 };
+
+/* =========================================================================
+   CÁC HÀM XỬ LÝ HỆ THỐNG THÔNG BÁO CHUÔNG, CHAT VÀ PHÊ DUYỆT CHẤM ĐIỂM
+   ========================================================================= */
+
+// BẬT / TẮT POPUP THÔNG BÁO CHUÔNG
+window.toggleNotificationPanel = function(e) {
+  if (e) e.stopPropagation();
+  state.notificationsOpen = !state.notificationsOpen;
+  renderApp();
+};
+
+// ĐÁNH DẤU 1 THÔNG BÁO ĐÃ ĐỌC
+window.markNotificationRead = async function(notifId) {
+  const notif = (state.notifications || []).find(n => n.id === notifId);
+  if (notif && !notif.read) {
+    notif.read = true;
+    renderApp();
+    await mutateCloudDB(db => {
+      db.notifications = db.notifications || [];
+      const item = db.notifications.find(n => n.id === notifId);
+      if (item) item.read = true;
+    }, 'Mark notification as read');
+  }
+};
+
+// ĐÁNH DẤU TẤT CẢ THÔNG BÁO LÀ ĐÃ ĐỌC
+window.markAllNotificationsRead = async function() {
+  const isAdminUser = state.user && state.user.role === 'admin';
+  (state.notifications || []).forEach(n => {
+    if (isAdminUser) n.read = true;
+    else if (n.unit_id === (state.user && state.user.id)) n.read_by_unit = true;
+  });
+  renderApp();
+  showToast('Đã đánh dấu tất cả thông báo là đã đọc!', 'success');
+  await mutateCloudDB(db => {
+    db.notifications = db.notifications || [];
+    db.notifications.forEach(n => {
+      if (isAdminUser) n.read = true;
+      else if (n.unit_id === (state.user && state.user.id)) n.read_by_unit = true;
+    });
+  }, 'Mark all notifications as read');
+};
+
+// CLICK VÀO THÔNG BÁO: ĐÁNH DẤU ĐÃ ĐỌC VÀ MỞ CHI TIẾT TIÊU CHÍ/VĂN BẢN
+window.openNotificationDetail = async function(notifId) {
+  const notif = (state.notifications || []).find(n => n.id === notifId);
+  if (!notif) return;
+  state.notificationsOpen = false;
+  const isAdminUser = state.user && state.user.role === 'admin';
+  if (isAdminUser) notif.read = true;
+  else notif.read_by_unit = true;
+  renderApp();
+
+  mutateCloudDB(db => {
+    db.notifications = db.notifications || [];
+    const item = db.notifications.find(n => n.id === notifId);
+    if (item) {
+      if (isAdminUser) item.read = true;
+      else item.read_by_unit = true;
+    }
+  }, 'Mark notification read');
+
+  // Mở modal xem hồ sơ & xác nhận chấm điểm
+  if (notif.unit_id && notif.criterion_id) {
+    openSubmissionDetailModal(notif.unit_id, notif.criterion_id);
+  }
+};
+
+// RENDER DROPDOWN THÔNG BÁO CHUÔNG
+function renderNotificationDropdown() {
+  const isAdminUser = state.user && state.user.role === 'admin';
+  const notifs = state.notifications || [];
+  const unreadList = notifs.filter(n => isAdminUser ? !n.read : (n.unit_id === (state.user && state.user.id) && !n.read_by_unit));
+  const unreadCount = unreadList.length;
+
+  return `
+    <div class="notification-dropdown" onclick="event.stopPropagation()">
+      <div class="notification-header">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span>🔔 Thông Báo Hệ Thống</span>
+          ${unreadCount > 0 ? `<span class="badge badge-warning" style="font-size:11px; font-weight:800;">${unreadCount} chưa đọc</span>` : ''}
+        </div>
+        ${unreadCount > 0 ? `
+          <button type="button" onclick="markAllNotificationsRead()" style="background:transparent; border:none; color:#fef08a; font-size:11.5px; font-weight:700; cursor:pointer; text-decoration:underline;">
+            ✓✓ Đã đọc tất cả
+          </button>
+        ` : ''}
+      </div>
+      <div class="notification-list">
+        ${notifs.length === 0 ? `
+          <div style="padding:28px 16px; text-align:center; color:#64748b; font-size:12.5px;">
+            Chưa có thông báo nào từ các cơ sở Đoàn.
+          </div>
+        ` : notifs.slice(0, 60).map(n => {
+          const isUnread = isAdminUser ? !n.read : (n.unit_id === (state.user && state.user.id) && !n.read_by_unit);
+          return `
+            <div class="notification-item ${isUnread ? 'unread' : ''}" onclick="openNotificationDetail('${n.id}')">
+              <div class="notification-title">
+                <span style="color:#003d99; font-weight:700;">🏢 ${escapeHtml(n.unit_name || 'Đơn vị')}</span>
+                <span class="notification-time">${escapeHtml(n.submitted_at ? formatDateVN(n.submitted_at.substring(0, 10)) + ' ' + (n.submitted_at.substring(11, 16) || '') : '')}</span>
+              </div>
+              <div class="notification-desc">
+                ${n.is_admin_approval
+                  ? `👑 <b>Ban Thường vụ đã duyệt điểm:</b> ${escapeHtml(n.col_label || '')} - ${escapeHtml(n.criterion_title || '')} (+${formatScore(n.score)}đ)`
+                  : `📤 <b>Đã nộp:</b> ${escapeHtml(n.col_label || '')} - ${escapeHtml(n.criterion_title || '')}`
+                }
+              </div>
+              ${n.file_name ? `
+                <div class="notification-files">
+                  <span class="notification-file-pill">📎 ${escapeHtml(n.file_name)}</span>
+                </div>
+              ` : ''}
+              ${n.files && n.files.length > 0 ? `
+                <div class="notification-files">
+                  ${n.files.map(f => `<span class="notification-file-pill">📎 ${escapeHtml(f.name || 'Tệp')}</span>`).join('')}
+                </div>
+              ` : ''}
+              ${n.self_score ? `
+                <div style="margin-top:4px; font-size:11.5px; color:#d97706; font-weight:700;">
+                  ⏳ Chờ duyệt (+${formatScore(n.self_score)}đ) • Bấm để xem file & xác nhận chấm điểm ↗
+                </div>
+              ` : ''}
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+// DUYỆT BÀI NỘP VÀ XÁC NHẬN CHẤM ĐIỂM (ADMIN)
+window.approveUnitSubmission = async function(unitId, critId, scoreVal) {
+  const unit = state.units.find(u => u.id === unitId);
+  const crit = state.criteria.find(c => c.id === critId);
+  const finalScore = scoreVal !== undefined && scoreVal !== null ? Number(scoreVal) : (crit ? crit.default_score : 5);
+
+  showToast('Đang phê duyệt và xác nhận chấm điểm...', 'info');
+  const res = await mutateCloudDB(db => {
+    db.scores = db.scores || [];
+    const idx = db.scores.findIndex(s => s.unit_id === unitId && s.criterion_id === critId);
+    if (idx >= 0) {
+      db.scores[idx].score = finalScore;
+      db.scores[idx].approval_status = 'approved';
+      db.scores[idx].updated_by = 'admin';
+    } else {
+      db.scores.push({
+        unit_id: unitId,
+        criterion_id: critId,
+        score: finalScore,
+        self_score: finalScore,
+        approval_status: 'approved',
+        updated_by: 'admin',
+        submitted_at: nowISO(),
+        submitted_date: todayISO(),
+        is_on_time: 1
+      });
+    }
+
+    // Đánh dấu thông báo chuông của bài này đã đọc
+    if (Array.isArray(db.notifications)) {
+      db.notifications.forEach(n => {
+        if (n.unit_id === unitId && n.criterion_id === critId) {
+          n.read = true;
+        }
+      });
+    }
+
+    // Thêm vào nhật ký toàn khối
+    db.logs = db.logs || [];
+    db.logs.unshift({
+      id: (db.logs[0] ? db.logs[0].id : 0) + 1,
+      unit_id: unitId,
+      criterion_id: critId,
+      submitted_at: nowISO(),
+      submitted_date: todayISO(),
+      deadline: crit ? crit.deadline : '',
+      is_on_time: 1,
+      awarded_score: finalScore,
+      status_text: `Admin đã duyệt & xác nhận chấm điểm (+${finalScore}đ)`
+    });
+  }, `Admin approved U${unitId} C${critId}`);
+
+  if (res.ok) {
+    closeModal();
+    showToast(`🎉 Đã duyệt và xác nhận chấm +${finalScore} điểm thành công cho ${unit ? unit.unit_name : 'đơn vị'}!`, 'success');
+    renderApp();
+  } else {
+    showToast('Lỗi khi lưu duyệt điểm lên đám mây!', 'error');
+  }
+};
+
+// TỪ CHỐI BÀI NỘP (ADMIN)
+window.rejectUnitSubmission = async function(unitId, critId) {
+  if (!confirm('Bạn có chắc chắn muốn từ chối duyệt bài nộp này? Đơn vị sẽ nhận thông báo để nộp bổ sung/làm lại.')) return;
+  showToast('Đang cập nhật từ chối bài nộp...', 'info');
+  const res = await mutateCloudDB(db => {
+    db.scores = db.scores || [];
+    const idx = db.scores.findIndex(s => s.unit_id === unitId && s.criterion_id === critId);
+    if (idx >= 0) {
+      db.scores[idx].score = null;
+      db.scores[idx].approval_status = 'rejected';
+      db.scores[idx].admin_note = 'Ban Thường vụ đã từ chối hồ sơ (chưa hợp lệ, vui lòng nộp lại minh chứng)';
+    }
+  }, `Admin rejected U${unitId} C${critId}`);
+
+  if (res.ok) {
+    closeModal();
+    showToast('Đã từ chối bài nộp!', 'info');
+    renderApp();
+  }
+};
+
+// CHỨC NĂNG NHÂN ĐÔI TIÊU CHÍ (Ảnh 3)
+window.duplicateCriterion = async function (critId) {
+  const c = (state.criteria || []).find(x => x.id === critId);
+  if (!c) return;
+
+  // Tự sinh tên không trùng
+  const baseTitle = (c.title || '').replace(/\s*\(Bản sao(\s*\d+)?\)$/i, '').trim();
+  let dupTitle = `${baseTitle} (Bản sao)`;
+  let count = 2;
+  while ((state.criteria || []).some(x => (x.title || '').trim().toLowerCase() === dupTitle.toLowerCase())) {
+    dupTitle = `${baseTitle} (Bản sao ${count})`;
+    count++;
+  }
+
+  if (!confirm(`Bạn có chắc chắn muốn nhân đôi tiêu chí "${c.title}" thành tiêu chí mới: "${dupTitle}" không?`)) return;
+
+  showToast(`Đang nhân đôi tiêu chí và khởi tạo thư mục Google Drive tiếp nhận...`, 'info');
+
+  let gdriveFolderUrl = '';
+  const gdriveUrl = getGoogleDriveScriptUrl();
+  if (gdriveUrl) {
+    try {
+      const createRes = await fetch(gdriveUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'create_criterion_folder',
+          folderName: dupTitle,
+          monthLabel: c.month_label,
+          title: dupTitle
+        })
+      });
+      const createJson = await createRes.json();
+      if (createJson && createJson.folderUrl) {
+        gdriveFolderUrl = createJson.folderUrl;
+      }
+    } catch (e) {
+      console.warn('Notice when auto-creating duplicate drive folder:', e);
+    }
+  }
+
+  const res = await mutateCloudDB(db => {
+    db.criteria = db.criteria || [];
+    const maxId = db.criteria.reduce((max, x) => Math.max(max, x.id || 0), 0);
+    const newId = maxId + 1;
+    const newColNumber = db.criteria.length + 1;
+
+    const newCrit = {
+      ...c,
+      id: newId,
+      col_number: newColNumber,
+      col_label: `Cột ${newColNumber}`,
+      title: dupTitle,
+      gdrive_folder_name: dupTitle,
+      gdrive_folder_url: gdriveFolderUrl || c.gdrive_folder_url || '',
+    };
+    db.criteria.push(newCrit);
+    sortCriteriaChronologically(db.criteria);
+  }, `Duplicate criterion ${c.id}`);
+
+  if (res.ok) {
+    showToast(`🎉 Đã nhân đôi tiêu chí thành công: "${dupTitle}"!`, 'success');
+    renderApp();
+  } else {
+    showToast('Lỗi khi nhân đôi tiêu chí lên máy chủ!', 'error');
+  }
+};
+
+// HỆ THỐNG TRAO ĐỔI & CHAT TRỰC TUYẾN TOÀN KHỐI
+window.toggleChatWidget = function() {
+  state.chatOpen = !state.chatOpen;
+  renderApp();
+  if (state.chatOpen) {
+    setTimeout(scrollChatToBottom, 100);
+  }
+};
+
+window.scrollChatToBottom = function() {
+  const el = document.getElementById('chat-messages-body');
+  if (el) el.scrollTop = el.scrollHeight;
+};
+
+window.onChatKeydown = function(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    window.sendChatMessage();
+  }
+};
+
+window.sendChatMessage = async function() {
+  const input = document.getElementById('chat-input-field');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+
+  const isAdmin = state.user && state.user.role === 'admin';
+  const senderName = isAdmin
+    ? 'Ban Thường Vụ Tỉnh Đoàn (Admin)'
+    : (state.user && state.user.unit_name ? state.user.unit_name : (state.user && state.user.username ? state.user.username : 'Cơ sở Đoàn'));
+  const senderRole = (state.user && state.user.role) || 'unit';
+  const senderId = (state.user && state.user.id) || 0;
+
+  const now = new Date();
+  const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} ${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+  const newMsg = {
+    id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+    sender_id: senderId,
+    sender_name: senderName,
+    sender_role: senderRole,
+    text: text,
+    created_at: nowISO(),
+    time_str: timeStr
+  };
+
+  input.value = '';
+  state.chatMessages = state.chatMessages || [];
+  state.chatMessages.push(newMsg);
+  renderApp();
+  setTimeout(scrollChatToBottom, 50);
+
+  const res = await mutateCloudDB(db => {
+    db.chat_messages = db.chat_messages || [];
+    db.chat_messages.push(newMsg);
+    if (db.chat_messages.length > 500) {
+      db.chat_messages = db.chat_messages.slice(-500);
+    }
+  }, `Chat message from ${senderName}`);
+
+  if (!res.ok) {
+    showToast('Lỗi khi gửi tin nhắn lên máy chủ!', 'error');
+  }
+};
+
+function renderFloatingChatWidget() {
+  const isAdmin = state.user && state.user.role === 'admin';
+  const myName = isAdmin
+    ? 'Ban Thường Vụ Tỉnh Đoàn (Admin)'
+    : (state.user && state.user.unit_name ? state.user.unit_name : 'Cơ sở Đoàn');
+
+  const myId = (state.user && state.user.id) || 0;
+  const messages = state.chatMessages || [];
+
+  return `
+    <!-- NÚT NỔI CHAT GÓC MÀN HÌNH -->
+    <div class="floating-chat-trigger" onclick="toggleChatWidget()" title="Bấm để đóng/mở ô trao đổi giữa các đơn vị và Admin">
+      <span>💬</span>
+      <span>Trao Đổi Đoàn</span>
+      ${messages.length > 0 ? `<span class="chat-badge">${messages.length}</span>` : ''}
+    </div>
+
+    <!-- KHUNG CHAT TRỰC TUYẾN -->
+    ${state.chatOpen ? `
+      <div class="chat-widget-box" id="chat-widget-box">
+        <div class="chat-header">
+          <div>
+            <div class="chat-header-title">
+              <span>💬</span> Trao Đổi Ban Thường Vụ & Đơn Vị
+            </div>
+            <div class="chat-header-user" title="Đang đăng nhập: ${escapeHtml(myName)}">
+              👤 ${escapeHtml(myName)}
+            </div>
+          </div>
+          <button class="chat-close-btn" onclick="toggleChatWidget()" title="Đóng ô trao đổi">✕</button>
+        </div>
+
+        <div class="chat-messages-body" id="chat-messages-body">
+          ${messages.length === 0 ? `
+            <div style="text-align:center; padding:32px 14px; color:#64748b; font-size:12.5px;">
+              <div style="font-size:22px; margin-bottom:6px;">💬</div>
+              <div style="font-weight:700; color:#334155;">Chưa có nội dung trao đổi.</div>
+              <div style="margin-top:4px; font-size:11.5px;">Tất cả các cơ sở Đoàn và Admin có thể trao đổi, đặt câu hỏi tại đây!</div>
+            </div>
+          ` : messages.map(m => {
+            const isMine = (m.sender_id === myId) || (isAdmin && m.sender_role === 'admin');
+            return `
+              <div class="chat-message-row ${isMine ? 'mine' : 'theirs'}">
+                <div class="chat-sender-name ${m.sender_role === 'admin' ? 'admin' : ''}">
+                  ${m.sender_role === 'admin' ? '👑 ' : '🏢 '}${escapeHtml(m.sender_name)}
+                </div>
+                <div class="chat-message-bubble">
+                  ${escapeHtml(m.text)}
+                </div>
+                <div class="chat-message-time">
+                  ${escapeHtml(m.time_str || '')}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+
+        <div class="chat-input-row">
+          <input
+            type="text"
+            id="chat-input-field"
+            class="chat-input-field"
+            placeholder="Nhập nội dung trao đổi... (Enter để gửi)"
+            onkeydown="onChatKeydown(event)"
+          />
+          <button class="chat-send-btn" onclick="sendChatMessage()">
+            Gửi 📤
+          </button>
+        </div>
+      </div>
+    ` : ''}
+  `;
+}
 
   </script>
 </body>
