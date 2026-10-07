@@ -9443,17 +9443,29 @@ window.askAiAssistant = async function(promptText) {
     return;
   }
 
-  // 3. Gọi trực tiếp API Google Gemini bằng phương thức POST chuẩn với cơ chế thử lại đa mô hình
+  // 3. Gọi trực tiếp API Google Gemini bằng phương thức POST chuẩn thế hệ mới (Gemini 3.8 Flash)
   try {
     const prompt = cleanPrompt;
-    const candidateModels = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+    const candidateModels = ['gemini-3.8-flash', 'gemini-2.5-flash'];
     let resp = null;
     let lastErrDetail = '';
+
+    // Xây dựng ngữ cảnh hội thoại đa lượt (Multi-turn chat context)
+    const chatContents = [];
+    const prevHistory = (state.aiChatHistory || []).slice(-4);
+    for (const h of prevHistory) {
+      if (h.sender === 'user' && h.text) {
+        chatContents.push({ role: 'user', parts: [{ text: h.text }] });
+      } else if (h.sender === 'ai' && h.text && !h.text.startsWith('⚠️')) {
+        chatContents.push({ role: 'model', parts: [{ text: h.text }] });
+      }
+    }
+    chatContents.push({ role: 'user', parts: [{ text: prompt }] });
 
     for (const model of candidateModels) {
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 20000);
+        const timeoutId = setTimeout(() => controller.abort(), 45000);
         const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
         const r = await fetch(endpoint, {
@@ -9462,7 +9474,11 @@ window.askAiAssistant = async function(promptText) {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }]
+            contents: chatContents,
+            generationConfig: {
+              thinking_level: "low",
+              temperature: 0.7
+            }
           }),
           signal: controller.signal
         });
@@ -9478,9 +9494,13 @@ window.askAiAssistant = async function(promptText) {
           } catch(e) {
             lastErrDetail = `HTTP ${r.status}`;
           }
+          if (r.status === 429) {
+            lastErrDetail = 'Hạn mức API miễn phí tạm thời đạt giới hạn (429 Too Many Requests). Đồng chí vui lòng đợi 5-10 giây rồi hỏi lại.';
+            break;
+          }
         }
       } catch (e) {
-        lastErrDetail = e.name === 'AbortError' ? 'Quá thời gian phản hồi (20 giây)' : e.message;
+        lastErrDetail = e.name === 'AbortError' ? 'Quá thời gian phản hồi từ máy chủ Google (45 giây)' : e.message;
       }
     }
 
@@ -9489,9 +9509,16 @@ window.askAiAssistant = async function(promptText) {
     }
 
     const resData = await resp.json();
-    const contentPart = resData?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (contentPart && contentPart.trim()) {
-      const aiReplyText = contentPart.trim();
+    const candidate = resData?.candidates?.[0];
+    const parts = candidate?.content?.parts || [];
+    
+    // Tách lọc bỏ phần suy nghĩ nội bộ (thought), lấy đúng câu trả lời thực tế
+    const actualParts = parts.filter(p => !p.thought && p.text).map(p => p.text);
+    let aiReplyText = actualParts.length > 0
+      ? actualParts.join('\n').trim()
+      : (parts.map(p => p.text || '').join('\n').trim());
+
+    if (aiReplyText) {
       state.aiIsTyping = false;
       const aiMsg = {
         sender: 'ai',
@@ -9882,21 +9909,25 @@ function ensureWavHeader(base64Data, sampleRate = 24000) {
   return new Blob([uint8], { type: 'audio/wav' });
 }
 
-// Hàm phát giọng Nữ Google trực tuyến (Google Dịch TTS)
+// Hàm phát giọng nói dự phòng chuẩn WAV tải về và đọc âm thanh tiếng Việt
 async function generateFallbackTtsAudio(rawText, rate) {
   const cleanText = cleanMarkdownForSpeech(rawText);
-  const ttsUrl = 'https://translate.google.com/translate_tts?ie=UTF-8&tl=vi&client=tw-ob&q=' + encodeURIComponent(cleanText.slice(0, 200));
-  let finalAudioUrl = ttsUrl;
-  let fileName = 'giong-noi-google-nu.mp3';
+  let finalAudioBlob = await createSpeechWavBlob(cleanText, rate);
+  let finalAudioUrl = finalAudioBlob ? URL.createObjectURL(finalAudioBlob) : '';
+  let fileName = 'giong-noi-tro-ly-doan.wav';
 
-  try {
-    const resp = await fetch(ttsUrl);
-    if (resp.ok) {
-      const blob = await resp.blob();
-      finalAudioUrl = URL.createObjectURL(blob);
-    }
-  } catch (e) {
-    finalAudioUrl = ttsUrl;
+  // Phát trực tiếp giọng tiếng Việt qua loa trình duyệt
+  if ('speechSynthesis' in window) {
+    try {
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(cleanText);
+      u.lang = 'vi-VN';
+      u.rate = rate || 1.0;
+      const voices = window.speechSynthesis.getVoices();
+      const viVoice = voices.find(v => v.lang.startsWith('vi') || v.lang.includes('VN'));
+      if (viVoice) u.voice = viVoice;
+      window.speechSynthesis.speak(u);
+    } catch(e) {}
   }
 
   state.ttsStudioAudioUrl = finalAudioUrl;
@@ -9908,13 +9939,13 @@ async function generateFallbackTtsAudio(rawText, rate) {
   const statusLabel = document.getElementById('tts-file-status');
 
   if (resultBox) resultBox.style.display = 'block';
-  if (statusLabel) statusLabel.innerText = '✓ Đã tạo giọng Nữ Google (Chuẩn)';
-  if (audioPlayer) {
+  if (statusLabel) statusLabel.innerText = '✓ Đã tạo âm thanh giọng đọc (Sẵn sàng tải về)';
+  if (audioPlayer && finalAudioUrl) {
     audioPlayer.src = finalAudioUrl;
     audioPlayer.playbackRate = rate || 1.0;
     audioPlayer.play().catch(() => {});
   }
-  if (downloadLink) {
+  if (downloadLink && finalAudioUrl) {
     downloadLink.href = finalAudioUrl;
     downloadLink.download = fileName;
   }
@@ -10036,7 +10067,7 @@ window.generateTtsStudioAudio = async function() {
         }
       };
 
-      const ttsModels = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-exp'];
+      const ttsModels = ['gemini-3.8-flash-tts', 'gemini-3.8-flash-lite-tts', 'gemini-3.8-flash', 'gemini-2.5-flash'];
       let res = null;
       let lastErrMessage = '';
 
@@ -10654,22 +10685,33 @@ Trả về ĐÚNG JSON thuần định dạng sau, không kèm bất kỳ giải
 Nội dung:
 ${rawText}`;
 
-      const candidateModels = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+      const candidateModels = ['gemini-3.8-flash', 'gemini-2.5-flash'];
       for (const m of candidateModels) {
-        const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(apiKey)}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-        });
-        if (resp.ok) {
-          const resJson = await resp.json();
-          let txt = resJson?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-          txt = txt.replace(/```json/gi, '').replace(/```/g, '').trim();
-          const parsed = JSON.parse(txt);
-          if (parsed.title && Array.isArray(parsed.scenes) && parsed.scenes.length > 0) {
-            return parsed;
+        try {
+          const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ role: 'user', parts: [{ text: prompt }] }],
+              generationConfig: {
+                thinking_level: "low",
+                temperature: 0.7
+              }
+            })
+          });
+          if (resp.ok) {
+            const resJson = await resp.json();
+            const candidate = resJson?.candidates?.[0];
+            const parts = candidate?.content?.parts || [];
+            const actualParts = parts.filter(p => !p.thought && p.text).map(p => p.text);
+            let txt = actualParts.length > 0 ? actualParts.join('\n').trim() : (parts.map(p => p.text || '').join('\n').trim());
+            txt = txt.replace(/```json/gi, '').replace(/```/g, '').trim();
+            const parsed = JSON.parse(txt);
+            if (parsed.title && Array.isArray(parsed.scenes) && parsed.scenes.length > 0) {
+              return parsed;
+            }
           }
-        }
+        } catch (errM) {}
       }
     } catch (e) {
       console.warn("Lỗi gọi Gemini cho kịch bản, dùng bộ phân tích tự động:", e);
@@ -10721,14 +10763,18 @@ async function generateVideoAudioBlob(fullText, selectedVoice, rate, apiKey) {
       }
     };
 
-    const ttsModels = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-exp'];
+    const ttsModels = ['gemini-3.8-flash-tts', 'gemini-3.8-flash-lite-tts', 'gemini-3.8-flash', 'gemini-2.5-flash'];
     for (const m of ttsModels) {
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 12000);
         const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(apiKey)}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
+          signal: controller.signal
         });
+        clearTimeout(timeoutId);
         if (resp.ok) {
           const resData = await resp.json();
           const audioPart = resData.candidates?.[0]?.content?.parts?.[0];
@@ -10740,19 +10786,7 @@ async function generateVideoAudioBlob(fullText, selectedVoice, rate, apiKey) {
     }
   }
 
-  // Trường hợp 2: Google Dịch Tiếng Việt trực tuyến
-  if (selectedVoice === 'google-vi' || !apiKey) {
-    try {
-      const cleanText = cleanMarkdownForSpeech(fullText);
-      const ttsUrl = 'https://translate.google.com/translate_tts?ie=UTF-8&tl=vi&client=tw-ob&q=' + encodeURIComponent(cleanText.slice(0, 250));
-      const resp = await fetch(ttsUrl);
-      if (resp.ok) {
-        return await resp.blob();
-      }
-    } catch (e) {}
-  }
-
-  // Trường hợp 3: Tổng hợp Web Audio WAV
+  // Trường hợp 2: Dự phòng tạo âm thanh Web Audio chuẩn WAV
   return await createSpeechWavBlob(cleanMarkdownForSpeech(fullText), rate);
 }
 
