@@ -1840,8 +1840,8 @@ function renderMasterTableTab() {
       </div>
     ` : ''}
 
-      <div class="filter-bar">
-        <div class="month-pills">
+      <div class="filter-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: nowrap; padding: 3px 6px; background: #fff; border: 1px solid var(--border-light); border-radius: 6px; margin-bottom: 5px; flex-shrink: 0;">
+        <div class="month-pills" style="display: flex; gap: 3px; align-items: center; flex-wrap: nowrap; overflow-x: auto; flex: 1; min-width: 0;">
           ${monthPills
             .map(
               (p) => `
@@ -1852,15 +1852,15 @@ function renderMasterTableTab() {
             )
             .join('')}
         </div>
-        <div style="margin-left: auto; display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+        <div style="display: flex; gap: 6px; align-items: center; flex-shrink: 0; flex-wrap: nowrap;">
           <input
             type="text"
             placeholder="🔍 Tìm tên đơn vị..."
             value="${escapeHtml(state.searchQuery)}"
             oninput="onSearchUnitInput(this.value)"
-            style="width: 210px;"
+            style="width: 160px; height: 25px; font-size: 11px; padding: 2px 6px;"
           />
-          <select onchange="onSortByChange(this.value)">
+          <select onchange="onSortByChange(this.value)" style="height: 25px; font-size: 11px; padding: 2px 6px; max-width: 240px;">
             <option value="score_desc" ${state.sortBy === 'score_desc' ? 'selected' : ''}>🏆 Xếp hạng Tổng điểm (Cao → Thấp) [Tự động]</option>
             <option value="order" ${state.sortBy === 'order' ? 'selected' : ''}>Thứ tự đơn vị (1 → ${state.units.length})</option>
           </select>
