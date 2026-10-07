@@ -2751,3 +2751,34 @@ body.dark-mode .notification-item:hover {
 .ai-badge-warn { background: #fef9c3; color: #854d0e; }
 .ai-badge-err { background: #fee2e2; color: #b91c1c; }
 
+/* =========================================================================
+   SCROLLBAR & STICKY HEADER CHO BẢNG QUẢN LÝ ĐƠN VỊ & BẢNG XẾP HẠNG
+   ========================================================================= */
+.accounts-table-container,
+.ranking-table-container {
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+  max-height: calc(100vh - 180px) !important;
+  scrollbar-width: thin;
+  position: relative;
+  -webkit-overflow-scrolling: touch !important;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.accounts-table-container thead th,
+.ranking-table-container thead th {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 15 !important;
+  background: #f1f5f9 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+body.dark-mode .accounts-table-container thead th,
+body.dark-mode .ranking-table-container thead th {
+  background: #1e293b !important;
+  color: #f8fafc !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+
