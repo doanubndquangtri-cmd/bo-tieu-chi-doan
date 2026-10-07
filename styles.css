@@ -3003,7 +3003,8 @@ body.dark-mode .notification-item:hover {
 .panel.fullscreen-table-panel,
 .panel:has(.accounts-table-container),
 .panel:has(.criteria-table-container),
-.panel:has(.ranking-table-container) {
+.panel:has(.ranking-table-container),
+.panel:has(.unit-submit-table-container) {
   flex: 1 1 auto !important;
   min-height: 0 !important;
   display: flex !important;
@@ -3078,6 +3079,78 @@ body.dark-mode .notification-item:hover {
   border-bottom: 1px solid var(--border-light);
 }
 
+/* 6. Bảng Kê Khai & Nộp Minh Chứng của Đơn Vị Cơ Sở */
+.unit-submit-table-container {
+  height: calc(100vh - 280px) !important;
+  min-height: 460px !important;
+  max-height: none !important;
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  overflow-x: auto !important;
+  box-sizing: border-box !important;
+  position: relative;
+  -webkit-overflow-scrolling: touch !important;
+  border-bottom: 1px solid var(--border-light);
+  scrollbar-width: thin;
+  scrollbar-color: #0052cc #f1f5f9;
+}
+
+/* Định kiểu thanh cuộn dọc (scrollbar) to rõ, nổi bật, dễ kéo thả trên Windows & Mac */
+.unit-submit-table-container::-webkit-scrollbar,
+.accounts-table-container::-webkit-scrollbar,
+.ranking-table-container::-webkit-scrollbar,
+.criteria-table-container::-webkit-scrollbar,
+.table-container::-webkit-scrollbar {
+  width: 10px !important;
+  height: 10px !important;
+}
+
+.unit-submit-table-container::-webkit-scrollbar-track,
+.accounts-table-container::-webkit-scrollbar-track,
+.ranking-table-container::-webkit-scrollbar-track,
+.criteria-table-container::-webkit-scrollbar-track,
+.table-container::-webkit-scrollbar-track {
+  background: #f1f5f9 !important;
+  border-left: 1px solid #e2e8f0;
+  border-radius: 4px;
+}
+
+.unit-submit-table-container::-webkit-scrollbar-thumb,
+.accounts-table-container::-webkit-scrollbar-thumb,
+.ranking-table-container::-webkit-scrollbar-thumb,
+.criteria-table-container::-webkit-scrollbar-thumb,
+.table-container::-webkit-scrollbar-thumb {
+  background: #0052cc !important;
+  border-radius: 6px !important;
+  border: 2px solid #f1f5f9;
+}
+
+.unit-submit-table-container::-webkit-scrollbar-thumb:hover,
+.accounts-table-container::-webkit-scrollbar-thumb:hover,
+.ranking-table-container::-webkit-scrollbar-thumb:hover,
+.criteria-table-container::-webkit-scrollbar-thumb:hover,
+.table-container::-webkit-scrollbar-thumb:hover {
+  background: #003d99 !important;
+}
+
+.main-container::-webkit-scrollbar {
+  width: 9px !important;
+  height: 9px !important;
+}
+
+.main-container::-webkit-scrollbar-track {
+  background: #f1f5f9 !important;
+}
+
+.main-container::-webkit-scrollbar-thumb {
+  background: #94a3b8 !important;
+  border-radius: 5px !important;
+}
+
+.main-container::-webkit-scrollbar-thumb:hover {
+  background: #0052cc !important;
+}
+
 /* =========================================================================
    CỐ ĐỊNH TIÊU ĐỀ BẢNG (STICKY THEAD & TH) VÀ GIAO ĐIỂM FREEZE PANES
    ========================================================================= */
@@ -3087,6 +3160,8 @@ body.dark-mode .notification-item:hover {
 .ranking-table-container thead th,
 .criteria-table-container thead,
 .criteria-table-container thead th,
+.unit-submit-table-container thead,
+.unit-submit-table-container thead th,
 .master-table thead,
 .master-table thead th,
 #reports-spreadsheet-wrapper thead,
@@ -3118,6 +3193,7 @@ thead th.sticky-col-total {
 body.dark-mode .accounts-table-container thead th,
 body.dark-mode .ranking-table-container thead th,
 body.dark-mode .criteria-table-container thead th,
+body.dark-mode .unit-submit-table-container thead th,
 body.dark-mode .master-table thead th,
 body.dark-mode #reports-spreadsheet-wrapper thead th,
 body.dark-mode #reports-bottom-section thead th,
