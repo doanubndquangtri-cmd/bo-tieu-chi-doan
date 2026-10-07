@@ -4341,16 +4341,16 @@ function renderAdminUnitsTab() {
         </div>
       </div>
 
-      <div class="panel-body" style="padding:0; overflow-x:auto;">
+      <div class="panel-body accounts-table-container" style="padding:0; overflow-x:auto; overflow-y:auto !important; max-height:calc(100vh - 180px); scrollbar-width:thin;">
         <table class="data-table">
           <thead>
             <tr>
-              <th style="width:50px; text-align:center;">STT</th>
-              <th style="width:100px; text-align:center;">Mã ĐV</th>
-              <th>Tên Đơn Vị Cơ Sở Đoàn</th>
-              <th style="width:140px; text-align:center;">Tên đăng nhập</th>
-              <th style="width:120px; text-align:center;">Trạng thái</th>
-              <th style="width:220px; text-align:center;">Thao tác Quản trị</th>
+              <th style="width:50px; text-align:center; position:sticky; top:0; z-index:15; background:#f1f5f9;">STT</th>
+              <th style="width:100px; text-align:center; position:sticky; top:0; z-index:15; background:#f1f5f9;">Mã ĐV</th>
+              <th style="position:sticky; top:0; z-index:15; background:#f1f5f9;">Tên Đơn Vị Cơ Sở Đoàn</th>
+              <th style="width:140px; text-align:center; position:sticky; top:0; z-index:15; background:#f1f5f9;">Tên đăng nhập</th>
+              <th style="width:120px; text-align:center; position:sticky; top:0; z-index:15; background:#f1f5f9;">Trạng thái</th>
+              <th style="width:220px; text-align:center; position:sticky; top:0; z-index:15; background:#f1f5f9;">Thao tác Quản trị</th>
             </tr>
           </thead>
           <tbody>
@@ -5311,19 +5311,19 @@ function renderRankingTab() {
           <button class="btn btn-primary btn-sm" onclick="saveExcelToGoogleDrive()" style="background:#0284c7; border-color:#0284c7; font-weight:700;">☁️ Lưu Bảng Điểm Lên Google Drive</button>
         </div>
       </div>
-      <div class="panel-body" style="padding:0; overflow-x:auto;">
+      <div class="panel-body ranking-table-container" style="padding:0; overflow-x:auto; overflow-y:auto !important; max-height:calc(100vh - 180px); scrollbar-width:thin;">
         <table class="data-table">
           <thead>
             <tr>
-              <th style="width:60px; text-align:center;">Hạng</th>
-              <th style="width:80px; text-align:center;">Mã ĐV</th>
-              <th style="min-width:220px;">Tên Đơn Vị Cơ Sở</th>
-              <th style="width:115px; text-align:center; background:#fef9c3;">TỔNG ĐIỂM</th>
-              <th style="width:115px; text-align:center;">BC Đúng Hạn</th>
+              <th style="width:60px; text-align:center; position:sticky; top:0; z-index:15; background:#f1f5f9;">Hạng</th>
+              <th style="width:80px; text-align:center; position:sticky; top:0; z-index:15; background:#f1f5f9;">Mã ĐV</th>
+              <th style="min-width:220px; position:sticky; top:0; z-index:15; background:#f1f5f9;">Tên Đơn Vị Cơ Sở</th>
+              <th style="width:115px; text-align:center; background:#fef9c3; position:sticky; top:0; z-index:15;">TỔNG ĐIỂM</th>
+              <th style="width:115px; text-align:center; position:sticky; top:0; z-index:15; background:#f1f5f9;">BC Đúng Hạn</th>
               ${monthGroups
                 .map(
                   (mg) =>
-                    `<th style="text-align:center; font-size:12px; white-space:nowrap; min-width:80px;">${escapeHtml(mg.label)}</th>`
+                    `<th style="text-align:center; font-size:12px; white-space:nowrap; min-width:80px; position:sticky; top:0; z-index:15; background:#f1f5f9;">${escapeHtml(mg.label)}</th>`
                 )
                 .join('')}
             </tr>
