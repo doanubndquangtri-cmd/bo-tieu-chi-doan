@@ -92,13 +92,14 @@ body {
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 5px;
   flex-wrap: wrap;
-  background: rgba(0, 0, 0, 0.15);
-  padding: 6px 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(4px);
+  background: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
 }
 
 .date-pill {
@@ -1960,10 +1961,15 @@ html, body {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   flex-wrap: nowrap !important;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
 }
 
 .header-actions .btn {
@@ -3567,8 +3573,8 @@ function renderHeader() {
         ${state.notificationsOpen ? renderNotificationDropdown() : ''}
       </div>
 
-      <!-- Ở GIỮA: CÁC NÚT CÔNG CỤ DỊCH LÊN TRÊN HÀNG GỌN GÀNG (Ảnh 3 & 4) -->
-      <div class="header-actions" style="display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+      <!-- Ở GIỮA: CÁC NÚT CÔNG CỤ DỊCH LÊN TRÊN HÀNG GỌN GÀNG (NẰM TRỰC TIẾP TRÊN THANH HEADER) -->
+      <div class="header-actions" style="display: flex; align-items: center; gap: 5px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; background: transparent; border: none; padding: 0;">
         <button class="btn btn-sm btn-outline" onclick="syncFromCloudNow(false)" style="background:rgba(255,255,255,0.15); color:#fff; border-color:rgba(255,255,255,0.3); font-size:11px; padding:3px 7px; height:27px;" title="Tải dữ liệu mới nhất từ đám mây">
           🔄 Đồng bộ
         </button>
