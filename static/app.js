@@ -2268,7 +2268,7 @@ function renderUnitSubmitTab() {
   }
 
   return `
-    <div class="stats-grid">
+    <div class="stats-grid" style="flex-shrink: 0; margin-bottom: 10px;">
       <div class="stat-card">
         <span class="stat-label">Đơn vị đang đăng nhập</span>
         <div style="font-size: 15px; font-weight: 800; color: #0f172a; margin-top: 2px;">
@@ -2296,13 +2296,13 @@ function renderUnitSubmitTab() {
       </div>
     </div>
 
-    <div class="panel">
-      <div class="panel-header">
+    <div class="panel fullscreen-table-panel" style="flex:1 1 auto; min-height:0; display:flex; flex-direction:column; margin-bottom:2px;">
+      <div class="panel-header" style="flex-shrink:0;">
         <div class="panel-title">
           📋 KÊ KHAI & NỘP MINH CHỨNG TOÀN BỘ TIÊU CHÍ THEO THÁNG (${unitCriteriaList.length} TIÊU CHÍ)
         </div>
       </div>
-      <div class="filter-bar">
+      <div class="filter-bar" style="flex-shrink:0;">
         <div class="month-pills">
           ${monthButtons
             .map(
@@ -2316,19 +2316,19 @@ function renderUnitSubmitTab() {
         </div>
       </div>
 
-      <div style="overflow-x:auto;">
+      <div class="panel-body unit-submit-table-container" style="flex:1 1 auto; min-height:0; padding:0; overflow-x:auto; overflow-y:auto !important; max-height:none !important; scrollbar-width:thin;">
         <table class="data-table">
           <thead>
             <tr>
-              <th style="width:70px; text-align:center;">Cột</th>
-              <th style="width:125px;">Tháng / Kỳ</th>
-              <th>Nội dung Tiêu chí</th>
-              <th style="width:130px; text-align:center;">Mức điểm</th>
-              <th style="width:115px; text-align:center;">Ngày bắt đầu</th>
-              <th style="width:115px; text-align:center;">Hạn nộp chót</th>
-              <th style="width:145px; text-align:center;">Trạng thái hạn</th>
-              <th style="width:90px; text-align:center;">Điểm đạt</th>
-              <th style="width:130px; text-align:center;">Thao tác</th>
+              <th style="width:70px; text-align:center; position:sticky; top:0; z-index:20; background:#f1f5f9;">Cột</th>
+              <th style="width:125px; position:sticky; top:0; z-index:20; background:#f1f5f9;">Tháng / Kỳ</th>
+              <th style="position:sticky; top:0; z-index:20; background:#f1f5f9;">Nội dung Tiêu chí</th>
+              <th style="width:130px; text-align:center; position:sticky; top:0; z-index:20; background:#f1f5f9;">Mức điểm</th>
+              <th style="width:115px; text-align:center; position:sticky; top:0; z-index:20; background:#f1f5f9;">Ngày bắt đầu</th>
+              <th style="width:115px; text-align:center; position:sticky; top:0; z-index:20; background:#f1f5f9;">Hạn nộp chót</th>
+              <th style="width:145px; text-align:center; position:sticky; top:0; z-index:20; background:#f1f5f9;">Trạng thái hạn</th>
+              <th style="width:90px; text-align:center; position:sticky; top:0; z-index:20; background:#f1f5f9;">Điểm đạt</th>
+              <th style="width:130px; text-align:center; position:sticky; top:0; z-index:20; background:#f1f5f9;">Thao tác</th>
             </tr>
           </thead>
           <tbody>
