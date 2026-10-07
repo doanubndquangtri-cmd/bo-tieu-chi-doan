@@ -2297,3 +2297,457 @@ html, body {
 .split-drag-bar:hover span {
   color: #ffffff !important;
 }
+
+/* =========================================================================
+   1. MINI DASHBOARD (4 CHỈ SỐ TÓM TẮT TRÊN ĐẦU TRANG)
+   ========================================================================= */
+.mini-dashboard-container {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .mini-dashboard-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 500px) {
+  .mini-dashboard-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mini-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.mini-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.1);
+}
+
+.mini-stat-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+}
+
+.mini-stat-card.card-blue::before { background: #2563eb; }
+.mini-stat-card.card-green::before { background: #16a34a; }
+.mini-stat-card.card-orange::before { background: #ea580c; }
+.mini-stat-card.card-red::before { background: #dc2626; }
+
+.mini-stat-icon {
+  font-size: 26px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.card-blue .mini-stat-icon { background: #eff6ff; color: #2563eb; }
+.card-green .mini-stat-icon { background: #f0fdf4; color: #16a34a; }
+.card-orange .mini-stat-icon { background: #fff7ed; color: #ea580c; }
+.card-red .mini-stat-icon { background: #fef2f2; color: #dc2626; }
+
+.mini-stat-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.mini-stat-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mini-stat-value {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+/* Pulsing alert for pending reviews */
+.pulse-alert {
+  animation: pulse-soft 2s infinite ease-in-out;
+}
+
+@keyframes pulse-soft {
+  0% {
+    box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.4);
+    border-color: #fb923c;
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(234, 88, 12, 0);
+    border-color: #ea580c;
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(234, 88, 12, 0);
+    border-color: #fb923c;
+  }
+}
+
+/* =========================================================================
+   2. MODERN TABLE DESIGN (PROGRESS BAR & CROSSHAIR HOVER)
+   ========================================================================= */
+.score-progress-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+}
+
+.score-progress-text {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.score-progress-pct {
+  font-size: 10px;
+  color: #16a34a;
+  font-weight: 700;
+}
+
+.score-progress-bar-bg {
+  width: 100%;
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.score-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+/* Table crosshair highlight */
+.spreadsheet-table tbody tr:hover td {
+  background-color: #f1f8ff !important;
+}
+
+.spreadsheet-table td.col-hover-active {
+  background-color: #f0f7ff !important;
+  box-shadow: inset 1px 0 0 #93c5fd, inset -1px 0 0 #93c5fd;
+}
+
+.spreadsheet-table tbody tr:hover td.col-hover-active {
+  background-color: #e0f2fe !important;
+}
+
+/* Sticky column enhancements */
+.sticky-col-stt {
+  position: sticky !important;
+  left: 0 !important;
+  z-index: 20 !important;
+  background: #fff;
+}
+.sticky-col-unit {
+  position: sticky !important;
+  left: 45px !important;
+  z-index: 20 !important;
+  background: #fff;
+}
+.sticky-col-total {
+  position: sticky !important;
+  left: 285px !important;
+  z-index: 20 !important;
+  background: #fff;
+  border-right: 2px solid #0284c7 !important;
+}
+
+thead .sticky-col-stt,
+thead .sticky-col-unit,
+thead .sticky-col-total {
+  z-index: 45 !important;
+  background: #0284c7 !important;
+}
+
+/* =========================================================================
+   3. AI ASSISTANT CHAT TAB & PROMPT CHIPS
+   ========================================================================= */
+.chat-tab-btn.ai-tab {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: #ffffff !important;
+  position: relative;
+}
+
+.chat-tab-btn.ai-tab.active {
+  background: #ffffff !important;
+  color: #4f46e5 !important;
+  font-weight: 800;
+}
+
+.ai-tab-badge {
+  background: #f59e0b;
+  color: #ffffff;
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 6px;
+  margin-left: 3px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.ai-chips-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ai-chip-btn {
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  border-radius: 16px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ai-chip-btn:hover {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.chat-msg-ai {
+  background: #f5f3ff !important;
+  border: 1px solid #ddd6fe !important;
+  border-left: 4px solid #7c3aed !important;
+  color: #1e1b4b !important;
+}
+
+.chat-msg-ai .sender-name {
+  color: #6d28d9 !important;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* AI Rewrite Button */
+.btn-ai-rewrite {
+  background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: transform 0.15s, opacity 0.15s;
+  white-space: nowrap;
+}
+
+.btn-ai-rewrite:hover {
+  opacity: 0.92;
+  transform: scale(1.03);
+}
+
+/* =========================================================================
+   4. DARK MODE (CHẾ ĐỘ BAN ĐÊM)
+   ========================================================================= */
+body.dark-mode {
+  background-color: #0f172a !important;
+  color: #cbd5e1 !important;
+}
+
+body.dark-mode header,
+body.dark-mode .app-header {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+body.dark-mode .nav-tabs-bar {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+body.dark-mode .nav-tab-btn {
+  background: #334155 !important;
+  color: #94a3b8 !important;
+  border-color: #475569 !important;
+}
+
+body.dark-mode .nav-tab-btn.active {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+body.dark-mode .mini-stat-card {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+body.dark-mode .mini-stat-label {
+  color: #94a3b8 !important;
+}
+
+body.dark-mode .mini-stat-value {
+  color: #f8fafc !important;
+}
+
+body.dark-mode .spreadsheet-wrapper,
+body.dark-mode #reports-spreadsheet-wrapper {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+}
+
+body.dark-mode table.spreadsheet-table {
+  background: #0f172a !important;
+  color: #cbd5e1 !important;
+}
+
+body.dark-mode table.spreadsheet-table tbody td {
+  background: #0f172a !important;
+  color: #e2e8f0 !important;
+  border-color: #334155 !important;
+}
+
+body.dark-mode table.spreadsheet-table tbody tr:hover td {
+  background-color: #1e293b !important;
+}
+
+body.dark-mode table.spreadsheet-table td.col-hover-active {
+  background-color: #1e293b !important;
+}
+
+body.dark-mode .sticky-col-stt,
+body.dark-mode .sticky-col-unit,
+body.dark-mode .sticky-col-total {
+  background: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+body.dark-mode .chat-window {
+  background: #1e293b !important;
+  border-color: #475569 !important;
+}
+
+body.dark-mode .chat-messages-container {
+  background: #0f172a !important;
+}
+
+body.dark-mode .chat-input-area {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+body.dark-mode .chat-input {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  border-color: #475569 !important;
+}
+
+body.dark-mode .ai-chips-container {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+body.dark-mode .ai-chip-btn {
+  background: #334155 !important;
+  color: #e2e8f0 !important;
+  border-color: #475569 !important;
+}
+
+body.dark-mode .chat-msg-other {
+  background: #1e293b !important;
+  color: #e2e8f0 !important;
+  border-color: #334155 !important;
+}
+
+body.dark-mode .notification-dropdown {
+  background: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #38bdf8 !important;
+}
+
+body.dark-mode .notification-item {
+  border-color: #334155 !important;
+}
+
+body.dark-mode .notification-item:hover {
+  background: #334155 !important;
+}
+
+/* Dark Mode Toggle Button */
+.btn-dark-mode-toggle {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+
+.btn-dark-mode-toggle:hover {
+  background: rgba(255, 255, 255, 0.32);
+  transform: translateY(-1px);
+}
+
+/* AI Review Result Modal Badge */
+.ai-badge-chip {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ai-badge-ok { background: #dcfce7; color: #15803d; }
+.ai-badge-warn { background: #fef9c3; color: #854d0e; }
+.ai-badge-err { background: #fee2e2; color: #b91c1c; }
+
