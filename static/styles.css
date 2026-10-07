@@ -1531,7 +1531,7 @@ thead th.sticky-col-total {
   --chat-font-sender: 12px;
   --chat-font-msg: 14px;
   --chat-font-time: 11.5px;
-  --chat-bubble-pad: 9px 15px;
+  --chat-bubble-pad: 6px 12px;
   --chat-header-pad: 12px 18px;
   --chat-tabs-pad: 8px 12px;
   --chat-input-pad: 10px 14px;
@@ -1539,8 +1539,8 @@ thead th.sticky-col-total {
   --chat-input-font: 14px;
   --chat-btn-size: 40px;
   --chat-btn-font: 13.5px;
-  --chat-body-pad: 16px 18px;
-  --chat-body-gap: 12px;
+  --chat-body-pad: 14px 16px;
+  --chat-body-gap: 10px;
 }
 
 /* Khi kéo dãn rộng >= 720px */
@@ -1552,7 +1552,7 @@ thead th.sticky-col-total {
     --chat-font-sender: 13px;
     --chat-font-msg: 15px;
     --chat-font-time: 12px;
-    --chat-bubble-pad: 11px 18px;
+    --chat-bubble-pad: 7px 14px;
     --chat-header-pad: 14px 20px;
     --chat-tabs-pad: 10px 16px;
     --chat-input-pad: 12px 18px;
@@ -1560,8 +1560,8 @@ thead th.sticky-col-total {
     --chat-input-font: 14.5px;
     --chat-btn-size: 44px;
     --chat-btn-font: 14px;
-    --chat-body-pad: 18px 22px;
-    --chat-body-gap: 14px;
+    --chat-body-pad: 16px 20px;
+    --chat-body-gap: 12px;
   }
 }
 
@@ -1574,7 +1574,7 @@ thead th.sticky-col-total {
     --chat-font-sender: 13.5px;
     --chat-font-msg: 16px;
     --chat-font-time: 12.5px;
-    --chat-bubble-pad: 13px 20px;
+    --chat-bubble-pad: 8px 15px;
     --chat-header-pad: 16px 24px;
     --chat-tabs-pad: 12px 20px;
     --chat-input-pad: 14px 22px;
@@ -1582,8 +1582,8 @@ thead th.sticky-col-total {
     --chat-input-font: 15.5px;
     --chat-btn-size: 48px;
     --chat-btn-font: 15px;
-    --chat-body-pad: 22px 28px;
-    --chat-body-gap: 16px;
+    --chat-body-pad: 18px 24px;
+    --chat-body-gap: 14px;
   }
 }
 
@@ -1608,7 +1608,7 @@ thead th.sticky-col-total {
   --chat-font-sender: 13.5px;
   --chat-font-msg: 16.5px;
   --chat-font-time: 12.5px;
-  --chat-bubble-pad: 13px 22px;
+  --chat-bubble-pad: 8px 16px;
   --chat-header-pad: 16px 24px;
   --chat-tabs-pad: 12px 20px;
   --chat-input-pad: 14px 24px;
@@ -1616,8 +1616,8 @@ thead th.sticky-col-total {
   --chat-input-font: 15.5px;
   --chat-btn-size: 48px;
   --chat-btn-font: 15px;
-  --chat-body-pad: 24px 30px;
-  --chat-body-gap: 16px;
+  --chat-body-pad: 20px 26px;
+  --chat-body-gap: 14px;
 }
 
 .chat-header,
@@ -1917,20 +1917,29 @@ thead th.sticky-col-total {
   display: inline-block !important;
   word-break: break-word !important;
   overflow-wrap: break-word !important;
-  white-space: pre-wrap !important;
+  white-space: normal !important;
   box-sizing: border-box !important;
-  padding: var(--chat-bubble-pad, 9px 15px) !important;
-  border-radius: 16px !important;
+  padding: var(--chat-bubble-pad, 6px 12px) !important;
+  border-radius: 14px !important;
   font-size: var(--chat-font-msg, 14px) !important;
-  line-height: 1.5 !important;
+  line-height: 1.4 !important;
   flex: 0 0 auto !important;
+}
+
+.chat-text-content {
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  line-height: 1.4 !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .chat-message-row.mine .chat-message-bubble {
   background: #0052cc !important;
   color: #ffffff !important;
   border-bottom-right-radius: 4px !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 1.5px 3px rgba(0, 0, 0, 0.12) !important;
 }
 
 .chat-message-row.theirs .chat-message-bubble {
