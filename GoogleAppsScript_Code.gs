@@ -285,6 +285,58 @@ function doPost(e) {
     }
 
     // ---------------------------------------------------------------------
+    // TRƯỜNG HỢP 3B: TẢI ẢNH, VIDEO, TỆP TIN TRONG KHUNG CHAT (CHUNG & RIÊNG)
+    // ---------------------------------------------------------------------
+    if (data.action === "chat_upload_file") {
+      var fileDataB64Chat = data.fileData;
+      var originalNameChat = data.fileName || "TepTin_Chat";
+      var isPrivate = Boolean(data.isPrivate);
+      var unitNameChat = sanitizeName(data.unitName || "CoSoDoan");
+
+      if (!fileDataB64Chat) {
+        return createJsonResponse({ status: "error", message: "Không tìm thấy dữ liệu tệp tin chat!" });
+      }
+
+      var partsChat = fileDataB64Chat.split(",");
+      var rawB64Chat = partsChat.length > 1 ? partsChat[1] : partsChat[0];
+      var decodedBytesChat = Utilities.base64Decode(rawB64Chat);
+      var blobChat = Utilities.newBlob(decodedBytesChat, getMimeTypeFromFileName(originalNameChat), originalNameChat);
+
+      var rootFolderChat = getRootReportFolder();
+      var nowChat = new Date();
+      var dateFolderStr = "Ngày " + Utilities.formatDate(nowChat, "GMT+7", "dd-MM-yyyy");
+
+      var targetFolderChat = null;
+      if (isPrivate) {
+        var parentPrivateFolder = getOrCreateFolder(rootFolderChat, "TRAO ĐỔI RIÊNG TƯ");
+        var unitPrivateFolder = getOrCreateFolder(parentPrivateFolder, unitNameChat);
+        targetFolderChat = getOrCreateFolder(unitPrivateFolder, dateFolderStr);
+      } else {
+        var parentPublicFolder = getOrCreateFolder(rootFolderChat, "TRAO ĐỔI & CHAT TOÀN KHỐI");
+        targetFolderChat = getOrCreateFolder(parentPublicFolder, dateFolderStr);
+      }
+
+      try {
+        targetFolderChat.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      } catch (eShareChat) {}
+
+      var fileChat = targetFolderChat.createFile(blobChat);
+      try {
+        fileChat.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      } catch (eFCShare) {}
+
+      var fIdChat = fileChat.getId();
+      return createJsonResponse({
+        status: "success",
+        fileId: fIdChat,
+        fileName: originalNameChat,
+        fileUrl: "https://drive.google.com/file/d/" + fIdChat + "/view?usp=sharing",
+        downloadUrl: "https://drive.google.com/uc?export=download&id=" + fIdChat,
+        folderUrl: targetFolderChat.getUrl()
+      });
+    }
+
+    // ---------------------------------------------------------------------
     // TRƯỜNG HỢP 3: ADMIN TẢI VĂN BẢN VÀO "HỆ THỐNG VĂN BẢN"
     // ---------------------------------------------------------------------
     if (data.action === "admin_upload_doc" || data.isAdminDoc) {
