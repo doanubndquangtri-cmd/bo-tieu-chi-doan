@@ -1906,6 +1906,81 @@ textarea:focus {
   transform: translateY(-1px);
 }
 
+/* LAYOUT 1 KHUNG MÀN HÌNH CHUẨN ĐẸP - KHÔNG CÒN THANH CUỘN DỌC NGOÀI CÙNG (Ảnh 2) */
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden !important;
+}
+
+#app {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden !important;
+}
+
+.header {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 12px;
+  min-height: 46px;
+  background: linear-gradient(135deg, #003380 0%, #0052cc 100%);
+  color: #fff;
+  flex-wrap: nowrap !important;
+  gap: 6px;
+}
+
+.header-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap !important;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.header-tools .btn {
+  font-size: 11px !important;
+  padding: 4px 7px !important;
+  white-space: nowrap !important;
+  height: 28px !important;
+  line-height: 1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+}
+
+.header-tools select {
+  height: 28px !important;
+  font-size: 11px !important;
+  padding: 2px 6px !important;
+  max-width: 175px !important;
+}
+
+.date-pill {
+  height: 28px !important;
+  font-size: 11px !important;
+  padding: 2px 7px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  white-space: nowrap !important;
+}
+
+.nav-tabs {
+  flex-shrink: 0;
+}
+
+.main-container {
+  flex: 1;
+  overflow-y: auto !important;
+  padding: 10px 14px;
+  min-height: 0;
+}
+
   </style>
 </head>
 <body>
@@ -8290,7 +8365,7 @@ function renderMasterMobileCardsView(activeUnits, filteredCriteria, isAdmin, mon
 // HỆ THỐNG VĂN BẢN & CHỈ ĐẠO BAN THƯỜNG VỤ ĐOÀN (GOOGLE DRIVE)
 // Thư mục lưu trữ: https://drive.google.com/drive/u/9/folders/1F5CdyDTQGUf0C21o7CCCAZkMOjgRKRJK
 // ============================================================================
-const ADMIN_DOCS_GDRIVE_URL = 'https://drive.google.com/drive/folders/1bjnzwoNFB-YBmN9wvhuH_qQRNYITWEcS';
+const ADMIN_DOCS_GDRIVE_URL = 'https://drive.google.com/drive/folders/1h7UI2N0jd3QNBV-ummYDEBRT4BdNALC9';
 
 function renderAdminDocsTab() {
   const isAdmin = state.user && state.user.role === 'admin';
@@ -9140,16 +9215,23 @@ function renderNotificationDropdown() {
                 </div>
               </div>
 
-              ${n.file_name ? `
-                <div class="notification-files" style="margin-top:8px;">
-                  <span class="notification-file-pill" style="font-size:12px; padding:3px 10px;">📎 ${escapeHtml(n.file_name)}</span>
-                </div>
-              ` : ''}
-              ${n.files && n.files.length > 0 ? `
-                <div class="notification-files" style="margin-top:8px;">
-                  ${n.files.map(f => `<span class="notification-file-pill" style="font-size:12px; padding:3px 10px;">📎 ${escapeHtml(f.name || 'Tệp')}</span>`).join('')}
-                </div>
-              ` : ''}
+              ${(() => {
+                const uniqueFileNames = [];
+                if (n.files && n.files.length > 0) {
+                  n.files.forEach(f => {
+                    const fn = f.name || f.file_name;
+                    if (fn && !uniqueFileNames.includes(fn)) uniqueFileNames.push(fn);
+                  });
+                } else if (n.file_name) {
+                  uniqueFileNames.push(n.file_name);
+                }
+                if (uniqueFileNames.length === 0) return '';
+                return `
+                  <div class="notification-files" style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;">
+                    ${uniqueFileNames.map(fn => `<span class="notification-file-pill" style="font-size:12px; padding:3px 10px;">📎 ${escapeHtml(fn)}</span>`).join('')}
+                  </div>
+                `;
+              })()}
 
               <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center; padding-top:8px; border-top:1px dashed #e2e8f0;">
                 <span style="font-size:12px; color:#d97706; font-weight:700;">
@@ -9525,26 +9607,33 @@ window.switchEmojiTab = function(tab) {
   renderApp();
 };
 
+state.chatDraft = state.chatDraft || '';
+
 window.insertEmoji = function(emo) {
   const inp = document.getElementById('chat-input-field');
+  const cur = inp ? inp.value : (state.chatDraft || '');
+  const start = inp && inp.selectionStart !== undefined ? inp.selectionStart : cur.length;
+  const end = inp && inp.selectionEnd !== undefined ? inp.selectionEnd : cur.length;
+  const newVal = cur.substring(0, start) + emo + cur.substring(end);
+  state.chatDraft = newVal;
   if (inp) {
-    const start = inp.selectionStart || inp.value.length;
-    const end = inp.selectionEnd || inp.value.length;
-    inp.value = inp.value.substring(0, start) + emo + inp.value.substring(end);
+    inp.value = newVal;
     inp.focus();
-    inp.selectionStart = inp.selectionEnd = start + emo.length;
+    const nextPos = start + emo.length;
+    inp.setSelectionRange(nextPos, nextPos);
   }
-  state.emojiPickerOpen = false;
-  renderApp();
 };
 
 window.sendStickerMessage = function(stickerText) {
   const inp = document.getElementById('chat-input-field');
+  state.chatDraft = stickerText;
   if (inp) {
     inp.value = stickerText;
-    state.emojiPickerOpen = false;
-    sendChatMessage();
   }
+  state.emojiPickerOpen = false;
+  const pickerEl = document.getElementById('chat-emoji-picker-container');
+  if (pickerEl) pickerEl.style.display = 'none';
+  sendChatMessage();
 };
 
 function renderEmojiPicker() {
@@ -9569,7 +9658,7 @@ function renderEmojiPicker() {
   ];
 
   return `
-    <div class="chat-emoji-picker">
+    <div class="chat-emoji-picker" id="chat-emoji-picker-container">
       <div class="emoji-picker-tabs">
         <button class="emoji-tab-btn ${state.emojiTab === 'emoji' ? 'active' : ''}" onclick="switchEmojiTab('emoji')">
           😀 Biểu tượng (${emojis.length})
@@ -9949,6 +10038,8 @@ window.sendChatMessage = async function() {
   };
 
   input.value = '';
+  state.chatDraft = '';
+  state.emojiPickerOpen = false;
   state.chatMessages = state.chatMessages || [];
   state.chatMessages.push(newMsg);
   setChatRoomAsRead(roomKey);
@@ -10291,6 +10382,8 @@ function renderFloatingChatWidget() {
             type="text"
             id="chat-input-field"
             class="chat-input-field"
+            value="${escapeHtml(state.chatDraft || '')}"
+            oninput="state.chatDraft = this.value;"
             placeholder="Nhập nội dung... (Enter để gửi)"
             onkeydown="onChatKeydown(event)"
           />
