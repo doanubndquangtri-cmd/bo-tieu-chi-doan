@@ -2368,7 +2368,7 @@ html, body {
   flex-direction: column;
   overflow-y: auto !important;
   overflow-x: hidden;
-  padding: 6px 12px;
+  padding: 8px 14px;
 }
 
 .filter-bar {
@@ -2376,20 +2376,21 @@ html, body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 6px;
+  gap: 12px;
   flex-wrap: nowrap !important;
-  padding: 4px 6px;
+  padding: 7px 12px;
   background: #fff;
   border: 1px solid var(--border-light);
-  border-radius: 6px;
-  margin-bottom: 6px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  margin-bottom: 8px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
 
 .month-pills {
   display: flex;
-  gap: 3px;
+  gap: 5px;
   flex-wrap: nowrap !important;
   align-items: center;
   overflow-x: auto;
@@ -2397,17 +2398,17 @@ html, body {
   scrollbar-width: thin;
 }
 .month-pills::-webkit-scrollbar {
-  height: 3px;
+  height: 4px;
 }
 .month-pills::-webkit-scrollbar-thumb {
   background: #cbd5e1;
-  border-radius: 3px;
+  border-radius: 4px;
 }
 
 .month-pill {
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 10.5px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
   font-weight: 600;
   border: 1px solid var(--border);
   background: #fff;
@@ -2416,9 +2417,22 @@ html, body {
   transition: all 0.15s;
   white-space: nowrap !important;
   flex-shrink: 0;
-  height: 24px;
+  height: 30px;
   display: inline-flex;
   align-items: center;
+}
+
+.month-pill:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.month-pill.active {
+  background: #0052cc !important;
+  border-color: #003d99 !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(0, 82, 204, 0.3) !important;
 }
 
 .spreadsheet-wrapper,
