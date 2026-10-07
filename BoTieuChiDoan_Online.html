@@ -5281,9 +5281,13 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
   modalRoot.innerHTML = `
     <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
       <div class="modal-box" style="max-width: 640px;">
-        <div class="modal-header" style="background: #003d99; color: #fff;">
-          <span style="font-weight: 700;">📎 Chi Tiết Báo Cáo & Minh Chứng (${escapeHtml(crit.col_label)})</span>
-          <button class="btn btn-sm btn-outline" onclick="closeModal()" style="color:#fff; border-color:rgba(255,255,255,0.4);">✕</button>
+        <div class="modal-header" style="background: linear-gradient(135deg, #003380 0%, #0052cc 100%); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center;">
+          <span style="font-weight: 800; font-size: 15px; display: flex; align-items: center; gap: 6px;">
+            <span>📎</span> Chi Tiết Báo Cáo & Minh Chứng (${escapeHtml(crit.col_label)})
+          </span>
+          <button type="button" onclick="closeModal()" style="background: rgba(255,255,255,0.2); border: 1.5px solid rgba(255,255,255,0.6); color: #ffffff !important; font-size: 13px; font-weight: 800; border-radius: 6px; padding: 4px 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Đóng cửa sổ">
+            ✕ Đóng
+          </button>
         </div>
         <div class="modal-body" style="padding: 18px 20px;">
           <div style="margin-bottom:14px; background:#f8fafc; padding:12px; border-radius:8px; border:1px solid #e2e8f0;">
@@ -5449,7 +5453,7 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
                 <button type="button" class="btn btn-success" onclick="approveUnitSubmission(${unit.id}, ${crit.id}, ${sc.self_score || crit.default_score || crit.max_score})" style="font-weight:800; font-size:13.5px; padding:8px 18px; background:#16a34a; border-color:#15803d; box-shadow:0 2px 4px rgba(22,163,74,0.3);">
                   ✅ Xác Nhận Chấm Điểm (+${formatScore(sc.self_score || crit.default_score || crit.max_score)}đ)
                 </button>
-                <button type="button" class="btn btn-danger btn-sm" onclick="rejectUnitSubmission(${unit.id}, ${crit.id})" style="font-weight:700; padding:7px 14px;">
+                <button type="button" class="btn btn-danger btn-sm" onclick="openRejectSubmissionModal(${unit.id}, ${crit.id})" style="font-weight:700; padding:7px 14px;">
                   ❌ Không Duyệt (Từ chối)
                 </button>
               </div>
@@ -5485,9 +5489,7 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
               : ''
           }
         </div>
-        <div class="modal-footer" style="padding:10px 20px;">
-          <button class="btn btn-outline" onclick="closeModal()">Đóng</button>
-        </div>
+
       </div>
     </div>
   `;
@@ -9206,9 +9208,17 @@ function renderNotificationDropdown() {
                 </div>
               </div>
               <div class="notification-desc" style="font-size:13px; line-height:1.5; margin-top:4px;">
-                ${n.is_admin_approval
-                  ? `<span style="color:#15803d; font-weight:700;">👑 Ban Thường vụ đã duyệt điểm:</span> <b>${escapeHtml(n.col_label || '')}</b> - ${escapeHtml(n.criterion_title || '')} (<span style="color:#15803d; font-weight:800;">+${formatScore(n.score)}đ</span>)`
-                  : `<span style="color:#0369a1; font-weight:700;">📤 Đã nộp hồ sơ minh chứng:</span> <b>${escapeHtml(n.col_label || '')}</b> - ${escapeHtml(n.criterion_title || '')}`
+                ${n.is_rejected
+                  ? `<div>
+                       <span style="color:#dc2626; font-weight:700;">❌ Ban Thường vụ không duyệt bài nộp:</span> <b>${escapeHtml(n.col_label || '')}</b> - ${escapeHtml(n.criterion_title || '')}
+                       <div style="font-size:12px; color:#991b1b; background:#fef2f2; padding:4px 8px; border-radius:4px; border:1px solid #fecaca; margin-top:4px;">
+                         <b>Lý do:</b> ${escapeHtml(n.reject_reason || 'Chưa đạt yêu cầu, vui lòng nộp bổ sung')}
+                       </div>
+                     </div>`
+                  : (n.is_admin_approval
+                    ? `<span style="color:#15803d; font-weight:700;">👑 Ban Thường vụ đã duyệt điểm:</span> <b>${escapeHtml(n.col_label || '')}</b> - ${escapeHtml(n.criterion_title || '')} (<span style="color:#15803d; font-weight:800;">+${formatScore(n.score)}đ</span>)`
+                    : `<span style="color:#0369a1; font-weight:700;">📤 Đã nộp hồ sơ minh chứng:</span> <b>${escapeHtml(n.col_label || '')}</b> - ${escapeHtml(n.criterion_title || '')}`
+                  )
                 }
                 <div style="margin-top:3px;">
                   ${repType === 1 ? '<span class="badge badge-success" style="font-size:10px;">📋 Báo cáo</span>' : (repType === 2 ? '<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-size:10px; font-weight:700;">👑 Admin chấm</span>' : '<span class="badge" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-size:10px; font-weight:700;">🎯 Hoạt động</span>')}
@@ -9249,11 +9259,13 @@ function renderNotificationDropdown() {
   `;
 }
 
-// DUYỆT BÀI NỘP VÀ XÁC NHẬN CHẤM ĐIỂM (ADMIN)
+// DUYỆT BÀI NỘP VÀ XÁC NHẬN CHẤM ĐIỂM (ADMIN - Ảnh 1)
 window.approveUnitSubmission = async function(unitId, critId, scoreVal) {
   const unit = state.units.find(u => u.id === unitId);
   const crit = state.criteria.find(c => c.id === critId);
   const finalScore = scoreVal !== undefined && scoreVal !== null ? Number(scoreVal) : (crit ? crit.default_score : 5);
+  const now = nowISO();
+  const notifId = 'notif_appr_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
 
   showToast('Đang phê duyệt và xác nhận chấm điểm...', 'info');
   const res = await mutateCloudDB(db => {
@@ -9271,20 +9283,27 @@ window.approveUnitSubmission = async function(unitId, critId, scoreVal) {
         self_score: finalScore,
         approval_status: 'approved',
         updated_by: 'admin',
-        submitted_at: nowISO(),
+        submitted_at: now,
         submitted_date: todayISO(),
         is_on_time: 1
       });
     }
 
-    // Đánh dấu thông báo chuông của bài này đã đọc
-    if (Array.isArray(db.notifications)) {
-      db.notifications.forEach(n => {
-        if (n.unit_id === unitId && n.criterion_id === critId) {
-          n.read = true;
-        }
-      });
-    }
+    // THÊM THÔNG BÁO VÀO MỤC THÔNG BÁO LÀ ĐÃ DUYỆT & TỰ CHẤM ĐIỂM (Ảnh 1)
+    db.notifications = db.notifications || [];
+    db.notifications.unshift({
+      id: notifId,
+      unit_id: unitId,
+      unit_name: unit ? unit.unit_name : 'Đơn vị',
+      criterion_id: critId,
+      col_label: crit ? crit.col_label : '',
+      criterion_title: crit ? crit.title : '',
+      is_admin_approval: true,
+      score: finalScore,
+      submitted_at: now,
+      read: false,
+      read_by_unit: false
+    });
 
     // Thêm vào nhật ký toàn khối
     db.logs = db.logs || [];
@@ -9292,7 +9311,7 @@ window.approveUnitSubmission = async function(unitId, critId, scoreVal) {
       id: (db.logs[0] ? db.logs[0].id : 0) + 1,
       unit_id: unitId,
       criterion_id: critId,
-      submitted_at: nowISO(),
+      submitted_at: now,
       submitted_date: todayISO(),
       deadline: crit ? crit.deadline : '',
       is_on_time: 1,
@@ -9310,27 +9329,121 @@ window.approveUnitSubmission = async function(unitId, critId, scoreVal) {
   }
 };
 
-// TỪ CHỐI BÀI NỘP (ADMIN)
-window.rejectUnitSubmission = async function(unitId, critId) {
-  if (!confirm('Bạn có chắc chắn muốn từ chối duyệt bài nộp này? Đơn vị sẽ nhận thông báo để nộp bổ sung/làm lại.')) return;
-  showToast('Đang cập nhật từ chối bài nộp...', 'info');
+// MODAL NHẬP LÝ DO TỪ CHỐI / KHÔNG DUYỆT (ADMIN - Ảnh 1)
+window.openRejectSubmissionModal = function(unitId, critId) {
+  const unit = state.units.find(u => u.id === unitId);
+  const crit = state.criteria.find(c => c.id === critId);
+  if (!unit || !crit) return;
+
+  const modalRoot = document.getElementById('modal-root');
+  if (!modalRoot) return;
+
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) openSubmissionDetailModal(${unitId}, ${critId})">
+      <div class="modal-box" style="max-width: 520px; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 45px rgba(0,0,0,0.35);">
+        <div class="modal-header" style="background: linear-gradient(135deg, #b91c1c, #dc2626); color: #fff; padding: 14px 18px; display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-weight: 800; font-size: 15px; display:flex; align-items:center; gap:8px;">
+            <span>❌</span>
+            <span>Từ Chối Phê Duyệt Bài Nộp</span>
+          </div>
+          <button type="button" onclick="openSubmissionDetailModal(${unitId}, ${critId})" style="background:rgba(255,255,255,0.2); border:1.5px solid rgba(255,255,255,0.5); color:#ffffff !important; font-size:13px; font-weight:800; border-radius:6px; padding:3px 8px; cursor:pointer;" title="Đóng">✕</button>
+        </div>
+        <div class="modal-body" style="padding: 18px 20px; background:#fff;">
+          <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:12px; margin-bottom:14px;">
+            <div style="font-size:13.5px; color:#991b1b; font-weight:700;">🏢 ${escapeHtml(unit.unit_name)}</div>
+            <div style="font-size:13px; color:#475569; margin-top:2px;"><b>Tiêu chí:</b> ${escapeHtml(crit.col_label)} - ${escapeHtml(crit.title)}</div>
+          </div>
+
+          <div class="form-group" style="margin-bottom:14px;">
+            <label style="font-weight:700; color:#0f172a; font-size:13px; display:block; margin-bottom:6px;">
+              📝 Nhập lý do không duyệt / Yêu cầu bổ sung minh chứng (*):
+            </label>
+            <textarea
+              id="reject-reason-input"
+              rows="3"
+              placeholder="VD: Minh chứng chưa đầy đủ văn bản ký đóng dấu, vui lòng bổ sung file scan quyết định và nộp lại..."
+              style="width:100%; padding:10px 12px; font-family:inherit; border-radius:6px; border:1.5px solid #cbd5e1; font-size:13px; outline:none;"
+            ></textarea>
+          </div>
+
+          <div style="font-size:12px; color:#64748b; line-height:1.5; margin-bottom:16px;">
+            ℹ️ Sau khi xác nhận, điểm trong bảng tổng hợp sẽ <b>để trống (không tính điểm)</b> và hệ thống sẽ gửi <b>thông báo quả chuông</b> về cho đơn vị biết lý do để nộp lại.
+          </div>
+
+          <div style="display:flex; justify-content:flex-end; gap:10px;">
+            <button type="button" class="btn btn-outline" onclick="openSubmissionDetailModal(${unitId}, ${critId})" style="font-weight:700; padding:8px 16px; border-color:#94a3b8; color:#334155;">
+              ↩️ Quay lại
+            </button>
+            <button type="button" class="btn btn-danger" onclick="confirmRejectUnitSubmission(${unitId}, ${critId})" style="font-weight:800; padding:8px 18px; background:#dc2626; border-color:#b91c1c;">
+              ❌ Xác nhận Không Duyệt
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+// XÁC NHẬN TỪ CHỐI BÀI NỘP & GỬI THÔNG BÁO KHÔNG DUYỆT (Ảnh 1)
+window.confirmRejectUnitSubmission = async function(unitId, critId) {
+  const unit = state.units.find(u => u.id === unitId);
+  const crit = state.criteria.find(c => c.id === critId);
+  const reasonInp = document.getElementById('reject-reason-input');
+  const reason = reasonInp ? reasonInp.value.trim() : '';
+
+  showToast('Đang xử lý từ chối bài nộp...', 'info');
+  const now = nowISO();
+  const notifId = 'notif_rej_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+
   const res = await mutateCloudDB(db => {
     db.scores = db.scores || [];
     const idx = db.scores.findIndex(s => s.unit_id === unitId && s.criterion_id === critId);
     if (idx >= 0) {
-      db.scores[idx].score = null;
+      db.scores[idx].score = null; // Điểm trong bảng điểm TRỐNG, không đánh số vào
       db.scores[idx].approval_status = 'rejected';
-      db.scores[idx].admin_note = 'Ban Thường vụ đã từ chối hồ sơ (chưa hợp lệ, vui lòng nộp lại minh chứng)';
+      db.scores[idx].admin_note = reason || 'Ban Thường vụ không duyệt bài nộp (vui lòng nộp lại minh chứng)';
+      db.scores[idx].updated_by = 'admin';
     }
+
+    // THÊM THÔNG BÁO VÀO MỤC THÔNG BÁO LÀ KHÔNG DUYỆT (Ảnh 1)
+    db.notifications = db.notifications || [];
+    db.notifications.unshift({
+      id: notifId,
+      unit_id: unitId,
+      unit_name: unit ? unit.unit_name : 'Đơn vị',
+      criterion_id: critId,
+      col_label: crit ? crit.col_label : '',
+      criterion_title: crit ? crit.title : '',
+      is_rejected: true,
+      reject_reason: reason || 'Chưa đạt yêu cầu, vui lòng nộp bổ sung minh chứng',
+      submitted_at: now,
+      read: false,
+      read_by_unit: false
+    });
+
+    // Thêm vào nhật ký toàn khối
+    db.logs = db.logs || [];
+    db.logs.unshift({
+      id: (db.logs[0] ? db.logs[0].id : 0) + 1,
+      unit_id: unitId,
+      criterion_id: critId,
+      submitted_at: now,
+      submitted_date: todayISO(),
+      deadline: crit ? crit.deadline : '',
+      is_on_time: 1,
+      awarded_score: null,
+      status_text: `Ban Thường vụ không duyệt: ${reason || 'Yêu cầu nộp lại'}`
+    });
   }, `Admin rejected U${unitId} C${critId}`);
 
   if (res.ok) {
     closeModal();
-    showToast('Đã từ chối bài nộp!', 'info');
+    showToast(`Đã từ chối bài nộp của ${unit ? unit.unit_name : 'đơn vị'} và gửi thông báo thành công!`, 'success');
     renderApp();
+  } else {
+    showToast('Lỗi khi cập nhật lên đám mây!', 'error');
   }
 };
-
 // CHỨC NĂNG NHÂN ĐÔI TIÊU CHÍ (Ảnh 3)
 window.duplicateCriterion = async function (critId) {
   const c = (state.criteria || []).find(x => x.id === critId);
