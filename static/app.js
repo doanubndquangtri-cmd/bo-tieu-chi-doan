@@ -3879,37 +3879,7 @@ function renderAdminReportsTab() {
       </div>
     ` : ''}
 
-    <!-- MA TRẬN THEO DÕI NỘP BÁO CÁO & MINH CHỨNG TOÀN KHỐI -->
-    <div class="panel">
-      <div class="panel-header" style="flex-wrap:wrap; gap:10px;">
-        <div class="panel-title">
-          📊 THEO DÕI NỘP BÁO CÁO & HOẠT ĐỘNG CỦA CÁC ĐƠN VỊ (${targetCriteria.length} TIÊU CHÍ)
-        </div>
-        <div style="font-size:12px; color:#475569; display:flex; gap:6px; flex-wrap:wrap;">
-          <span class="badge badge-success">✅ Đã nộp / Đã duyệt (Có điểm)</span>
-          <span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;">⏳ Chờ Admin duyệt</span>
-          <span class="badge badge-warning">⚠️ Nộp trễ hạn</span>
-          <span class="badge badge-danger">❌ Chưa nộp</span>
-        </div>
-      </div>
-
-      <!-- THANH LỌC LIÊN KẾT: TẤT CẢ / BÁO CÁO / HOẠT ĐỘNG / ADMIN CHẤM -->
-      <div class="filter-pills-bar" style="padding:10px 16px 2px 16px;">
-        <button class="filter-pill-btn ${state.reportTypeFilter === 'all' ? 'active' : ''}" onclick="state.reportTypeFilter = 'all'; renderApp();">
-          🌐 Tất Cả Tiêu Chí (${allCriteria.length})
-        </button>
-        <button class="filter-pill-btn ${state.reportTypeFilter === 'report' ? 'active' : ''}" onclick="state.reportTypeFilter = 'report'; renderApp();">
-          📋 Báo Cáo Định Kỳ (${reportCriteria.length})
-        </button>
-        <button class="filter-pill-btn ${state.reportTypeFilter === 'activity' ? 'active' : ''}" onclick="state.reportTypeFilter = 'activity'; renderApp();">
-          🎯 Hoạt Động / Phong Trào (${activityCriteria.length})
-        </button>
-        <button class="filter-pill-btn ${state.reportTypeFilter === 'admin' ? 'active' : ''}" onclick="state.reportTypeFilter = 'admin'; renderApp();">
-          👑 Admin Tự Chấm Điểm (${adminCriteria.length})
-        </button>
-      </div>
-
-      ${isMobile && state.mobileReportsViewMode === 'cards' ? `
+    ${isMobile && state.mobileReportsViewMode === 'cards' ? `
       <!-- MOBILE CARD VIEW CHO BÁO CÁO -->
       <div class="panel">
         <div class="panel-header" style="flex-wrap:wrap; gap:10px;">
@@ -4006,11 +3976,11 @@ function renderAdminReportsTab() {
         </div>
       </div>
     ` : `
-      <!-- DESKTOP SPLIT CONTAINER CÓ THANH KÉO DÃN LÊN/XUỐNG GIỮA 2 BẢNG (Ảnh 2) -->
-      <div class="reports-split-container" id="reports-split-container" style="display:flex; flex-direction:column; height:calc(100vh - 120px); flex:1; min-height:0; overflow:hidden;">
+      <!-- DESKTOP SPLIT CONTAINER CÓ THANH KÉO DÃN LÊN/XUỐNG GIỮA 2 BẢNG -->
+      <div class="reports-split-container" id="reports-split-container" style="display:flex; flex-direction:column; height:calc(100vh - 160px); max-height:calc(100vh - 160px); flex:1; min-height:0; overflow:hidden;">
         
         <!-- KHUNG TRÊN: BẢNG MA TRẬN THEO DÕI NỘP BÁO CÁO & HOẠT ĐỘNG (KÉO DÃN ĐƯỢC) -->
-        <div id="reports-top-section" style="height:${parseInt(localStorage.getItem('doan2026_reports_split_top_h'), 10) || 360}px; min-height:160px; max-height:calc(100% - 150px); display:flex; flex-direction:column; flex-shrink:0; overflow:hidden;">
+        <div id="reports-top-section" style="height:${Math.min(420, Math.max(220, parseInt(localStorage.getItem('doan2026_reports_split_top_h'), 10) || 340))}px; min-height:160px; max-height:calc(100% - 150px); display:flex; flex-direction:column; flex-shrink:0; overflow:hidden;">
           <div class="panel" style="height:100%; display:flex; flex-direction:column; margin-bottom:0; overflow:hidden; border-radius:6px; border:1px solid #cbd5e1;">
             <div class="panel-header" style="flex-wrap:wrap; gap:8px; padding:7px 12px; flex-shrink:0;">
               <div class="panel-title" style="font-size:13px;">
@@ -4051,7 +4021,7 @@ function renderAdminReportsTab() {
             </div>
 
             <!-- NỘI DUNG BẢNG MA TRẬN CUỘN RÕ RÀNG KHÔNG BỊ CO HẸP -->
-            <div class="spreadsheet-wrapper" id="reports-spreadsheet-wrapper" style="flex:1; min-height:120px; height:100%; overflow:auto !important; border:none; border-top:1px solid #cbd5e1;">
+            <div class="spreadsheet-wrapper" id="reports-spreadsheet-wrapper" style="flex:1 1 auto; min-height:0; overflow:auto !important; border:none; border-top:1px solid #cbd5e1;">
               <table class="master-table">
                 <thead>
                   <tr class="row-titles">
