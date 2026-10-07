@@ -1831,78 +1831,7 @@ function getFilteredUnits() {
    MINI DASHBOARD (4 CHỈ SỐ TÓM TẮT TRÊN ĐẦU TRANG)
    ========================================================================= */
 function renderMiniDashboard() {
-  const activeUnits = (state.units || []).filter(u => Number(u.is_active) === 1);
-  const totalUnitsCount = activeUnits.length || (state.units || []).length || 40;
-  
-  // Tính tổng điểm tối đa của các tiêu chí
-  const maxPossible = (state.criteria || []).reduce((acc, c) => acc + (Number(c.max_points) || 10), 0) || 100;
-  let completedUnitsCount = 0;
-  let pendingSubmissionsCount = 0;
-
-  activeUnits.forEach(u => {
-    const tot = getUnitTotalScore(u.id);
-    if (tot >= maxPossible * 0.9 && tot > 0) completedUnitsCount++;
-  });
-
-  // Báo cáo chờ duyệt (có báo cáo / minh chứng hoặc status pending nhưng chưa có điểm chính thức)
-  Object.values(state.scoresMap || {}).forEach(sc => {
-    const hasProof = Boolean(
-      sc.report_content || sc.evidence_link || sc.file_path || (sc.files && sc.files.length > 0) || sc.approval_status === 'pending'
-    );
-    const notScored = sc.score === null || sc.score === undefined || sc.score === '';
-    if (hasProof && notScored) {
-      pendingSubmissionsCount++;
-    }
-  });
-
-  // Số tiêu chí sắp hết hạn (< 48 giờ)
-  const effDate = new Date(state.settings && state.settings.effective_date ? state.settings.effective_date : todayISO());
-  let expiringCriteriaCount = 0;
-  (state.criteria || []).forEach(c => {
-    if (c.deadline) {
-      const dl = new Date(c.deadline);
-      const diffHours = (dl - effDate) / (1000 * 60 * 60);
-      if (diffHours >= 0 && diffHours <= 48) {
-        expiringCriteriaCount++;
-      }
-    }
-  });
-
-  return `
-    <div class="mini-dashboard-container">
-      <div class="mini-stat-card card-blue" title="Tổng số các cơ sở Đoàn trực thuộc tham gia hệ thống">
-        <div class="mini-stat-icon">🟦</div>
-        <div class="mini-stat-content">
-          <div class="mini-stat-label">Tổng đơn vị tham gia</div>
-          <div class="mini-stat-value">${totalUnitsCount}/${totalUnitsCount} Cơ sở</div>
-        </div>
-      </div>
-
-      <div class="mini-stat-card card-green" title="Các đơn vị có kết quả xuất sắc / hoàn thành">
-        <div class="mini-stat-icon">🟩</div>
-        <div class="mini-stat-content">
-          <div class="mini-stat-label">Đã hoàn thành 100%</div>
-          <div class="mini-stat-value">${completedUnitsCount} Đơn vị</div>
-        </div>
-      </div>
-
-      <div class="mini-stat-card card-orange ${pendingSubmissionsCount > 0 ? 'pulse-alert' : ''}" title="Minh chứng các đơn vị đã gửi cần Ban Thường vụ kiểm tra & xác nhận điểm">
-        <div class="mini-stat-icon">🟧</div>
-        <div class="mini-stat-content">
-          <div class="mini-stat-label">Báo cáo chờ duyệt</div>
-          <div class="mini-stat-value">${pendingSubmissionsCount} Minh chứng</div>
-        </div>
-      </div>
-
-      <div class="mini-stat-card card-red" title="Các tiêu chí có thời hạn nộp dưới 48 giờ">
-        <div class="mini-stat-icon">🟥</div>
-        <div class="mini-stat-content">
-          <div class="mini-stat-label">Sắp hết hạn (&lt; 48h)</div>
-          <div class="mini-stat-value">${expiringCriteriaCount} Tiêu chí</div>
-        </div>
-      </div>
-    </div>
-  `;
+  return '';
 }
 
 function renderMasterTableTab() {
@@ -1947,8 +1876,6 @@ function renderMasterTableTab() {
   }
 
   return `
-    ${renderMiniDashboard()}
-
     ${isMobile ? `
       <div class="mobile-view-toggle-bar">
         <button class="mobile-toggle-btn active" onclick="setMobileViewMode('cards')">
@@ -1964,28 +1891,39 @@ function renderMasterTableTab() {
       </div>
     ` : ''}
 
-      <div class="filter-bar" style="display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: nowrap; padding: 3px 6px; background: #fff; border: 1px solid var(--border-light); border-radius: 6px; margin-bottom: 5px; flex-shrink: 0;">
-        <div class="month-pills" style="display: flex; gap: 3px; align-items: center; flex-wrap: nowrap; overflow-x: auto; flex: 1; min-width: 0;">
-          ${monthPills
-            .map(
-              (p) => `
-            <button class="month-pill ${Number(state.monthFilter) === p.val ? 'active' : ''}" onclick="setMonthFilter(${p.val})">
-              ${p.label}
-            </button>
-          `
-            )
-            .join('')}
+      <div class="filter-bar">
+        <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+          <span style="font-size: 12px; font-weight: 800; color: #0284c7; white-space: nowrap; display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
+            📅 Kỳ / Tháng:
+          </span>
+          <div class="month-pills">
+            ${monthPills
+              .map(
+                (p) => `
+              <button class="month-pill ${Number(state.monthFilter) === p.val ? 'active' : ''}" onclick="setMonthFilter(${p.val})">
+                ${p.label}
+              </button>
+            `
+              )
+              .join('')}
+          </div>
         </div>
-        <div style="display: flex; gap: 6px; align-items: center; flex-shrink: 0; flex-wrap: nowrap;">
-          <input
-            type="text"
-            placeholder="🔍 Tìm tên đơn vị..."
-            value="${escapeHtml(state.searchQuery)}"
-            oninput="onSearchUnitInput(this.value)"
-            style="width: 160px; height: 25px; font-size: 11px; padding: 2px 6px;"
-          />
-          <select onchange="onSortByChange(this.value)" style="height: 25px; font-size: 11px; padding: 2px 6px; max-width: 240px;">
-            <option value="score_desc" ${state.sortBy === 'score_desc' ? 'selected' : ''}>🏆 Xếp hạng Tổng điểm (Cao → Thấp) [Tự động]</option>
+        <div style="display: flex; gap: 8px; align-items: center; flex-shrink: 0; flex-wrap: nowrap;">
+          <div style="position: relative; display: flex; align-items: center;">
+            <input
+              type="text"
+              id="unit-search-input"
+              placeholder="🔍 Tìm tên đơn vị..."
+              value="${escapeHtml(state.searchQuery || '')}"
+              oninput="onSearchUnitInput(this.value)"
+              style="width: 210px; height: 32px; font-size: 12px; font-weight: 600; padding: 4px 26px 4px 10px; border: 1.5px solid #cbd5e1; border-radius: 6px; outline: none; background: #fff;"
+            />
+            ${state.searchQuery ? `
+              <button onclick="onSearchUnitInput(''); const inp = document.getElementById('unit-search-input'); if(inp) inp.value=''; renderApp();" style="position: absolute; right: 6px; background: none; border: none; color: #94a3b8; font-size: 13px; font-weight: 800; cursor: pointer; padding: 0 4px;" title="Xóa tìm kiếm">✕</button>
+            ` : ''}
+          </div>
+          <select onchange="onSortByChange(this.value)" style="height: 32px; font-size: 12px; font-weight: 700; padding: 4px 10px; border: 1.5px solid #cbd5e1; border-radius: 6px; background: #fff; color: #0f172a; outline: none; cursor: pointer;">
+            <option value="score_desc" ${state.sortBy === 'score_desc' ? 'selected' : ''}>🏆 Xếp hạng Tổng điểm (Cao → Thấp)</option>
             <option value="order" ${state.sortBy === 'order' ? 'selected' : ''}>Thứ tự đơn vị (1 → ${state.units.length})</option>
           </select>
         </div>
@@ -2165,7 +2103,7 @@ window.setMonthFilter = function (val) {
 window.onSearchUnitInput = function (val) {
   state.searchQuery = val;
   renderApp();
-  const input = document.querySelector('input[placeholder="🔍 Tìm tên đơn vị..."]');
+  const input = document.getElementById('unit-search-input') || document.querySelector('input[placeholder="🔍 Tìm tên đơn vị..."]');
   if (input) {
     input.focus();
     input.setSelectionRange(input.value.length, input.value.length);
