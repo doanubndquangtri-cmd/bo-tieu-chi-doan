@@ -376,18 +376,22 @@ textarea:focus {
 }
 
 /* THE 131-COLUMN MASTER SPREADSHEET TABLE */
-.spreadsheet-wrapper {
-  width: 100%;
-  max-height: calc(100vh - 220px);
-  overflow-x: auto !important;
-  overflow-y: auto !important;
+.spreadsheet-wrapper,
+#master-spreadsheet-wrapper {
+  width: 100% !important;
+  height: calc(100vh - 210px) !important;
+  min-height: 500px !important;
+  max-height: none !important;
+  overflow: auto !important;
+  box-sizing: border-box !important;
   position: relative;
-  border: 1px solid #94a3b8;
+  border: 1.5px solid #94a3b8;
   background: #fff;
   -webkit-overflow-scrolling: touch !important;
   touch-action: pan-x pan-y !important;
   overscroll-behavior-x: contain !important;
   scroll-behavior: smooth;
+  border-radius: 6px;
 }
 
 .master-table {
@@ -405,7 +409,7 @@ textarea:focus {
   vertical-align: middle;
 }
 
-/* Row 1: Title Banner - CỐ ĐỊNH CHẮC CHẮN NỀN XANH CHỮ TRẮNG KHÔNG BAO GIỜ BỊ MẤT KHI CUỘN */
+/* Row 1: Title Banner - CỐ ĐỊNH NỀN XANH CHỮ TRẮNG KHÔNG BỊ TRÔI MẤT KHI CUỘN */
 .master-table tr.row-banner th {
   background: #003d99 !important;
   color: #ffffff !important;
@@ -416,7 +420,7 @@ textarea:focus {
   height: 38px;
   position: sticky;
   top: 0 !important;
-  z-index: 60 !important;
+  z-index: 25 !important;
   box-shadow: 0 1px 2px rgba(0,0,0,0.15);
 }
 
@@ -425,19 +429,22 @@ textarea:focus {
   color: #ffffff !important;
   left: 0 !important;
   top: 0 !important;
-  z-index: 65 !important;
+  width: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  z-index: 35 !important;
 }
 
 .master-table tr.row-banner th.sticky-col-unit,
 .master-table tr.row-banner th.banner-unit-cell {
   background: #003d99 !important;
   color: #ffffff !important;
-  left: 34px !important;
+  left: 36px !important;
   top: 0 !important;
-  z-index: 65 !important;
-  width: 476px !important;
-  min-width: 476px !important;
-  max-width: none !important;
+  z-index: 35 !important;
+  width: 410px !important;
+  min-width: 410px !important;
+  max-width: 410px !important;
   white-space: nowrap !important;
 }
 
@@ -473,73 +480,87 @@ textarea:focus {
   z-index: 25;
 }
 
-/* Sticky Left Columns: STT, ĐƠN VỊ, TỔNG ĐIỂM */
-.master-table .sticky-col-stt {
-  position: sticky;
-  left: 0;
-  width: 34px;
-  min-width: 34px;
-  max-width: 34px;
+/* Sticky Left Columns: STT, ĐƠN VỊ, TỔNG ĐIỂM (CỐ ĐỊNH 2 CHIỀU FREEZE PANES) */
+.master-table .sticky-col-stt,
+.sticky-col-stt {
+  position: sticky !important;
+  left: 0 !important;
+  width: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
   padding: 6px 2px !important;
   text-align: center;
-  background: #f8fafc;
-  z-index: 20;
+  background: #ffffff !important;
+  z-index: 15 !important;
   font-weight: 700;
+  box-sizing: border-box !important;
 }
 
-.master-table .sticky-col-unit {
-  position: sticky;
-  left: 34px;
-  width: 380px;
-  min-width: 380px;
-  max-width: 420px;
+.master-table .sticky-col-unit,
+.sticky-col-unit {
+  position: sticky !important;
+  left: 36px !important;
+  width: 320px !important;
+  min-width: 320px !important;
+  max-width: 320px !important;
   text-align: left;
-  background: #ffffff;
-  z-index: 20;
+  background: #ffffff !important;
+  z-index: 15 !important;
   font-weight: 600;
   white-space: normal !important;
   word-break: break-word;
   line-height: 1.4 !important;
   padding: 8px 12px !important;
+  box-sizing: border-box !important;
 }
 
-.master-table .sticky-col-total {
-  position: sticky;
-  left: 414px;
-  width: 96px;
-  min-width: 96px;
-  max-width: 96px;
+.master-table .sticky-col-total,
+.sticky-col-total {
+  position: sticky !important;
+  left: 356px !important;
+  width: 90px !important;
+  min-width: 90px !important;
+  max-width: 90px !important;
   text-align: center;
-  background: #fef9c3;
+  background: #fff9db !important;
   font-weight: 800;
   color: #b45309;
   font-size: 13.5px;
-  z-index: 20;
-  border-right: 2px solid #64748b !important;
+  z-index: 15 !important;
+  box-shadow: 2px 0 5px rgba(0,0,0,0.1) !important;
+  border-right: 2px solid #eab308 !important;
+  box-sizing: border-box !important;
 }
 
-/* Corner intersections need higher z-index, precisely layered per row */
+/* Corner intersections in thead need higher z-index (25 - 35) to always stay on top */
+.master-table thead th.sticky-col-stt,
+.master-table thead th.sticky-col-unit,
+.master-table thead th.sticky-col-total,
+thead th.sticky-col-stt,
+thead th.sticky-col-unit,
+thead th.sticky-col-total {
+  z-index: 25 !important;
+}
+
 .master-table tr.row-banner th.sticky-col-stt,
 .master-table tr.row-banner th.sticky-col-unit,
 .master-table tr.row-banner th.sticky-col-total {
   top: 0 !important;
-  z-index: 60 !important;
+  z-index: 35 !important;
 }
 
 .master-table tr.row-titles th.sticky-col-stt,
 .master-table tr.row-titles th.sticky-col-unit,
 .master-table tr.row-titles th.sticky-col-total {
   top: 38px;
-  z-index: 55 !important;
+  z-index: 30 !important;
 }
-
-
 
 .master-table tr.row-cols th.sticky-col-stt,
 .master-table tr.row-cols th.sticky-col-unit,
 .master-table tr.row-cols th.sticky-col-total {
   top: 178px;
-  z-index: 45 !important;
+  z-index: 28 !important;
 }
 
 .master-table tbody tr:hover td {
@@ -1501,6 +1522,7 @@ textarea:focus {
   overflow: hidden;
   box-sizing: border-box;
   animation: slideUp 0.2s ease-out;
+  container-type: inline-size;
 }
 
 .chat-widget-box.maximized {
@@ -1518,10 +1540,13 @@ textarea:focus {
 
 .chat-header,
 .chat-tabs-bar,
+.ai-chips-container,
 .chat-search-bar,
 .chat-private-unit-bar,
 .chat-input-row {
   flex-shrink: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 /* Chat resize handles */
@@ -1724,38 +1749,50 @@ textarea:focus {
 }
 
 .chat-messages-body {
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
   padding: 14px 16px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
   background: #f8fafc;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+  align-items: stretch !important;
+  gap: 10px !important;
 }
 
 .chat-message-row {
-  display: flex;
-  flex-direction: column;
-  max-width: 85%;
+  display: flex !important;
+  flex-direction: column !important;
+  width: fit-content !important;
+  max-width: 82% !important;
+  height: auto !important;
+  min-height: unset !important;
+  flex: none !important;
+  box-sizing: border-box !important;
 }
 
 .chat-message-row.mine {
-  align-self: flex-end;
-  align-items: flex-end;
+  align-self: flex-end !important;
+  align-items: flex-end !important;
+  margin-left: auto !important;
 }
 
 .chat-message-row.theirs {
-  align-self: flex-start;
-  align-items: flex-start;
+  align-self: flex-start !important;
+  align-items: flex-start !important;
+  margin-right: auto !important;
 }
 
 .chat-sender-name {
-  font-size: 11.5px;
+  font-size: clamp(11.5px, 1vw, 13px);
   font-weight: 700;
-  margin-bottom: 2px;
+  margin-bottom: 3px;
   color: #0369a1;
+  width: fit-content !important;
 }
 
 .chat-sender-name.admin {
@@ -1763,40 +1800,53 @@ textarea:focus {
 }
 
 .chat-message-bubble {
-  padding: 9px 13px;
-  border-radius: 12px;
-  font-size: 13px;
-  line-height: 1.45;
-  word-break: break-word;
+  height: auto !important;
+  min-height: unset !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+  display: inline-block !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: pre-wrap !important;
+  box-sizing: border-box !important;
+  padding: 8px 14px !important;
+  border-radius: 14px !important;
+  font-size: clamp(13.5px, 1.1vw, 16px) !important;
+  line-height: 1.5 !important;
+  flex: none !important;
 }
 
 .chat-message-row.mine .chat-message-bubble {
   background: #0052cc;
   color: #ffffff;
-  border-bottom-right-radius: 2px;
+  border-bottom-right-radius: 3px !important;
 }
 
 .chat-message-row.theirs .chat-message-bubble {
   background: #ffffff;
   color: #0f172a;
   border: 1px solid #e2e8f0;
-  border-bottom-left-radius: 2px;
+  border-bottom-left-radius: 3px !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .chat-message-time {
-  font-size: 10px;
+  font-size: clamp(10px, 0.9vw, 12px);
   color: #94a3b8;
   margin-top: 3px;
+  width: fit-content !important;
 }
 
 .chat-input-row {
-  padding: 10px 12px;
+  padding: clamp(10px, 1vw, 14px) clamp(12px, 1.2vw, 18px);
   background: #ffffff;
   border-top: 1px solid #e2e8f0;
   display: flex;
-  gap: 6px;
+  gap: clamp(6px, 0.8vw, 10px);
   align-items: center;
+  flex-shrink: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 .chat-attach-btn {
@@ -1804,14 +1854,14 @@ textarea:focus {
   border: 1.5px solid #cbd5e1;
   color: #475569;
   border-radius: 8px;
-  width: 38px;
-  height: 38px;
-  font-size: 16px;
+  width: clamp(38px, 3.2vw, 46px);
+  height: clamp(38px, 3.2vw, 46px);
+  font-size: clamp(16px, 1.2vw, 19px);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  flex-shrink: 0 !important;
   transition: all 0.2s;
 }
 
@@ -1821,14 +1871,18 @@ textarea:focus {
 }
 
 .chat-input-field {
-  flex: 1;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
   border: 1.5px solid #cbd5e1;
   border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 13px;
+  padding: clamp(8px, 0.9vw, 12px) clamp(10px, 1.1vw, 16px);
+  font-size: clamp(14px, 1.1vw, 17px) !important;
+  height: clamp(38px, 3.2vw, 46px) !important;
+  min-height: clamp(38px, 3.2vw, 46px) !important;
   font-family: inherit;
   outline: none;
   transition: border-color 0.2s;
+  box-sizing: border-box !important;
 }
 
 .chat-input-field:focus {
@@ -1840,33 +1894,121 @@ textarea:focus {
   color: #fff;
   border: none;
   border-radius: 8px;
-  padding: 8px 14px;
+  padding: clamp(8px, 0.9vw, 12px) clamp(14px, 1.4vw, 22px);
   font-weight: 700;
-  font-size: 13px;
+  font-size: clamp(13px, 1.1vw, 16px) !important;
+  height: clamp(38px, 3.2vw, 46px) !important;
   cursor: pointer;
   transition: background 0.2s;
-  white-space: nowrap;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .chat-send-btn:hover {
   background: #003d99;
 }
 
+/* Container Queries cho khung chat tự động phóng to nội dung theo kích thước kéo dãn */
+@container (min-width: 600px) {
+  .chat-message-bubble,
+  .chat-msg-ai {
+    font-size: clamp(14.5px, 2.1cqi, 17px) !important;
+    line-height: 1.55 !important;
+    padding: 9px 15px !important;
+    height: auto !important;
+    min-height: unset !important;
+    width: fit-content !important;
+  }
+  .chat-input-field {
+    font-size: 15px !important;
+    height: 42px !important;
+    min-height: 42px !important;
+  }
+  .chat-send-btn {
+    font-size: 14px !important;
+    height: 42px !important;
+    padding: 8px 18px !important;
+  }
+  .chat-attach-btn,
+  .chat-emoji-btn,
+  .btn-ai-rewrite {
+    height: 42px !important;
+  }
+}
+
+@container (min-width: 800px) {
+  .chat-message-bubble,
+  .chat-msg-ai {
+    font-size: clamp(15.5px, 1.8cqi, 18.5px) !important;
+    line-height: 1.6 !important;
+    padding: 10px 18px !important;
+    height: auto !important;
+    min-height: unset !important;
+    width: fit-content !important;
+  }
+  .chat-input-field {
+    font-size: 16px !important;
+    height: 46px !important;
+    min-height: 46px !important;
+    padding: 10px 16px !important;
+  }
+  .chat-send-btn {
+    font-size: 15px !important;
+    height: 46px !important;
+    padding: 10px 22px !important;
+  }
+  .chat-attach-btn,
+  .chat-emoji-btn,
+  .btn-ai-rewrite {
+    height: 46px !important;
+    font-size: 14px !important;
+  }
+}
+
 .chat-media-img {
-  max-width: 220px;
-  max-height: 180px;
+  max-width: 100% !important;
+  height: auto !important;
+  object-fit: contain !important;
   border-radius: 8px;
   cursor: pointer;
   margin-top: 4px;
   border: 1px solid rgba(0, 0, 0, 0.15);
   display: block;
+  box-sizing: border-box !important;
 }
 
 .chat-media-video {
-  max-width: 240px;
+  max-width: 100% !important;
+  height: auto !important;
+  object-fit: contain !important;
   border-radius: 8px;
   margin-top: 4px;
   display: block;
+  box-sizing: border-box !important;
+}
+
+/* Typing indicator animation */
+.ai-typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  vertical-align: middle;
+}
+.ai-typing-dots span {
+  width: 6px;
+  height: 6px;
+  background-color: #7c3aed;
+  border-radius: 50%;
+  animation: aiTypingBounce 1.2s infinite ease-in-out;
+}
+.ai-typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.ai-typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes aiTypingBounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1.1); opacity: 1; }
 }
 
 .chat-file-box {
@@ -2272,9 +2414,12 @@ html, body {
 
 /* Criteria table scroll container with sticky headers */
 .criteria-table-container {
+  height: calc(100vh - 185px) !important;
+  min-height: calc(100vh - 185px) !important;
+  max-height: calc(100vh - 185px) !important;
+  flex: 1 1 auto !important;
   overflow-x: auto !important;
   overflow-y: auto !important;
-  max-height: calc(100vh - 160px);
   scrollbar-width: thin;
 }
 
@@ -2471,28 +2616,37 @@ html, body {
 .sticky-col-stt {
   position: sticky !important;
   left: 0 !important;
-  z-index: 20 !important;
-  background: #fff;
+  width: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  z-index: 15 !important;
+  background: #ffffff !important;
 }
 .sticky-col-unit {
   position: sticky !important;
-  left: 45px !important;
-  z-index: 20 !important;
-  background: #fff;
+  left: 36px !important;
+  width: 320px !important;
+  min-width: 320px !important;
+  max-width: 320px !important;
+  z-index: 15 !important;
+  background: #ffffff !important;
 }
 .sticky-col-total {
   position: sticky !important;
-  left: 285px !important;
-  z-index: 20 !important;
-  background: #fff;
-  border-right: 2px solid #0284c7 !important;
+  left: 356px !important;
+  width: 90px !important;
+  min-width: 90px !important;
+  max-width: 90px !important;
+  z-index: 15 !important;
+  background: #fff9db !important;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1) !important;
+  border-right: 2px solid #eab308 !important;
 }
 
 thead .sticky-col-stt,
 thead .sticky-col-unit,
 thead .sticky-col-total {
-  z-index: 45 !important;
-  background: #0284c7 !important;
+  z-index: 28 !important;
 }
 
 /* =========================================================================
@@ -2557,6 +2711,21 @@ thead .sticky-col-total {
   border: 1px solid #ddd6fe !important;
   border-left: 4px solid #7c3aed !important;
   color: #1e1b4b !important;
+  height: auto !important;
+  min-height: unset !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+  display: inline-block !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+  font-size: clamp(13.5px, 1.1vw, 16px) !important;
+  line-height: 1.5 !important;
+  padding: 8px 14px !important;
+  border-radius: 14px !important;
+  border-bottom-left-radius: 3px !important;
+  box-sizing: border-box !important;
+  flex: none !important;
 }
 
 .chat-msg-ai .sender-name {
@@ -2752,33 +2921,204 @@ body.dark-mode .notification-item:hover {
 .ai-badge-err { background: #fee2e2; color: #b91c1c; }
 
 /* =========================================================================
-   SCROLLBAR & STICKY HEADER CHO BẢNG QUẢN LÝ ĐƠN VỊ & BẢNG XẾP HẠNG
+   FULL VIEWPORT HEIGHT & STICKY HEADER CHO TẤT CẢ CÁC BẢNG DỮ LIỆU
    ========================================================================= */
-.accounts-table-container,
-.ranking-table-container {
-  overflow-x: auto !important;
-  overflow-y: auto !important;
-  max-height: calc(100vh - 180px) !important;
+.panel.fullscreen-table-panel,
+.panel:has(.accounts-table-container),
+.panel:has(.criteria-table-container),
+.panel:has(.ranking-table-container) {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  margin-bottom: 2px !important;
+}
+
+/* 1. Bảng Quản Lý Đơn Vị & Tài Khoản */
+.accounts-table-container {
+  height: calc(100vh - 160px) !important;
+  min-height: 500px !important;
+  max-height: none !important;
+  flex: 1 1 auto !important;
+  overflow: auto !important;
+  box-sizing: border-box !important;
   scrollbar-width: thin;
   position: relative;
   -webkit-overflow-scrolling: touch !important;
   border-bottom: 1px solid var(--border-light);
 }
 
+/* 2. Bảng Xếp Hạng Thi Đua & Tổng Hợp Điểm */
+.ranking-table-container {
+  height: calc(100vh - 160px) !important;
+  min-height: 500px !important;
+  max-height: none !important;
+  flex: 1 1 auto !important;
+  overflow: auto !important;
+  box-sizing: border-box !important;
+  scrollbar-width: thin;
+  position: relative;
+  -webkit-overflow-scrolling: touch !important;
+  border-bottom: 1px solid var(--border-light);
+}
+
+/* 3. Bảng Quản Lý Bộ Tiêu Chí & Hạn Nộp */
+.criteria-table-container {
+  height: calc(100vh - 195px) !important;
+  min-height: 480px !important;
+  max-height: none !important;
+  flex: 1 1 auto !important;
+  overflow: auto !important;
+  box-sizing: border-box !important;
+  scrollbar-width: thin;
+  position: relative;
+  -webkit-overflow-scrolling: touch !important;
+  border-bottom: 1px solid var(--border-light);
+}
+
+/* 4. Khung Split Báo Cáo & Nhật Ký Toàn Đoàn */
+.reports-split-container {
+  height: calc(100vh - 140px) !important;
+  min-height: 500px !important;
+  max-height: none !important;
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+/* 5. Bảng Danh Sách Văn Bản & Tài Liệu Chỉ Đạo */
+.table-container:has(#admin-docs-table),
+.table-container {
+  height: calc(100vh - 350px) !important;
+  min-height: 320px !important;
+  max-height: none !important;
+  flex: 1 1 auto !important;
+  overflow: auto !important;
+  box-sizing: border-box !important;
+  scrollbar-width: thin;
+  border-bottom: 1px solid var(--border-light);
+}
+
+/* =========================================================================
+   CỐ ĐỊNH TIÊU ĐỀ BẢNG (STICKY THEAD & TH) VÀ GIAO ĐIỂM FREEZE PANES
+   ========================================================================= */
+.accounts-table-container thead,
 .accounts-table-container thead th,
-.ranking-table-container thead th {
+.ranking-table-container thead,
+.ranking-table-container thead th,
+.criteria-table-container thead,
+.criteria-table-container thead th,
+.master-table thead,
+.master-table thead th,
+#reports-spreadsheet-wrapper thead,
+#reports-spreadsheet-wrapper thead th,
+#reports-bottom-section thead,
+#reports-bottom-section thead th,
+.table-container thead,
+.table-container thead th,
+#admin-docs-table thead,
+#admin-docs-table thead th {
   position: sticky !important;
   top: 0 !important;
-  z-index: 15 !important;
+  z-index: 20 !important;
   background: #f1f5f9 !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
+/* Ô giao nhau giữa thead và 3 cột đầu đặt z-index: 28 để luôn nổi lên trên cùng */
+.master-table thead th.sticky-col-stt,
+.master-table thead th.sticky-col-unit,
+.master-table thead th.sticky-col-total,
+thead th.sticky-col-stt,
+thead th.sticky-col-unit,
+thead th.sticky-col-total {
+  position: sticky !important;
+  z-index: 28 !important;
+}
+
 body.dark-mode .accounts-table-container thead th,
-body.dark-mode .ranking-table-container thead th {
+body.dark-mode .ranking-table-container thead th,
+body.dark-mode .criteria-table-container thead th,
+body.dark-mode .master-table thead th,
+body.dark-mode #reports-spreadsheet-wrapper thead th,
+body.dark-mode #reports-bottom-section thead th,
+body.dark-mode .table-container thead th,
+body.dark-mode #admin-docs-table thead th {
   background: #1e293b !important;
   color: #f8fafc !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
+
+
+
+/* Nút phát âm thanh đọc câu trả lời Trợ lý AI (Text-to-Speech) */
+.ai-tts-btn {
+  background: rgba(124, 58, 237, 0.08);
+  border: 1px solid rgba(124, 58, 237, 0.22);
+  color: #7c3aed;
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 12.5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: all 0.15s ease;
+  vertical-align: middle;
+}
+
+.ai-tts-btn:hover {
+  background: rgba(124, 58, 237, 0.18);
+  border-color: #7c3aed;
+  transform: scale(1.12);
+}
+
+.ai-tts-btn.speaking {
+  background: #fee2e2 !important;
+  border-color: #ef4444 !important;
+  color: #b91c1c !important;
+  animation: pulse-tts 0.85s infinite alternate ease-in-out;
+}
+
+@keyframes pulse-tts {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  100% { transform: scale(1.12); box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15); }
+}
+
+/* AI Text-to-Speech Studio */
+.chat-tab-btn.tts-tab {
+  color: #059669;
+}
+.chat-tab-btn.tts-tab:hover {
+  background: #ecfdf5;
+  color: #047857;
+}
+.chat-tab-btn.tts-tab.active {
+  background: #10b981 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3) !important;
+}
+
+.tts-studio-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 14px 16px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  background: #ffffff;
+}
+
+body.dark-mode .tts-studio-wrapper {
+  background: #0f172a !important;
+  color: #e2e8f0 !important;
+}
+body.dark-mode #tts-result-box {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
 
