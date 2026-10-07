@@ -1381,22 +1381,22 @@ function renderHeader() {
         </div>
       </div>
 
-      <!-- CHUÔNG THÔNG BÁO CHO ADMIN & CÁC ĐƠN VỊ (ĐỘC LẬP NGOÀI HEADER-ACTIONS ĐỂ DROPDOWN KHÔNG BỊ ẨN) -->
-      <div class="notification-bell-container" id="notif-bell-container" style="position: relative; flex-shrink: 0; z-index: 9999;">
-        <button class="btn btn-sm notification-bell-btn" onclick="toggleNotificationPanel(event)" style="font-size:11px; padding:3px 7px; height:27px;">
-          🔔 <span style="font-weight:700;">Thông báo</span>
-          ${(() => {
-            const isAdminUser = state.user && state.user.role === 'admin';
-            const unreadList = (state.notifications || []).filter(n => isAdminUser ? !n.read : (n.unit_id === (state.user && state.user.id) && !n.read_by_unit));
-            const unreadCount = unreadList.length;
-            return unreadCount > 0 ? `<span class="notification-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>` : '';
-          })()}
-        </button>
-        ${state.notificationsOpen ? renderNotificationDropdown() : ''}
-      </div>
+      <!-- CÁC NÚT THAO TÁC CỐ ĐỊNH TRỰC TIẾP TRÊN THANH HEADER (CÙNG HÀNG VỚI THÔNG BÁO, KHÔNG BỊ CUỘN HAY ĐÓNG KHUÔN) -->
+      <div class="header-actions" style="display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; flex-shrink: 0; overflow: visible; background: transparent; border: none; padding: 0;">
+        <!-- CHUÔNG THÔNG BÁO CHO ADMIN & CÁC ĐƠN VỊ -->
+        <div class="notification-bell-container" id="notif-bell-container" style="position: relative; flex-shrink: 0; z-index: 9999;">
+          <button class="btn btn-sm notification-bell-btn" onclick="toggleNotificationPanel(event)" style="font-size:11px; padding:3px 7px; height:27px;">
+            🔔 <span style="font-weight:700;">Thông báo</span>
+            ${(() => {
+              const isAdminUser = state.user && state.user.role === 'admin';
+              const unreadList = (state.notifications || []).filter(n => isAdminUser ? !n.read : (n.unit_id === (state.user && state.user.id) && !n.read_by_unit));
+              const unreadCount = unreadList.length;
+              return unreadCount > 0 ? `<span class="notification-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>` : '';
+            })()}
+          </button>
+          ${state.notificationsOpen ? renderNotificationDropdown() : ''}
+        </div>
 
-      <!-- Ở GIỮA: CÁC NÚT CÔNG CỤ DỊCH LÊN TRÊN HÀNG GỌN GÀNG (NẰM TRỰC TIẾP TRÊN THANH HEADER) -->
-      <div class="header-actions" style="display: flex; align-items: center; gap: 5px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; background: transparent; border: none; padding: 0;">
         <button class="btn btn-sm btn-outline" onclick="syncFromCloudNow(false)" style="background:rgba(255,255,255,0.15); color:#fff; border-color:rgba(255,255,255,0.3); font-size:11px; padding:3px 7px; height:27px;" title="Tải dữ liệu mới nhất từ đám mây">
           🔄 Đồng bộ
         </button>
