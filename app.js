@@ -368,7 +368,7 @@ const state = {
   notificationsOpen: false,
   chatMessages: [],
   chatOpen: false,
-  chatSize: null, // { width: 440, height: 590 }
+  chatSize: { width: 580, height: 720 },
   chatMaximized: false,
   chatTab: 'public', // 'public' | 'private'
   chatPrivateUnitId: 0,
@@ -7843,9 +7843,18 @@ window.toggleChatWidget = function() {
     try {
       const saved = JSON.parse(localStorage.getItem('tieuchidoan_chat_layout') || '{}');
       if (saved.pos) state.chatPos = saved.pos;
-      if (saved.size) state.chatSize = saved.size;
+      if (saved.size && saved.size.width >= 500 && saved.size.height >= 500) {
+        state.chatSize = saved.size;
+      } else {
+        state.chatSize = { width: 580, height: 720 };
+      }
       if (saved.maximized !== undefined) state.chatMaximized = saved.maximized;
-    } catch (e) {}
+    } catch (e) {
+      state.chatSize = { width: 580, height: 720 };
+    }
+    if (state.chatTab === 'ai' || state.chatTab === 'video') {
+      state.chatTab = 'public';
+    }
     setChatRoomAsRead(getChatRoomKey());
   }
   renderApp();
@@ -7860,7 +7869,7 @@ window.toggleChatWidget = function() {
 window.toggleMaximizeChatWidget = function() {
   state.chatMaximized = !state.chatMaximized;
   if (!state.chatMaximized && !state.chatSize) {
-    state.chatSize = { width: 440, height: 590 };
+    state.chatSize = { width: 580, height: 720 };
   }
   renderApp();
   setTimeout(() => {
@@ -7877,7 +7886,7 @@ window.toggleMaximizeChatWidget = function() {
 };
 
 window.switchChatTab = function(tab) {
-  if (tab === 'video') tab = 'public';
+  if (tab === 'video' || tab === 'ai') tab = 'public';
   state.chatTab = tab;
   setChatRoomAsRead(getChatRoomKey());
   renderApp();
@@ -8769,9 +8778,6 @@ function renderFloatingChatWidget() {
             <button class="btn btn-sm" onclick="forceClearCacheAndReload()" style="background:#0284c7; border:1px solid #0369a1; color:#fff; font-size:11px; font-weight:700; padding:2px 8px; border-radius:4px; cursor:pointer;" title="Xóa sạch bộ nhớ đệm (Cache) & nạp phiên bản mới nhất ngay tức thì">
               🔄 Tải bản mới
             </button>
-            <button class="btn btn-sm" onclick="openGeminiApiKeyModal()" style="background:#7c3aed; border:1px solid #6d28d9; color:#fff; font-size:11px; font-weight:700; padding:2px 8px; border-radius:4px; cursor:pointer;" title="Cài đặt Google Gemini API Key trực tuyến">
-              🔑 Cài Key AI
-            </button>
             <button class="btn btn-sm" onclick="openClearChatOptionsModal()" style="background:rgba(239,68,68,0.25); border:1px solid rgba(239,68,68,0.5); color:#fff; font-size:11px; font-weight:700; padding:2px 7px;" title="Tùy chọn xóa / làm mới lịch sử chat">
               🗑️ Xóa / Làm mới
             </button>
@@ -8782,7 +8788,7 @@ function renderFloatingChatWidget() {
           </div>
         </div>
 
-        <!-- THANH CHUYỂN TAB: CHAT CHUNG, CHAT RIÊNG TƯ, TRỢ LÝ AI & GIỌNG NÓI AI (XÓA BỎ HOÀN TOÀN TAB 5 TẠO VIDEO AI) -->
+        <!-- THANH CHUYỂN TAB: CHAT CHUNG, CHAT RIÊNG TƯ & GIỌNG NÓI AI -->
         <div class="chat-tabs-bar">
           <button class="chat-tab-btn ${state.chatTab === 'public' ? 'active' : ''}" onclick="switchChatTab('public')">
             🌐 Chat Chung Toàn Khối
@@ -8792,15 +8798,12 @@ function renderFloatingChatWidget() {
             🔒 Chat Riêng Tư (1 - 1)
             ${unreadPrivate > 0 ? `<span class="chat-badge" style="margin-left:4px;">${unreadPrivate}</span>` : ''}
           </button>
-          <button class="chat-tab-btn ai-tab ${state.chatTab === 'ai' ? 'active' : ''}" onclick="switchChatTab('ai')" title="Trợ lý AI Đoàn Cơ Sở (Google Gemini 3.8 Flash - Interactions API)">
-            🤖 Trợ Lý AI Đoàn <span class="ai-tab-badge">Gemini 3.8 Flash</span>
-          </button>
           <button class="chat-tab-btn tts-tab ${state.chatTab === 'tts' ? 'active' : ''}" onclick="switchChatTab('tts')" title="Tạo Giọng Nói AI & Tải Về (AI Text-to-Speech Studio)">
             🎙️ Giọng Nói AI
           </button>
         </div>
 
-        ${(state.chatTab === 'ai' || state.chatTab === 'tts') ? '' : `
+        ${state.chatTab === 'tts' ? '' : `
           <!-- THANH TÌM KIẾM TIN NHẮN & TỆP TIN TRONG PHÒNG CHAT (Ảnh 1 & 2) -->
           <div class="chat-search-bar">
             <span style="font-size:13px; color:#64748b;">🔍</span>
@@ -8882,56 +8885,7 @@ function renderFloatingChatWidget() {
 
         <!-- NỘI DUNG DANH SÁCH TIN NHẮN -->
         <div class="chat-messages-body" id="chat-messages-body">
-          ${state.chatTab === 'tts' ? renderTtsStudioContent() : state.chatTab === 'ai' ? `
-            <!-- LỜI CHÀO BAN ĐẦU CỦA TRỢ LÝ GOOGLE GEMINI 3.8 FLASH -->
-            <div class="chat-message-row theirs">
-              <div class="chat-sender-name admin" style="color:#7c3aed !important; font-weight:800;">
-                🤖 Trợ lý AI Đoàn Khối (Google Gemini 3.8 Flash)
-              </div>
-              <div class="chat-message-bubble chat-msg-ai" style="height:auto !important; min-height:unset !important; max-height:none !important; width:fit-content !important; max-width:88% !important; display:inline-block !important; padding:8px 14px !important; border-radius:14px !important; border-bottom-left-radius:4px !important; line-height:1.5 !important;">
-                <div>
-                  <b>Xin chào đồng chí!</b> Tôi là <b>Trợ lý AI Đoàn Khối tỉnh (Google Gemini 3.8 Flash)</b>.<br/>
-                  Tôi sẵn sàng hỗ trợ đồng chí về nghiệp vụ công tác Đoàn, thể thức văn bản hành chính, giải đáp tiêu chí thi đua và các hoạt động phong trào thanh niên.<br/>
-                  <i>Đồng chí có thể nhập bất kỳ câu hỏi nào bên dưới để bắt đầu trao đổi!</i>
-                </div>
-              </div>
-              <div class="chat-message-time" style="display:flex; align-items:center; gap:6px;">
-                <span>${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
-                <button type="button" class="ai-tts-btn" onclick="playTextToSpeech('Xin chào đồng chí! Tôi là Trợ lý AI Đoàn Khối tỉnh Google Gemini 3.8 Flash. Tôi sẵn sàng hỗ trợ đồng chí về nghiệp vụ công tác Đoàn, thể thức văn bản hành chính, giải đáp tiêu chí thi đua và các hoạt động phong trào thanh niên. Đồng chí có thể nhập bất kỳ câu hỏi nào bên dưới để bắt đầu trao đổi!', this)" title="Nghe đọc câu trả lời">🔊</button>
-              </div>
-            </div>
-
-            <!-- DANH SÁCH CÂU HỎI & TRẢ LỜI CỦA AI -->
-            ${(state.aiChatHistory || []).map((m, idx) => `
-              <div class="chat-message-row ${m.sender === 'user' ? 'mine' : 'theirs'}">
-                <div class="chat-sender-name ${m.sender === 'user' ? '' : 'admin'}" style="${m.sender === 'ai' ? 'color:#7c3aed !important; font-weight:800;' : ''}">
-                  ${m.sender === 'user' ? (state.user ? escapeHtml(state.user.unit_name || state.user.username) : 'Bạn') : '🤖 Trợ lý AI Đoàn Khối (Google Gemini 3.8 Flash)'}
-                </div>
-                <div class="chat-message-bubble ${m.sender === 'ai' ? 'chat-msg-ai' : ''}" style="height:auto !important; min-height:unset !important; max-height:none !important; width:fit-content !important; max-width:${m.sender === 'user' ? '75%' : '88%'} !important; display:inline-block !important; padding:${m.sender === 'user' ? '6px 12px' : '8px 14px'} !important; border-radius:14px !important; border-bottom-${m.sender === 'user' ? 'right' : 'left'}-radius:4px !important; line-height:1.45 !important;">
-                  <div style="word-break:break-word; line-height:1.45; display:${m.sender === 'user' ? 'inline' : 'block'};">${m.sender === 'ai' ? renderAiMarkdown(m.text) : escapeHtml(m.text)}</div>
-                </div>
-                <div class="chat-message-time" style="display:flex; align-items:center; gap:6px;">
-                  <span>${escapeHtml(m.time || '')}</span>
-                  ${m.sender === 'ai' ? `
-                    <button type="button" class="ai-tts-btn" onclick="playAiHistoryTts(${idx}, this)" title="Nghe đọc câu trả lời">🔊</button>
-                  ` : ''}
-                </div>
-              </div>
-            `).join('')}
-            ${state.aiIsTyping ? `
-              <div class="chat-message-row theirs">
-                <div class="chat-sender-name admin" style="color:#7c3aed !important; font-weight:800;">
-                  🤖 Trợ lý AI Đoàn Khối (Google Gemini 3.8 Flash)
-                </div>
-                <div class="chat-message-bubble chat-msg-ai" style="display:inline-flex; align-items:center; gap:8px; padding:8px 14px; border-radius:14px; border-bottom-left-radius:4px;">
-                  <span class="ai-typing-dots">
-                    <span></span><span></span><span></span>
-                  </span>
-                  <span style="font-style:italic; color:#6b21a8; font-size:13px; font-weight:600;">Trợ lý AI đang suy nghĩ câu trả lời...</span>
-                </div>
-              </div>
-            ` : ''}
-          ` : `
+          ${state.chatTab === 'tts' ? renderTtsStudioContent() : `
             ${searchQ ? `
               <div style="padding:4px 10px; background:#eff6ff; border-radius:4px; font-size:11.5px; color:#1e40af; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
                 <span>🔍 Kết quả tìm kiếm cho: "<b>${escapeHtml(searchQ)}</b>" (${filteredMessages.length} tin)</span>
@@ -8958,8 +8912,8 @@ function renderFloatingChatWidget() {
                   <div class="chat-sender-name ${m.sender_role === 'admin' ? 'admin' : ''}">
                     ${m.sender_role === 'admin' ? '👑 ' : '🏢 '}${escapeHtml(m.sender_name)}
                   </div>
-                  <div class="chat-message-bubble" style="height:auto !important; min-height:unset !important; max-height:none !important; width:fit-content !important; max-width:${isMine ? '75%' : '85%'} !important; display:inline-block !important; padding:6px 12px !important; border-radius:14px !important; border-bottom-${isMine ? 'right' : 'left'}-radius:4px !important; line-height:1.45 !important;">
-                    ${m.text ? `<div style="white-space:pre-wrap; word-break:break-word; line-height:1.45; display:inline;">${escapeHtml(m.text)}</div>` : ''}
+                  <div class="chat-message-bubble">
+                    ${m.text ? `<div class="chat-text-content" style="white-space:pre-wrap; word-break:break-word;">${escapeHtml(m.text)}</div>` : ''}
 
                     <!-- ẢNH / VIDEO / FILE ĐÍNH KÈM (Ảnh 1, 2, 3) -->
                     ${(m.file_url || m.thumb_b64) ? `
@@ -9030,9 +8984,9 @@ function renderFloatingChatWidget() {
         <!-- BẢNG CHỌN EMOJI & STICKER NẾU ĐANG MỞ (Ảnh 1) -->
         ${state.emojiPickerOpen ? renderEmojiPicker() : ''}
 
-        <!-- KHUNG NHẬP LIỆU & NÚT ĐÍNH KÈM FILE + EMOJI / STICKER + AI VIẾT LẠI (ẨN KHI Ở TAB GIỌNG NÓI AI) -->
+        <!-- KHUNG NHẬP LIỆU & NÚT ĐÍNH KÈM FILE + EMOJI / STICKER (ẨN KHI Ở TAB GIỌNG NÓI AI) -->
         ${state.chatTab === 'tts' ? '' : `
-          <div class="chat-input-row" style="position:relative; gap:5px;">
+          <div class="chat-input-row" style="position:relative; gap:6px;">
             <input
               type="file"
               id="chat-file-input"
@@ -9046,16 +9000,13 @@ function renderFloatingChatWidget() {
             <button type="button" class="chat-emoji-btn" onclick="toggleEmojiPicker()" title="Chọn biểu tượng cảm xúc & Nhãn dán / Sticker">
               😊
             </button>
-            <button type="button" class="btn-ai-rewrite" onclick="rewriteDraftWithAI()" title="AI tự động trau chuốt câu chữ chuẩn văn phong hành chính/Đoàn">
-              ✨ AI Viết Lại
-            </button>
             <input
               type="text"
               id="chat-input-field"
               class="chat-input-field"
               value="${escapeHtml(state.chatDraft || '')}"
               oninput="state.chatDraft = this.value;"
-              placeholder="${state.chatTab === 'ai' ? 'Hỏi Trợ lý AI bất cứ điều gì... (Enter để gửi)' : 'Nhập nội dung... (Gõ @AI để hỏi đáp quy chế, Enter để gửi)'}"
+              placeholder="Nhập nội dung tin nhắn trao đổi... (Enter để gửi)"
               onkeydown="onChatKeydown(event)"
             />
             <button class="chat-send-btn" onclick="sendChatMessage()">
