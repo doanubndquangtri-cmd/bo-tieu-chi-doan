@@ -7260,11 +7260,6 @@ function renderNotificationDropdown() {
               ✓✓ Đã đọc
             </button>
           ` : ''}
-          ${notifs.length > 0 ? `
-            <button type="button" onclick="clearAllNotifications()" style="background:rgba(239,68,68,0.3); border:1px solid #fca5a5; color:#fff; font-size:11px; font-weight:700; cursor:pointer; padding:3px 7px; border-radius:4px; display:inline-flex; align-items:center; gap:3px;" title="Xóa tất cả thông báo trong danh sách (kèm xác nhận)">
-              🗑️ Xóa tất cả
-            </button>
-          ` : ''}
           <button type="button" onclick="state.notificationsOpen = false; renderApp();" style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:26px; height:26px; border-radius:50%; font-size:14px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center;" title="Đóng bảng thông báo">✕</button>
         </div>
       </div>
@@ -7288,9 +7283,6 @@ function renderNotificationDropdown() {
                 </span>
                 <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
                   <span class="notification-time" style="font-size:11px; color:#64748b;">🕒 ${escapeHtml(n.submitted_at ? formatDateVN(n.submitted_at.substring(0, 10)) + ' ' + (n.submitted_at.substring(11, 16) || '') : '')}</span>
-                  <button type="button" onclick="event.stopPropagation(); deleteSingleNotification('${n.id}')" title="Xóa thông báo này" style="background:#fee2e2; border:1px solid #fca5a5; color:#b91c1c; font-size:10.5px; font-weight:700; cursor:pointer; padding:1px 5px; border-radius:4px;">
-                    🗑️
-                  </button>
                 </div>
               </div>
               <div class="notification-desc" style="font-size:13px; line-height:1.5; margin-top:4px;">
