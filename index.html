@@ -18,24 +18,58 @@
   <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
   <link rel="icon" type="image/png" href="./favicon.png" />
 
-  <link rel="stylesheet" href="./styles.css?v=1791392577" />
+  <link rel="stylesheet" href="./styles.css?v=1791394127" />
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
   <div id="app"></div>
   <div id="modal-root"></div>
   <div id="toast-root" class="toast-container"></div>
-  <script src="./app.js?v=1791392577"></script>
+  <script src="./app.js?v=1791394127"></script>
   <script>
+    // 1. Tự động lắng nghe khi có Service Worker mới kích hoạt để tải lại trang
     if ('serviceWorker' in navigator) {
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (!refreshing) {
+          refreshing = true;
+          window.location.reload();
+        }
+      });
+
       window.addEventListener('load', function () {
-        navigator.serviceWorker.register('./sw.js').then(function (reg) {
+        navigator.serviceWorker.register('./sw.js?v=1791394127').then(function (reg) {
           reg.update();
         }).catch(function (err) {
           console.log('SW reg error:', err);
         });
       });
     }
+
+    // 2. Hàm ép xóa sạch toàn bộ Cache và nạp bản mới nhất
+    window.forceClearCacheAndReload = async function () {
+      try {
+        if (window.showToast) {
+          showToast('Đang xóa sạch Cache & tải bản mới nhất...', 'info');
+        }
+        if ('serviceWorker' in navigator) {
+          const registrations = await navigator.serviceWorker.getRegistrations();
+          for (let r of registrations) {
+            await r.unregister();
+          }
+        }
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          for (let k of keys) {
+            await caches.delete(k);
+          }
+        }
+      } catch (err) {
+        console.warn('Lỗi xóa cache:', err);
+      }
+      const cleanUrl = window.location.origin + window.location.pathname + '?reload=' + Date.now();
+      window.location.replace(cleanUrl);
+    };
   </script>
 </body>
 </html>
