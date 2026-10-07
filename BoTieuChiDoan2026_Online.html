@@ -3405,7 +3405,7 @@ function renderHeader() {
       <div class="header-actions" style="display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;">
         <!-- CHUÔNG THÔNG BÁO CHO ADMIN & CÁC ĐƠN VỊ -->
         <div class="notification-bell-container" id="notif-bell-container">
-          <button class="btn btn-sm notification-bell-btn" onclick="toggleNotificationPanel(event)" title="Thông báo hệ thống (bấm để xem các lượt nộp văn bản)" style="font-size:11px; padding:3px 7px; height:27px;">
+          <button class="btn btn-sm notification-bell-btn" onclick="toggleNotificationPanel(event)" style="font-size:11px; padding:3px 7px; height:27px;">
             🔔 <span style="font-weight:700;">Thông báo</span>
             ${(() => {
               const isAdminUser = state.user && state.user.role === 'admin';
