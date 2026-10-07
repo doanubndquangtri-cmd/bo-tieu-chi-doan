@@ -11052,6 +11052,7 @@ window.toggleMaximizeChatWidget = function() {
 };
 
 window.switchChatTab = function(tab) {
+  if (tab === 'video') tab = 'public';
   state.chatTab = tab;
   setChatRoomAsRead(getChatRoomKey());
   renderApp();
@@ -11059,6 +11060,14 @@ window.switchChatTab = function(tab) {
     scrollChatToBottom();
     window.initChatDrag();
   }, 80);
+};
+
+window.clearAiChatHistory = function() {
+  if (typeof closeModal === 'function') closeModal();
+  state.aiChatHistory = [];
+  state.lastGeminiInteractionId = null;
+  showToast('Đã làm mới phiên hỏi đáp Trợ lý AI Đoàn!', 'success');
+  renderApp();
 };
 
 window.switchPrivateChatPartner = function(partnerId) {
@@ -11224,13 +11233,41 @@ function renderEmojiPicker() {
 }
 
 window.openClearChatOptionsModal = function() {
+  const modalRoot = document.getElementById('modal-root');
+  if (!modalRoot) return;
+
+  if (state.chatTab === 'ai') {
+    modalRoot.innerHTML = `
+      <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+        <div class="modal-box" style="max-width:440px; border-radius:12px; overflow:hidden; box-shadow:0 20px 40px rgba(0,0,0,0.35);">
+          <div class="modal-header" style="background:linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); color:#fff; padding:14px 18px; display:flex; justify-content:space-between; align-items:center;">
+            <div style="font-weight:800; font-size:15px; display:flex; align-items:center; gap:8px;">
+              <span>🤖</span>
+              <span>Làm Mới Lịch Sử Trợ Lý AI</span>
+            </div>
+            <button type="button" onclick="closeModal()" style="background:transparent; border:none; color:#fff; font-size:18px; font-weight:800; cursor:pointer; padding:2px 6px;">✕</button>
+          </div>
+          <div class="modal-body" style="padding:18px 20px; background:#fff;">
+            <p style="font-size:13px; color:#334155; margin-bottom:14px; line-height:1.5;">
+              Đồng chí có muốn xóa toàn bộ lịch sử hỏi đáp với <b>Trợ lý AI Đoàn Khối (Google Gemini 3.8 Flash)</b> và bắt đầu một phiên hội thoại mới không?
+            </p>
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal()" style="font-weight:600; padding:6px 14px;">Hủy bỏ</button>
+              <button type="button" class="btn btn-danger btn-sm" onclick="clearAiChatHistory()" style="background:#7c3aed; border-color:#6d28d9; color:#fff; font-weight:700; padding:6px 16px;">
+                🔄 Bắt đầu phiên mới
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
   const roomKey = getChatRoomKey();
   const isAdmin = state.user && state.user.role === 'admin';
   const isPrivate = roomKey.startsWith('private_');
   const myKey = isAdmin ? 'admin' : `unit_${state.user ? state.user.id : 0}`;
-
-  const modalRoot = document.getElementById('modal-root');
-  if (!modalRoot) return;
 
   const roomTitle = isPrivate ? 'Chat Riêng Tư (1 - 1)' : 'Chat Chung Toàn Khối';
 
@@ -11920,7 +11957,7 @@ function renderFloatingChatWidget() {
           </div>
         </div>
 
-        <!-- THANH CHUYỂN TAB: CHAT CHUNG, CHAT RIÊNG TƯ & TRỢ LÝ AI (Ảnh 1, 2, 3 & Nâng cấp mới) -->
+        <!-- THANH CHUYỂN TAB: CHAT CHUNG, CHAT RIÊNG TƯ, TRỢ LÝ AI & GIỌNG NÓI AI (XÓA BỎ HOÀN TOÀN TAB 5 TẠO VIDEO AI) -->
         <div class="chat-tabs-bar">
           <button class="chat-tab-btn ${state.chatTab === 'public' ? 'active' : ''}" onclick="switchChatTab('public')">
             🌐 Chat Chung Toàn Khối
@@ -11930,18 +11967,15 @@ function renderFloatingChatWidget() {
             🔒 Chat Riêng Tư (1 - 1)
             ${unreadPrivate > 0 ? `<span class="chat-badge" style="margin-left:4px;">${unreadPrivate}</span>` : ''}
           </button>
-          <button class="chat-tab-btn ai-tab ${state.chatTab === 'ai' ? 'active' : ''}" onclick="switchChatTab('ai')" title="Trợ lý AI Đoàn Cơ Sở (Google Gemini Flash)">
-            🤖 Trợ Lý AI Đoàn <span class="ai-tab-badge">Gemini Flash</span>
+          <button class="chat-tab-btn ai-tab ${state.chatTab === 'ai' ? 'active' : ''}" onclick="switchChatTab('ai')" title="Trợ lý AI Đoàn Cơ Sở (Google Gemini 3.8 Flash - Interactions API)">
+            🤖 Trợ Lý AI Đoàn <span class="ai-tab-badge">Gemini 3.8 Flash</span>
           </button>
           <button class="chat-tab-btn tts-tab ${state.chatTab === 'tts' ? 'active' : ''}" onclick="switchChatTab('tts')" title="Tạo Giọng Nói AI & Tải Về (AI Text-to-Speech Studio)">
             🎙️ Giọng Nói AI
           </button>
-          <button class="chat-tab-btn video-tab ${state.chatTab === 'video' ? 'active' : ''}" onclick="switchChatTab('video')" title="Tạo Video Ngắn AI Dọc 9:16 (Shorts/TikTok/Reels)">
-            🎬 Tạo Video AI
-          </button>
         </div>
 
-        ${(state.chatTab === 'ai' || state.chatTab === 'tts' || state.chatTab === 'video') ? '' : `
+        ${(state.chatTab === 'ai' || state.chatTab === 'tts') ? '' : `
           <!-- THANH TÌM KIẾM TIN NHẮN & TỆP TIN TRONG PHÒNG CHAT (Ảnh 1 & 2) -->
           <div class="chat-search-bar">
             <span style="font-size:13px; color:#64748b;">🔍</span>
@@ -12023,22 +12057,22 @@ function renderFloatingChatWidget() {
 
         <!-- NỘI DUNG DANH SÁCH TIN NHẮN -->
         <div class="chat-messages-body" id="chat-messages-body">
-          ${state.chatTab === 'video' ? renderVideoStudioContent() : state.chatTab === 'tts' ? renderTtsStudioContent() : state.chatTab === 'ai' ? `
-            <!-- LỜI CHÀO BAN ĐẦU CỦA TRỢ LÝ GOOGLE GEMINI FLASH -->
+          ${state.chatTab === 'tts' ? renderTtsStudioContent() : state.chatTab === 'ai' ? `
+            <!-- LỜI CHÀO BAN ĐẦU CỦA TRỢ LÝ GOOGLE GEMINI 3.8 FLASH -->
             <div class="chat-message-row theirs">
               <div class="chat-sender-name admin" style="color:#7c3aed !important; font-weight:800;">
-                🤖 Trợ lý AI Đoàn Khối (Google Gemini Flash)
+                🤖 Trợ lý AI Đoàn Khối (Google Gemini 3.8 Flash)
               </div>
               <div class="chat-message-bubble chat-msg-ai" style="height:auto !important; min-height:unset !important; max-height:none !important; width:fit-content !important; max-width:88% !important; display:inline-block !important; padding:8px 14px !important; border-radius:14px !important; border-bottom-left-radius:4px !important; line-height:1.5 !important;">
                 <div>
-                  <b>Xin chào đồng chí!</b> Tôi là <b>Trợ lý AI Đoàn Khối tỉnh (Google Gemini Flash)</b>.<br/>
+                  <b>Xin chào đồng chí!</b> Tôi là <b>Trợ lý AI Đoàn Khối tỉnh (Google Gemini 3.8 Flash)</b>.<br/>
                   Tôi sẵn sàng hỗ trợ đồng chí về nghiệp vụ công tác Đoàn, thể thức văn bản hành chính, giải đáp tiêu chí thi đua và các hoạt động phong trào thanh niên.<br/>
                   <i>Đồng chí có thể nhập bất kỳ câu hỏi nào bên dưới để bắt đầu trao đổi!</i>
                 </div>
               </div>
               <div class="chat-message-time" style="display:flex; align-items:center; gap:6px;">
                 <span>${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
-                <button type="button" class="ai-tts-btn" onclick="playTextToSpeech('Xin chào đồng chí! Tôi là Trợ lý AI Đoàn Khối tỉnh Google Gemini Flash. Tôi sẵn sàng hỗ trợ đồng chí về nghiệp vụ công tác Đoàn, thể thức văn bản hành chính, giải đáp tiêu chí thi đua và các hoạt động phong trào thanh niên. Đồng chí có thể nhập bất kỳ câu hỏi nào bên dưới để bắt đầu trao đổi!', this)" title="Nghe đọc câu trả lời">🔊</button>
+                <button type="button" class="ai-tts-btn" onclick="playTextToSpeech('Xin chào đồng chí! Tôi là Trợ lý AI Đoàn Khối tỉnh Google Gemini 3.8 Flash. Tôi sẵn sàng hỗ trợ đồng chí về nghiệp vụ công tác Đoàn, thể thức văn bản hành chính, giải đáp tiêu chí thi đua và các hoạt động phong trào thanh niên. Đồng chí có thể nhập bất kỳ câu hỏi nào bên dưới để bắt đầu trao đổi!', this)" title="Nghe đọc câu trả lời">🔊</button>
               </div>
             </div>
 
@@ -12046,7 +12080,7 @@ function renderFloatingChatWidget() {
             ${(state.aiChatHistory || []).map((m, idx) => `
               <div class="chat-message-row ${m.sender === 'user' ? 'mine' : 'theirs'}">
                 <div class="chat-sender-name ${m.sender === 'user' ? '' : 'admin'}" style="${m.sender === 'ai' ? 'color:#7c3aed !important; font-weight:800;' : ''}">
-                  ${m.sender === 'user' ? (state.user ? escapeHtml(state.user.unit_name || state.user.username) : 'Bạn') : '🤖 Trợ lý AI Đoàn Khối (Google Gemini Flash)'}
+                  ${m.sender === 'user' ? (state.user ? escapeHtml(state.user.unit_name || state.user.username) : 'Bạn') : '🤖 Trợ lý AI Đoàn Khối (Google Gemini 3.8 Flash)'}
                 </div>
                 <div class="chat-message-bubble ${m.sender === 'ai' ? 'chat-msg-ai' : ''}" style="height:auto !important; min-height:unset !important; max-height:none !important; width:fit-content !important; max-width:${m.sender === 'user' ? '75%' : '88%'} !important; display:inline-block !important; padding:${m.sender === 'user' ? '6px 12px' : '8px 14px'} !important; border-radius:14px !important; border-bottom-${m.sender === 'user' ? 'right' : 'left'}-radius:4px !important; line-height:1.45 !important;">
                   <div style="word-break:break-word; line-height:1.45; display:${m.sender === 'user' ? 'inline' : 'block'};">${m.sender === 'ai' ? renderAiMarkdown(m.text) : escapeHtml(m.text)}</div>
@@ -12062,7 +12096,7 @@ function renderFloatingChatWidget() {
             ${state.aiIsTyping ? `
               <div class="chat-message-row theirs">
                 <div class="chat-sender-name admin" style="color:#7c3aed !important; font-weight:800;">
-                  🤖 Trợ lý AI Đoàn Khối (Google Gemini Flash)
+                  🤖 Trợ lý AI Đoàn Khối (Google Gemini 3.8 Flash)
                 </div>
                 <div class="chat-message-bubble chat-msg-ai" style="display:inline-flex; align-items:center; gap:8px; padding:8px 14px; border-radius:14px; border-bottom-left-radius:4px;">
                   <span class="ai-typing-dots">
@@ -12171,8 +12205,8 @@ function renderFloatingChatWidget() {
         <!-- BẢNG CHỌN EMOJI & STICKER NẾU ĐANG MỞ (Ảnh 1) -->
         ${state.emojiPickerOpen ? renderEmojiPicker() : ''}
 
-        <!-- KHUNG NHẬP LIỆU & NÚT ĐÍNH KÈM FILE + EMOJI / STICKER + AI VIẾT LẠI (ẨN KHI Ở TAB GIỌNG NÓI AI HOẶC VIDEO AI) -->
-        ${(state.chatTab === 'tts' || state.chatTab === 'video') ? '' : `
+        <!-- KHUNG NHẬP LIỆU & NÚT ĐÍNH KÈM FILE + EMOJI / STICKER + AI VIẾT LẠI (ẨN KHI Ở TAB GIỌNG NÓI AI) -->
+        ${state.chatTab === 'tts' ? '' : `
           <div class="chat-input-row" style="position:relative; gap:5px;">
             <input
               type="file"
@@ -12515,7 +12549,7 @@ window.openGeminiApiKeyModal = function() {
         </div>
         <div style="padding:18px 20px;">
           <p style="font-size:13px; color:#334155; margin-bottom:12px; line-height:1.5;">
-            Trợ lý AI Đoàn Khối kết nối trực tiếp đến mô hình trực tuyến <b>Gemini 1.5 Flash</b> của Google. Vui lòng dán <b>Gemini API Key</b> của bạn vào bên dưới:
+            Trợ lý AI Đoàn Khối kết nối trực tiếp đến mô hình trực tuyến <b>Google Gemini 3.8 Flash</b> thế hệ mới nhất thông qua <b>Interactions API chuẩn của Google</b>. Vui lòng dán <b>Gemini API Key</b> của bạn vào bên dưới:
           </p>
           <div style="margin-bottom:12px;">
             <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Google Gemini API Key:</label>
@@ -12608,7 +12642,7 @@ window.askAiAssistant = async function(promptText) {
       state.aiIsTyping = false;
       const noKeyMsg = {
         sender: 'ai',
-        text: `⚠️ **Chưa cấu hình Google Gemini API Key!**\n\nĐể kích hoạt trí tuệ nhân tạo **Google Gemini Flash** trực tuyến thật từ Google, đồng chí vui lòng:\n1. Bấm nút **[🔑 Cài Key AI]** ở góc trên cùng bên phải thanh tiêu đề khung chat.\n2. Dán mã Gemini API Key và bấm "Lưu Cấu Hình".\n*(Hoặc điền trực tiếp vào biến \`GEMINI_API_KEY\` trong file \`static/app.js\`)*.\n\n💡 Nhận API Key hoàn toàn miễn phí tại: https://aistudio.google.com/app/apikey`,
+        text: `⚠️ **Chưa cấu hình Google Gemini API Key!**\n\nĐể kích hoạt trí tuệ nhân tạo **Google Gemini 3.8 Flash** trực tuyến thật từ Google, đồng chí vui lòng:\n1. Bấm nút **[🔑 Cài Key AI]** ở góc trên cùng bên phải thanh tiêu đề khung chat.\n2. Dán mã Gemini API Key và bấm "Lưu Cấu Hình".\n*(Hoặc điền trực tiếp vào biến \`GEMINI_API_KEY\` trong file \`static/app.js\`)*.\n\n💡 Nhận API Key hoàn toàn miễn phí tại: https://aistudio.google.com/app/apikey`,
         time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
       };
       state.aiChatHistory.push(noKeyMsg);
@@ -12618,96 +12652,162 @@ window.askAiAssistant = async function(promptText) {
     return;
   }
 
-  // 3. Gọi trực tiếp API Google Gemini bằng phương thức POST chuẩn thế hệ mới (Gemini 3.8 Flash)
+  // 3. Gọi trực tiếp API Google Gemini bằng INTERACTIONS API chuẩn chính thức của Google (Mô hình: Gemini 3.8 Flash)
+  // Tài liệu chính thức: https://ai.google.dev/gemini-api/docs/get-started?hl=vi
   try {
     const prompt = cleanPrompt;
-    const candidateModels = ['gemini-3.8-flash', 'gemini-2.5-flash'];
-    let resp = null;
+    let aiReplyText = '';
     let lastErrDetail = '';
 
-    // Xây dựng ngữ cảnh hội thoại đa lượt (Multi-turn chat context)
-    const chatContents = [];
-    const prevHistory = (state.aiChatHistory || []).slice(-4);
-    for (const h of prevHistory) {
-      if (h.sender === 'user' && h.text) {
-        chatContents.push({ role: 'user', parts: [{ text: h.text }] });
-      } else if (h.sender === 'ai' && h.text && !h.text.startsWith('⚠️')) {
-        chatContents.push({ role: 'model', parts: [{ text: h.text }] });
+    // =========================================================================
+    // A. PHƯƠNG THỨC CHÍNH: GOOGLE GENERATIVE LANGUAGE INTERACTIONS API (gemini-3.8-flash)
+    // =========================================================================
+    try {
+      const interactionsUrl = `https://generativelanguage.googleapis.com/v1beta/interactions?key=${encodeURIComponent(apiKey)}`;
+      const payload = {
+        model: 'gemini-3.8-flash',
+        input: prompt
+      };
+      if (state.lastGeminiInteractionId) {
+        payload.previous_interaction_id = state.lastGeminiInteractionId;
       }
-    }
-    chatContents.push({ role: 'user', parts: [{ text: prompt }] });
 
-    for (const model of candidateModels) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 45000);
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 45000);
 
-        const r = await fetch(endpoint, {
+      let r = await fetch(interactionsUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-goog-api-key': apiKey
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      // Nếu lỗi 400 hoặc 404 khi có previous_interaction_id (phiên cũ bị hết hạn hoặc không tồn tại), tự động thử lại 1 lần không kèm previous_interaction_id
+      if (!r.ok && payload.previous_interaction_id && (r.status === 400 || r.status === 404)) {
+        delete payload.previous_interaction_id;
+        state.lastGeminiInteractionId = null;
+        const retryCtrl = new AbortController();
+        const retryTimeout = setTimeout(() => retryCtrl.abort(), 45000);
+        r = await fetch(interactionsUrl, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'x-goog-api-key': apiKey
           },
-          body: JSON.stringify({
-            contents: chatContents,
-            generationConfig: {
-              temperature: 0.7
-            }
-          }),
-          signal: controller.signal
+          body: JSON.stringify(payload),
+          signal: retryCtrl.signal
         });
-        clearTimeout(timeoutId);
+        clearTimeout(retryTimeout);
+      }
 
-        if (r.ok) {
-          resp = r;
-          break;
-        } else {
-          try {
-            const errData = await r.json();
-            lastErrDetail = errData?.error?.message || `HTTP ${r.status}`;
-          } catch(e) {
-            lastErrDetail = `HTTP ${r.status}`;
-          }
-          if (r.status === 429) {
-            lastErrDetail = 'Hạn mức API miễn phí tạm thời đạt giới hạn (429 Too Many Requests). Đồng chí vui lòng đợi 5-10 giây rồi hỏi lại.';
-            break;
-          }
+      if (r.ok) {
+        const resData = await r.json();
+        if (resData.id) {
+          state.lastGeminiInteractionId = resData.id;
         }
-      } catch (e) {
-        lastErrDetail = e.name === 'AbortError' ? 'Quá thời gian phản hồi từ máy chủ Google (45 giây)' : e.message;
+
+        // Trích xuất văn bản trả về chuẩn theo tài liệu Interactions API
+        if (resData.output_text && typeof resData.output_text === 'string') {
+          aiReplyText = resData.output_text.trim();
+        } else if (resData.interaction && resData.interaction.output_text) {
+          aiReplyText = String(resData.interaction.output_text).trim();
+        } else if (Array.isArray(resData.steps)) {
+          const parts = [];
+          for (const step of resData.steps) {
+            if (step.type === 'model_output' && Array.isArray(step.content)) {
+              for (const c of step.content) {
+                if (c.type === 'text' && c.text) parts.push(c.text);
+                else if (typeof c === 'string') parts.push(c);
+              }
+            } else if (step.text && typeof step.text === 'string') {
+              parts.push(step.text);
+            }
+          }
+          if (parts.length > 0) aiReplyText = parts.join('\n\n').trim();
+        }
+      } else {
+        try {
+          const errData = await r.json();
+          lastErrDetail = errData?.error?.message || `HTTP ${r.status}`;
+        } catch(e) {
+          lastErrDetail = `HTTP ${r.status}`;
+        }
+        if (r.status === 429) {
+          throw new Error('Hạn mức API miễn phí tạm thời đạt giới hạn (429 Too Many Requests). Đồng chí vui lòng đợi 5-10 giây rồi hỏi lại.');
+        }
+      }
+    } catch (errInt) {
+      if (errInt.message && errInt.message.includes('429')) throw errInt;
+      lastErrDetail = errInt.message || lastErrDetail;
+    }
+
+    // =========================================================================
+    // B. PHƯƠNG THỨC DỰ PHÒNG (FALLBACK): generateContent với gemini-3.8-flash, gemini-2.0-flash, gemini-1.5-flash
+    // (TUYỆT ĐỐI KHÔNG DÙNG gemini-2.5-flash vì Google đã thông báo ngưng hỗ trợ người dùng mới)
+    // =========================================================================
+    if (!aiReplyText) {
+      const fallbackModels = ['gemini-3.8-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+      for (const fModel of fallbackModels) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 35000);
+          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${fModel}:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+          const r = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              contents: [{ role: 'user', parts: [{ text: prompt }] }],
+              generationConfig: {
+                temperature: 0.7
+              }
+            }),
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+
+          if (r.ok) {
+            const data = await r.json();
+            const cand = data?.candidates?.[0];
+            const pList = (cand?.content?.parts || []).filter(p => !p.thought && p.text).map(p => p.text);
+            if (pList.length > 0) {
+              aiReplyText = pList.join('\n\n').trim();
+              break;
+            }
+          } else {
+            try {
+              const eJson = await r.json();
+              lastErrDetail = eJson?.error?.message || lastErrDetail;
+            } catch(e) {}
+          }
+        } catch (eFallback) {
+          // tiếp tục thử model dự phòng tiếp theo
+        }
       }
     }
 
-    if (!resp || !resp.ok) {
+    if (!aiReplyText) {
       throw new Error(lastErrDetail || 'Không thể kết nối tới Google Gemini. Vui lòng kiểm tra lại API Key hoặc đường truyền!');
     }
 
-    const resData = await resp.json();
-    const candidate = resData?.candidates?.[0];
-    const parts = candidate?.content?.parts || [];
-    
-    // Tách lọc bỏ phần suy nghĩ nội bộ (thought), lấy đúng câu trả lời thực tế
-    const actualParts = parts.filter(p => !p.thought && p.text).map(p => p.text);
-    let aiReplyText = actualParts.length > 0
-      ? actualParts.join('\n').trim()
-      : (parts.map(p => p.text || '').join('\n').trim());
-
-    if (aiReplyText) {
-      state.aiIsTyping = false;
-      const aiMsg = {
-        sender: 'ai',
-        text: aiReplyText,
-        time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-      };
-      state.aiChatHistory.push(aiMsg);
-      if (window.playNotificationChime) window.playNotificationChime();
-      renderApp();
-      setTimeout(() => {
-        scrollChatToBottom();
-      }, 60);
-    } else {
-      throw new Error('Mô hình Gemini không phản hồi nội dung văn bản hợp lệ.');
-    }
+    state.aiIsTyping = false;
+    const aiMsg = {
+      sender: 'ai',
+      text: aiReplyText,
+      time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+    };
+    state.aiChatHistory.push(aiMsg);
+    if (window.playNotificationChime) window.playNotificationChime();
+    renderApp();
+    setTimeout(() => {
+      scrollChatToBottom();
+    }, 60);
 
   } catch (err) {
     console.error('Lỗi khi gọi Gemini API:', err);
