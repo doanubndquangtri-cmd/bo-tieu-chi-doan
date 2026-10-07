@@ -620,7 +620,7 @@ async function uploadFileToCloud(fileDataB64, origName, unitId, critId, onProgre
         criterionTitle,
         fileName: origName,
         fileData: fileDataB64,
-        customFolderId: customFolderId || '1WOgWzwGOS-KfUb3Ar7_g0ieArF1oX_9S',
+        customFolderId: customFolderId || (state.settings && state.settings.gdrive_root_folder_id) || '',
         customFolderUrl: customFolderUrl || '',
         customFolderName: customFolderName || '',
       };
@@ -4483,7 +4483,7 @@ window.saveCriterionEdit = async function (critId) {
             folderName: gdriveFolderName,
             monthLabel: calculatedMonthLabel,
             title: title,
-            customFolderId: '1WOgWzwGOS-KfUb3Ar7_g0ieArF1oX_9S'
+            customFolderId: (state.settings && state.settings.gdrive_root_folder_id) || ''
           })
         });
         const createJson = await createRes.json();
@@ -4539,7 +4539,7 @@ window.syncAllToDriveNow = async function () {
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({
         action: 'sync_all_to_drive',
-        customFolderId: '1WOgWzwGOS-KfUb3Ar7_g0ieArF1oX_9S',
+        customFolderId: (state.settings && state.settings.gdrive_root_folder_id) || '',
         criteria: state.criteria || [],
         scores: state.scores || [],
         units: state.units || [],
@@ -4708,7 +4708,7 @@ window.saveNewCriterion = async function () {
           folderName: gdriveFolderName,
           monthLabel: mLabel,
           title: title,
-          customFolderId: '1WOgWzwGOS-KfUb3Ar7_g0ieArF1oX_9S'
+          customFolderId: (state.settings && state.settings.gdrive_root_folder_id) || ''
         })
       });
       const createJson = await createRes.json();
@@ -4759,7 +4759,7 @@ window.saveNewCriterion = async function () {
       allow_unit_submit: 1,
       is_report: isReport,
       gdrive_folder_name: gdriveFolderName,
-      gdrive_folder_url: gdriveFolderUrl || 'https://drive.google.com/drive/folders/1WOgWzwGOS-KfUb3Ar7_g0ieArF1oX_9S',
+      gdrive_folder_url: gdriveFolderUrl || (state.settings && state.settings.gdrive_root_folder_url) || '',
       lock_override: 0,
     };
 
@@ -6676,7 +6676,7 @@ window.createDriveFolderForCriterion = async function (critId) {
   if (!c) return;
 
   const gdriveUrl = getGoogleDriveScriptUrl();
-  let folderUrl = 'https://drive.google.com/drive/folders/1WOgWzwGOS-KfUb3Ar7_g0ieArF1oX_9S';
+  let folderUrl = (state.settings && state.settings.gdrive_root_folder_url) || '';
   let createdCustom = false;
 
   if (gdriveUrl) {
@@ -6690,7 +6690,7 @@ window.createDriveFolderForCriterion = async function (critId) {
           folderName: c.gdrive_folder_name || c.title,
           monthLabel: c.month_label,
           title: c.title,
-          customFolderId: '1WOgWzwGOS-KfUb3Ar7_g0ieArF1oX_9S'
+          customFolderId: (state.settings && state.settings.gdrive_root_folder_id) || ''
         })
       });
       const data = await res.json();
@@ -6717,7 +6717,7 @@ window.createDriveFolderForCriterion = async function (critId) {
 };
 
 window.syncMissingDriveFoldersNow = async function () {
-  const missing = (state.criteria || []).filter((c) => !c.gdrive_folder_url || !c.gdrive_folder_url.includes('1WOgWzwGOS'));
+  const missing = (state.criteria || []).filter((c) => !c.gdrive_folder_url || c.gdrive_folder_url.includes('1WOgWzwGOS'));
   if (missing.length === 0) {
     showToast('Tất cả các tiêu chí đã được đồng bộ chuẩn xác với Google Drive!', 'success');
     return;
@@ -6729,7 +6729,7 @@ window.syncMissingDriveFoldersNow = async function () {
 
   for (let i = 0; i < missing.length; i++) {
     const c = missing[i];
-    let folderUrl = 'https://drive.google.com/drive/folders/1WOgWzwGOS-KfUb3Ar7_g0ieArF1oX_9S';
+    let folderUrl = (state.settings && state.settings.gdrive_root_folder_url) || '';
     if (gdriveUrl) {
       try {
         const res = await fetch(gdriveUrl, {
@@ -6740,7 +6740,7 @@ window.syncMissingDriveFoldersNow = async function () {
             folderName: c.gdrive_folder_name || c.title,
             monthLabel: c.month_label,
             title: c.title,
-            customFolderId: '1WOgWzwGOS-KfUb3Ar7_g0ieArF1oX_9S'
+            customFolderId: (state.settings && state.settings.gdrive_root_folder_id) || ''
           })
         });
         const data = await res.json();
