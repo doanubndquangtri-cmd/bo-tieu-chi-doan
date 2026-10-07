@@ -2897,10 +2897,30 @@ async function requestDeleteFilesFromDrive(fileUrlsOrIds) {
   const gdriveUrl = getGoogleDriveScriptUrl();
   if (!gdriveUrl) return { ok: false, error: 'Chưa cấu hình URL Google Apps Script' };
 
+  const ids = [];
+  const urls = [];
+  validList.forEach((item) => {
+    const str = String(item).trim();
+    if (!str) return;
+    urls.push(str);
+    const mF = str.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+    if (mF && mF[1]) ids.push(mF[1]);
+    const mFl = str.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (mFl && mFl[1]) ids.push(mFl[1]);
+    const mId = str.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (mId && mId[1]) ids.push(mId[1]);
+    if (/^[a-zA-Z0-9_-]{20,}$/.test(str)) ids.push(str);
+  });
+
   try {
     const payload = {
       action: 'delete_files',
-      fileUrls: validList,
+      fileId: ids[0] || '',
+      fileIds: ids,
+      fileUrls: urls,
+      folderId: ids[0] || '',
+      folderIds: ids,
+      folderUrls: urls,
     };
     const res = await fetch(gdriveUrl, {
       method: 'POST',
@@ -4460,16 +4480,25 @@ window.saveCriterionEdit = async function (critId) {
       const oldName = (existingCrit && (existingCrit.gdrive_folder_name || existingCrit.title)) || '';
       if (gdriveFolderName !== oldName) {
         try {
-          fetch(gdriveUrl, {
+          showToast('Đang tự động đổi tên thư mục trên Google Drive...', 'info');
+          const renRes = await fetch(gdriveUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({
               action: 'rename_folder',
               folderUrl: gdriveFolderUrl,
+              folderId: extractDriveFolderId(gdriveFolderUrl),
+              fileId: extractDriveFolderId(gdriveFolderUrl),
               newName: gdriveFolderName
             })
-          }).then(r => r.json()).catch(e => console.warn('Rename folder notice:', e));
-        } catch (e) {}
+          });
+          const renJson = await renRes.json();
+          if (renJson && renJson.status === 'success') {
+            showToast('Đã đổi tên thư mục trên Google Drive thành công!', 'success');
+          }
+        } catch (e) {
+          console.warn('Rename folder notice:', e);
+        }
       }
     } else {
       // CHƯA CÓ LINK: Tự động khởi tạo thư mục mới trên Google Drive
@@ -4697,23 +4726,23 @@ window.saveNewCriterion = async function () {
 
   // Khởi tạo thư mục trên Google Drive ngay lập tức nếu có Script
   const gdriveUrl = getGoogleDriveScriptUrl();
-  if (gdriveUrl && gdriveFolderName) {
+  if (gdriveUrl) {
     try {
-      showToast('Đang khởi tạo thư mục trên Google Drive...', 'info');
+      showToast('Đang tự động khởi tạo thư mục trên Google Drive...', 'info');
       const createRes = await fetch(gdriveUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
           action: 'create_criterion_folder',
-          folderName: gdriveFolderName,
+          folderName: title,
           monthLabel: mLabel,
-          title: title,
-          customFolderId: (state.settings && state.settings.gdrive_root_folder_id) || ''
+          title: title
         })
       });
       const createJson = await createRes.json();
       if (createJson && createJson.folderUrl) {
         gdriveFolderUrl = createJson.folderUrl;
+        showToast('Đã tạo thành công thư mục Google Drive tiếp nhận!', 'success');
       }
     } catch (e) {
       console.warn('Auto create drive folder notice:', e);
@@ -5265,10 +5294,21 @@ window.adminResetUnitPassword = async function(unitId) {
 window.deleteCriterion = async function(critId) {
   const c = state.criteria.find(x => x.id === critId);
   if (!c) return;
-  if (!confirm(`Bạn có chắc chắn muốn XÓA cột tiêu chí "${c.col_label}: ${c.title}" khỏi hệ thống?\nCột này và toàn bộ điểm liên quan sẽ được gỡ khỏi Bảng tổng hợp.`)) {
+  if (!confirm(`Bạn có chắc chắn muốn XÓA cột tiêu chí "${c.col_label}: ${c.title}" khỏi hệ thống?\nCột này, thư mục trên Google Drive và toàn bộ điểm liên quan sẽ được đưa vào Thùng rác.`)) {
     return;
   }
-  showToast('Đang xóa cột tiêu chí khỏi Đám mây...', 'info');
+  showToast('Đang xóa cột tiêu chí và dọn dẹp thư mục trên Google Drive...', 'info');
+
+  // TỰ ĐỘNG XÓA THƯ MỤC TRÊN GOOGLE DRIVE NẾU CÓ
+  if (c.gdrive_folder_url) {
+    try {
+      showToast('Đang đưa thư mục trên Google Drive vào Thùng rác...', 'info');
+      await requestDeleteFilesFromDrive([c.gdrive_folder_url]);
+    } catch (eDel) {
+      console.warn('Lỗi khi xóa thư mục tiêu chí trên Drive:', eDel);
+    }
+  }
+
   const res = await mutateCloudDB(db => {
     db.criteria = (db.criteria || []).filter(x => x.id !== critId);
     db.scores = (db.scores || []).filter(x => x.criterion_id !== critId);
@@ -5281,7 +5321,7 @@ window.deleteCriterion = async function(critId) {
   }, `Delete criterion ${c.col_label}`);
 
   if (res.ok) {
-    showToast(`Đã xóa cột tiêu chí ${c.col_label} thành công!`, 'success');
+    showToast(`Đã xóa tiêu chí ${c.col_label} và dọn dẹp thư mục Google Drive thành công!`, 'success');
     renderApp();
   } else {
     showToast('Lỗi khi xóa tiêu chí, vui lòng thử lại!', 'error');
@@ -6108,7 +6148,7 @@ function renderMasterMobileCardsView(activeUnits, filteredCriteria, isAdmin, mon
 // HỆ THỐNG VĂN BẢN & CHỈ ĐẠO BAN THƯỜNG VỤ ĐOÀN (GOOGLE DRIVE)
 // Thư mục lưu trữ: https://drive.google.com/drive/u/9/folders/1F5CdyDTQGUf0C21o7CCCAZkMOjgRKRJK
 // ============================================================================
-const ADMIN_DOCS_GDRIVE_URL = 'https://drive.google.com/drive/u/9/folders/1F5CdyDTQGUf0C21o7CCCAZkMOjgRKRJK';
+const ADMIN_DOCS_GDRIVE_URL = 'https://drive.google.com/drive/folders/1bjnzwoNFB-YBmN9wvhuH_qQRNYITWEcS';
 
 function renderAdminDocsTab() {
   const isAdmin = state.user && state.user.role === 'admin';
@@ -6330,7 +6370,7 @@ window.uploadAdminDocument = async function () {
           docTitle: title,
           docNumber: docNumber,
           fileData: b64,
-          folderId: '1F5CdyDTQGUf0C21o7CCCAZkMOjgRKRJK'
+          folderId: '1bjnzwoNFB-YBmN9wvhuH_qQRNYITWEcS'
         };
         let json = null;
         try {
