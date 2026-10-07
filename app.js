@@ -1455,17 +1455,6 @@ function renderHeader() {
           </button>
         ` : ''}
 
-        <!-- NÚT AI TỔNG HỢP BÁO CÁO THÁNG TỰ ĐỘNG -->
-        <button class="btn btn-sm" onclick="openAiMonthlyReportModal()" style="background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: #fff; border: 1px solid rgba(255,255,255,0.4); font-size: 11px; padding: 3px 8px; font-weight: 700; height: 27px; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);" title="Gemini Pro tự động đọc dữ liệu 40 cơ sở và viết báo cáo nhận xét đánh giá tháng">
-          <span>🤖</span>
-          <span>AI Báo Cáo Tháng</span>
-        </button>
-
-        <!-- NÚT CHUYỂN ĐỔI CHẾ ĐỘ BAN ĐÊM (DARK MODE) -->
-        <button class="btn btn-sm btn-dark-mode-toggle" onclick="toggleDarkMode()" style="font-size: 11px; padding: 3px 8px; height: 27px;" title="Chuyển đổi giao diện Sáng / Ban Đêm">
-          ${typeof document !== 'undefined' && document.body && document.body.classList.contains('dark-mode') ? '☀️ Sáng' : '🌙 Tối'}
-        </button>
-
         <button class="btn btn-sm" onclick="showPWAInstallGuide()" title="Cài đặt ứng dụng vào điện thoại" style="background: rgba(255,255,255,0.2); color:#fff; border: 1px solid rgba(255,255,255,0.4); font-size: 11px; padding: 3px 7px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; height:27px;">
           📲 Cài App
         </button>
@@ -9039,9 +9028,8 @@ window.toggleDarkMode = function() {
 
 window.initDarkMode = function() {
   try {
-    if (localStorage.getItem('doan2026_dark_mode') === 'true') {
-      document.body.classList.add('dark-mode');
-    }
+    document.body.classList.remove('dark-mode');
+    localStorage.removeItem('doan2026_dark_mode');
   } catch (e) {}
 };
 
