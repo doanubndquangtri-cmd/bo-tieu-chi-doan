@@ -9446,7 +9446,7 @@ window.askAiAssistant = async function(promptText) {
   // 3. Gọi trực tiếp API Google Gemini bằng phương thức POST chuẩn với cơ chế thử lại đa mô hình
   try {
     const prompt = cleanPrompt;
-    const candidateModels = ['gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-2.0-flash'];
+    const candidateModels = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
     let resp = null;
     let lastErrDetail = '';
 
@@ -10036,7 +10036,7 @@ window.generateTtsStudioAudio = async function() {
         }
       };
 
-      const ttsModels = ['gemini-2.0-flash', 'gemini-2.0-flash-exp'];
+      const ttsModels = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-exp'];
       let res = null;
       let lastErrMessage = '';
 
@@ -10654,7 +10654,7 @@ Trả về ĐÚNG JSON thuần định dạng sau, không kèm bất kỳ giải
 Nội dung:
 ${rawText}`;
 
-      const candidateModels = ['gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-2.0-flash'];
+      const candidateModels = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
       for (const m of candidateModels) {
         const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(apiKey)}`, {
           method: 'POST',
@@ -10721,7 +10721,7 @@ async function generateVideoAudioBlob(fullText, selectedVoice, rate, apiKey) {
       }
     };
 
-    const ttsModels = ['gemini-2.0-flash', 'gemini-2.0-flash-exp'];
+    const ttsModels = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-exp'];
     for (const m of ttsModels) {
       try {
         const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(apiKey)}`, {
