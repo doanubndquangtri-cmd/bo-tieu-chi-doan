@@ -1005,12 +1005,18 @@ async function initApp() {
 
   renderApp();
 
-  // Auto-poll Cloud every 12 seconds so all 38 units + Admin see real-time updates
+  // TỰ ĐỘNG ĐỒNG BỘ THỜI GIAN THỰC ĐỘ TRỄ CỰC THẤP (Ảnh 1)
   setInterval(() => {
     if (!state.isSyncing) {
-      syncFromCloudNow(true);
+      // Khi đang mở chat: đồng bộ liên tục 2.5 giây/lần để nhận tin nhắn ngay tức thì
+      const isChatActive = state.chatOpen;
+      const now = Date.now();
+      if (!window._lastSyncTime || (now - window._lastSyncTime >= (isChatActive ? 2500 : 6000))) {
+        window._lastSyncTime = now;
+        syncFromCloudNow(true);
+      }
     }
-  }, 12000);
+  }, 1000);
 }
 
 function renderApp() {
@@ -1356,32 +1362,26 @@ function renderHeader() {
   ].join('');
 
   return `
-    <header class="app-header">
-      <div class="brand-box">
-        <img src="${LOGO_DOAN_SRC}" alt="Huy hiệu Đoàn" class="youth-badge" style="width:44px; height:44px; object-fit:contain; border:none; background:transparent; padding:0; margin-right:12px; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2));" />
+    <header class="app-header" style="background: linear-gradient(135deg, #003380 0%, #0052cc 100%); color: #fff; padding: 4px 12px; min-height: 46px; display: flex; justify-content: space-between; align-items: center; flex-wrap: nowrap; gap: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+      <!-- BÊN TRÁI: LOGO VÀ TIÊU ĐỀ HỆ THỐNG -->
+      <div class="brand-box" style="display: flex; align-items: center; flex-shrink: 0;">
+        <img src="${LOGO_DOAN_SRC}" alt="Huy hiệu Đoàn" class="youth-badge" style="width:38px; height:38px; object-fit:contain; border:none; background:transparent; padding:0; margin-right:8px; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2));" />
         <div class="brand-title">
-          <div style="font-size: 11.5px; font-weight: 800; color: #fef08a; text-transform: uppercase; letter-spacing: 0.5px;">
+          <div style="font-size: 10.5px; font-weight: 800; color: #fef08a; text-transform: uppercase; letter-spacing: 0.4px; line-height: 1.2;">
             TỈNH ĐOÀN QUẢNG TRỊ • ĐOÀN ỦY BAN NHÂN DÂN TỈNH
           </div>
-          <h1 style="font-size: 15px; margin: 2px 0 0 0; text-transform: uppercase;">
+          <h1 style="font-size: 13.5px; margin: 1px 0 0 0; text-transform: uppercase; line-height: 1.2; font-weight: 800; color: #fff;">
             Hệ Thống Quản Lý & Tổng Hợp Bộ Tiêu Chí Đoàn Cấp Cơ Sở
           </h1>
-          <p style="margin: 2px 0 0 0; font-size: 12px; display: flex; align-items: center; gap: 8px;">
-            <span style="color:#86efac; font-weight:700;">
-              ${state.cloudOnline ? '🟢 Online' : '🟡 Offline Cache'}
-            </span>
-            <span style="color:#ffffff; font-weight:700; font-family:monospace; background:rgba(0,0,0,0.3); padding:2px 8px; border-radius:4px; border:1px solid rgba(255,255,255,0.2);" id="live-realtime-clock" title="Đồng hồ thời gian thực">
-              ⏱️ ${new Date().toLocaleTimeString('vi-VN')}
-            </span>
-          </p>
         </div>
       </div>
 
-      <div class="header-actions">
+      <!-- Ở GIỮA: CÁC NÚT CÔNG CỤ DỊCH LÊN TRÊN HÀNG GỌN GÀNG (Ảnh 3 & 4) -->
+      <div class="header-actions" style="display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;">
         <!-- CHUÔNG THÔNG BÁO CHO ADMIN & CÁC ĐƠN VỊ -->
         <div class="notification-bell-container" id="notif-bell-container">
-          <button class="btn btn-sm notification-bell-btn" onclick="toggleNotificationPanel(event)" title="Thông báo hệ thống (bấm để xem các lượt nộp văn bản)">
-            🔔 <span style="font-size:12px; font-weight:700;">Thông báo</span>
+          <button class="btn btn-sm notification-bell-btn" onclick="toggleNotificationPanel(event)" title="Thông báo hệ thống (bấm để xem các lượt nộp văn bản)" style="font-size:11px; padding:3px 7px; height:27px;">
+            🔔 <span style="font-weight:700;">Thông báo</span>
             ${(() => {
               const isAdminUser = state.user && state.user.role === 'admin';
               const unreadList = (state.notifications || []).filter(n => isAdminUser ? !n.read : (n.unit_id === (state.user && state.user.id) && !n.read_by_unit));
@@ -1392,50 +1392,60 @@ function renderHeader() {
           ${state.notificationsOpen ? renderNotificationDropdown() : ''}
         </div>
 
-        <button class="btn btn-sm btn-outline" onclick="syncFromCloudNow(false)" style="background:rgba(255,255,255,0.15); color:#fff; border-color:rgba(255,255,255,0.3);" title="Tải dữ liệu mới nhất từ đám mây">
+        <button class="btn btn-sm btn-outline" onclick="syncFromCloudNow(false)" style="background:rgba(255,255,255,0.15); color:#fff; border-color:rgba(255,255,255,0.3); font-size:11px; padding:3px 7px; height:27px;" title="Tải dữ liệu mới nhất từ đám mây">
           🔄 Đồng bộ
         </button>
 
-        <div class="date-pill" onclick="${isAdmin ? 'openDateSettingsModal()' : ''}" title="Ngày hệ thống dùng để đối chiếu hạn nộp báo cáo">
-          📅 Ngày xét hạn: <b>${formatDateVN(effDate)}</b>
-          <span class="badge ${strict ? 'badge-warning' : 'badge-success'}" style="margin-left:4px;">
-            ${strict ? 'Đúng hạn mới tính điểm' : 'Mở tự do'}
+        <div class="date-pill" onclick="${isAdmin ? 'openDateSettingsModal()' : ''}" title="Ngày hệ thống dùng để đối chiếu hạn nộp báo cáo" style="font-size:11px; padding:2px 7px; height:27px;">
+          📅 <b>${formatDateVN(effDate)}</b>
+          <span class="badge ${strict ? 'badge-warning' : 'badge-success'}" style="margin-left:3px; padding:1px 4px; font-size:9.5px;">
+            ${strict ? 'Đúng hạn' : 'Tự do'}
           </span>
           ${isAdmin ? '⚙️' : ''}
         </div>
 
         ${isAdminSession ? `
-          <select onchange="switchAccountQuick(this.value)" title="Chuyển đổi góc nhìn giữa Admin và các Đơn vị" style="max-width: 240px; font-size: 12px; padding: 5px 8px; font-weight: 700; border: 2px solid #fef08a; background: #fffbeb; color: #1e3a8a; border-radius: 6px;">
+          <select onchange="switchAccountQuick(this.value)" title="Chuyển đổi góc nhìn giữa Admin và các Đơn vị" style="max-width: 170px; font-size: 11px; padding: 2px 6px; font-weight: 700; border: 1.5px solid #fef08a; background: #fffbeb; color: #1e3a8a; border-radius: 5px; height: 27px;">
             ${switcherOptions}
           </select>
         ` : ''}
 
-        <button class="btn btn-success btn-sm" onclick="exportToExcelClient()" title="Tải bảng tổng hợp Excel chuẩn về máy">
-          📊 Xuất Excel (.xlsx)
+        <button class="btn btn-success btn-sm" onclick="exportToExcelClient()" title="Tải bảng tổng hợp Excel chuẩn về máy" style="font-size:11px; padding:3px 7px; height:27px;">
+          📊 Xuất Excel
         </button>
 
         ${isAdmin ? `
-          <button class="btn btn-primary btn-sm" onclick="saveExcelToGoogleDrive()" title="Tự động xuất và lưu file Excel vào đúng thư mục Tháng trên Google Drive" style="background:#0284c7; border-color:#0284c7; font-weight:700;">
-            ☁️ Lưu Excel Vào Drive
+          <button class="btn btn-primary btn-sm" onclick="saveExcelToGoogleDrive()" title="Tự động xuất và lưu file Excel vào đúng thư mục Tháng trên Google Drive" style="background:#0284c7; border-color:#0284c7; font-weight:700; font-size:11px; padding:3px 7px; height:27px;">
+            ☁️ Lưu Drive
           </button>
         ` : ''}
 
-        <button class="btn btn-sm" onclick="showPWAInstallGuide()" title="Cài đặt ứng dụng vào điện thoại" style="background: rgba(255,255,255,0.2); color:#fff; border: 1px solid rgba(255,255,255,0.4); font-size: 11.5px; padding: 5px 10px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
+        <button class="btn btn-sm" onclick="showPWAInstallGuide()" title="Cài đặt ứng dụng vào điện thoại" style="background: rgba(255,255,255,0.2); color:#fff; border: 1px solid rgba(255,255,255,0.4); font-size: 11px; padding: 3px 7px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; height:27px;">
           📲 Cài App
         </button>
 
-        <button class="btn btn-sm" onclick="toggleChatWidget()" title="Bấm để mở ô Trao Đổi Đoàn giữa các đơn vị và Ban Thường vụ Tỉnh" style="background: linear-gradient(135deg, #0284c7 0%, #0052cc 100%); color: #fff; border: 1px solid rgba(255,255,255,0.4); font-size: 11.5px; padding: 5px 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); cursor: pointer; border-radius: 6px;">
+        <button class="btn btn-sm" onclick="toggleChatWidget()" title="Bấm để mở ô Trao Đổi Đoàn giữa các đơn vị và Ban Thường vụ Tỉnh" style="background: linear-gradient(135deg, #0284c7 0%, #0052cc 100%); color: #fff; border: 1px solid rgba(255,255,255,0.4); font-size: 11px; padding: 3px 8px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); cursor: pointer; border-radius: 5px; height:27px;">
           <span>💬</span>
           <span>Trao Đổi Đoàn</span>
           ${(() => {
             const unread = getTotalUnreadChatCount();
-            return unread > 0 ? `<span style="background:#ef4444; color:#fff; font-size:10px; font-weight:800; padding:1px 6px; border-radius:10px; margin-left:3px; box-shadow:0 1px 3px rgba(0,0,0,0.3);">${unread > 99 ? '99+' : unread}</span>` : '';
+            return unread > 0 ? `<span style="background:#ef4444; color:#fff; font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:10px; margin-left:2px;">${unread > 99 ? '99+' : unread}</span>` : '';
           })()}
         </button>
 
-        <button class="btn btn-outline btn-sm" onclick="handleLogout()" style="background: rgba(255,255,255,0.15); color: #fff; border-color: rgba(255,255,255,0.3);">
+        <button class="btn btn-outline btn-sm" onclick="handleLogout()" style="background: rgba(255,255,255,0.15); color: #fff; border-color: rgba(255,255,255,0.3); font-size:11px; padding:3px 7px; height:27px;">
           Đăng xuất
         </button>
+      </div>
+
+      <!-- BÊN GÓC PHẢI: ONLINE & ĐỒNG HỒ THỜI GIAN THỰC (Ảnh 3 & 4) -->
+      <div class="header-status-box" style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
+        <span class="badge ${state.cloudOnline ? 'badge-success' : 'badge-warning'}" style="font-size: 10px; font-weight: 700; padding: 2px 6px;">
+          ${state.cloudOnline ? '🟢 Online' : '🟡 Offline'}
+        </span>
+        <span style="color: #ffffff; font-weight: 700; font-family: monospace; font-size: 10.5px; background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2);" id="live-realtime-clock" title="Đồng hồ thời gian thực">
+          ⏱️ ${new Date().toLocaleTimeString('vi-VN')}
+        </span>
       </div>
     </header>
   `;
@@ -7667,21 +7677,33 @@ window.switchPrivateChatPartner = function(partnerId) {
 window.switchPrivateChatUnit = window.switchPrivateChatPartner;
 
 // TÌM KIẾM TIN NHẮN TRONG CHAT (Ảnh 1)
+// TÌM KIẾM TIN NHẮN TRONG CHAT - KHÔNG RE-RENDER APP ĐỂ GÕ TIẾNG VIỆT MƯỢT MÀ (Ảnh 2)
 window.onChatSearchInput = function(val) {
   state.chatSearchQuery = val;
-  renderApp();
-  setTimeout(() => {
-    const inp = document.getElementById('chat-search-input');
-    if (inp) {
-      inp.focus();
-      inp.selectionStart = inp.selectionEnd = inp.value.length;
+  const q = (val || '').trim().toLowerCase();
+  const rows = document.querySelectorAll('.chat-message-row');
+  let matchCount = 0;
+  rows.forEach(r => {
+    const txt = r.textContent.toLowerCase();
+    if (!q || txt.includes(q)) {
+      r.style.display = '';
+      matchCount++;
+    } else {
+      r.style.display = 'none';
     }
-  }, 10);
+  });
+
+  const clearBtn = document.getElementById('chat-search-clear-btn');
+  if (clearBtn) {
+    clearBtn.style.display = q ? 'inline-block' : 'none';
+  }
 };
 
 window.clearChatSearch = function() {
   state.chatSearchQuery = '';
-  renderApp();
+  const inp = document.getElementById('chat-search-input');
+  if (inp) inp.value = '';
+  window.onChatSearchInput('');
 };
 
 // XỬ LÝ PHÍM ENTER TRÊN BÀN PHÍM ĐỂ GỬI TIN NHẮN (Ảnh 1)
@@ -8319,7 +8341,7 @@ function renderFloatingChatWidget() {
           </button>
         </div>
 
-        <!-- THANH TÌM KIẾM TIN NHẮN & TỆP TIN TRONG PHÒNG CHAT (Ảnh 1) -->
+        <!-- THANH TÌM KIẾM TIN NHẮN & TỆP TIN TRONG PHÒNG CHAT (Ảnh 1 & 2) -->
         <div class="chat-search-bar">
           <span style="font-size:13px; color:#64748b;">🔍</span>
           <input
@@ -8330,9 +8352,7 @@ function renderFloatingChatWidget() {
             oninput="onChatSearchInput(this.value)"
             style="flex:1; border:1px solid #cbd5e1; border-radius:6px; padding:5px 9px; font-size:12px; outline:none; background:#fff;"
           />
-          ${state.chatSearchQuery ? `
-            <button type="button" onclick="clearChatSearch()" style="background:none; border:none; color:#64748b; cursor:pointer; font-weight:800; font-size:14px; padding:0 4px;" title="Xóa tìm kiếm">✕</button>
-          ` : ''}
+          <button type="button" id="chat-search-clear-btn" onclick="clearChatSearch()" style="background:none; border:none; color:#64748b; cursor:pointer; font-weight:800; font-size:14px; padding:0 4px; display:${state.chatSearchQuery ? 'inline-block' : 'none'};" title="Xóa tìm kiếm">✕</button>
         </div>
 
         <!-- NẾU LÀ TAB CHAT RIÊNG: HIỂN THỊ CHỌN ĐỐI TƯỢNG (ADMIN CHỌN CƠ SỞ, CƠ SỞ CHỌN ADMIN HOẶC CƠ SỞ KHÁC) (Ảnh 3) -->
@@ -8464,13 +8484,25 @@ function renderFloatingChatWidget() {
                       </div>
                     ` : `
                       <div class="chat-file-box ${isMine ? 'mine' : ''}">
-                        <span style="font-size:22px;">📄</span>
-                        <div style="flex:1; overflow:hidden;">
-                          <div style="font-weight:700; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(m.file_name || 'Tài liệu')}">${escapeHtml(m.file_name || 'Tài liệu')}</div>
-                          <div style="font-size:10px; opacity:0.85;">${m.file_size ? formatBytes(m.file_size) : 'Tài liệu'}</div>
+                        <div class="chat-file-header">
+                          <span style="font-size:24px; line-height:1; flex-shrink:0;">📄</span>
+                          <div style="flex:1; min-width:0;">
+                            <div class="chat-file-name" title="${escapeHtml(m.file_name || 'Tài liệu')}">
+                              ${escapeHtml(m.file_name || 'Tài liệu')}
+                            </div>
+                            <div style="font-size:10.5px; color:#64748b; margin-top:2px;">
+                              ${m.file_size ? formatBytes(m.file_size) : 'Tài liệu đính kèm'}
+                            </div>
+                          </div>
                         </div>
-                        <a href="${escapeHtml(m.file_url)}" target="_blank" class="btn btn-sm btn-outline" style="font-size:11px; padding:3px 7px; background:#fff; color:#0052cc; flex-shrink:0;">👁️ Xem</a>
-                        <a href="${escapeHtml(m.download_url || m.file_url)}" target="_blank" class="btn btn-sm btn-primary" style="font-size:11px; padding:3px 7px; flex-shrink:0;">📥 Tải</a>
+                        <div class="chat-file-actions">
+                          <a href="${escapeHtml(m.file_url)}" target="_blank" class="btn btn-sm btn-outline" style="font-size:11px; padding:3px 8px; background:#fff; color:#0052cc; border-color:#0052cc; font-weight:700; display:inline-flex; align-items:center; gap:3px;">
+                            👁️ Xem
+                          </a>
+                          <a href="${escapeHtml(m.download_url || m.file_url)}" target="_blank" class="btn btn-sm btn-primary" style="font-size:11px; padding:3px 10px; font-weight:700; display:inline-flex; align-items:center; gap:3px;">
+                            📥 Tải
+                          </a>
+                        </div>
                       </div>
                     `}
                   ` : ''}
