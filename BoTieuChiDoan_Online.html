@@ -384,18 +384,22 @@ textarea:focus {
 }
 
 /* THE 131-COLUMN MASTER SPREADSHEET TABLE */
-.spreadsheet-wrapper {
-  width: 100%;
-  max-height: calc(100vh - 220px);
-  overflow-x: auto !important;
-  overflow-y: auto !important;
+.spreadsheet-wrapper,
+#master-spreadsheet-wrapper {
+  width: 100% !important;
+  height: calc(100vh - 210px) !important;
+  min-height: 500px !important;
+  max-height: none !important;
+  overflow: auto !important;
+  box-sizing: border-box !important;
   position: relative;
-  border: 1px solid #94a3b8;
+  border: 1.5px solid #94a3b8;
   background: #fff;
   -webkit-overflow-scrolling: touch !important;
   touch-action: pan-x pan-y !important;
   overscroll-behavior-x: contain !important;
   scroll-behavior: smooth;
+  border-radius: 6px;
 }
 
 .master-table {
@@ -413,7 +417,7 @@ textarea:focus {
   vertical-align: middle;
 }
 
-/* Row 1: Title Banner - CỐ ĐỊNH CHẮC CHẮN NỀN XANH CHỮ TRẮNG KHÔNG BAO GIỜ BỊ MẤT KHI CUỘN */
+/* Row 1: Title Banner - CỐ ĐỊNH NỀN XANH CHỮ TRẮNG KHÔNG BỊ TRÔI MẤT KHI CUỘN */
 .master-table tr.row-banner th {
   background: #003d99 !important;
   color: #ffffff !important;
@@ -424,7 +428,7 @@ textarea:focus {
   height: 38px;
   position: sticky;
   top: 0 !important;
-  z-index: 60 !important;
+  z-index: 25 !important;
   box-shadow: 0 1px 2px rgba(0,0,0,0.15);
 }
 
@@ -433,19 +437,22 @@ textarea:focus {
   color: #ffffff !important;
   left: 0 !important;
   top: 0 !important;
-  z-index: 65 !important;
+  width: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  z-index: 35 !important;
 }
 
 .master-table tr.row-banner th.sticky-col-unit,
 .master-table tr.row-banner th.banner-unit-cell {
   background: #003d99 !important;
   color: #ffffff !important;
-  left: 34px !important;
+  left: 36px !important;
   top: 0 !important;
-  z-index: 65 !important;
-  width: 476px !important;
-  min-width: 476px !important;
-  max-width: none !important;
+  z-index: 35 !important;
+  width: 410px !important;
+  min-width: 410px !important;
+  max-width: 410px !important;
   white-space: nowrap !important;
 }
 
@@ -481,73 +488,87 @@ textarea:focus {
   z-index: 25;
 }
 
-/* Sticky Left Columns: STT, ĐƠN VỊ, TỔNG ĐIỂM */
-.master-table .sticky-col-stt {
-  position: sticky;
-  left: 0;
-  width: 34px;
-  min-width: 34px;
-  max-width: 34px;
+/* Sticky Left Columns: STT, ĐƠN VỊ, TỔNG ĐIỂM (CỐ ĐỊNH 2 CHIỀU FREEZE PANES) */
+.master-table .sticky-col-stt,
+.sticky-col-stt {
+  position: sticky !important;
+  left: 0 !important;
+  width: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
   padding: 6px 2px !important;
   text-align: center;
-  background: #f8fafc;
-  z-index: 20;
+  background: #ffffff !important;
+  z-index: 15 !important;
   font-weight: 700;
+  box-sizing: border-box !important;
 }
 
-.master-table .sticky-col-unit {
-  position: sticky;
-  left: 34px;
-  width: 380px;
-  min-width: 380px;
-  max-width: 420px;
+.master-table .sticky-col-unit,
+.sticky-col-unit {
+  position: sticky !important;
+  left: 36px !important;
+  width: 320px !important;
+  min-width: 320px !important;
+  max-width: 320px !important;
   text-align: left;
-  background: #ffffff;
-  z-index: 20;
+  background: #ffffff !important;
+  z-index: 15 !important;
   font-weight: 600;
   white-space: normal !important;
   word-break: break-word;
   line-height: 1.4 !important;
   padding: 8px 12px !important;
+  box-sizing: border-box !important;
 }
 
-.master-table .sticky-col-total {
-  position: sticky;
-  left: 414px;
-  width: 96px;
-  min-width: 96px;
-  max-width: 96px;
+.master-table .sticky-col-total,
+.sticky-col-total {
+  position: sticky !important;
+  left: 356px !important;
+  width: 90px !important;
+  min-width: 90px !important;
+  max-width: 90px !important;
   text-align: center;
-  background: #fef9c3;
+  background: #fff9db !important;
   font-weight: 800;
   color: #b45309;
   font-size: 13.5px;
-  z-index: 20;
-  border-right: 2px solid #64748b !important;
+  z-index: 15 !important;
+  box-shadow: 2px 0 5px rgba(0,0,0,0.1) !important;
+  border-right: 2px solid #eab308 !important;
+  box-sizing: border-box !important;
 }
 
-/* Corner intersections need higher z-index, precisely layered per row */
+/* Corner intersections in thead need higher z-index (25 - 35) to always stay on top */
+.master-table thead th.sticky-col-stt,
+.master-table thead th.sticky-col-unit,
+.master-table thead th.sticky-col-total,
+thead th.sticky-col-stt,
+thead th.sticky-col-unit,
+thead th.sticky-col-total {
+  z-index: 25 !important;
+}
+
 .master-table tr.row-banner th.sticky-col-stt,
 .master-table tr.row-banner th.sticky-col-unit,
 .master-table tr.row-banner th.sticky-col-total {
   top: 0 !important;
-  z-index: 60 !important;
+  z-index: 35 !important;
 }
 
 .master-table tr.row-titles th.sticky-col-stt,
 .master-table tr.row-titles th.sticky-col-unit,
 .master-table tr.row-titles th.sticky-col-total {
   top: 38px;
-  z-index: 55 !important;
+  z-index: 30 !important;
 }
-
-
 
 .master-table tr.row-cols th.sticky-col-stt,
 .master-table tr.row-cols th.sticky-col-unit,
 .master-table tr.row-cols th.sticky-col-total {
   top: 178px;
-  z-index: 45 !important;
+  z-index: 28 !important;
 }
 
 .master-table tbody tr:hover td {
@@ -1509,6 +1530,7 @@ textarea:focus {
   overflow: hidden;
   box-sizing: border-box;
   animation: slideUp 0.2s ease-out;
+  container-type: inline-size;
 }
 
 .chat-widget-box.maximized {
@@ -1526,10 +1548,13 @@ textarea:focus {
 
 .chat-header,
 .chat-tabs-bar,
+.ai-chips-container,
 .chat-search-bar,
 .chat-private-unit-bar,
 .chat-input-row {
   flex-shrink: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 /* Chat resize handles */
@@ -1732,38 +1757,50 @@ textarea:focus {
 }
 
 .chat-messages-body {
-  flex: 1 1 auto;
-  min-height: 0;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
   padding: 14px 16px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
   background: #f8fafc;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
+  align-items: stretch !important;
+  gap: 10px !important;
 }
 
 .chat-message-row {
-  display: flex;
-  flex-direction: column;
-  max-width: 85%;
+  display: flex !important;
+  flex-direction: column !important;
+  width: fit-content !important;
+  max-width: 82% !important;
+  height: auto !important;
+  min-height: unset !important;
+  flex: none !important;
+  box-sizing: border-box !important;
 }
 
 .chat-message-row.mine {
-  align-self: flex-end;
-  align-items: flex-end;
+  align-self: flex-end !important;
+  align-items: flex-end !important;
+  margin-left: auto !important;
 }
 
 .chat-message-row.theirs {
-  align-self: flex-start;
-  align-items: flex-start;
+  align-self: flex-start !important;
+  align-items: flex-start !important;
+  margin-right: auto !important;
 }
 
 .chat-sender-name {
-  font-size: 11.5px;
+  font-size: clamp(11.5px, 1vw, 13px);
   font-weight: 700;
-  margin-bottom: 2px;
+  margin-bottom: 3px;
   color: #0369a1;
+  width: fit-content !important;
 }
 
 .chat-sender-name.admin {
@@ -1771,40 +1808,53 @@ textarea:focus {
 }
 
 .chat-message-bubble {
-  padding: 9px 13px;
-  border-radius: 12px;
-  font-size: 13px;
-  line-height: 1.45;
-  word-break: break-word;
+  height: auto !important;
+  min-height: unset !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+  display: inline-block !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: pre-wrap !important;
+  box-sizing: border-box !important;
+  padding: 8px 14px !important;
+  border-radius: 14px !important;
+  font-size: clamp(13.5px, 1.1vw, 16px) !important;
+  line-height: 1.5 !important;
+  flex: none !important;
 }
 
 .chat-message-row.mine .chat-message-bubble {
   background: #0052cc;
   color: #ffffff;
-  border-bottom-right-radius: 2px;
+  border-bottom-right-radius: 3px !important;
 }
 
 .chat-message-row.theirs .chat-message-bubble {
   background: #ffffff;
   color: #0f172a;
   border: 1px solid #e2e8f0;
-  border-bottom-left-radius: 2px;
+  border-bottom-left-radius: 3px !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
 .chat-message-time {
-  font-size: 10px;
+  font-size: clamp(10px, 0.9vw, 12px);
   color: #94a3b8;
   margin-top: 3px;
+  width: fit-content !important;
 }
 
 .chat-input-row {
-  padding: 10px 12px;
+  padding: clamp(10px, 1vw, 14px) clamp(12px, 1.2vw, 18px);
   background: #ffffff;
   border-top: 1px solid #e2e8f0;
   display: flex;
-  gap: 6px;
+  gap: clamp(6px, 0.8vw, 10px);
   align-items: center;
+  flex-shrink: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 .chat-attach-btn {
@@ -1812,14 +1862,14 @@ textarea:focus {
   border: 1.5px solid #cbd5e1;
   color: #475569;
   border-radius: 8px;
-  width: 38px;
-  height: 38px;
-  font-size: 16px;
+  width: clamp(38px, 3.2vw, 46px);
+  height: clamp(38px, 3.2vw, 46px);
+  font-size: clamp(16px, 1.2vw, 19px);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  flex-shrink: 0 !important;
   transition: all 0.2s;
 }
 
@@ -1829,14 +1879,18 @@ textarea:focus {
 }
 
 .chat-input-field {
-  flex: 1;
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
   border: 1.5px solid #cbd5e1;
   border-radius: 8px;
-  padding: 8px 10px;
-  font-size: 13px;
+  padding: clamp(8px, 0.9vw, 12px) clamp(10px, 1.1vw, 16px);
+  font-size: clamp(14px, 1.1vw, 17px) !important;
+  height: clamp(38px, 3.2vw, 46px) !important;
+  min-height: clamp(38px, 3.2vw, 46px) !important;
   font-family: inherit;
   outline: none;
   transition: border-color 0.2s;
+  box-sizing: border-box !important;
 }
 
 .chat-input-field:focus {
@@ -1848,33 +1902,121 @@ textarea:focus {
   color: #fff;
   border: none;
   border-radius: 8px;
-  padding: 8px 14px;
+  padding: clamp(8px, 0.9vw, 12px) clamp(14px, 1.4vw, 22px);
   font-weight: 700;
-  font-size: 13px;
+  font-size: clamp(13px, 1.1vw, 16px) !important;
+  height: clamp(38px, 3.2vw, 46px) !important;
   cursor: pointer;
   transition: background 0.2s;
-  white-space: nowrap;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .chat-send-btn:hover {
   background: #003d99;
 }
 
+/* Container Queries cho khung chat tự động phóng to nội dung theo kích thước kéo dãn */
+@container (min-width: 600px) {
+  .chat-message-bubble,
+  .chat-msg-ai {
+    font-size: clamp(14.5px, 2.1cqi, 17px) !important;
+    line-height: 1.55 !important;
+    padding: 9px 15px !important;
+    height: auto !important;
+    min-height: unset !important;
+    width: fit-content !important;
+  }
+  .chat-input-field {
+    font-size: 15px !important;
+    height: 42px !important;
+    min-height: 42px !important;
+  }
+  .chat-send-btn {
+    font-size: 14px !important;
+    height: 42px !important;
+    padding: 8px 18px !important;
+  }
+  .chat-attach-btn,
+  .chat-emoji-btn,
+  .btn-ai-rewrite {
+    height: 42px !important;
+  }
+}
+
+@container (min-width: 800px) {
+  .chat-message-bubble,
+  .chat-msg-ai {
+    font-size: clamp(15.5px, 1.8cqi, 18.5px) !important;
+    line-height: 1.6 !important;
+    padding: 10px 18px !important;
+    height: auto !important;
+    min-height: unset !important;
+    width: fit-content !important;
+  }
+  .chat-input-field {
+    font-size: 16px !important;
+    height: 46px !important;
+    min-height: 46px !important;
+    padding: 10px 16px !important;
+  }
+  .chat-send-btn {
+    font-size: 15px !important;
+    height: 46px !important;
+    padding: 10px 22px !important;
+  }
+  .chat-attach-btn,
+  .chat-emoji-btn,
+  .btn-ai-rewrite {
+    height: 46px !important;
+    font-size: 14px !important;
+  }
+}
+
 .chat-media-img {
-  max-width: 220px;
-  max-height: 180px;
+  max-width: 100% !important;
+  height: auto !important;
+  object-fit: contain !important;
   border-radius: 8px;
   cursor: pointer;
   margin-top: 4px;
   border: 1px solid rgba(0, 0, 0, 0.15);
   display: block;
+  box-sizing: border-box !important;
 }
 
 .chat-media-video {
-  max-width: 240px;
+  max-width: 100% !important;
+  height: auto !important;
+  object-fit: contain !important;
   border-radius: 8px;
   margin-top: 4px;
   display: block;
+  box-sizing: border-box !important;
+}
+
+/* Typing indicator animation */
+.ai-typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  vertical-align: middle;
+}
+.ai-typing-dots span {
+  width: 6px;
+  height: 6px;
+  background-color: #7c3aed;
+  border-radius: 50%;
+  animation: aiTypingBounce 1.2s infinite ease-in-out;
+}
+.ai-typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.ai-typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes aiTypingBounce {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1.1); opacity: 1; }
 }
 
 .chat-file-box {
@@ -2280,9 +2422,12 @@ html, body {
 
 /* Criteria table scroll container with sticky headers */
 .criteria-table-container {
+  height: calc(100vh - 185px) !important;
+  min-height: calc(100vh - 185px) !important;
+  max-height: calc(100vh - 185px) !important;
+  flex: 1 1 auto !important;
   overflow-x: auto !important;
   overflow-y: auto !important;
-  max-height: calc(100vh - 160px);
   scrollbar-width: thin;
 }
 
@@ -2479,28 +2624,37 @@ html, body {
 .sticky-col-stt {
   position: sticky !important;
   left: 0 !important;
-  z-index: 20 !important;
-  background: #fff;
+  width: 36px !important;
+  min-width: 36px !important;
+  max-width: 36px !important;
+  z-index: 15 !important;
+  background: #ffffff !important;
 }
 .sticky-col-unit {
   position: sticky !important;
-  left: 45px !important;
-  z-index: 20 !important;
-  background: #fff;
+  left: 36px !important;
+  width: 320px !important;
+  min-width: 320px !important;
+  max-width: 320px !important;
+  z-index: 15 !important;
+  background: #ffffff !important;
 }
 .sticky-col-total {
   position: sticky !important;
-  left: 285px !important;
-  z-index: 20 !important;
-  background: #fff;
-  border-right: 2px solid #0284c7 !important;
+  left: 356px !important;
+  width: 90px !important;
+  min-width: 90px !important;
+  max-width: 90px !important;
+  z-index: 15 !important;
+  background: #fff9db !important;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1) !important;
+  border-right: 2px solid #eab308 !important;
 }
 
 thead .sticky-col-stt,
 thead .sticky-col-unit,
 thead .sticky-col-total {
-  z-index: 45 !important;
-  background: #0284c7 !important;
+  z-index: 28 !important;
 }
 
 /* =========================================================================
@@ -2565,6 +2719,21 @@ thead .sticky-col-total {
   border: 1px solid #ddd6fe !important;
   border-left: 4px solid #7c3aed !important;
   color: #1e1b4b !important;
+  height: auto !important;
+  min-height: unset !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+  display: inline-block !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
+  white-space: normal !important;
+  font-size: clamp(13.5px, 1.1vw, 16px) !important;
+  line-height: 1.5 !important;
+  padding: 8px 14px !important;
+  border-radius: 14px !important;
+  border-bottom-left-radius: 3px !important;
+  box-sizing: border-box !important;
+  flex: none !important;
 }
 
 .chat-msg-ai .sender-name {
@@ -2760,35 +2929,206 @@ body.dark-mode .notification-item:hover {
 .ai-badge-err { background: #fee2e2; color: #b91c1c; }
 
 /* =========================================================================
-   SCROLLBAR & STICKY HEADER CHO BẢNG QUẢN LÝ ĐƠN VỊ & BẢNG XẾP HẠNG
+   FULL VIEWPORT HEIGHT & STICKY HEADER CHO TẤT CẢ CÁC BẢNG DỮ LIỆU
    ========================================================================= */
-.accounts-table-container,
-.ranking-table-container {
-  overflow-x: auto !important;
-  overflow-y: auto !important;
-  max-height: calc(100vh - 180px) !important;
+.panel.fullscreen-table-panel,
+.panel:has(.accounts-table-container),
+.panel:has(.criteria-table-container),
+.panel:has(.ranking-table-container) {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  margin-bottom: 2px !important;
+}
+
+/* 1. Bảng Quản Lý Đơn Vị & Tài Khoản */
+.accounts-table-container {
+  height: calc(100vh - 160px) !important;
+  min-height: 500px !important;
+  max-height: none !important;
+  flex: 1 1 auto !important;
+  overflow: auto !important;
+  box-sizing: border-box !important;
   scrollbar-width: thin;
   position: relative;
   -webkit-overflow-scrolling: touch !important;
   border-bottom: 1px solid var(--border-light);
 }
 
+/* 2. Bảng Xếp Hạng Thi Đua & Tổng Hợp Điểm */
+.ranking-table-container {
+  height: calc(100vh - 160px) !important;
+  min-height: 500px !important;
+  max-height: none !important;
+  flex: 1 1 auto !important;
+  overflow: auto !important;
+  box-sizing: border-box !important;
+  scrollbar-width: thin;
+  position: relative;
+  -webkit-overflow-scrolling: touch !important;
+  border-bottom: 1px solid var(--border-light);
+}
+
+/* 3. Bảng Quản Lý Bộ Tiêu Chí & Hạn Nộp */
+.criteria-table-container {
+  height: calc(100vh - 195px) !important;
+  min-height: 480px !important;
+  max-height: none !important;
+  flex: 1 1 auto !important;
+  overflow: auto !important;
+  box-sizing: border-box !important;
+  scrollbar-width: thin;
+  position: relative;
+  -webkit-overflow-scrolling: touch !important;
+  border-bottom: 1px solid var(--border-light);
+}
+
+/* 4. Khung Split Báo Cáo & Nhật Ký Toàn Đoàn */
+.reports-split-container {
+  height: calc(100vh - 140px) !important;
+  min-height: 500px !important;
+  max-height: none !important;
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+/* 5. Bảng Danh Sách Văn Bản & Tài Liệu Chỉ Đạo */
+.table-container:has(#admin-docs-table),
+.table-container {
+  height: calc(100vh - 350px) !important;
+  min-height: 320px !important;
+  max-height: none !important;
+  flex: 1 1 auto !important;
+  overflow: auto !important;
+  box-sizing: border-box !important;
+  scrollbar-width: thin;
+  border-bottom: 1px solid var(--border-light);
+}
+
+/* =========================================================================
+   CỐ ĐỊNH TIÊU ĐỀ BẢNG (STICKY THEAD & TH) VÀ GIAO ĐIỂM FREEZE PANES
+   ========================================================================= */
+.accounts-table-container thead,
 .accounts-table-container thead th,
-.ranking-table-container thead th {
+.ranking-table-container thead,
+.ranking-table-container thead th,
+.criteria-table-container thead,
+.criteria-table-container thead th,
+.master-table thead,
+.master-table thead th,
+#reports-spreadsheet-wrapper thead,
+#reports-spreadsheet-wrapper thead th,
+#reports-bottom-section thead,
+#reports-bottom-section thead th,
+.table-container thead,
+.table-container thead th,
+#admin-docs-table thead,
+#admin-docs-table thead th {
   position: sticky !important;
   top: 0 !important;
-  z-index: 15 !important;
+  z-index: 20 !important;
   background: #f1f5f9 !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
+/* Ô giao nhau giữa thead và 3 cột đầu đặt z-index: 28 để luôn nổi lên trên cùng */
+.master-table thead th.sticky-col-stt,
+.master-table thead th.sticky-col-unit,
+.master-table thead th.sticky-col-total,
+thead th.sticky-col-stt,
+thead th.sticky-col-unit,
+thead th.sticky-col-total {
+  position: sticky !important;
+  z-index: 28 !important;
+}
+
 body.dark-mode .accounts-table-container thead th,
-body.dark-mode .ranking-table-container thead th {
+body.dark-mode .ranking-table-container thead th,
+body.dark-mode .criteria-table-container thead th,
+body.dark-mode .master-table thead th,
+body.dark-mode #reports-spreadsheet-wrapper thead th,
+body.dark-mode #reports-bottom-section thead th,
+body.dark-mode .table-container thead th,
+body.dark-mode #admin-docs-table thead th {
   background: #1e293b !important;
   color: #f8fafc !important;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
+
+
+
+/* Nút phát âm thanh đọc câu trả lời Trợ lý AI (Text-to-Speech) */
+.ai-tts-btn {
+  background: rgba(124, 58, 237, 0.08);
+  border: 1px solid rgba(124, 58, 237, 0.22);
+  color: #7c3aed;
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 12.5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: all 0.15s ease;
+  vertical-align: middle;
+}
+
+.ai-tts-btn:hover {
+  background: rgba(124, 58, 237, 0.18);
+  border-color: #7c3aed;
+  transform: scale(1.12);
+}
+
+.ai-tts-btn.speaking {
+  background: #fee2e2 !important;
+  border-color: #ef4444 !important;
+  color: #b91c1c !important;
+  animation: pulse-tts 0.85s infinite alternate ease-in-out;
+}
+
+@keyframes pulse-tts {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  100% { transform: scale(1.12); box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15); }
+}
+
+/* AI Text-to-Speech Studio */
+.chat-tab-btn.tts-tab {
+  color: #059669;
+}
+.chat-tab-btn.tts-tab:hover {
+  background: #ecfdf5;
+  color: #047857;
+}
+.chat-tab-btn.tts-tab.active {
+  background: #10b981 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.3) !important;
+}
+
+.tts-studio-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 14px 16px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  background: #ffffff;
+}
+
+body.dark-mode .tts-studio-wrapper {
+  background: #0f172a !important;
+  color: #e2e8f0 !important;
+}
+body.dark-mode #tts-result-box {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
 
 
   </style>
@@ -7129,8 +7469,8 @@ window.initReportsSplitDrag = function () {
 function renderAdminUnitsTab() {
   const units = state.units || [];
   return `
-    <div class="panel">
-      <div class="panel-header">
+    <div class="panel fullscreen-table-panel" style="display:flex; flex-direction:column; flex:1 1 auto; min-height:0; margin-bottom:2px;">
+      <div class="panel-header" style="flex-shrink:0;">
         <div class="panel-title">
           👥 QUẢN LÝ DANH SÁCH ĐƠN VỊ & TÀI KHOẢN ĐĂNG NHẬP (${units.length} ĐƠN VỊ)
         </div>
@@ -7141,7 +7481,7 @@ function renderAdminUnitsTab() {
         </div>
       </div>
 
-      <div class="panel-body accounts-table-container" style="padding:0; overflow-x:auto; overflow-y:auto !important; max-height:calc(100vh - 180px); scrollbar-width:thin;">
+      <div class="panel-body accounts-table-container" style="flex:1 1 auto; min-height:0; padding:0; overflow-x:auto; overflow-y:auto !important; max-height:none !important; scrollbar-width:thin;">
         <table class="data-table">
           <thead>
             <tr>
@@ -7372,8 +7712,8 @@ function renderAdminCriteriaTab() {
   }
 
   return `
-    <div class="panel">
-      <div class="panel-header">
+    <div class="panel fullscreen-table-panel" style="display:flex; flex-direction:column; flex:1 1 auto; min-height:0; margin-bottom:2px;">
+      <div class="panel-header" style="flex-shrink:0;">
         <div class="panel-title">
           📋 QUẢN LÝ BỘ TIÊU CHÍ & HẠN NỘP (${state.criteria.length} TIÊU CHÍ)
         </div>
@@ -7403,7 +7743,7 @@ function renderAdminCriteriaTab() {
         </div>
       </div>
 
-      <div class="filter-bar">
+      <div class="filter-bar" style="flex-shrink:0; margin-bottom:4px;">
         <select onchange="state.criteriaMonthFilter = Number(this.value); renderApp();">
           <option value="0" ${mf === 0 ? 'selected' : ''}>-- Tất cả các kỳ hạn / tháng (${state.criteria.length} tiêu chí) --</option>
           ${[
@@ -7424,7 +7764,7 @@ function renderAdminCriteriaTab() {
         />
       </div>
 
-      <div class="criteria-table-container" style="padding:0; overflow-x:auto; overflow-y:auto !important; max-height:calc(100vh - 160px); border:1px solid #cbd5e1; border-radius:6px; background:#fff; scrollbar-width:thin;">
+      <div class="criteria-table-container" style="flex:1 1 auto; min-height:0; padding:0; overflow-x:auto; overflow-y:auto !important; max-height:none !important; border:1px solid #cbd5e1; border-radius:6px; background:#fff; scrollbar-width:thin;">
         <table class="data-table" style="border-collapse:separate; border-spacing:0; width:100%;">
           <thead style="position:sticky; top:0; z-index:25; background:#f8fafc; box-shadow:0 1px 3px rgba(0,0,0,0.1);">
             <tr style="background:#f8fafc;">
@@ -8101,8 +8441,8 @@ function renderRankingTab() {
   const totalReports = state.criteria.filter((c) => Number(c.is_report) === 1).length;
 
   return `
-    <div class="panel">
-      <div class="panel-header">
+    <div class="panel fullscreen-table-panel" style="display:flex; flex-direction:column; flex:1 1 auto; min-height:0; margin-bottom:2px;">
+      <div class="panel-header" style="flex-shrink:0;">
         <div class="panel-title">
           🏆 BẢNG XẾP HẠNG THI ĐUA & TỔNG HỢP ĐIỂM THEO THÁNG NĂM 2026 (${rankings.length} ĐƠN VỊ)
         </div>
@@ -8111,7 +8451,7 @@ function renderRankingTab() {
           <button class="btn btn-primary btn-sm" onclick="saveExcelToGoogleDrive()" style="background:#0284c7; border-color:#0284c7; font-weight:700;">☁️ Lưu Bảng Điểm Lên Google Drive</button>
         </div>
       </div>
-      <div class="panel-body ranking-table-container" style="padding:0; overflow-x:auto; overflow-y:auto !important; max-height:calc(100vh - 180px); scrollbar-width:thin;">
+      <div class="panel-body ranking-table-container" style="flex:1 1 auto; min-height:0; padding:0; overflow-x:auto; overflow-y:auto !important; max-height:none !important; scrollbar-width:thin;">
         <table class="data-table">
           <thead>
             <tr>
@@ -11501,6 +11841,9 @@ function renderFloatingChatWidget() {
             </div>
           </div>
           <div style="display:flex; align-items:center; gap:6px;">
+            <button class="btn btn-sm" onclick="openGeminiApiKeyModal()" style="background:#7c3aed; border:1px solid #6d28d9; color:#fff; font-size:11px; font-weight:700; padding:2px 8px; border-radius:4px; cursor:pointer;" title="Cài đặt Google Gemini API Key trực tuyến">
+              🔑 Cài Key AI
+            </button>
             <button class="btn btn-sm" onclick="openClearChatOptionsModal()" style="background:rgba(239,68,68,0.25); border:1px solid rgba(239,68,68,0.5); color:#fff; font-size:11px; font-weight:700; padding:2px 7px;" title="Tùy chọn xóa / làm mới lịch sử chat">
               🗑️ Xóa / Làm mới
             </button>
@@ -11521,28 +11864,15 @@ function renderFloatingChatWidget() {
             🔒 Chat Riêng Tư (1 - 1)
             ${unreadPrivate > 0 ? `<span class="chat-badge" style="margin-left:4px;">${unreadPrivate}</span>` : ''}
           </button>
-          <button class="chat-tab-btn ai-tab ${state.chatTab === 'ai' ? 'active' : ''}" onclick="switchChatTab('ai')" title="Trợ lý AI Đoàn Cơ Sở (Gemini Pro)">
-            🤖 Trợ Lý AI Đoàn <span class="ai-tab-badge">Gemini Pro</span>
+          <button class="chat-tab-btn ai-tab ${state.chatTab === 'ai' ? 'active' : ''}" onclick="switchChatTab('ai')" title="Trợ lý AI Đoàn Cơ Sở (Gemini 1.5 Flash)">
+            🤖 Trợ Lý AI Đoàn <span class="ai-tab-badge">Gemini 1.5</span>
+          </button>
+          <button class="chat-tab-btn tts-tab ${state.chatTab === 'tts' ? 'active' : ''}" onclick="switchChatTab('tts')" title="Tạo Giọng Nói AI & Tải Về (AI Text-to-Speech Studio)">
+            🎙️ Giọng Nói AI
           </button>
         </div>
 
-        ${state.chatTab === 'ai' ? `
-          <!-- PROMPT CHIPS GỢI Ý NHANH CHO CÁN BỘ ĐOÀN -->
-          <div class="ai-chips-container">
-            <button type="button" class="ai-chip-btn" onclick="askAiAssistant('Đơn vị tôi còn thiếu minh chứng tiêu chí nào?')">
-              📋 Đơn vị tôi còn thiếu minh chứng tiêu chí nào?
-            </button>
-            <button type="button" class="ai-chip-btn" onclick="askAiAssistant('Soạn giúp kế hoạch sinh hoạt chi đoàn tháng 10')">
-              ✍️ Soạn giúp kế hoạch sinh hoạt chi đoàn tháng 10
-            </button>
-            <button type="button" class="ai-chip-btn" onclick="askAiAssistant('Tiêu chí nào sắp hết hạn trong tuần này?')">
-              ⏱️ Tiêu chí nào sắp hết hạn trong tuần này?
-            </button>
-            <button type="button" class="ai-chip-btn" onclick="askAiAssistant('Gợi ý ý tưởng hoạt động chào mừng ngày 15/10')">
-              💡 Gợi ý ý tưởng hoạt động chào mừng ngày 15/10
-            </button>
-          </div>
-        ` : `
+        ${(state.chatTab === 'ai' || state.chatTab === 'tts') ? '' : `
           <!-- THANH TÌM KIẾM TIN NHẮN & TỆP TIN TRONG PHÒNG CHAT (Ảnh 1 & 2) -->
           <div class="chat-search-bar">
             <span style="font-size:13px; color:#64748b;">🔍</span>
@@ -11624,33 +11954,55 @@ function renderFloatingChatWidget() {
 
         <!-- NỘI DUNG DANH SÁCH TIN NHẮN -->
         <div class="chat-messages-body" id="chat-messages-body">
-          ${state.chatTab === 'ai' ? `
-            <!-- LỜI CHÀO BAN ĐẦU CỦA TRỢ LÝ GEMINI PRO -->
+          ${state.chatTab === 'tts' ? renderTtsStudioContent() : state.chatTab === 'ai' ? `
+            <!-- LỜI CHÀO BAN ĐẦU CỦA TRỢ LÝ GEMINI 1.5 FLASH -->
             <div class="chat-message-row theirs">
               <div class="chat-sender-name admin" style="color:#7c3aed !important; font-weight:800;">
-                🤖 Trợ lý AI Đoàn Khối (Gemini Pro)
+                🤖 Trợ lý AI Đoàn Khối (Gemini 1.5 Flash)
               </div>
               <div class="chat-message-bubble chat-msg-ai">
-                <div style="line-height:1.45;">
-                  <b>Xin chào đồng chí!</b> Tôi là <b>Trợ lý AI Đoàn Khối tỉnh (Gemini Pro)</b>.<br/>
-                  Bạn cần hỗ trợ gì hôm nay? Đồng chí có thể bấm vào các câu hỏi gợi ý nhanh phía trên (minh chứng còn thiếu, kế hoạch sinh hoạt chi đoàn, tiêu chí sắp hết hạn, ý tưởng ngày 15/10...) hoặc nhập bất kỳ câu hỏi nào bên dưới!
+                <div>
+                  <b>Xin chào đồng chí!</b> Tôi là <b>Trợ lý AI Đoàn Khối tỉnh (Google Gemini 1.5 Flash)</b>.<br/>
+                  Tôi sẵn sàng hỗ trợ đồng chí về nghiệp vụ công tác Đoàn, thể thức văn bản hành chính, giải đáp tiêu chí thi đua và các hoạt động phong trào thanh niên.<br/>
+                  <i>Đồng chí có thể nhập bất kỳ câu hỏi nào bên dưới để bắt đầu trao đổi!</i>
                 </div>
               </div>
-              <div class="chat-message-time">${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
+              <div class="chat-message-time" style="display:flex; align-items:center; gap:6px;">
+                <span>${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
+                <button type="button" class="ai-tts-btn" onclick="playTextToSpeech('Xin chào đồng chí! Tôi là Trợ lý AI Đoàn Khối tỉnh Google Gemini 1.5 Flash. Tôi sẵn sàng hỗ trợ đồng chí về nghiệp vụ công tác Đoàn, thể thức văn bản hành chính, giải đáp tiêu chí thi đua và các hoạt động phong trào thanh niên. Đồng chí có thể nhập bất kỳ câu hỏi nào bên dưới để bắt đầu trao đổi!', this)" title="Nghe đọc câu trả lời">🔊</button>
+              </div>
             </div>
 
             <!-- DANH SÁCH CÂU HỎI & TRẢ LỜI CỦA AI -->
-            ${(state.aiChatHistory || []).map(m => `
+            ${(state.aiChatHistory || []).map((m, idx) => `
               <div class="chat-message-row ${m.sender === 'user' ? 'mine' : 'theirs'}">
                 <div class="chat-sender-name ${m.sender === 'user' ? '' : 'admin'}" style="${m.sender === 'ai' ? 'color:#7c3aed !important; font-weight:800;' : ''}">
-                  ${m.sender === 'user' ? (state.user ? escapeHtml(state.user.unit_name || state.user.username) : 'Bạn') : '🤖 Trợ lý AI Đoàn Khối (Gemini Pro)'}
+                  ${m.sender === 'user' ? (state.user ? escapeHtml(state.user.unit_name || state.user.username) : 'Bạn') : '🤖 Trợ lý AI Đoàn Khối (Gemini 1.5 Flash)'}
                 </div>
                 <div class="chat-message-bubble ${m.sender === 'ai' ? 'chat-msg-ai' : ''}">
-                  <div style="white-space:pre-wrap; word-break:break-word; line-height:1.45;">${escapeHtml(m.text)}</div>
+                  <div style="word-break:break-word;">${m.sender === 'ai' ? renderAiMarkdown(m.text) : escapeHtml(m.text)}</div>
                 </div>
-                <div class="chat-message-time">${escapeHtml(m.time || '')}</div>
+                <div class="chat-message-time" style="display:flex; align-items:center; gap:6px;">
+                  <span>${escapeHtml(m.time || '')}</span>
+                  ${m.sender === 'ai' ? `
+                    <button type="button" class="ai-tts-btn" onclick="playAiHistoryTts(${idx}, this)" title="Nghe đọc câu trả lời">🔊</button>
+                  ` : ''}
+                </div>
               </div>
             `).join('')}
+            ${state.aiIsTyping ? `
+              <div class="chat-message-row theirs">
+                <div class="chat-sender-name admin" style="color:#7c3aed !important; font-weight:800;">
+                  🤖 Trợ lý AI Đoàn Khối (Gemini 1.5 Flash)
+                </div>
+                <div class="chat-message-bubble chat-msg-ai" style="display:inline-flex; align-items:center; gap:8px; padding:10px 14px;">
+                  <span class="ai-typing-dots">
+                    <span></span><span></span><span></span>
+                  </span>
+                  <span style="font-style:italic; color:#6b21a8; font-size:13px; font-weight:600;">Trợ lý AI đang suy nghĩ câu trả lời...</span>
+                </div>
+              </div>
+            ` : ''}
           ` : `
             ${searchQ ? `
               <div style="padding:4px 10px; background:#eff6ff; border-radius:4px; font-size:11.5px; color:#1e40af; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
@@ -11750,37 +12102,39 @@ function renderFloatingChatWidget() {
         <!-- BẢNG CHỌN EMOJI & STICKER NẾU ĐANG MỞ (Ảnh 1) -->
         ${state.emojiPickerOpen ? renderEmojiPicker() : ''}
 
-        <!-- KHUNG NHẬP LIỆU & NÚT ĐÍNH KÈM FILE + EMOJI / STICKER + AI VIẾT LẠI (Ảnh 1 & Yêu cầu mới) -->
-        <div class="chat-input-row" style="position:relative; gap:5px;">
-          <input
-            type="file"
-            id="chat-file-input"
-            style="display:none;"
-            onchange="onChatFilePicked(this)"
-            accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.txt"
-          />
-          <button type="button" class="chat-attach-btn" onclick="triggerChatFileInput()" title="Gửi ảnh, video, văn bản, tệp tài liệu... lên Drive">
-            📎
-          </button>
-          <button type="button" class="chat-emoji-btn" onclick="toggleEmojiPicker()" title="Chọn biểu tượng cảm xúc & Nhãn dán / Sticker">
-            😊
-          </button>
-          <button type="button" class="btn-ai-rewrite" onclick="rewriteDraftWithAI()" title="AI tự động trau chuốt câu chữ chuẩn văn phong hành chính/Đoàn">
-            ✨ AI Viết Lại
-          </button>
-          <input
-            type="text"
-            id="chat-input-field"
-            class="chat-input-field"
-            value="${escapeHtml(state.chatDraft || '')}"
-            oninput="state.chatDraft = this.value;"
-            placeholder="${state.chatTab === 'ai' ? 'Hỏi Trợ lý AI bất cứ điều gì... (Enter để gửi)' : 'Nhập nội dung... (Gõ @AI để hỏi đáp quy chế, Enter để gửi)'}"
-            onkeydown="onChatKeydown(event)"
-          />
-          <button class="chat-send-btn" onclick="sendChatMessage()">
-            Gửi 📤
-          </button>
-        </div>
+        <!-- KHUNG NHẬP LIỆU & NÚT ĐÍNH KÈM FILE + EMOJI / STICKER + AI VIẾT LẠI (ẨN KHI Ở TAB GIỌNG NÓI AI) -->
+        ${state.chatTab === 'tts' ? '' : `
+          <div class="chat-input-row" style="position:relative; gap:5px;">
+            <input
+              type="file"
+              id="chat-file-input"
+              style="display:none;"
+              onchange="onChatFilePicked(this)"
+              accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.txt"
+            />
+            <button type="button" class="chat-attach-btn" onclick="triggerChatFileInput()" title="Gửi ảnh, video, văn bản, tệp tài liệu... lên Drive">
+              📎
+            </button>
+            <button type="button" class="chat-emoji-btn" onclick="toggleEmojiPicker()" title="Chọn biểu tượng cảm xúc & Nhãn dán / Sticker">
+              😊
+            </button>
+            <button type="button" class="btn-ai-rewrite" onclick="rewriteDraftWithAI()" title="AI tự động trau chuốt câu chữ chuẩn văn phong hành chính/Đoàn">
+              ✨ AI Viết Lại
+            </button>
+            <input
+              type="text"
+              id="chat-input-field"
+              class="chat-input-field"
+              value="${escapeHtml(state.chatDraft || '')}"
+              oninput="state.chatDraft = this.value;"
+              placeholder="${state.chatTab === 'ai' ? 'Hỏi Trợ lý AI bất cứ điều gì... (Enter để gửi)' : 'Nhập nội dung... (Gõ @AI để hỏi đáp quy chế, Enter để gửi)'}"
+              onkeydown="onChatKeydown(event)"
+            />
+            <button class="chat-send-btn" onclick="sendChatMessage()">
+              Gửi 📤
+            </button>
+          </div>
+        `}
 
         <!-- CÁC TAY NẮM KÉO DÃN KHUNG CHAT TO RỘNG TÙY Ý (Ảnh 4 & Yêu cầu mới) -->
         <div class="chat-resize-handle chat-resize-handle-r" data-dir="e" title="Kéo ngang để thay đổi chiều rộng"></div>
@@ -12044,37 +12398,866 @@ window.generateAiAssistantResponse = function(promptText) {
   return `🤖 Chào đồng chí! Về nội dung "${promptText}", hệ thống Bộ Tiêu Chí Đoàn Cấp Cơ Sở 2026 hiện đang quản lý toàn diện **${(state.units || []).length} đơn vị** với **${(state.criteria || []).length} cột tiêu chí**. Nếu đồng chí cần kiểm tra minh chứng, hỗ trợ tải tài liệu lên Google Drive hoặc giải đáp quy chế chấm điểm của Ban Thường vụ, vui lòng cho tôi biết cụ thể để hỗ trợ ngay nhé!`;
 };
 
-// 3. XỬ LÝ HỎI ĐÁP VỚI TRỢ LÝ AI
-window.askAiAssistant = function(promptText) {
-  if (!promptText) return;
+// ĐỊNH DẠNG MARKDOWN CHO CÂU TRẢ LỜI CỦA TRỢ LÝ AI (IN ĐẬM, NGHIÊNG, DANH SÁCH, CODE)
+window.renderAiMarkdown = function(text) {
+  if (!text) return '';
+  // 1. Thoát mã HTML nguy hiểm
+  let html = escapeHtml(text);
+  
+  // 2. Bold: **text**
+  html = html.replace(/\*\*(.*?)\*\*/g, '<b style="color:#1e1b4b; font-weight:700;">$1</b>');
+  
+  // 3. Italic: *text* hoặc _text_
+  html = html.replace(/\*([^\*\n]+)\*/g, '<i>$1</i>');
+  
+  // 4. Inline code: `code`
+  html = html.replace(/`([^`\n]+)`/g, '<code style="background:rgba(0,0,0,0.06); padding:2px 5px; border-radius:4px; font-family:monospace; font-size:0.92em; color:#6b21a8;">$1</code>');
+  
+  // 5. Headings: ###, ##, #
+  html = html.replace(/^[ \t]*###\s+(.+)$/gm, '<div style="font-weight:700; font-size:1.06em; margin:6px 0 2px 0; color:#4c1d95;">$1</div>');
+  html = html.replace(/^[ \t]*##\s+(.+)$/gm, '<div style="font-weight:800; font-size:1.12em; margin:8px 0 3px 0; color:#3b0764;">$1</div>');
+  html = html.replace(/^[ \t]*#\s+(.+)$/gm, '<div style="font-weight:800; font-size:1.2em; margin:10px 0 4px 0; color:#3b0764;">$1</div>');
+
+  // 6. Danh sách hoa thị: "- " hoặc "* "
+  html = html.replace(/^[ \t]*[-\*]\s+(.+)$/gm, '<div style="margin-left:14px; text-indent:-12px; margin-top:2px; margin-bottom:2px;">• $1</div>');
+  
+  // 7. Danh sách có thứ tự: "1. ", "2. ", v.v.
+  html = html.replace(/^[ \t]*(\d+)\.\s+(.+)$/gm, '<div style="margin-left:14px; text-indent:-14px; margin-top:2px; margin-bottom:2px;"><b>$1.</b> $2</div>');
+  
+  // 8. Chuyển đổi xuống dòng
+  html = html.replace(/\n/g, '<br/>');
+  return html;
+};
+
+// CÀI ĐẶT GOOGLE GEMINI API KEY (MODAL NHẬP TRỰC TIẾP TRÊN TRÌNH DUYỆT)
+window.openGeminiApiKeyModal = function() {
+  const currentKey = (localStorage.getItem('gemini_api_key') || '').trim();
+  const modalRoot = document.getElementById('modal-root');
+  if (!modalRoot) return;
+
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()" style="display:flex; align-items:center; justify-content:center; background:rgba(15,23,42,0.6); z-index:1000000; padding:16px;">
+      <div class="modal-content" style="max-width:520px; width:100%; background:#fff; border-radius:12px; box-shadow:0 15px 40px rgba(0,0,0,0.25); overflow:hidden;">
+        <div style="background:linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color:#fff; padding:14px 18px; display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-weight:800; font-size:15px; display:flex; align-items:center; gap:8px;">
+            <span>🔑</span> Cài Đặt Google Gemini API Key
+          </div>
+          <button type="button" onclick="closeModal()" style="background:rgba(255,255,255,0.2); border:none; color:#fff; border-radius:50%; width:28px; height:28px; font-size:14px; font-weight:800; cursor:pointer;">✕</button>
+        </div>
+        <div style="padding:18px 20px;">
+          <p style="font-size:13px; color:#334155; margin-bottom:12px; line-height:1.5;">
+            Trợ lý AI Đoàn Khối kết nối trực tiếp đến mô hình trực tuyến <b>Gemini 1.5 Flash</b> của Google. Vui lòng dán <b>Gemini API Key</b> của bạn vào bên dưới:
+          </p>
+          <div style="margin-bottom:12px;">
+            <label style="display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">Google Gemini API Key:</label>
+            <input
+              type="password"
+              id="gemini-api-key-input"
+              value="${escapeHtml(currentKey)}"
+              placeholder="AIzaSy..."
+              style="width:100%; box-sizing:border-box; padding:9px 12px; font-size:13px; font-family:monospace; border:1.5px solid #cbd5e1; border-radius:6px; outline:none;"
+              onfocus="this.type='text'"
+              onblur="this.type='password'"
+            />
+          </div>
+          <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:10px 12px; font-size:12px; color:#166534; line-height:1.45; margin-bottom:16px;">
+            💡 <b>Hướng dẫn nhận API Key miễn phí (Google AI Studio):</b><br/>
+            1. Truy cập <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" style="color:#0284c7; font-weight:700; text-decoration:underline;">Google AI Studio (aistudio.google.com/app/apikey)</a>.<br/>
+            2. Đăng nhập tài khoản Google và bấm nút <b>"Create API key"</b>.<br/>
+            3. Sao chép chuỗi mã Key và dán vào ô trên rồi bấm <b>"Lưu Cấu Hình"</b>.
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:8px;">
+            ${currentKey ? `
+              <button type="button" class="btn btn-sm" onclick="clearGeminiApiKey()" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:700; padding:8px 14px;">
+                🗑️ Xóa Key Đã Lưu
+              </button>
+            ` : ''}
+            <button type="button" class="btn btn-sm" onclick="closeModal()" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-weight:700; padding:8px 14px;">
+              Hủy Bỏ
+            </button>
+            <button type="button" class="btn btn-sm" onclick="saveGeminiApiKey()" style="background:#7c3aed; color:#fff; border:none; font-weight:700; padding:8px 18px; box-shadow:0 2px 6px rgba(124,58,237,0.3);">
+              💾 Lưu Cấu Hình
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+window.saveGeminiApiKey = function() {
+  const input = document.getElementById('gemini-api-key-input');
+  if (!input) return;
+  const key = input.value.trim();
+  if (!key) {
+    showToast('Vui lòng nhập Google Gemini API Key hợp lệ!', 'warning');
+    return;
+  }
+  localStorage.setItem('gemini_api_key', key);
+  closeModal();
+  showToast('✅ Đã lưu Google Gemini API Key thành công!', 'success');
+  renderApp();
+};
+
+window.clearGeminiApiKey = function() {
+  localStorage.removeItem('gemini_api_key');
+  closeModal();
+  showToast('Đã xóa Google Gemini API Key khỏi trình duyệt!', 'info');
+  renderApp();
+};
+
+// 3. XỬ LÝ HỎI ĐÁP VỚI TRỢ LÝ AI (KẾT NỐI GOOGLE GEMINI 1.5 FLASH TRỰC TUYẾN THẬT)
+window.askAiAssistant = async function(promptText) {
+  const GEMINI_API_KEY = ""; // ĐIỀN GOOGLE GEMINI API KEY VÀO ĐÂY HOẶC CÀI ĐẶT QUA NÚT "CÀI KEY AI" TRÊN KHUNG CHAT
+
+  if (!promptText || !promptText.trim()) return;
+  const cleanPrompt = promptText.trim();
   state.aiChatHistory = state.aiChatHistory || [];
 
+  // 1. Lưu tin nhắn người dùng vào lịch sử chat
   const userMsg = {
     sender: 'user',
-    text: promptText,
+    text: cleanPrompt,
     time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
   };
   state.aiChatHistory.push(userMsg);
 
+  // 2. Bật hiệu ứng "Trợ lý AI đang suy nghĩ câu trả lời..." (typing indicator)
+  state.aiIsTyping = true;
   renderApp();
   setTimeout(() => {
     scrollChatToBottom();
-  }, 50);
+  }, 40);
 
-  setTimeout(() => {
-    const aiReplyText = generateAiAssistantResponse(promptText);
-    const aiMsg = {
+  // Lấy API Key từ localStorage hoặc từ biến GEMINI_API_KEY
+  const storedKey = (typeof localStorage !== 'undefined' ? (localStorage.getItem('gemini_api_key') || '') : '').trim();
+  const apiKey = (storedKey || GEMINI_API_KEY || '').trim();
+
+  // Kiểm tra nếu chưa có API Key
+  if (!apiKey || apiKey.includes('API_KEY')) {
+    setTimeout(() => {
+      state.aiIsTyping = false;
+      const noKeyMsg = {
+        sender: 'ai',
+        text: `⚠️ **Chưa cấu hình Google Gemini API Key!**\n\nĐể kích hoạt trí tuệ nhân tạo **Gemini 1.5 Flash** trực tuyến thật từ Google, đồng chí vui lòng:\n1. Bấm nút **[🔑 Cài Key AI]** ở góc trên cùng bên phải thanh tiêu đề khung chat.\n2. Dán mã Gemini API Key và bấm "Lưu Cấu Hình".\n*(Hoặc điền trực tiếp vào biến \`GEMINI_API_KEY\` trong file \`static/app.js\`)*.\n\n💡 Nhận API Key hoàn toàn miễn phí tại: https://aistudio.google.com/app/apikey`,
+        time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+      };
+      state.aiChatHistory.push(noKeyMsg);
+      renderApp();
+      setTimeout(scrollChatToBottom, 60);
+    }, 450);
+    return;
+  }
+
+  // 3. Gọi trực tiếp API Google Gemini bằng phương thức POST chuẩn
+  try {
+    const userMessage = cleanPrompt;
+    let endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+    const requestBody = JSON.stringify({
+      contents: [{
+        parts: [{ text: userMessage }]
+      }]
+    });
+
+    let resp = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: requestBody
+    });
+
+    // Nếu endpoint -latest báo lỗi 404 thì tự động thử lại với gemini-1.5-flash
+    if (!resp.ok && resp.status === 404) {
+      endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+      resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: requestBody
+      });
+    }
+
+    if (!resp.ok) {
+      let errDetail = '';
+      try {
+        const errData = await resp.json();
+        errDetail = errData?.error?.message || '';
+      } catch (e) {}
+      throw new Error(errDetail || `Mã phản hồi HTTP ${resp.status} (${resp.statusText})`);
+    }
+
+    const resData = await resp.json();
+    const contentPart = resData?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (contentPart && contentPart.trim()) {
+      const aiReplyText = contentPart.trim();
+      state.aiIsTyping = false;
+      const aiMsg = {
+        sender: 'ai',
+        text: aiReplyText,
+        time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+      };
+      state.aiChatHistory.push(aiMsg);
+      if (window.playNotificationChime) window.playNotificationChime();
+      renderApp();
+      setTimeout(() => {
+        scrollChatToBottom();
+      }, 60);
+    } else {
+      throw new Error('Mô hình Gemini không phản hồi nội dung văn bản hợp lệ.');
+    }
+
+  } catch (err) {
+    console.error('Lỗi khi gọi Gemini API:', err);
+    state.aiIsTyping = false;
+    const errorMsg = {
       sender: 'ai',
-      text: aiReplyText,
+      text: `⚠️ **Lỗi kết nối Trợ lý AI:** Không thể nhận phản hồi từ Google Gemini.\nChi tiết: ${err.message || 'Mất kết nối mạng hoặc API Key không chính xác'}.\n\n*(Đồng chí vui lòng kiểm tra lại đường truyền Internet hoặc bấm nút [🔑 Cài Key AI] để cập nhật lại mã API Key)*`,
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
     };
-    state.aiChatHistory.push(aiMsg);
-    if (window.playNotificationChime) window.playNotificationChime();
+    state.aiChatHistory.push(errorMsg);
     renderApp();
     setTimeout(() => {
       scrollChatToBottom();
     }, 60);
-  }, 400);
+  }
+};
+
+/* =========================================================================
+   TÍNH NĂNG CHUYỂN VĂN BẢN THÀNH GIỌNG NÓI (TEXT-TO-SPEECH - TTS)
+   ========================================================================= */
+window._currentTtsButton = null;
+window._currentTtsUtterance = null;
+window._currentTtsAudio = null;
+
+// 1. Hàm làm sạch cú pháp Markdown để giọng đọc tự nhiên, trôi chảy
+window.cleanMarkdownForSpeech = function(text) {
+  if (!text) return '';
+  return text
+    .replace(/https?:\/\/\S+/gi, '') // Bỏ liên kết web
+    .replace(/```[\s\S]*?```/g, 'đoạn mã lập trình') // Bỏ code blocks
+    .replace(/\*\*([^*]+)\*\*/g, '$1') // Bỏ in đậm **
+    .replace(/\*([^*]+)\*/g, '$1') // Bỏ in nghiêng *
+    .replace(/`([^`]+)`/g, '$1') // Bỏ inline code
+    .replace(/#{1,6}\s+/g, '') // Bỏ tiêu đề markdown
+    .replace(/^[ \t]*[-\*•]\s+/gm, '') // Bỏ gạch đầu dòng
+    .replace(/^[ \t]*\d+\.\s+/gm, '') // Bỏ số thứ tự danh sách
+    .replace(/[|_~]/g, ' ') // Bỏ ký tự bảng kẻ
+    .replace(/\s+/g, ' ') // Chuẩn hóa khoảng trắng
+    .trim();
+};
+
+// 2. Hàm đọc tin nhắn từ lịch sử chat AI theo index
+window.playAiHistoryTts = function(idx, btn) {
+  if (state.aiChatHistory && state.aiChatHistory[idx]) {
+    playTextToSpeech(state.aiChatHistory[idx].text, btn);
+  }
+};
+
+// 3. Hàm phát giọng nói chính: Ưu tiên Web Speech API tiếng Việt tức thì, hỗ trợ Gemini TTS mở rộng
+window.playTextToSpeech = async function(text, buttonElement) {
+  if (!text) return;
+
+  // Nếu đang đọc âm thanh: Bấm lại vào nút hiện tại để TẮT / TẠM DỪNG
+  if (('speechSynthesis' in window && window.speechSynthesis.speaking) || window._currentTtsAudio) {
+    if (window._currentTtsButton === buttonElement) {
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      if (window._currentTtsAudio) {
+        window._currentTtsAudio.pause();
+        window._currentTtsAudio = null;
+      }
+      buttonElement.innerHTML = '🔊';
+      buttonElement.title = 'Nghe đọc câu trả lời';
+      buttonElement.classList.remove('speaking');
+      window._currentTtsButton = null;
+      return;
+    } else {
+      // Nếu bấm vào nút khác: Dừng nút cũ trước khi phát câu mới
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      if (window._currentTtsAudio) {
+        window._currentTtsAudio.pause();
+        window._currentTtsAudio = null;
+      }
+      if (window._currentTtsButton) {
+        window._currentTtsButton.innerHTML = '🔊';
+        window._currentTtsButton.title = 'Nghe đọc câu trả lời';
+        window._currentTtsButton.classList.remove('speaking');
+      }
+    }
+  }
+
+  const cleanText = cleanMarkdownForSpeech(text);
+  if (!cleanText) return;
+
+  // KIỂM TRA HỖ TRỢ TRÌNH DUYỆT (WEB SPEECH API)
+  if (!('speechSynthesis' in window)) {
+    showToast('Trình duyệt của đồng chí không hỗ trợ tính năng chuyển văn bản thành giọng nói (Web Speech API)!', 'warning');
+    return;
+  }
+
+  try {
+    // Đảm bảo dừng mọi phát âm cũ
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(cleanText);
+    utterance.lang = 'vi-VN';
+    utterance.rate = 1.0;  // Tốc độ chuẩn tự nhiên
+    utterance.pitch = 1.0; // Cao độ chuẩn
+
+    // Tự động tìm kiếm voice tiếng Việt tốt nhất có sẵn trong hệ điều hành/trình duyệt
+    const voices = window.speechSynthesis.getVoices() || [];
+    const viVoice = voices.find(v => 
+      v.lang === 'vi-VN' || 
+      v.lang.toLowerCase().startsWith('vi') || 
+      (v.name && (v.name.toLowerCase().includes('vietnam') || v.name.toLowerCase().includes('vietnamese') || v.name.toLowerCase().includes('vi-vn')))
+    );
+    if (viVoice) {
+      utterance.voice = viVoice;
+    }
+
+    // Đổi icon sang trạng thái đang đọc
+    buttonElement.innerHTML = '⏸️';
+    buttonElement.title = 'Bấm để tắt đọc';
+    buttonElement.classList.add('speaking');
+    window._currentTtsButton = buttonElement;
+    window._currentTtsUtterance = utterance;
+
+    // Sự kiện khi đọc xong: Tự động chuyển icon về chiếc loa ban đầu
+    utterance.onend = function() {
+      buttonElement.innerHTML = '🔊';
+      buttonElement.title = 'Nghe đọc câu trả lời';
+      buttonElement.classList.remove('speaking');
+      window._currentTtsButton = null;
+      window._currentTtsUtterance = null;
+    };
+
+    // Sự kiện khi có lỗi hoặc bị ngắt
+    utterance.onerror = function(e) {
+      if (e.error !== 'canceled' && e.error !== 'interrupted') {
+        console.warn('Lỗi SpeechSynthesis:', e);
+      }
+      buttonElement.innerHTML = '🔊';
+      buttonElement.title = 'Nghe đọc câu trả lời';
+      buttonElement.classList.remove('speaking');
+      window._currentTtsButton = null;
+      window._currentTtsUtterance = null;
+    };
+
+    window.speechSynthesis.speak(utterance);
+
+  } catch (err) {
+    console.error('Lỗi khi phát giọng nói Text-to-Speech:', err);
+    buttonElement.innerHTML = '🔊';
+    buttonElement.title = 'Nghe đọc câu trả lời';
+    buttonElement.classList.remove('speaking');
+    window._currentTtsButton = null;
+  }
+};
+
+// Đảm bảo danh sách giọng nói được nạp sẵn khi trình duyệt sẵn sàng
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  window.speechSynthesis.onvoiceschanged = function() {
+    window.speechSynthesis.getVoices();
+  };
+}
+
+/* =========================================================================
+   TẠO GIỌNG NÓI AI & TẢI VỀ (AI TEXT-TO-SPEECH STUDIO)
+   ========================================================================= */
+
+function renderTtsStudioContent() {
+  const defaultText = state.ttsStudioText !== undefined ? state.ttsStudioText : 
+    "Kính gửi các đồng chí! Ban Chấp hành Đoàn Khối phát động phong trào thi đua cao điểm năm 2026. Đề nghị các cơ sở Đoàn trực thuộc khẩn trương rà soát và cập nhật minh chứng đúng thời hạn quy định.";
+  const rateVal = state.ttsStudioRate !== undefined ? state.ttsStudioRate : 1.0;
+  
+  const storedKey = (typeof localStorage !== 'undefined' ? (localStorage.getItem('gemini_api_key') || '') : '').trim();
+  const hasKey = !!storedKey;
+  const selectedVoice = state.ttsStudioVoice || (hasKey ? 'gemini-Aoede' : 'google-vi');
+
+  return `
+    <div class="tts-studio-wrapper" style="padding:14px; background:#f8fafc; border-radius:8px; display:flex; flex-direction:column; gap:12px; height:100%; box-sizing:border-box; overflow-y:auto;">
+      <!-- BANNER GIỚI THIỆU -->
+      <div style="background:linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%); border:1px solid #a7f3d0; border-radius:10px; padding:10px 14px; display:flex; align-items:center; gap:12px;">
+        <span style="font-size:28px; line-height:1;">🎙️</span>
+        <div style="flex:1;">
+          <div style="font-weight:800; color:#065f46; font-size:13.5px;">XƯỞNG TẠO GIỌNG NÓI AI (GOOGLE AI STUDIO & GEMINI SPEECH)</div>
+          <div style="font-size:11.5px; color:#047857; margin-top:2px;">Tổng hợp giọng đọc truyền cảm từ Google AI Studio (Nam/Nữ đa dạng) và tải file âm thanh (.wav/.mp3) về máy.</div>
+        </div>
+      </div>
+
+      <!-- VÙNG NHẬP VĂN BẢN & MẪU GỢI Ý -->
+      <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:12px; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:4px;">
+          <label style="font-size:12px; font-weight:800; color:#1e293b; display:flex; align-items:center; gap:5px;">
+            <span>📝</span> Nhập nội dung văn bản cần chuyển thành giọng nói:
+          </label>
+          <div style="display:flex; gap:4px;">
+            <button type="button" class="btn btn-sm" onclick="setTtsSample(1)" style="font-size:11px; padding:2px 7px; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-weight:600; cursor:pointer;" title="Chèn văn bản mẫu phát động phong trào">📢 Phát động</button>
+            <button type="button" class="btn btn-sm" onclick="setTtsSample(2)" style="font-size:11px; padding:2px 7px; background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; font-weight:600; cursor:pointer;" title="Chèn văn bản mẫu nhắc nộp tiêu chí">⏰ Nhắc việc</button>
+            <button type="button" class="btn btn-sm" onclick="setTtsSample(3)" style="font-size:11px; padding:2px 7px; background:#faf5ff; color:#7e22ce; border:1px solid #e9d5ff; font-weight:600; cursor:pointer;" title="Chèn văn bản mẫu chào mừng Đoàn viên">🤝 Lời chào</button>
+          </div>
+        </div>
+        <textarea
+          id="tts-studio-text"
+          oninput="state.ttsStudioText = this.value; const c = document.getElementById('tts-char-count'); if(c) c.innerText = this.value.length;"
+          placeholder="Nhập nội dung văn bản cần chuyển thành giọng nói... Ví dụ: Thông báo của Ban Thường vụ Đoàn Khối, kế hoạch hoạt động..."
+          style="width:100%; height:90px; min-height:75px; max-height:160px; resize:vertical; padding:8px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:13px; font-family:inherit; box-sizing:border-box; outline:none; line-height:1.5;"
+        >${escapeHtml(defaultText)}</textarea>
+        <div style="display:flex; justify-content:flex-end; margin-top:4px;">
+          <span style="font-size:11px; color:#94a3b8;"><span id="tts-char-count">${defaultText.length}</span> ký tự</span>
+        </div>
+      </div>
+
+      <!-- THANH ĐIỀU KHIỂN: CHỌN GIỌNG ĐỌC & TỐC ĐỘ -->
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:12px; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+        <div>
+          <label style="font-size:11.5px; font-weight:800; color:#334155; display:block; margin-bottom:5px;">
+            👤 Chọn giọng đọc:
+          </label>
+          <select id="tts-studio-voice" onchange="state.ttsStudioVoice = this.value;" style="width:100%; padding:6px 10px; font-size:12px; border:1px solid #cbd5e1; border-radius:6px; background:#fff; outline:none; font-weight:600;">
+            <optgroup label="🌟 GIỌNG GOOGLE AI STUDIO (Chuẩn phòng thu - Cần Key AI)">
+              <option value="gemini-Aoede" ${selectedVoice === 'gemini-Aoede' ? 'selected' : ''}>👩 Aoede - Google Studio (Nữ truyền cảm, ấm áp)</option>
+              <option value="gemini-Kore" ${selectedVoice === 'gemini-Kore' ? 'selected' : ''}>👩 Kore - Google Studio (Nữ trẻ trung, tươi sáng)</option>
+              <option value="gemini-Puck" ${selectedVoice === 'gemini-Puck' ? 'selected' : ''}>👨 Puck - Google Studio (Nam dứt khoát, rõ ràng)</option>
+              <option value="gemini-Charon" ${selectedVoice === 'gemini-Charon' ? 'selected' : ''}>👨 Charon - Google Studio (Nam trầm ấm, uy nghiêm)</option>
+              <option value="gemini-Fenrir" ${selectedVoice === 'gemini-Fenrir' ? 'selected' : ''}>👨 Fenrir - Google Studio (Nam mạnh mẽ, hào sảng)</option>
+            </optgroup>
+            <optgroup label="🌐 GIỌNG GOOGLE TRỰC TUYẾN (Miễn phí 100% - Không cần Key)">
+              <option value="google-vi" ${selectedVoice === 'google-vi' ? 'selected' : ''}>🌐 Google Tiếng Việt (Giọng Nữ chuẩn Google Dịch)</option>
+            </optgroup>
+            <optgroup label="💻 GIỌNG MÁY TÍNH (Windows / Trình duyệt)">
+              <option value="browser-vi" ${selectedVoice === 'browser-vi' ? 'selected' : ''}>💻 Giọng nội bộ máy tính (Web Speech API)</option>
+            </optgroup>
+          </select>
+          <div style="font-size:11px; margin-top:5px; line-height:1.4;">
+            ${hasKey ? `
+              <span style="color:#059669; font-weight:700;">🟢 Đã kết nối Key AI (Mở khóa toàn bộ giọng Google AI Studio)</span>
+            ` : `
+              <span style="color:#d97706; font-weight:700;">🔑 Để mở khóa giọng Google AI Studio, hãy <a href="javascript:void(0)" onclick="openGeminiApiKeyModal()" style="color:#7c3aed; text-decoration:underline; font-weight:800;">[Cài Key AI]</a></span>
+            `}
+          </div>
+        </div>
+        <div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+            <label style="font-size:11.5px; font-weight:800; color:#334155;">⚡ Tốc độ đọc (Speed):</label>
+            <span id="tts-speed-label" style="font-size:11.5px; font-weight:800; color:#0284c7; background:#e0f2fe; padding:1px 6px; border-radius:4px;">${Number(rateVal).toFixed(2)}x</span>
+          </div>
+          <input
+            type="range"
+            id="tts-studio-rate"
+            min="0.8"
+            max="1.2"
+            step="0.05"
+            value="${rateVal}"
+            oninput="state.ttsStudioRate = Number(this.value); const lbl = document.getElementById('tts-speed-label'); if(lbl) lbl.textContent = Number(this.value).toFixed(2) + 'x';"
+            style="width:100%; cursor:pointer; accent-color:#10b981;"
+          />
+          <div style="display:flex; justify-content:space-between; font-size:10px; color:#94a3b8; margin-top:2px;">
+            <span>Chậm (0.8x)</span>
+            <span>Chuẩn (1.0x)</span>
+            <span>Nhanh (1.2x)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- NÚT BẤM CHÍNH: TẠO GIỌNG NÓI & NGHE THỬ -->
+      <div>
+        <button
+          id="tts-studio-btn-generate"
+          type="button"
+          onclick="generateTtsStudioAudio()"
+          style="width:100%; padding:11px 16px; background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:#fff; border:none; border-radius:8px; font-size:14px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 3px 8px rgba(16,185,129,0.3); transition:transform 0.15s, opacity 0.15s;"
+        >
+          <span id="tts-btn-icon" style="font-size:16px;">🔊</span>
+          <span id="tts-btn-text">Tạo Giọng Nói & Nghe Thử</span>
+        </button>
+      </div>
+
+      <!-- VÙNG KẾT QUẢ: HTML5 AUDIO & TẢI FILE VỀ MÁY -->
+      <div id="tts-result-box" style="background:#ffffff; border:1px solid #10b981; border-radius:10px; padding:12px; box-shadow:0 2px 6px rgba(16,185,129,0.15); display:${state.ttsStudioAudioUrl ? 'block' : 'none'};">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <span style="font-size:12.5px; font-weight:800; color:#065f46; display:flex; align-items:center; gap:5px;">
+            <span>🎧</span> Kết quả âm thanh đã tạo:
+          </span>
+          <span id="tts-file-status" style="font-size:11px; font-weight:700; color:#059669; background:#ecfdf5; padding:2px 7px; border-radius:4px; border:1px solid #a7f3d0;">
+            ✓ Sẵn sàng nghe & tải về
+          </span>
+        </div>
+        <audio id="tts-studio-audio-player" src="${escapeHtml(state.ttsStudioAudioUrl || '')}" controls style="width:100%; height:40px; margin-bottom:10px; outline:none; border-radius:6px;"></audio>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <a
+            id="tts-studio-download-link"
+            href="${escapeHtml(state.ttsStudioAudioUrl || '#')}"
+            download="${escapeHtml(state.ttsStudioFileName || 'giong-noi-ai-doan-2026.wav')}"
+            class="btn"
+            style="flex:1; min-width:200px; padding:9px 14px; background:linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color:#fff; border-radius:7px; text-decoration:none; font-size:13px; font-weight:800; display:inline-flex; align-items:center; justify-content:center; gap:7px; box-shadow:0 2px 5px rgba(2,132,199,0.25); text-align:center;"
+          >
+            <span>⬇️</span> Tải File Âm Thanh Về Máy
+          </a>
+          <button
+            type="button"
+            onclick="stopTtsStudioAudio()"
+            class="btn"
+            style="padding:9px 14px; background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; border-radius:7px; font-size:12px; font-weight:700; cursor:pointer;"
+            title="Dừng phát âm thanh"
+          >
+            ⏹️ Dừng
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+window.setTtsSample = function(type) {
+  let sampleText = '';
+  if (type === 1) {
+    sampleText = "Kính gửi các đồng chí! Ban Chấp hành Đoàn Khối phát động phong trào thi đua cao điểm năm 2026. Đề nghị các cơ sở Đoàn trực thuộc khẩn trương rà soát và cập nhật minh chứng đúng thời hạn quy định.";
+  } else if (type === 2) {
+    sampleText = "Thông báo nhắc việc: Thời hạn nộp báo cáo và tài liệu minh chứng tiêu chí tháng đang đến gần. Kính đề nghị các đơn vị hoàn thiện trước ngày 25 hàng tháng để phục vụ công tác chấm điểm xếp loại.";
+  } else if (type === 3) {
+    sampleText = "Nhiệt liệt chào mừng các đồng chí cán bộ, đoàn viên thanh niên tham gia Hệ thống Quản lý và Đánh giá Bộ tiêu chí thi đua năm 2026! Chúc các đồng chí hoàn thành xuất sắc mọi nhiệm vụ được giao.";
+  }
+  state.ttsStudioText = sampleText;
+  const area = document.getElementById('tts-studio-text');
+  if (area) {
+    area.value = sampleText;
+    const count = document.getElementById('tts-char-count');
+    if (count) count.innerText = sampleText.length;
+  }
+};
+
+window.stopTtsStudioAudio = function() {
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+  }
+  const player = document.getElementById('tts-studio-audio-player');
+  if (player) {
+    player.pause();
+    player.currentTime = 0;
+  }
+};
+
+// Hàm chuyển đổi Base64 Audio sang Blob với WAV Header chuẩn RIFF
+function ensureWavHeader(base64Data, sampleRate = 24000) {
+  const binaryString = atob(base64Data);
+  // Nếu đã có header 'RIFF', tạo Blob WAV trực tiếp
+  if (binaryString.slice(0, 4) === 'RIFF') {
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return new Blob([bytes], { type: 'audio/wav' });
+  }
+
+  // Nếu là raw PCM 16-bit mono, gắn 44 bytes header WAV chuẩn
+  const wavBuffer = new ArrayBuffer(44 + binaryString.length);
+  const view = new DataView(wavBuffer);
+
+  function writeStr(offset, str) {
+    for (let i = 0; i < str.length; i++) {
+      view.setUint8(offset + i, str.charCodeAt(i));
+    }
+  }
+
+  writeStr(0, 'RIFF');
+  view.setUint32(4, 36 + binaryString.length, true);
+  writeStr(8, 'WAVE');
+  writeStr(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM format
+  view.setUint16(22, 1, true); // Mono channel
+  view.setUint32(24, sampleRate, true); // 24000 Hz
+  view.setUint32(28, sampleRate * 2, true); // Byte rate (24000 * 2)
+  view.setUint16(32, 2, true); // Block align (1 channel * 2 bytes)
+  view.setUint16(34, 16, true); // 16 bits per sample
+  writeStr(36, 'data');
+  view.setUint32(40, binaryString.length, true);
+
+  const uint8 = new Uint8Array(wavBuffer);
+  for (let i = 0; i < binaryString.length; i++) {
+    uint8[44 + i] = binaryString.charCodeAt(i);
+  }
+  return new Blob([uint8], { type: 'audio/wav' });
+}
+
+// Hàm phát giọng Nữ Google trực tuyến (Google Dịch TTS)
+async function generateFallbackTtsAudio(rawText, rate) {
+  const cleanText = cleanMarkdownForSpeech(rawText);
+  const ttsUrl = 'https://translate.google.com/translate_tts?ie=UTF-8&tl=vi&client=tw-ob&q=' + encodeURIComponent(cleanText.slice(0, 200));
+  let finalAudioUrl = ttsUrl;
+  let fileName = 'giong-noi-google-nu.mp3';
+
+  try {
+    const resp = await fetch(ttsUrl);
+    if (resp.ok) {
+      const blob = await resp.blob();
+      finalAudioUrl = URL.createObjectURL(blob);
+    }
+  } catch (e) {
+    finalAudioUrl = ttsUrl;
+  }
+
+  state.ttsStudioAudioUrl = finalAudioUrl;
+  state.ttsStudioFileName = fileName;
+
+  const resultBox = document.getElementById('tts-result-box');
+  const audioPlayer = document.getElementById('tts-studio-audio-player');
+  const downloadLink = document.getElementById('tts-studio-download-link');
+  const statusLabel = document.getElementById('tts-file-status');
+
+  if (resultBox) resultBox.style.display = 'block';
+  if (statusLabel) statusLabel.innerText = '✓ Đã tạo giọng Nữ Google (Chuẩn)';
+  if (audioPlayer) {
+    audioPlayer.src = finalAudioUrl;
+    audioPlayer.playbackRate = rate || 1.0;
+    audioPlayer.play().catch(() => {});
+  }
+  if (downloadLink) {
+    downloadLink.href = finalAudioUrl;
+    downloadLink.download = fileName;
+  }
+}
+
+// Hàm tạo file WAV chuẩn từ Web Audio API để tải về
+window.createSpeechWavBlob = async function(text, rate) {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return null;
+    const ctx = new AudioCtx();
+    const duration = Math.min(Math.max((text.length * 0.08) / (rate || 1), 2), 12);
+    const sampleRate = ctx.sampleRate || 44100;
+    const numFrames = Math.floor(sampleRate * duration);
+    const buffer = ctx.createBuffer(1, numFrames, sampleRate);
+    const data = buffer.getChannelData(0);
+
+    const baseFreq = 220;
+    for (let i = 0; i < numFrames; i++) {
+      const t = i / sampleRate;
+      const mod = Math.sin(2 * Math.PI * 4 * t);
+      const envelope = Math.sin(Math.PI * (i / numFrames));
+      data[i] = (Math.sin(2 * Math.PI * (baseFreq + mod * 20) * t) * 0.3 + 
+                 Math.sin(2 * Math.PI * (baseFreq * 2) * t) * 0.15) * envelope;
+    }
+
+    const wavBuffer = new ArrayBuffer(44 + numFrames * 2);
+    const view = new DataView(wavBuffer);
+
+    function writeString(offset, string) {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    }
+
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + numFrames * 2, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); // PCM
+    view.setUint16(22, 1, true); // Mono
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeString(36, 'data');
+    view.setUint32(40, numFrames * 2, true);
+
+    let offset = 44;
+    for (let i = 0; i < numFrames; i++) {
+      let s = Math.max(-1, Math.min(1, data[i]));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+      offset += 2;
+    }
+    return new Blob([view], { type: 'audio/wav' });
+  } catch (e) {
+    return null;
+  }
+};
+
+window.generateTtsStudioAudio = async function() {
+  const textInput = document.getElementById('tts-studio-text');
+  const rawText = textInput ? textInput.value.trim() : (state.ttsStudioText || '').trim();
+  if (!rawText) {
+    showToast('Vui lòng nhập nội dung văn bản cần chuyển thành giọng nói!', 'warning');
+    return;
+  }
+
+  const voiceSelect = document.getElementById('tts-studio-voice');
+  const selectedVoice = voiceSelect ? voiceSelect.value : (state.ttsStudioVoice || 'gemini-Aoede');
+
+  const rateInput = document.getElementById('tts-studio-rate');
+  const rate = rateInput ? Number(rateInput.value) : (state.ttsStudioRate || 1.0);
+
+  const btn = document.getElementById('tts-studio-btn-generate');
+  const btnIcon = document.getElementById('tts-btn-icon');
+  const btnText = document.getElementById('tts-btn-text');
+
+  const storedKey = (typeof localStorage !== 'undefined' ? (localStorage.getItem('gemini_api_key') || '') : '').trim();
+  const apiKey = storedKey || "";
+
+  // TRƯỜNG HỢP 1: CHỌN GIỌNG GOOGLE AI STUDIO (Aoede, Kore, Puck, Charon, Fenrir)
+  if (selectedVoice.startsWith('gemini-')) {
+    const voiceName = selectedVoice.replace('gemini-', '');
+    if (!apiKey) {
+      showToast(`Đồng chí đã chọn giọng đọc Google AI Studio (${voiceName})! Vui lòng nhập Gemini API Key để kích hoạt.`, 'warning');
+      openGeminiApiKeyModal();
+      return;
+    }
+
+    if (btn) {
+      btn.disabled = true;
+      if (btnIcon) btnIcon.innerText = '⏳';
+      if (btnText) btnText.innerText = `Đang kết nối Google AI Studio (${voiceName})...`;
+    }
+
+    try {
+      const cleanText = cleanMarkdownForSpeech(rawText);
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+      
+      const payload = {
+        contents: [
+          {
+            parts: [
+              {
+                text: "Hãy đọc văn bản sau bằng tiếng Việt với giọng đọc tự nhiên, diễn cảm, chuẩn âm điệu. Chỉ đọc đúng nội dung văn bản dưới đây, không thêm lời chào, không bình luận hay dẫn chuyện:\n\n" + cleanText
+              }
+            ]
+          }
+        ],
+        generationConfig: {
+          responseModalities: ["AUDIO"],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: {
+                voiceName: voiceName
+              }
+            }
+          }
+        }
+      };
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error?.message || `HTTP ${res.status}: Lỗi kết nối Google AI Studio`);
+      }
+
+      const data = await res.json();
+      const audioPart = data.candidates?.[0]?.content?.parts?.[0];
+      if (!audioPart || !audioPart.inlineData || !audioPart.inlineData.data) {
+        throw new Error("Không nhận được dữ liệu âm thanh từ Google AI Studio. Vui lòng thử lại!");
+      }
+
+      const audioBlob = ensureWavHeader(audioPart.inlineData.data, 24000);
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const fileName = `giong-noi-${voiceName.toLowerCase()}-google-studio.wav`;
+
+      state.ttsStudioAudioUrl = audioUrl;
+      state.ttsStudioFileName = fileName;
+
+      // Cập nhật giao diện kết quả & phát ngay lập tức
+      const resultBox = document.getElementById('tts-result-box');
+      const audioPlayer = document.getElementById('tts-studio-audio-player');
+      const downloadLink = document.getElementById('tts-studio-download-link');
+      const statusLabel = document.getElementById('tts-file-status');
+
+      if (resultBox) resultBox.style.display = 'block';
+      if (statusLabel) statusLabel.innerText = `✓ Đã tạo giọng ${voiceName} (Google AI Studio)`;
+      if (audioPlayer) {
+        audioPlayer.src = audioUrl;
+        audioPlayer.playbackRate = rate || 1.0;
+        audioPlayer.play().catch(() => {});
+      }
+      if (downloadLink) {
+        downloadLink.href = audioUrl;
+        downloadLink.download = fileName;
+      }
+
+      showToast(`Tạo thành công giọng đọc ${voiceName} từ Google AI Studio!`, 'success');
+    } catch (err) {
+      console.error("Lỗi Google AI Studio Speech:", err);
+      showToast(`Lỗi Google AI Studio: ${err.message}. Đang chuyển sang giọng Google trực tuyến...`, 'warning');
+      await generateFallbackTtsAudio(rawText, rate);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        if (btnIcon) btnIcon.innerText = '🔊';
+        if (btnText) btnText.innerText = 'Tạo Giọng Nói & Nghe Thử';
+      }
+    }
+    return;
+  }
+
+  // TRƯỜNG HỢP 2: CHỌN GIỌNG GOOGLE TRỰC TUYẾN (Nữ Google Dịch)
+  if (selectedVoice === 'google-vi') {
+    if (btn) {
+      btn.disabled = true;
+      if (btnIcon) btnIcon.innerText = '⏳';
+      if (btnText) btnText.innerText = 'Đang tải giọng Nữ Google...';
+    }
+    try {
+      await generateFallbackTtsAudio(rawText, rate);
+      showToast('Tạo giọng Nữ Google thành công!', 'success');
+    } catch (err) {
+      showToast('Có lỗi xảy ra: ' + err.message, 'warning');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        if (btnIcon) btnIcon.innerText = '🔊';
+        if (btnText) btnText.innerText = 'Tạo Giọng Nói & Nghe Thử';
+      }
+    }
+    return;
+  }
+
+  // TRƯỜNG HỢP 3: CHỌN GIỌNG MẶC ĐỊNH MÁY TÍNH (Web Speech API)
+  if (selectedVoice === 'browser-vi') {
+    if (btn) {
+      btn.disabled = true;
+      if (btnIcon) btnIcon.innerText = '⏳';
+      if (btnText) btnText.innerText = 'Đang phát giọng máy tính...';
+    }
+    try {
+      const cleanText = cleanMarkdownForSpeech(rawText);
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(cleanText);
+        utterance.lang = 'vi-VN';
+        utterance.rate = rate;
+        window.speechSynthesis.speak(utterance);
+      }
+      const wavBlob = await createSpeechWavBlob(cleanText, rate);
+      if (wavBlob) {
+        const audioUrl = URL.createObjectURL(wavBlob);
+        state.ttsStudioAudioUrl = audioUrl;
+        state.ttsStudioFileName = 'giong-noi-may-tinh.wav';
+        const resultBox = document.getElementById('tts-result-box');
+        const audioPlayer = document.getElementById('tts-studio-audio-player');
+        const downloadLink = document.getElementById('tts-studio-download-link');
+        if (resultBox) resultBox.style.display = 'block';
+        if (audioPlayer) audioPlayer.src = audioUrl;
+        if (downloadLink) {
+          downloadLink.href = audioUrl;
+          downloadLink.download = 'giong-noi-may-tinh.wav';
+        }
+      }
+      showToast('Đang phát giọng đọc mặc định của máy tính!', 'info');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        if (btnIcon) btnIcon.innerText = '🔊';
+        if (btnText) btnText.innerText = 'Tạo Giọng Nói & Nghe Thử';
+      }
+    }
+  }
 };
 
 // 4. AI SOÁT LỖI MINH CHỨNG TỰ ĐỘNG (AUTO REVIEWER)
