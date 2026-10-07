@@ -1329,13 +1329,13 @@ textarea:focus {
 }
 
 .notification-dropdown {
-  position: fixed;
-  top: 65px;
-  right: 18px;
-  left: auto;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: auto;
   width: 480px;
-  max-width: calc(100vw - 28px);
-  max-height: calc(100vh - 85px);
+  max-width: min(480px, calc(100vw - 28px));
+  max-height: calc(100vh - 120px);
   background: #ffffff;
   border-radius: 12px;
   box-shadow: 0 16px 45px rgba(0, 0, 0, 0.35);
@@ -1351,6 +1351,7 @@ textarea:focus {
 
 @media (max-width: 600px) {
   .notification-dropdown {
+    position: fixed;
     top: 60px;
     right: 8px;
     left: 8px;
@@ -3104,6 +3105,7 @@ window.switchAccountQuick = function (val) {
       role: 'admin',
     };
     state.isAdminSession = true;
+    state.chatPrivateUnitId = 0;
     localStorage.setItem('doan2026_admin_authenticated', '1');
     localStorage.setItem('doan2026_user', JSON.stringify(state.user));
     state.activeTab = 'master';
@@ -3115,6 +3117,7 @@ window.switchAccountQuick = function (val) {
   const u = state.units.find((x) => String(x.id) === String(val));
   if (u) {
     state.user = u;
+    state.chatPrivateUnitId = u.id;
     localStorage.setItem('doan2026_user', JSON.stringify(u));
     state.activeTab = 'unit_submit';
     showToast(`Đang xem dưới góc nhìn của: <b>${escapeHtml(u.unit_name)}</b>`, 'info');
@@ -8877,7 +8880,50 @@ window.openNotificationDetail = async function(notifId) {
   }
 };
 
-// RENDER DROPDOWN THÔNG BÁO CHUÔNG (RÕ NÉT, TO ĐẸP, CÓ NÚT ĐÓNG & BADGE CHƯA ĐỌC)
+// XÓA TOÀN BỘ DANH SÁCH THÔNG BÁO (KÈM HỘP THOẠI XÁC NHẬN)
+window.clearAllNotifications = async function() {
+  const notifs = state.notifications || [];
+  if (notifs.length === 0) {
+    showToast('Danh sách thông báo hiện đang trống!', 'info');
+    return;
+  }
+  const ok = confirm('Bạn có chắc chắn muốn XÓA TẤT CẢ các thông báo hệ thống không?\n\n- Thao tác này sẽ dọn sạch toàn bộ thông báo đang có.\n- Bấm "OK" (Đồng ý) để xóa tất cả, hoặc "Cancel" (Hủy) để giữ lại.');
+  if (!ok) return;
+
+  showToast('Đang xóa toàn bộ thông báo...', 'info');
+  const res = await mutateCloudDB(db => {
+    db.notifications = [];
+  }, 'Clear all notifications');
+
+  if (res.ok) {
+    state.notifications = [];
+    showToast('🎉 Đã xóa sạch tất cả thông báo thành công!', 'success');
+    renderApp();
+  } else {
+    showToast('Lỗi khi xóa thông báo trên máy chủ!', 'error');
+  }
+};
+
+// XÓA TỪNG THÔNG BÁO RIÊNG LẺ (KÈM HỘP THOẠI XÁC NHẬN)
+window.deleteSingleNotification = async function(notifId) {
+  const ok = confirm('Bạn có chắc chắn muốn xóa thông báo này không?\n\n- Bấm "OK" để xóa hoặc "Cancel" để không xóa.');
+  if (!ok) return;
+
+  showToast('Đang xóa thông báo...', 'info');
+  const res = await mutateCloudDB(db => {
+    db.notifications = (db.notifications || []).filter(n => String(n.id) !== String(notifId));
+  }, `Delete notification ${notifId}`);
+
+  if (res.ok) {
+    state.notifications = (state.notifications || []).filter(n => String(n.id) !== String(notifId));
+    showToast('Đã xóa thông báo!', 'success');
+    renderApp();
+  } else {
+    showToast('Lỗi khi xóa thông báo trên máy chủ!', 'error');
+  }
+};
+
+// RENDER DROPDOWN THÔNG BÁO CHUÔNG (NGAY DƯỚI NÚT THÔNG BÁO, RÕ NÉT, CÓ NÚT XÓA TẤT CẢ)
 function renderNotificationDropdown() {
   const isAdminUser = state.user && state.user.role === 'admin';
   const notifs = state.notifications || [];
@@ -8892,10 +8938,15 @@ function renderNotificationDropdown() {
           <span style="font-weight:800; font-size:14px; letter-spacing:0.3px;">THÔNG BÁO HỆ THỐNG</span>
           ${unreadCount > 0 ? `<span class="badge" style="background:#ef4444; color:#fff; font-size:11px; font-weight:800; padding:2px 7px;">${unreadCount} chưa đọc</span>` : ''}
         </div>
-        <div style="display:flex; align-items:center; gap:8px;">
+        <div style="display:flex; align-items:center; gap:6px;">
           ${unreadCount > 0 ? `
-            <button type="button" onclick="markAllNotificationsRead()" style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.4); color:#fff; font-size:11.5px; font-weight:700; cursor:pointer; padding:3px 8px; border-radius:4px;">
-              ✓✓ Đã đọc tất cả
+            <button type="button" onclick="markAllNotificationsRead()" style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.4); color:#fff; font-size:11px; font-weight:700; cursor:pointer; padding:3px 7px; border-radius:4px;" title="Đánh dấu tất cả thông báo là đã đọc">
+              ✓✓ Đã đọc
+            </button>
+          ` : ''}
+          ${notifs.length > 0 ? `
+            <button type="button" onclick="clearAllNotifications()" style="background:rgba(239,68,68,0.3); border:1px solid #fca5a5; color:#fff; font-size:11px; font-weight:700; cursor:pointer; padding:3px 7px; border-radius:4px; display:inline-flex; align-items:center; gap:3px;" title="Xóa tất cả thông báo trong danh sách (kèm xác nhận)">
+              🗑️ Xóa tất cả
             </button>
           ` : ''}
           <button type="button" onclick="state.notificationsOpen = false; renderApp();" style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:26px; height:26px; border-radius:50%; font-size:14px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center;" title="Đóng bảng thông báo">✕</button>
@@ -8914,12 +8965,17 @@ function renderNotificationDropdown() {
           const repType = foundCrit ? Number(foundCrit.is_report) : 0;
           return `
             <div class="notification-item ${isUnread ? 'unread' : ''}" onclick="openNotificationDetail('${n.id}')" style="padding:14px 18px;">
-              <div class="notification-title">
-                <span style="color:#003d99; font-weight:800; font-size:14px; display:flex; align-items:center; gap:5px;">
+              <div class="notification-title" style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                <span style="color:#003d99; font-weight:800; font-size:13.5px; display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
                   🏢 ${escapeHtml(n.unit_name || 'Đơn vị')}
                   ${isUnread ? '<span class="badge" style="background:#ef4444; color:#fff; font-size:10px; font-weight:800; padding:1px 5px; margin-left:4px;">Mới</span>' : ''}
                 </span>
-                <span class="notification-time">🕒 ${escapeHtml(n.submitted_at ? formatDateVN(n.submitted_at.substring(0, 10)) + ' ' + (n.submitted_at.substring(11, 16) || '') : '')}</span>
+                <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+                  <span class="notification-time" style="font-size:11px; color:#64748b;">🕒 ${escapeHtml(n.submitted_at ? formatDateVN(n.submitted_at.substring(0, 10)) + ' ' + (n.submitted_at.substring(11, 16) || '') : '')}</span>
+                  <button type="button" onclick="event.stopPropagation(); deleteSingleNotification('${n.id}')" title="Xóa thông báo này" style="background:#fee2e2; border:1px solid #fca5a5; color:#b91c1c; font-size:10.5px; font-weight:700; cursor:pointer; padding:1px 5px; border-radius:4px;">
+                    🗑️
+                  </button>
+                </div>
               </div>
               <div class="notification-desc" style="font-size:13px; line-height:1.5; margin-top:4px;">
                 ${n.is_admin_approval
@@ -9198,19 +9254,51 @@ window.switchPrivateChatUnit = function(unitId) {
 window.clearPublicChatHistory = async function() {
   const isAdmin = state.user && state.user.role === 'admin';
   if (!isAdmin) return;
-  if (!confirm('Bạn có chắc chắn muốn XÓA TOÀN BỘ lịch sử chat nhóm chung để làm sạch nội dung và bắt đầu lại từ đầu không?')) return;
+  const ok = confirm('Bạn có chắc chắn muốn XÓA TOÀN BỘ lịch sử chat nhóm chung để làm sạch nội dung và bắt đầu lại từ đầu không?\n\n- Bấm "OK" (Đồng ý) để xóa, hoặc "Cancel" (Hủy) để giữ lại.');
+  if (!ok) return;
 
   showToast('Đang làm sạch lịch sử chat nhóm chung...', 'info');
   const res = await mutateCloudDB(db => {
-    db.chat_messages = (db.chat_messages || []).filter(m => m.room && m.room !== 'public');
+    db.chat_messages = (db.chat_messages || []).filter(m => (m.room || 'public') !== 'public');
   }, 'Admin cleared public chat history');
 
   if (res.ok) {
-    state.chatMessages = (state.chatMessages || []).filter(m => m.room && m.room !== 'public');
+    state.chatMessages = (state.chatMessages || []).filter(m => (m.room || 'public') !== 'public');
     showToast('🎉 Đã làm sạch toàn bộ tin nhắn chat nhóm chung!', 'success');
     renderApp();
   } else {
     showToast('Lỗi khi xóa lịch sử chat!', 'error');
+  }
+};
+
+// XÓA LỊCH SỬ CHAT RIÊNG TƯ (DÀNH CHO ADMIN VÀ ĐƠN VỊ ĐÓ) (Ảnh 1)
+window.clearPrivateChatHistory = async function() {
+  const roomKey = getChatRoomKey();
+  if (!roomKey.startsWith('private_')) return;
+
+  const isAdmin = state.user && state.user.role === 'admin';
+  const targetUnitId = isAdmin ? (Number(state.chatPrivateUnitId) || 0) : (state.user ? Number(state.user.id) : 0);
+  if (!targetUnitId) {
+    showToast('Vui lòng chọn cơ sở Đoàn cần xóa lịch sử trao đổi!', 'warning');
+    return;
+  }
+  const targetUnit = (state.units || []).find(u => u.id === targetUnitId);
+  const targetName = targetUnit ? targetUnit.unit_name : (state.user ? state.user.unit_name : 'đơn vị này');
+
+  const ok = confirm(`Bạn có chắc chắn muốn XÓA LỊCH SỬ CHAT RIÊNG với ${isAdmin ? `"${targetName}"` : 'Ban Thường Vụ Tỉnh Đoàn (Admin)'} để bắt đầu lại từ đầu không?\n\n- Đơn vị trao đổi: ${targetName}\n- Thao tác này chỉ xóa nội dung trao đổi riêng trong phòng này.\n- Không ảnh hưởng đến các đơn vị khác hay chat chung toàn khối.\n- Bấm "OK" (Đồng ý) để xóa, hoặc "Cancel" (Hủy) để giữ lại.`);
+  if (!ok) return;
+
+  showToast('Đang làm sạch lịch sử trao đổi riêng...', 'info');
+  const res = await mutateCloudDB(db => {
+    db.chat_messages = (db.chat_messages || []).filter(m => (m.room || 'public') !== roomKey);
+  }, `Cleared private chat for ${roomKey}`);
+
+  if (res.ok) {
+    state.chatMessages = (state.chatMessages || []).filter(m => (m.room || 'public') !== roomKey);
+    showToast('🎉 Đã làm mới lịch sử chat riêng thành công!', 'success');
+    renderApp();
+  } else {
+    showToast('Lỗi khi xóa lịch sử chat riêng!', 'error');
   }
 };
 
@@ -9289,13 +9377,18 @@ window.onChatFilePicked = async function(input) {
       }
     }
 
+    if (!fileUrl) {
+      fileUrl = b64;
+      downloadUrl = b64;
+    }
+
     updateUploadProgress({
       percent: 100,
       fileName: file.name,
       fileIndex: 'Tệp chat',
       loaded: file.size,
       total: file.size,
-      statusText: 'Đã lưu trữ thành công trên Google Drive!',
+      statusText: 'Đã lưu trữ thành công!',
       isDone: true
     });
     await new Promise(r => setTimeout(r, 200));
@@ -9335,8 +9428,8 @@ window.onChatFilePicked = async function(input) {
     await mutateCloudDB(db => {
       db.chat_messages = db.chat_messages || [];
       db.chat_messages.push(newMsg);
-      if (db.chat_messages.length > 500) {
-        db.chat_messages = db.chat_messages.slice(-500);
+      if (db.chat_messages.length > 2000) {
+        db.chat_messages = db.chat_messages.slice(-2000);
       }
     }, `Chat file from ${myName}`);
 
@@ -9392,8 +9485,8 @@ window.sendChatMessage = async function() {
   const res = await mutateCloudDB(db => {
     db.chat_messages = db.chat_messages || [];
     db.chat_messages.push(newMsg);
-    if (db.chat_messages.length > 500) {
-      db.chat_messages = db.chat_messages.slice(-500);
+    if (db.chat_messages.length > 2000) {
+      db.chat_messages = db.chat_messages.slice(-2000);
     }
   }, `Chat message in ${roomKey} from ${senderName}`);
 
@@ -9441,7 +9534,17 @@ function renderFloatingChatWidget() {
   const roomKey = getChatRoomKey();
   let currentMessages = (state.chatMessages || []).filter(m => {
     const r = m.room || 'public';
-    return r === roomKey;
+    if (r !== roomKey) return false;
+    // Kiểm tra an toàn bảo mật phòng riêng
+    if (r.startsWith('private_')) {
+      const targetUnitId = parseInt(r.replace('private_', ''), 10);
+      if (isAdmin) {
+        return (Number(state.chatPrivateUnitId) || 0) === targetUnitId;
+      } else {
+        return state.user && state.user.id === targetUnitId;
+      }
+    }
+    return true;
   });
 
   const selectedPrivateUnit = (state.units || []).find(u => u.id === state.chatPrivateUnitId);
@@ -9489,13 +9592,20 @@ function renderFloatingChatWidget() {
           </button>
         </div>
 
-        <!-- NẾU LÀ TAB CHAT RIÊNG: HIỂN THỊ CHỌN ĐƠN VỊ DÀNH CHO ADMIN -->
+        <!-- NẾU LÀ TAB CHAT RIÊNG: HIỂN THỊ CHỌN ĐƠN VỊ DÀNH CHO ADMIN HOẶC KHUNG TRAO ĐỔI CHO ĐƠN VỊ -->
         ${state.chatTab === 'private' ? (
           isAdmin ? `
             <div class="chat-private-unit-bar">
-              <label style="font-size:11.5px; font-weight:700; color:#334155; display:block; margin-bottom:4px;">
-                Chọn cơ sở Đoàn để trao đổi riêng tư (40 đơn vị):
-              </label>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                <label style="font-size:11.5px; font-weight:700; color:#334155;">
+                  Chọn cơ sở Đoàn để trao đổi riêng tư (40 đơn vị):
+                </label>
+                ${(state.chatPrivateUnitId && state.chatPrivateUnitId > 0) ? `
+                  <button class="btn btn-sm" onclick="clearPrivateChatHistory()" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-size:10.5px; font-weight:700; padding:2px 7px; cursor:pointer;" title="Xóa làm mới phòng chat riêng với đơn vị này">
+                    🗑️ Xóa làm mới
+                  </button>
+                ` : ''}
+              </div>
               <select class="chat-unit-select" onchange="switchPrivateChatUnit(this.value)">
                 <option value="0">-- Bấm để chọn cơ sở Đoàn cần chat riêng --</option>
                 ${(state.units || []).map(u => {
@@ -9507,11 +9617,23 @@ function renderFloatingChatWidget() {
                   `;
                 }).join('')}
               </select>
+              ${(state.chatPrivateUnitId && state.chatPrivateUnitId > 0) ? `
+                <div style="font-size:11.5px; color:#0284c7; font-weight:700; margin-top:5px; display:flex; align-items:center; gap:5px;">
+                  <span>🔒</span>
+                  <span>Đang kết nối riêng với: <b>${escapeHtml((state.units.find(u => u.id === state.chatPrivateUnitId) || {}).unit_name || '')}</b> (các cơ sở khác không thấy)</span>
+                </div>
+              ` : ''}
             </div>
           ` : `
-            <div style="background:#eff6ff; padding:8px 12px; font-size:12px; color:#1e40af; font-weight:700; border-bottom:1px solid #bfdbfe; display:flex; align-items:center; gap:6px;">
-              <span>🔒</span>
-              <span>Cuộc trao đổi riêng tư giữa cơ sở bạn và Ban Thường Vụ Tỉnh Đoàn. Các đơn vị khác tuyệt đối không nhìn thấy.</span>
+            <div class="chat-private-unit-bar" style="background:#f0f9ff; border-left:4px solid #0284c7; padding:9px 12px; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+              <div>
+                <div style="font-size:11px; color:#0369a1; font-weight:800; text-transform:uppercase; letter-spacing:0.3px;">Phòng Trao Đổi Riêng Tư (1 - 1)</div>
+                <div style="font-size:13px; font-weight:800; color:#0c4a6e; margin-top:2px;">🔒 Trò chuyện với: Ban Thường Vụ Tỉnh Đoàn (Admin)</div>
+                <div style="font-size:11px; color:#64748b; margin-top:2px;">Bảo mật tuyệt đối — Chỉ Ban Thường Vụ Tỉnh Đoàn và đơn vị bạn thấy nội dung này.</div>
+              </div>
+              <button class="btn btn-sm" onclick="clearPrivateChatHistory()" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-size:11px; font-weight:700; padding:4px 8px; flex-shrink:0; cursor:pointer;" title="Xóa toàn bộ nội dung phòng chat riêng này để bắt đầu lại">
+                🗑️ Xóa làm mới
+              </button>
             </div>
           `
         ) : ''}
