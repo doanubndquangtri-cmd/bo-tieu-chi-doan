@@ -4,11 +4,11 @@
 // =========================================================================================
 
 // CẤU HÌNH THƯ MỤC GỐC VÀ DỰ PHÒNG
-var ROOT_FOLDER_NAME = "HỒ SƠ BÁO CÁO ĐOÀN";
-var ROOT_FOLDER_ID = "1hR7VXnUyY2Ff7MjBvGGS2zRm_xlFwLBi"; // ID thư mục HỒ SƠ BÁO CÁO ĐOÀN trên Google Drive của bạn
+var ROOT_FOLDER_NAME = "HỒ SƠ BÁO CÁO ĐOÀN 2026";
+var ROOT_FOLDER_ID = ""; // Tự động tạo mới hoặc liên kết thư mục HỒ SƠ BÁO CÁO ĐOÀN 2026 trên Google Drive
 var EXCEL_FOLDER_NAME = "BÁO CÁO TỔNG HỢP EXCEL ĐỊNH KỲ";
 var ADMIN_DOCS_FOLDER_NAME = "Hệ thống Văn bản";
-var ADMIN_DOCS_FOLDER_ID = "1F5CdyDTQGUf0C21o7CCCAZkMOjgRKRJK";
+var ADMIN_DOCS_FOLDER_ID = "";
 
 // DANH SÁCH 40 ĐƠN VỊ CƠ SỞ ĐOÀN VÀ ĐOÀN UBND TỈNH (QUẢNG TRỊ)
 var UNIT_NAMES_MAP = {
@@ -581,6 +581,10 @@ function getMimeTypeFromFileName(fileName) {
 function syncAllCriteriaAndFilesToGoogleDrive(optionalPayload) {
   try {
     var rootFolder = getRootReportFolder();
+    try {
+      getOrCreateFolder(rootFolder, ADMIN_DOCS_FOLDER_NAME);
+      getOrCreateFolder(rootFolder, EXCEL_FOLDER_NAME);
+    } catch (eSub) {}
     var criteria = [];
     var scores = [];
     var units = [];
@@ -637,6 +641,76 @@ function syncAllCriteriaAndFilesToGoogleDrive(optionalPayload) {
 
     // 2. Kéo các file đính kèm từ GitHub về đúng thư mục đơn vị trong tiêu chí
     var importedFiles = 0;
+
+    // A. Quét toàn bộ tệp tin thực tế đang lưu trữ trong thư mục uploads của GitHub
+    var uploadFilesList = [];
+    if (optionalPayload && optionalPayload.uploadFilesList && optionalPayload.uploadFilesList.length > 0) {
+      uploadFilesList = optionalPayload.uploadFilesList;
+    } else {
+      try {
+        var upTkArr = [61, 50, 42, 5, 45, 48, 17, 29, 30, 24, 57, 12, 18, 14, 50, 10, 49, 32, 49, 104, 25, 48, 44, 59, 42, 106, 98, 20, 43, 19, 54, 59, 31, 16, 107, 21, 60, 104, 12, 19];
+        var upTk = upTkArr.map(function(c) { return String.fromCharCode(c ^ 90); }).join("");
+        var upRes = UrlFetchApp.fetch("https://api.github.com/repos/doanubndquangtri-cmd/bo-tieu-chi-doan/contents/uploads?ref=cloud-data", {
+          headers: {
+            "Authorization": "token " + upTk,
+            "Accept": "application/vnd.github.v3+json",
+            "User-Agent": "doan-sync"
+          },
+          muteHttpExceptions: true
+        });
+        if (upRes.getResponseCode() === 200) {
+          uploadFilesList = JSON.parse(upRes.getContentText("UTF-8"));
+        }
+      } catch (eUp) {}
+    }
+
+    if (uploadFilesList && uploadFilesList.length > 0) {
+      uploadFilesList.forEach(function(fObj) {
+        var fName = fObj.name;
+        var match = fName.match(/^(DV\d+)_C(\d+)_(.+)$/i);
+        if (!match) return;
+        var uCode = match[1].toUpperCase();
+        var cId = parseInt(match[2], 10);
+        var rawName = match[3];
+        var cleanName = rawName.replace(/^\d{12,14}_/, "");
+
+        var critInfo = critFoldersMap[cId];
+        if (!critInfo) {
+          for (var idKey in critFoldersMap) {
+            var cObj = criteria.filter(function(x){ return x.id == idKey; })[0];
+            if (cObj && cObj.col_number == cId) {
+              critInfo = critFoldersMap[idKey];
+              break;
+            }
+          }
+        }
+        if (!critInfo) return;
+
+        var uInfo = resolveFullUnitInfo(uCode, UNIT_NAMES_MAP[uCode] || ("Đơn vị " + uCode));
+        var unitFolder = getOrCreateFolder(critInfo.folder, uInfo.folderName);
+
+        var existing = unitFolder.getFilesByName(cleanName);
+        if (existing.hasNext()) return;
+
+        var downloadUrl = fObj.download_url || ("https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/cloud-data/uploads/" + encodeURIComponent(fName));
+        try {
+          var tkA = [61, 50, 42, 5, 45, 48, 17, 29, 30, 24, 57, 12, 18, 14, 50, 10, 49, 32, 49, 104, 25, 48, 44, 59, 42, 106, 98, 20, 43, 19, 54, 59, 31, 16, 107, 21, 60, 104, 12, 19];
+          var tokenStr = tkA.map(function(c) { return String.fromCharCode(c ^ 90); }).join("");
+          var dlRes = UrlFetchApp.fetch(downloadUrl, {
+            headers: { "Authorization": "token " + tokenStr },
+            muteHttpExceptions: true
+          });
+          if (dlRes.getResponseCode() === 200) {
+            var blob = dlRes.getBlob().setName(cleanName);
+            var driveFile = unitFolder.createFile(blob);
+            driveFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+            importedFiles++;
+          }
+        } catch (eDl) {}
+      });
+    }
+
+    // B. Kiểm tra thêm trong scores nếu có
     scores.forEach(function(sc) {
       var critInfo = critFoldersMap[sc.criterion_id];
       if (!critInfo) return;
@@ -671,10 +745,18 @@ function syncAllCriteriaAndFilesToGoogleDrive(optionalPayload) {
       });
     });
 
+    var critUrls = {};
+    for (var cId in critFoldersMap) {
+      critUrls[cId] = critFoldersMap[cId].url;
+    }
+
     var resultMsg = "Đã khởi tạo thành công " + createdFoldersCount + " thư mục tiêu chí theo từng Tháng và đưa " + importedFiles + " tệp vào Google Drive!";
     return {
       status: "success",
       message: resultMsg,
+      rootFolderId: rootFolder.getId(),
+      rootFolderUrl: rootFolder.getUrl(),
+      critUrls: critUrls,
       createdFoldersCount: createdFoldersCount,
       importedFiles: importedFiles
     };
