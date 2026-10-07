@@ -1053,6 +1053,9 @@ function renderApp() {
     ${renderFloatingChatWidget()}
   `;
   requestAnimationFrame(updateMasterHeaderTops);
+  if (state.chatOpen) {
+    setTimeout(window.initChatDrag, 30);
+  }
 }
 
 function renderLoginView() {
@@ -1416,6 +1419,15 @@ function renderHeader() {
 
         <button class="btn btn-sm" onclick="showPWAInstallGuide()" title="Cài đặt ứng dụng vào điện thoại" style="background: rgba(255,255,255,0.2); color:#fff; border: 1px solid rgba(255,255,255,0.4); font-size: 11.5px; padding: 5px 10px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px;">
           📲 Cài App
+        </button>
+
+        <button class="btn btn-sm" onclick="toggleChatWidget()" title="Bấm để mở ô Trao Đổi Đoàn giữa các đơn vị và Ban Thường vụ Tỉnh" style="background: linear-gradient(135deg, #0284c7 0%, #0052cc 100%); color: #fff; border: 1px solid rgba(255,255,255,0.4); font-size: 11.5px; padding: 5px 11px; font-weight: 700; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); cursor: pointer; border-radius: 6px;">
+          <span>💬</span>
+          <span>Trao Đổi Đoàn</span>
+          ${(() => {
+            const unread = getTotalUnreadChatCount();
+            return unread > 0 ? `<span style="background:#ef4444; color:#fff; font-size:10px; font-weight:800; padding:1px 6px; border-radius:10px; margin-left:3px; box-shadow:0 1px 3px rgba(0,0,0,0.3);">${unread > 99 ? '99+' : unread}</span>` : '';
+          })()}
         </button>
 
         <button class="btn btn-outline btn-sm" onclick="handleLogout()" style="background: rgba(255,255,255,0.15); color: #fff; border-color: rgba(255,255,255,0.3);">
@@ -7532,6 +7544,28 @@ window.onChatKeydown = function(e) {
 };
 
 // MODAL TÙY CHỌN XÓA LỊCH SỬ CHAT: "XÓA PHÍA TÔI" HOẶC "XÓA TOÀN BỘ MÁY CHỦ" (Ảnh 1 & 2)
+
+// HELPER TRÍCH XUẤT VÀ HIỂN THỊ TRỰC TIẾP ẢNH TỪ GOOGLE DRIVE HOẶC DATA URL (Ảnh 2 & 3)
+window.extractDriveId = function(url) {
+  if (!url) return '';
+  const dMatch = String(url).match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (dMatch && dMatch[1]) return dMatch[1];
+  const idMatch = String(url).match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (idMatch && idMatch[1]) return idMatch[1];
+  return '';
+};
+
+window.getDirectDriveImageUrl = function(url) {
+  if (!url) return '';
+  const s = String(url);
+  if (s.startsWith('data:') || s.startsWith('blob:')) return s;
+  const fId = window.extractDriveId(s);
+  if (fId) {
+    return `https://lh3.googleusercontent.com/d/${fId}`;
+  }
+  return s;
+};
+
 window.openClearChatOptionsModal = function() {
   const roomKey = getChatRoomKey();
   const isAdmin = state.user && state.user.role === 'admin';
@@ -7541,47 +7575,55 @@ window.openClearChatOptionsModal = function() {
   const modalRoot = document.getElementById('modal-root');
   if (!modalRoot) return;
 
+  const roomTitle = isPrivate ? 'Chat Riêng Tư (1 - 1)' : 'Chat Chung Toàn Khối';
+
   modalRoot.innerHTML = `
-    <div class="modal-backdrop" onclick="closeModal()">
-      <div class="modal-content" onclick="event.stopPropagation()" style="max-width:440px; text-align:left;">
-        <div class="modal-header" style="background:linear-gradient(90deg, #b91c1c 0%, #dc2626 100%);">
-          <h3 style="color:#fff; font-size:15px; margin:0; display:flex; align-items:center; gap:6px;">
-            <span>🗑️</span> Tùy Chọn Xóa Lịch Sử Trao Đổi
-          </h3>
-          <button type="button" class="btn-close" onclick="closeModal()" style="color:#fff;">✕</button>
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+      <div class="modal-box" style="max-width:480px; border-radius:12px; overflow:hidden; box-shadow:0 20px 40px rgba(0,0,0,0.35);">
+        <div class="modal-header" style="background:linear-gradient(135deg, #b91c1c 0%, #dc2626 100%); color:#fff; padding:14px 18px; display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-weight:800; font-size:15px; display:flex; align-items:center; gap:8px;">
+            <span>🗑️</span>
+            <span>Tùy Chọn Xóa & Làm Mới Lịch Sử Trao Đổi</span>
+          </div>
+          <button type="button" onclick="closeModal()" style="background:transparent; border:none; color:#fff; font-size:18px; font-weight:800; cursor:pointer; padding:2px 6px;">✕</button>
         </div>
-        <div class="modal-body" style="padding:16px;">
-          <p style="font-size:13px; color:#334155; margin-bottom:14px; line-height:1.5;">
-            Bạn đang chọn xóa lịch sử hội thoại trong phòng <b>${isPrivate ? 'Chat Riêng Tư' : 'Chat Chung Toàn Khối'}</b>. Vui lòng chọn cách thức xóa:
-          </p>
+        <div class="modal-body" style="padding:18px 20px; background:#ffffff;">
+          <div style="font-size:13px; color:#475569; margin-bottom:16px; line-height:1.5;">
+            Bạn đang chọn xóa lịch sử hội thoại trong phòng: <b style="color:#0f172a;">${escapeHtml(roomTitle)}</b>. Vui lòng chọn cách thức thực hiện:
+          </div>
 
           <!-- TÙY CHỌN 1: XÓA PHÍA TÔI -->
-          <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:12px; margin-bottom:12px;">
-            <div style="font-weight:800; font-size:13px; color:#1e293b; display:flex; align-items:center; gap:6px;">
+          <div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:10px; padding:14px; margin-bottom:14px;">
+            <div style="font-weight:800; font-size:13.5px; color:#0f172a; display:flex; align-items:center; gap:6px; margin-bottom:4px;">
               <span>👤</span> Xóa ở phía tôi (Khuyên dùng)
             </div>
-            <div style="font-size:11.5px; color:#64748b; margin:4px 0 10px 0;">
-              Chỉ dọn sạch tin nhắn trên màn hình của bạn. Phía ${isPrivate ? 'đơn vị bên kia' : 'các cơ sở Đoàn khác'} vẫn lưu giữ toàn bộ dữ liệu.
+            <div style="font-size:12px; color:#64748b; line-height:1.5; margin-bottom:10px;">
+              Làm sạch tin nhắn trên màn hình của bạn. Phía ${isPrivate ? 'đơn vị bên kia' : 'các cơ sở Đoàn khác'} vẫn xem được toàn bộ nội dung để đối chiếu công việc.
             </div>
-            <button type="button" class="btn btn-outline btn-sm" onclick="clearChatForMeOnly('${myKey}', '${roomKey}')" style="width:100%; border-color:#0284c7; color:#0284c7; font-weight:700;">
-              🗑️ Xóa chỉ ở phía tôi
+            <button type="button" class="btn btn-outline" onclick="clearChatForMeOnly('${myKey}', '${roomKey}')" style="width:100%; border-color:#0284c7; color:#0284c7; font-weight:700; padding:8px 12px; font-size:12.5px; border-radius:6px; background:#fff; cursor:pointer;">
+              🗑️ Xóa & làm sạch phía tôi
             </button>
           </div>
 
           <!-- TÙY CHỌN 2: XÓA TOÀN BỘ TRÊN MÁY CHỦ (CHỈ ADMIN MỚI CÓ) -->
           ${isAdmin ? `
-            <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:12px;">
-              <div style="font-weight:800; font-size:13px; color:#991b1b; display:flex; align-items:center; gap:6px;">
-                <span>⚠️</span> Xóa toàn bộ máy chủ (Tất cả các bên đều mất)
+            <div style="background:#fef2f2; border:1.5px solid #fca5a5; border-radius:10px; padding:14px; margin-bottom:6px;">
+              <div style="font-weight:800; font-size:13.5px; color:#991b1b; display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                <span>⚠️</span> Xóa toàn bộ trên máy chủ (Chỉ Ban Thường vụ)
               </div>
-              <div style="font-size:11.5px; color:#b91c1c; margin:4px 0 10px 0;">
-                Xóa vĩnh viễn dữ liệu trên máy chủ đám mây. Cả Admin và các cơ sở Đoàn đều sẽ bị xóa sạch toàn bộ nội dung.
+              <div style="font-size:12px; color:#b91c1c; line-height:1.5; margin-bottom:10px;">
+                Xóa vĩnh viễn trên máy chủ đám mây. Cả Admin và tất cả các cơ sở Đoàn đều sẽ bị xóa sạch toàn bộ lịch sử trò chuyện.
               </div>
-              <button type="button" class="btn btn-danger btn-sm" onclick="clearChatForAll('${roomKey}')" style="width:100%; font-weight:700;">
-                ⚠️ Xóa vĩnh viễn tất cả các bên
+              <button type="button" class="btn btn-danger" onclick="clearChatForAll('${roomKey}')" style="width:100%; font-weight:700; padding:8px 12px; font-size:12.5px; border-radius:6px; background:#dc2626; color:#fff; border:none; cursor:pointer;">
+                ⚠️ Xóa vĩnh viễn trên máy chủ
               </button>
             </div>
           ` : ''}
+        </div>
+        <div class="modal-footer" style="padding:10px 18px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal()" style="font-weight:600; padding:6px 14px;">
+            Đóng
+          </button>
         </div>
       </div>
     </div>
@@ -7807,6 +7849,7 @@ window.onChatFilePicked = async function(input) {
       text: '',
       file_url: fileUrl,
       download_url: downloadUrl,
+      thumb_b64: fileCategory === 'image' ? b64 : '',
       file_name: file.name,
       file_size: file.size,
       file_type: fileCategory,
@@ -7902,16 +7945,39 @@ window.sendChatMessage = async function() {
   }
 };
 
-window.openImageLightbox = function(url) {
+window.openImageLightbox = function(displayUrl, originalUrl, fileName) {
   const modalRoot = document.getElementById('modal-root');
   if (!modalRoot) return;
+  const directUrl = window.getDirectDriveImageUrl(displayUrl || originalUrl);
+  const origUrl = originalUrl || displayUrl;
+  const fId = window.extractDriveId(origUrl);
+  const name = fileName || 'Hình ảnh';
+
   modalRoot.innerHTML = `
-    <div class="modal-backdrop" onclick="closeModal()" style="display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.88); z-index:1000000;">
-      <div style="position:relative; max-width:92vw; max-height:90vh; text-align:center;">
-        <img src="${escapeHtml(url)}" style="max-width:90vw; max-height:82vh; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.6); object-fit:contain;" />
-        <div style="margin-top:12px; display:flex; justify-content:center; gap:10px;">
-          <a href="${escapeHtml(url)}" target="_blank" class="btn btn-primary btn-sm" style="font-weight:700;">Mở kích thước gốc ↗</a>
-          <button type="button" class="btn btn-outline btn-sm" onclick="closeModal()" style="color:#fff; border-color:rgba(255,255,255,0.4);">Đóng ✕</button>
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()" style="display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(15,23,42,0.92); z-index:1000000; padding:16px;">
+      <div style="position:relative; max-width:94vw; max-height:90vh; display:flex; flex-direction:column; align-items:center;">
+        
+        <!-- NÚT ĐÓNG GÓC TRÊN CÙNG -->
+        <button type="button" onclick="closeModal()" style="position:absolute; top:-40px; right:0; background:rgba(255,255,255,0.25); color:#ffffff !important; border:none; border-radius:50%; width:34px; height:34px; font-size:18px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center;" title="Đóng cửa sổ">✕</button>
+
+        <!-- HÌNH ẢNH HIỂN THỊ CHÍNH -->
+        <div style="max-width:92vw; max-height:76vh; overflow:auto; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.4); border-radius:10px; padding:6px; box-shadow:0 10px 35px rgba(0,0,0,0.7);">
+          <img
+            src="${escapeHtml(directUrl)}"
+            alt="${escapeHtml(name)}"
+            onerror="if(!this.dataset.retry && '${fId}'){this.dataset.retry='1'; this.src='https://drive.google.com/thumbnail?id=${fId}&sz=w1600';}else if(this.dataset.retry==='1' && '${fId}'){this.dataset.retry='2'; this.src='https://drive.google.com/uc?export=view&id=${fId}';}"
+            style="max-width:90vw; max-height:72vh; border-radius:6px; object-fit:contain; display:block;"
+          />
+        </div>
+
+        <!-- 2 NÚT THAO TÁC RÕ RÀNG BÊN DƯỚI (Ảnh 2, 3) -->
+        <div style="margin-top:14px; display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:12px; z-index:10;">
+          <a href="${escapeHtml(origUrl)}" target="_blank" rel="noopener noreferrer" style="background:#0284c7; color:#ffffff !important; font-weight:700; font-size:13px; padding:8px 18px; border-radius:6px; text-decoration:none; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 8px rgba(0,0,0,0.3);">
+            <span>↗</span> Mở kích thước gốc
+          </a>
+          <button type="button" onclick="closeModal()" style="background:#ef4444; color:#ffffff !important; font-weight:700; font-size:13px; padding:8px 20px; border-radius:6px; border:none; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 8px rgba(0,0,0,0.3);">
+            <span>✕</span> Đóng
+          </button>
         </div>
       </div>
     </div>
@@ -8131,17 +8197,31 @@ function renderFloatingChatWidget() {
                 <div class="chat-message-bubble">
                   ${m.text ? `<div style="white-space:pre-wrap; word-break:break-word;">${escapeHtml(m.text)}</div>` : ''}
 
-                  <!-- ẢNH / VIDEO / FILE ĐÍNH KÈM (Ảnh 1) -->
-                  ${m.file_url ? `
-                    ${m.file_type === 'image' ? `
-                      <div style="margin-top:5px; max-width:230px; cursor:pointer;" onclick="openImageLightbox('${escapeHtml(m.file_url)}')">
-                        <img src="${escapeHtml(m.file_url)}" alt="${escapeHtml(m.file_name || 'Ảnh')}" class="chat-media-img" style="width:100%; max-height:160px; object-fit:cover; border-radius:8px; border:1px solid rgba(0,0,0,0.12); box-shadow:0 2px 6px rgba(0,0,0,0.15);" title="Bấm để xem ảnh phóng to" />
-                        <div style="font-size:10px; opacity:0.85; margin-top:2px; display:flex; align-items:center; gap:4px;">
-                          <span>🖼️ ${escapeHtml(m.file_name || 'Hình ảnh')}</span>
-                          <span style="color:#0284c7; font-weight:700;">(Phóng to ↗)</span>
+                  <!-- ẢNH / VIDEO / FILE ĐÍNH KÈM (Ảnh 1, 2, 3) -->
+                  ${(m.file_url || m.thumb_b64) ? `
+                    ${m.file_type === 'image' ? (() => {
+                      const directSrc = m.thumb_b64 || window.getDirectDriveImageUrl(m.file_url);
+                      const origUrl = m.file_url || m.thumb_b64;
+                      const fId = window.extractDriveId(origUrl);
+                      return `
+                        <div style="margin-top:6px; max-width:240px; cursor:pointer;" onclick="openImageLightbox('${escapeHtml(directSrc)}', '${escapeHtml(origUrl)}', '${escapeHtml(m.file_name || 'Ảnh')}')">
+                          <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(0,0,0,0.12); box-shadow:0 2px 6px rgba(0,0,0,0.12); background:#f1f5f9; min-height:80px; display:flex; align-items:center; justify-content:center;">
+                            <img
+                              src="${escapeHtml(directSrc)}"
+                              alt="${escapeHtml(m.file_name || 'Hình ảnh')}"
+                              class="chat-media-img"
+                              onerror="if(!this.dataset.retry && '${fId}'){this.dataset.retry='1'; this.src='https://drive.google.com/thumbnail?id=${fId}&sz=w800';}else if(this.dataset.retry==='1' && '${fId}'){this.dataset.retry='2'; this.src='https://drive.google.com/uc?export=view&id=${fId}';}"
+                              style="width:100%; max-height:180px; object-fit:cover; display:block; border-radius:7px;"
+                              title="Bấm để xem ảnh phóng to"
+                            />
+                          </div>
+                          <div style="font-size:10.5px; opacity:0.9; margin-top:3px; display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px;">🖼️ ${escapeHtml(m.file_name || 'Hình ảnh')}</span>
+                            <span style="color:#0284c7; font-weight:700;">🔍 Phóng to</span>
+                          </div>
                         </div>
-                      </div>
-                    ` : m.file_type === 'video' ? `
+                      `;
+                    })() : m.file_type === 'video' ? `
                       <div style="margin-top:5px; max-width:260px;">
                         <video src="${escapeHtml(m.file_url)}" controls playsinline preload="metadata" style="width:100%; max-height:170px; border-radius:8px; background:#000; box-shadow:0 2px 6px rgba(0,0,0,0.15);"></video>
                         <div style="display:flex; justify-content:space-between; align-items:center; font-size:10.5px; opacity:0.85; margin-top:2px;">
