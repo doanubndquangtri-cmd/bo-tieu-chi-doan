@@ -368,6 +368,10 @@ const state = {
   notificationsOpen: false,
   chatMessages: [],
   chatOpen: false,
+  chatTab: 'public', // 'public' | 'private'
+  chatPrivateUnitId: 0,
+  chatSendingFile: false,
+  deletedMonthKeys: [],
   reportTypeFilter: 'all', // 'all' | 'activity' | 'report' | 'admin'
   mobileViewMode: 'cards', // 'cards' | 'table'
   mobileReportsViewMode: 'cards', // 'cards' | 'table'
@@ -770,6 +774,7 @@ function ingestCloudDB(db) {
   state.admin_docs = db.admin_docs || [];
   state.notifications = Array.isArray(db.notifications) ? db.notifications : [];
   state.chatMessages = Array.isArray(db.chat_messages) ? db.chat_messages : [];
+  state.deletedMonthKeys = Array.isArray(db.deleted_month_keys) ? db.deleted_month_keys : [];
   const allUsers = db.units || [];
   state.allAccounts = allUsers;
   state.units = allUsers
@@ -842,9 +847,13 @@ function getScoreObj(unitId, criterionId) {
 
 function getRankingMonthGroups() {
   const groups = [];
-  // 12 Tháng chuẩn năm 2026
+  const deletedKeys = state.deletedMonthKeys || [];
+  // 12 Tháng chuẩn năm 2026 (bỏ qua tháng đã xóa)
   for (let m = 1; m <= 12; m++) {
-    groups.push({ key: m, label: `Tháng ${m}` });
+    if (!deletedKeys.includes(String(m))) {
+      const lbl = (state.monthLabels && state.monthLabels[String(m)]) || `Tháng ${m}`;
+      groups.push({ key: m, label: lbl });
+    }
   }
   // Nhóm 13: Thường xuyên & Cuối năm
   groups.push({ key: 13, label: 'Cuối năm / TX' });
@@ -1362,7 +1371,7 @@ function renderHeader() {
         <!-- CHUÔNG THÔNG BÁO CHO ADMIN & CÁC ĐƠN VỊ -->
         <div class="notification-bell-container" id="notif-bell-container">
           <button class="btn btn-sm notification-bell-btn" onclick="toggleNotificationPanel(event)" title="Thông báo hệ thống (bấm để xem các lượt nộp văn bản)">
-            🔔
+            🔔 <span style="font-size:12px; font-weight:700;">Thông báo</span>
             ${(() => {
               const isAdminUser = state.user && state.user.role === 'admin';
               const unreadList = (state.notifications || []).filter(n => isAdminUser ? !n.read : (n.unit_id === (state.user && state.user.id) && !n.read_by_unit));
@@ -5889,12 +5898,15 @@ window.openManageMonthGroupsModal = function () {
   const modalRoot = document.getElementById('modal-root');
   const labels = state.monthLabels || {};
 
-  const groupsList = Object.entries(labels).map(([k, v]) => {
-    const num = Number(k);
-    const count = state.criteria.filter(c => Number(c.month_group) === num).length;
-    const isStandard = num >= 1 && num <= 12;
-    return { key: k, num, label: v, count, isStandard };
-  }).sort((a, b) => a.num - b.num);
+  const deletedKeys = state.deletedMonthKeys || [];
+  const groupsList = Object.entries(labels)
+    .filter(([k]) => !deletedKeys.includes(String(k)))
+    .map(([k, v]) => {
+      const num = Number(k);
+      const count = state.criteria.filter(c => Number(c.month_group) === num).length;
+      const isStandard = num >= 1 && num <= 12;
+      return { key: k, num, label: v, count, isStandard };
+    }).sort((a, b) => a.num - b.num);
 
   modalRoot.innerHTML = `
     <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
@@ -6003,20 +6015,24 @@ window.renameMonthGroup = async function (groupNum, curName) {
 
 window.deleteMonthGroup = async function (groupNum) {
   const labels = state.monthLabels || {};
-  const groupName = labels[String(groupNum)] || `Nhóm ${groupNum}`;
+  const groupName = labels[String(groupNum)] || `Tháng / Kỳ ${groupNum}`;
   const criteriaInGroup = state.criteria.filter(c => Number(c.month_group) === groupNum);
 
-  let confirmMsg = `Bạn có chắc chắn muốn XÓA nhóm kỳ hạn "${groupName}"?`;
+  let confirmMsg = `Bạn có chắc chắn muốn XÓA nhóm / tháng "${groupName}"?`;
   if (criteriaInGroup.length > 0) {
-    confirmMsg += `\n\n⚠️ Nhóm này đang chứa ${criteriaInGroup.length} tiêu chí!\nKhi xóa nhóm, các tiêu chí này sẽ được tự động chuyển về "Thường xuyên & Cuối năm" để bảo toàn dữ liệu điểm.`;
+    confirmMsg += `\n\n⚠️ Nhóm này đang chứa ${criteriaInGroup.length} tiêu chí!\nKhi xóa nhóm, các tiêu chí này sẽ được tự động chuyển về "Thường xuyên & Cuối năm" để bảo toàn 100% dữ liệu điểm.`;
   }
 
   if (!confirm(confirmMsg)) return;
 
-  showToast('Đang xóa nhóm kỳ hạn...', 'info');
+  showToast('Đang xóa nhóm / tháng...', 'info');
   const res = await mutateCloudDB((db) => {
     db.month_labels = db.month_labels || {};
     delete db.month_labels[String(groupNum)];
+    db.deleted_month_keys = db.deleted_month_keys || [];
+    if (!db.deleted_month_keys.includes(String(groupNum))) {
+      db.deleted_month_keys.push(String(groupNum));
+    }
 
     for (const c of db.criteria || []) {
       if (Number(c.month_group) === groupNum) {
@@ -6027,8 +6043,9 @@ window.deleteMonthGroup = async function (groupNum) {
   }, `Delete month group ${groupNum}`);
 
   if (res.ok) {
-    showToast(`Đã xóa nhóm "${groupName}" thành công!`, 'success');
+    showToast(`Đã xóa "${groupName}" thành công!`, 'success');
     openManageMonthGroupsModal();
+    renderApp();
   }
 };
 
@@ -7067,7 +7084,7 @@ window.openNotificationDetail = async function(notifId) {
   }
 };
 
-// RENDER DROPDOWN THÔNG BÁO CHUÔNG
+// RENDER DROPDOWN THÔNG BÁO CHUÔNG (RÕ NÉT, TO ĐẸP, CÓ NÚT ĐÓNG & BADGE CHƯA ĐỌC)
 function renderNotificationDropdown() {
   const isAdminUser = state.user && state.user.role === 'admin';
   const notifs = state.notifications || [];
@@ -7077,50 +7094,69 @@ function renderNotificationDropdown() {
   return `
     <div class="notification-dropdown" onclick="event.stopPropagation()">
       <div class="notification-header">
-        <div style="display:flex; align-items:center; gap:6px;">
-          <span>🔔 Thông Báo Hệ Thống</span>
-          ${unreadCount > 0 ? `<span class="badge badge-warning" style="font-size:11px; font-weight:800;">${unreadCount} chưa đọc</span>` : ''}
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:16px;">🔔</span>
+          <span style="font-weight:800; font-size:14px; letter-spacing:0.3px;">THÔNG BÁO HỆ THỐNG</span>
+          ${unreadCount > 0 ? `<span class="badge" style="background:#ef4444; color:#fff; font-size:11px; font-weight:800; padding:2px 7px;">${unreadCount} chưa đọc</span>` : ''}
         </div>
-        ${unreadCount > 0 ? `
-          <button type="button" onclick="markAllNotificationsRead()" style="background:transparent; border:none; color:#fef08a; font-size:11.5px; font-weight:700; cursor:pointer; text-decoration:underline;">
-            ✓✓ Đã đọc tất cả
-          </button>
-        ` : ''}
+        <div style="display:flex; align-items:center; gap:8px;">
+          ${unreadCount > 0 ? `
+            <button type="button" onclick="markAllNotificationsRead()" style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.4); color:#fff; font-size:11.5px; font-weight:700; cursor:pointer; padding:3px 8px; border-radius:4px;">
+              ✓✓ Đã đọc tất cả
+            </button>
+          ` : ''}
+          <button type="button" onclick="state.notificationsOpen = false; renderApp();" style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:26px; height:26px; border-radius:50%; font-size:14px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center;" title="Đóng bảng thông báo">✕</button>
+        </div>
       </div>
       <div class="notification-list">
         ${notifs.length === 0 ? `
-          <div style="padding:28px 16px; text-align:center; color:#64748b; font-size:12.5px;">
-            Chưa có thông báo nào từ các cơ sở Đoàn.
+          <div style="padding:36px 20px; text-align:center; color:#64748b; font-size:13.5px;">
+            <div style="font-size:28px; margin-bottom:8px;">🔔</div>
+            <div style="font-weight:700; color:#334155;">Chưa có thông báo nào.</div>
+            <div style="font-size:12px; margin-top:4px;">Khi các cơ sở Đoàn nộp minh chứng hoặc văn bản, thông báo sẽ hiển thị chi tiết tại đây.</div>
           </div>
         ` : notifs.slice(0, 60).map(n => {
           const isUnread = isAdminUser ? !n.read : (n.unit_id === (state.user && state.user.id) && !n.read_by_unit);
+          const foundCrit = (state.criteria || []).find(c => c.id === n.criterion_id);
+          const repType = foundCrit ? Number(foundCrit.is_report) : 0;
           return `
-            <div class="notification-item ${isUnread ? 'unread' : ''}" onclick="openNotificationDetail('${n.id}')">
+            <div class="notification-item ${isUnread ? 'unread' : ''}" onclick="openNotificationDetail('${n.id}')" style="padding:14px 18px;">
               <div class="notification-title">
-                <span style="color:#003d99; font-weight:700;">🏢 ${escapeHtml(n.unit_name || 'Đơn vị')}</span>
-                <span class="notification-time">${escapeHtml(n.submitted_at ? formatDateVN(n.submitted_at.substring(0, 10)) + ' ' + (n.submitted_at.substring(11, 16) || '') : '')}</span>
+                <span style="color:#003d99; font-weight:800; font-size:14px; display:flex; align-items:center; gap:5px;">
+                  🏢 ${escapeHtml(n.unit_name || 'Đơn vị')}
+                  ${isUnread ? '<span class="badge" style="background:#ef4444; color:#fff; font-size:10px; font-weight:800; padding:1px 5px; margin-left:4px;">Mới</span>' : ''}
+                </span>
+                <span class="notification-time">🕒 ${escapeHtml(n.submitted_at ? formatDateVN(n.submitted_at.substring(0, 10)) + ' ' + (n.submitted_at.substring(11, 16) || '') : '')}</span>
               </div>
-              <div class="notification-desc">
+              <div class="notification-desc" style="font-size:13px; line-height:1.5; margin-top:4px;">
                 ${n.is_admin_approval
-                  ? `👑 <b>Ban Thường vụ đã duyệt điểm:</b> ${escapeHtml(n.col_label || '')} - ${escapeHtml(n.criterion_title || '')} (+${formatScore(n.score)}đ)`
-                  : `📤 <b>Đã nộp:</b> ${escapeHtml(n.col_label || '')} - ${escapeHtml(n.criterion_title || '')}`
+                  ? `<span style="color:#15803d; font-weight:700;">👑 Ban Thường vụ đã duyệt điểm:</span> <b>${escapeHtml(n.col_label || '')}</b> - ${escapeHtml(n.criterion_title || '')} (<span style="color:#15803d; font-weight:800;">+${formatScore(n.score)}đ</span>)`
+                  : `<span style="color:#0369a1; font-weight:700;">📤 Đã nộp hồ sơ minh chứng:</span> <b>${escapeHtml(n.col_label || '')}</b> - ${escapeHtml(n.criterion_title || '')}`
                 }
+                <div style="margin-top:3px;">
+                  ${repType === 1 ? '<span class="badge badge-success" style="font-size:10px;">📋 Báo cáo</span>' : (repType === 2 ? '<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-size:10px; font-weight:700;">👑 Admin chấm</span>' : '<span class="badge" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-size:10px; font-weight:700;">🎯 Hoạt động</span>')}
+                </div>
               </div>
+
               ${n.file_name ? `
-                <div class="notification-files">
-                  <span class="notification-file-pill">📎 ${escapeHtml(n.file_name)}</span>
+                <div class="notification-files" style="margin-top:8px;">
+                  <span class="notification-file-pill" style="font-size:12px; padding:3px 10px;">📎 ${escapeHtml(n.file_name)}</span>
                 </div>
               ` : ''}
               ${n.files && n.files.length > 0 ? `
-                <div class="notification-files">
-                  ${n.files.map(f => `<span class="notification-file-pill">📎 ${escapeHtml(f.name || 'Tệp')}</span>`).join('')}
+                <div class="notification-files" style="margin-top:8px;">
+                  ${n.files.map(f => `<span class="notification-file-pill" style="font-size:12px; padding:3px 10px;">📎 ${escapeHtml(f.name || 'Tệp')}</span>`).join('')}
                 </div>
               ` : ''}
-              ${n.self_score ? `
-                <div style="margin-top:4px; font-size:11.5px; color:#d97706; font-weight:700;">
-                  ⏳ Chờ duyệt (+${formatScore(n.self_score)}đ) • Bấm để xem file & xác nhận chấm điểm ↗
-                </div>
-              ` : ''}
+
+              <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center; padding-top:8px; border-top:1px dashed #e2e8f0;">
+                <span style="font-size:12px; color:#d97706; font-weight:700;">
+                  ${n.self_score ? `Điểm đề xuất: +${formatScore(n.self_score)}đ (Chờ duyệt)` : ''}
+                </span>
+                <span style="font-size:12px; color:#0052cc; font-weight:800; display:inline-flex; align-items:center; gap:3px;">
+                  👉 Bấm Xem Hồ Sơ & Chấm Điểm ↗
+                </span>
+              </div>
             </div>
           `;
         }).join('')}
@@ -7279,34 +7315,260 @@ window.duplicateCriterion = async function (critId) {
   }
 };
 
-// HỆ THỐNG TRAO ĐỔI & CHAT TRỰC TUYẾN TOÀN KHỐI
+// HỆ THỐNG TRAO ĐỔI & CHAT TOÀN DIỆN (CHAT CHUNG, CHAT RIÊNG TƯ, GỬI TỆP/ẢNH/VIDEO, TỰ ĐỘNG XÓA BADGE KHI XEM)
+function getChatRoomKey() {
+  if (state.chatTab === 'private') {
+    const isAdmin = state.user && state.user.role === 'admin';
+    const targetUnitId = isAdmin ? state.chatPrivateUnitId : (state.user ? state.user.id : 0);
+    return `private_${targetUnitId}`;
+  }
+  return 'public';
+}
+
+function getChatLastReadTime(roomKey) {
+  try {
+    const uId = state.user ? state.user.id : 0;
+    const key = `doan2026_chat_read_${uId}_${roomKey}`;
+    return Number(localStorage.getItem(key)) || 0;
+  } catch (e) { return 0; }
+}
+
+function setChatRoomAsRead(roomKey) {
+  try {
+    const uId = state.user ? state.user.id : 0;
+    const key = `doan2026_chat_read_${uId}_${roomKey}`;
+    localStorage.setItem(key, String(Date.now()));
+  } catch (e) {}
+}
+
+function getUnreadCountForChatRoom(roomKey) {
+  const myId = state.user ? state.user.id : 0;
+  const isAdmin = state.user && state.user.role === 'admin';
+  const lastRead = getChatLastReadTime(roomKey);
+  const msgs = (state.chatMessages || []).filter(m => {
+    const mRoom = m.room || 'public';
+    if (mRoom !== roomKey) return false;
+    const isMine = (m.sender_id === myId) || (isAdmin && m.sender_role === 'admin');
+    if (isMine) return false;
+    const mTime = new Date(m.created_at).getTime() || 0;
+    return mTime > lastRead;
+  });
+  return msgs.length;
+}
+
+function getTotalUnreadChatCount() {
+  if (!state.user) return 0;
+  const isAdmin = state.user.role === 'admin';
+  let total = getUnreadCountForChatRoom('public');
+  if (isAdmin) {
+    (state.units || []).forEach(u => {
+      total += getUnreadCountForChatRoom(`private_${u.id}`);
+    });
+  } else {
+    total += getUnreadCountForChatRoom(`private_${state.user.id}`);
+  }
+  return total;
+}
+
 window.toggleChatWidget = function() {
   state.chatOpen = !state.chatOpen;
+  if (state.chatOpen) {
+    setChatRoomAsRead(getChatRoomKey());
+  }
   renderApp();
   if (state.chatOpen) {
     setTimeout(scrollChatToBottom, 100);
   }
 };
 
-window.scrollChatToBottom = function() {
-  const el = document.getElementById('chat-messages-body');
-  if (el) el.scrollTop = el.scrollHeight;
+window.switchChatTab = function(tab) {
+  state.chatTab = tab;
+  if (tab === 'private') {
+    const isAdmin = state.user && state.user.role === 'admin';
+    if (!isAdmin && state.user) {
+      state.chatPrivateUnitId = state.user.id;
+    }
+  }
+  setChatRoomAsRead(getChatRoomKey());
+  renderApp();
+  setTimeout(scrollChatToBottom, 100);
 };
 
-window.onChatKeydown = function(e) {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    window.sendChatMessage();
+window.switchPrivateChatUnit = function(unitId) {
+  state.chatPrivateUnitId = Number(unitId);
+  setChatRoomAsRead(`private_${unitId}`);
+  renderApp();
+  setTimeout(scrollChatToBottom, 100);
+};
+
+// ADMIN XÓA TOÀN BỘ LỊCH SỬ CHAT NHÓM CHUNG (Ảnh 3)
+window.clearPublicChatHistory = async function() {
+  const isAdmin = state.user && state.user.role === 'admin';
+  if (!isAdmin) return;
+  if (!confirm('Bạn có chắc chắn muốn XÓA TOÀN BỘ lịch sử chat nhóm chung để làm sạch nội dung và bắt đầu lại từ đầu không?')) return;
+
+  showToast('Đang làm sạch lịch sử chat nhóm chung...', 'info');
+  const res = await mutateCloudDB(db => {
+    db.chat_messages = (db.chat_messages || []).filter(m => m.room && m.room !== 'public');
+  }, 'Admin cleared public chat history');
+
+  if (res.ok) {
+    state.chatMessages = (state.chatMessages || []).filter(m => m.room && m.room !== 'public');
+    showToast('🎉 Đã làm sạch toàn bộ tin nhắn chat nhóm chung!', 'success');
+    renderApp();
+  } else {
+    showToast('Lỗi khi xóa lịch sử chat!', 'error');
   }
 };
 
+// CHỌN VÀ GỬI TỆP, ẢNH, VIDEO TRONG CHAT (Ảnh 3)
+window.triggerChatFileInput = function() {
+  const inp = document.getElementById('chat-file-input');
+  if (inp) inp.click();
+};
+
+window.onChatFilePicked = async function(input) {
+  if (!input.files || input.files.length === 0) return;
+  const file = input.files[0];
+  const maxMb = 50;
+  if (file.size > maxMb * 1024 * 1024) {
+    showToast(`Tệp quá lớn! Vui lòng chọn tệp dưới ${maxMb}MB.`, 'error');
+    input.value = '';
+    return;
+  }
+
+  const roomKey = getChatRoomKey();
+  const isPrivate = roomKey.startsWith('private_');
+  const isAdmin = state.user && state.user.role === 'admin';
+  const targetUnitId = isPrivate ? (isAdmin ? state.chatPrivateUnitId : state.user.id) : 0;
+  const targetUnit = (state.units || []).find(u => u.id === targetUnitId);
+  const targetUnitName = targetUnit ? targetUnit.unit_name : (state.user ? state.user.unit_name : 'Đơn vị');
+
+  // Xác định định dạng tệp: 'image', 'video', 'doc'
+  const fNameLow = file.name.toLowerCase();
+  let fileCategory = 'doc';
+  if (/\.(png|jpe?g|gif|webp|svg|bmp)$/i.test(fNameLow)) fileCategory = 'image';
+  else if (/\.(mp4|webm|mov|avi|mkv)$/i.test(fNameLow)) fileCategory = 'video';
+
+  showToast(`Đang tải tệp "${file.name}" lên Google Drive...`, 'info');
+  showUploadProgressModal('Đang Tải Tệp Tin Lên Google Drive');
+  updateUploadProgress({
+    percent: 15,
+    fileName: file.name,
+    fileIndex: 'Tệp chat',
+    loaded: 0,
+    total: file.size,
+    statusText: 'Đang chuẩn bị tệp tin...'
+  });
+
+  try {
+    const b64 = await readFileAsDataURL(file);
+    const gdriveUrl = getGoogleDriveScriptUrl();
+    let fileUrl = '';
+    let downloadUrl = '';
+
+    if (gdriveUrl) {
+      updateUploadProgress({
+        percent: 40,
+        fileName: file.name,
+        fileIndex: 'Tệp chat',
+        loaded: Math.round(file.size * 0.4),
+        total: file.size,
+        statusText: 'Đang gửi lên Google Drive...'
+      });
+      const postBody = {
+        action: 'chat_upload_file',
+        fileData: b64,
+        fileName: file.name,
+        isPrivate: isPrivate,
+        unitName: targetUnitName,
+        unitCode: targetUnit ? (targetUnit.unit_code || `DV${targetUnit.id}`) : 'DV'
+      };
+      const resGAS = await fetch(gdriveUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(postBody)
+      });
+      const jsonGAS = await resGAS.json();
+      if (jsonGAS && jsonGAS.fileUrl) {
+        fileUrl = jsonGAS.fileUrl;
+        downloadUrl = jsonGAS.downloadUrl || jsonGAS.fileUrl;
+      }
+    }
+
+    updateUploadProgress({
+      percent: 100,
+      fileName: file.name,
+      fileIndex: 'Tệp chat',
+      loaded: file.size,
+      total: file.size,
+      statusText: 'Đã lưu trữ thành công trên Google Drive!',
+      isDone: true
+    });
+    await new Promise(r => setTimeout(r, 200));
+    hideUploadProgressModal();
+
+    // Tạo tin nhắn đính kèm tệp
+    const myName = isAdmin
+      ? 'Ban Thường Vụ Tỉnh Đoàn (Admin)'
+      : (state.user && state.user.unit_name ? state.user.unit_name : 'Cơ sở Đoàn');
+    const myRole = (state.user && state.user.role) || 'unit';
+    const myId = (state.user && state.user.id) || 0;
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} ${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}`;
+
+    const newMsg = {
+      id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      room: roomKey,
+      sender_id: myId,
+      sender_name: myName,
+      sender_role: myRole,
+      text: '',
+      file_url: fileUrl,
+      download_url: downloadUrl,
+      file_name: file.name,
+      file_size: file.size,
+      file_type: fileCategory,
+      created_at: nowISO(),
+      time_str: timeStr
+    };
+
+    state.chatMessages = state.chatMessages || [];
+    state.chatMessages.push(newMsg);
+    setChatRoomAsRead(roomKey);
+    renderApp();
+    setTimeout(scrollChatToBottom, 50);
+
+    await mutateCloudDB(db => {
+      db.chat_messages = db.chat_messages || [];
+      db.chat_messages.push(newMsg);
+      if (db.chat_messages.length > 500) {
+        db.chat_messages = db.chat_messages.slice(-500);
+      }
+    }, `Chat file from ${myName}`);
+
+    showToast(`Đã gửi tệp "${file.name}" thành công!`, 'success');
+  } catch (err) {
+    hideUploadProgressModal();
+    showToast('Lỗi khi tải tệp: ' + err.message, 'error');
+  }
+  input.value = '';
+};
+
+// GỬI TIN NHẮN VĂN BẢN TRONG CHAT
 window.sendChatMessage = async function() {
   const input = document.getElementById('chat-input-field');
   if (!input) return;
   const text = input.value.trim();
   if (!text) return;
 
+  const roomKey = getChatRoomKey();
   const isAdmin = state.user && state.user.role === 'admin';
+  if (state.chatTab === 'private' && isAdmin && (!state.chatPrivateUnitId || state.chatPrivateUnitId === 0)) {
+    showToast('Vui lòng chọn cơ sở Đoàn bạn muốn trao đổi riêng ở danh sách phía trên!', 'warning');
+    return;
+  }
+
   const senderName = isAdmin
     ? 'Ban Thường Vụ Tỉnh Đoàn (Admin)'
     : (state.user && state.user.unit_name ? state.user.unit_name : (state.user && state.user.username ? state.user.username : 'Cơ sở Đoàn'));
@@ -7318,6 +7580,7 @@ window.sendChatMessage = async function() {
 
   const newMsg = {
     id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+    room: roomKey,
     sender_id: senderId,
     sender_name: senderName,
     sender_role: senderRole,
@@ -7329,6 +7592,7 @@ window.sendChatMessage = async function() {
   input.value = '';
   state.chatMessages = state.chatMessages || [];
   state.chatMessages.push(newMsg);
+  setChatRoomAsRead(roomKey);
   renderApp();
   setTimeout(scrollChatToBottom, 50);
 
@@ -7338,33 +7602,69 @@ window.sendChatMessage = async function() {
     if (db.chat_messages.length > 500) {
       db.chat_messages = db.chat_messages.slice(-500);
     }
-  }, `Chat message from ${senderName}`);
+  }, `Chat message in ${roomKey} from ${senderName}`);
 
   if (!res.ok) {
     showToast('Lỗi khi gửi tin nhắn lên máy chủ!', 'error');
   }
 };
 
+window.openImageLightbox = function(url) {
+  const modalRoot = document.getElementById('modal-root');
+  if (!modalRoot) return;
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" onclick="closeModal()" style="display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.85); z-index:1000000;">
+      <div style="position:relative; max-width:90vw; max-height:90vh; text-align:center;">
+        <img src="${escapeHtml(url)}" style="max-width:90vw; max-height:85vh; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.5); object-fit:contain;" />
+        <div style="margin-top:10px;">
+          <a href="${escapeHtml(url)}" target="_blank" class="btn btn-primary btn-sm" style="font-weight:700;">Mở xem kích thước gốc ↗</a>
+          <button type="button" class="btn btn-outline btn-sm" onclick="closeModal()" style="margin-left:8px; color:#fff; border-color:rgba(255,255,255,0.4);">Đóng ✕</button>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+// RENDER KHUNG CHAT HOÀN CHỈNH (CÓ TAB CHUNG & RIÊNG TƯ, CHỌN ĐƠN VỊ, NÚT 📎 GỬI TỆP)
 function renderFloatingChatWidget() {
-  const isAdmin = state.user && state.user.role === 'admin';
+  if (!state.user) return '';
+  const isAdmin = state.user.role === 'admin';
+  const myId = state.user.id || 0;
   const myName = isAdmin
     ? 'Ban Thường Vụ Tỉnh Đoàn (Admin)'
-    : (state.user && state.user.unit_name ? state.user.unit_name : 'Cơ sở Đoàn');
+    : (state.user.unit_name || 'Cơ sở Đoàn');
 
-  const myId = (state.user && state.user.id) || 0;
-  const messages = state.chatMessages || [];
+  const totalUnread = getTotalUnreadChatCount();
+  const unreadPublic = getUnreadCountForChatRoom('public');
+  let unreadPrivate = 0;
+  if (isAdmin) {
+    (state.units || []).forEach(u => {
+      unreadPrivate += getUnreadCountForChatRoom(`private_${u.id}`);
+    });
+  } else {
+    unreadPrivate = getUnreadCountForChatRoom(`private_${state.user.id}`);
+  }
+
+  const roomKey = getChatRoomKey();
+  let currentMessages = (state.chatMessages || []).filter(m => {
+    const r = m.room || 'public';
+    return r === roomKey;
+  });
+
+  const selectedPrivateUnit = (state.units || []).find(u => u.id === state.chatPrivateUnitId);
 
   return `
-    <!-- NÚT NỔI CHAT GÓC MÀN HÌNH -->
-    <div class="floating-chat-trigger" onclick="toggleChatWidget()" title="Bấm để đóng/mở ô trao đổi giữa các đơn vị và Admin">
+    <!-- NÚT NỔI CHAT GÓC MÀN HÌNH VỚI BADGE CHƯA ĐỌC -->
+    <div class="floating-chat-trigger" onclick="toggleChatWidget()" title="Bấm để mở ô trao đổi giữa các đơn vị và Admin">
       <span>💬</span>
       <span>Trao Đổi Đoàn</span>
-      ${messages.length > 0 ? `<span class="chat-badge">${messages.length}</span>` : ''}
+      ${totalUnread > 0 ? `<span class="chat-badge">${totalUnread > 99 ? '99+' : totalUnread}</span>` : ''}
     </div>
 
     <!-- KHUNG CHAT TRỰC TUYẾN -->
     ${state.chatOpen ? `
       <div class="chat-widget-box" id="chat-widget-box">
+        <!-- HEADER KHUNG CHAT -->
         <div class="chat-header">
           <div>
             <div class="chat-header-title">
@@ -7374,17 +7674,70 @@ function renderFloatingChatWidget() {
               👤 ${escapeHtml(myName)}
             </div>
           </div>
-          <button class="chat-close-btn" onclick="toggleChatWidget()" title="Đóng ô trao đổi">✕</button>
+          <div style="display:flex; align-items:center; gap:6px;">
+            ${isAdmin && state.chatTab === 'public' ? `
+              <button class="btn btn-sm" onclick="clearPublicChatHistory()" style="background:rgba(239,68,68,0.25); border:1px solid rgba(239,68,68,0.5); color:#fff; font-size:11px; font-weight:700; padding:2px 7px;" title="Xóa toàn bộ tin nhắn nhóm chung">
+                🗑️ Xóa nhóm chung
+              </button>
+            ` : ''}
+            <button class="chat-close-btn" onclick="toggleChatWidget()" title="Đóng ô trao đổi">✕</button>
+          </div>
         </div>
 
-        <div class="chat-messages-body" id="chat-messages-body">
-          ${messages.length === 0 ? `
-            <div style="text-align:center; padding:32px 14px; color:#64748b; font-size:12.5px;">
-              <div style="font-size:22px; margin-bottom:6px;">💬</div>
-              <div style="font-weight:700; color:#334155;">Chưa có nội dung trao đổi.</div>
-              <div style="margin-top:4px; font-size:11.5px;">Tất cả các cơ sở Đoàn và Admin có thể trao đổi, đặt câu hỏi tại đây!</div>
+        <!-- THANH CHUYỂN TAB: CHAT CHUNG & CHAT RIÊNG TƯ (Ảnh 3) -->
+        <div class="chat-tabs-bar">
+          <button class="chat-tab-btn ${state.chatTab === 'public' ? 'active' : ''}" onclick="switchChatTab('public')">
+            🌐 Chat Chung Toàn Khối
+            ${unreadPublic > 0 ? `<span class="chat-badge" style="margin-left:4px;">${unreadPublic}</span>` : ''}
+          </button>
+          <button class="chat-tab-btn ${state.chatTab === 'private' ? 'active' : ''}" onclick="switchChatTab('private')">
+            🔒 Chat Riêng Tư (1 - 1)
+            ${unreadPrivate > 0 ? `<span class="chat-badge" style="margin-left:4px;">${unreadPrivate}</span>` : ''}
+          </button>
+        </div>
+
+        <!-- NẾU LÀ TAB CHAT RIÊNG: HIỂN THỊ CHỌN ĐƠN VỊ DÀNH CHO ADMIN -->
+        ${state.chatTab === 'private' ? (
+          isAdmin ? `
+            <div class="chat-private-unit-bar">
+              <label style="font-size:11.5px; font-weight:700; color:#334155; display:block; margin-bottom:4px;">
+                Chọn cơ sở Đoàn để trao đổi riêng tư (40 đơn vị):
+              </label>
+              <select class="chat-unit-select" onchange="switchPrivateChatUnit(this.value)">
+                <option value="0">-- Bấm để chọn cơ sở Đoàn cần chat riêng --</option>
+                ${(state.units || []).map(u => {
+                  const uUnread = getUnreadCountForChatRoom(`private_${u.id}`);
+                  return `
+                    <option value="${u.id}" ${state.chatPrivateUnitId === u.id ? 'selected' : ''}>
+                      ${escapeHtml(u.unit_name)} ${uUnread > 0 ? `(🔴 ${uUnread} tin mới)` : ''}
+                    </option>
+                  `;
+                }).join('')}
+              </select>
             </div>
-          ` : messages.map(m => {
+          ` : `
+            <div style="background:#eff6ff; padding:8px 12px; font-size:12px; color:#1e40af; font-weight:700; border-bottom:1px solid #bfdbfe; display:flex; align-items:center; gap:6px;">
+              <span>🔒</span>
+              <span>Cuộc trao đổi riêng tư giữa cơ sở bạn và Ban Thường Vụ Tỉnh Đoàn. Các đơn vị khác tuyệt đối không nhìn thấy.</span>
+            </div>
+          `
+        ) : ''}
+
+        <!-- NỘI DUNG DANH SÁCH TIN NHẮN -->
+        <div class="chat-messages-body" id="chat-messages-body">
+          ${(state.chatTab === 'private' && isAdmin && (!state.chatPrivateUnitId || state.chatPrivateUnitId === 0)) ? `
+            <div style="text-align:center; padding:40px 16px; color:#64748b; font-size:13px;">
+              <div style="font-size:32px; margin-bottom:8px;">🔒</div>
+              <div style="font-weight:700; color:#1e293b; font-size:14px;">Chế Độ Trao Đổi Riêng Tư</div>
+              <div style="margin-top:6px; font-size:12.5px;">Vui lòng chọn một cơ sở Đoàn ở menu bên trên để xem và gửi tin nhắn riêng cho đơn vị đó!</div>
+            </div>
+          ` : currentMessages.length === 0 ? `
+            <div style="text-align:center; padding:36px 14px; color:#64748b; font-size:12.5px;">
+              <div style="font-size:26px; margin-bottom:6px;">💬</div>
+              <div style="font-weight:700; color:#334155;">Chưa có nội dung trao đổi trong phòng này.</div>
+              <div style="margin-top:4px; font-size:11.5px;">Hãy gửi tin nhắn, hình ảnh hoặc tài liệu đầu tiên!</div>
+            </div>
+          ` : currentMessages.map(m => {
             const isMine = (m.sender_id === myId) || (isAdmin && m.sender_role === 'admin');
             return `
               <div class="chat-message-row ${isMine ? 'mine' : 'theirs'}">
@@ -7392,7 +7745,35 @@ function renderFloatingChatWidget() {
                   ${m.sender_role === 'admin' ? '👑 ' : '🏢 '}${escapeHtml(m.sender_name)}
                 </div>
                 <div class="chat-message-bubble">
-                  ${escapeHtml(m.text)}
+                  ${m.text ? `<div>${escapeHtml(m.text)}</div>` : ''}
+
+                  <!-- FILE / ẢNH / VIDEO ĐÍNH KÈM TRONG CHAT (Ảnh 3) -->
+                  ${m.file_url ? `
+                    ${m.file_type === 'image' ? `
+                      <img src="${escapeHtml(m.file_url)}" alt="${escapeHtml(m.file_name || 'Ảnh')}" class="chat-media-img" onclick="openImageLightbox('${escapeHtml(m.file_url)}')" title="Bấm để xem ảnh phóng to" />
+                      <div style="font-size:10.5px; opacity:0.85; margin-top:2px;">🖼️ ${escapeHtml(m.file_name || 'Hình ảnh')}</div>
+                    ` : m.file_type === 'video' ? `
+                      <div class="chat-file-box ${isMine ? 'mine' : ''}">
+                        <span style="font-size:20px;">🎬</span>
+                        <div style="flex:1; overflow:hidden;">
+                          <div style="font-weight:700; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(m.file_name || 'Video đính kèm')}</div>
+                          <div style="font-size:10.5px; opacity:0.85;">${m.file_size ? formatBytes(m.file_size) : 'Video'}</div>
+                        </div>
+                        <a href="${escapeHtml(m.file_url)}" target="_blank" class="btn btn-sm btn-outline" style="font-size:11px; padding:2px 7px; background:#fff; color:#0052cc; flex-shrink:0;">▶️ Xem</a>
+                        <a href="${escapeHtml(m.download_url || m.file_url)}" target="_blank" class="btn btn-sm btn-primary" style="font-size:11px; padding:2px 7px; flex-shrink:0;">📥 Tải</a>
+                      </div>
+                    ` : `
+                      <div class="chat-file-box ${isMine ? 'mine' : ''}">
+                        <span style="font-size:20px;">📄</span>
+                        <div style="flex:1; overflow:hidden;">
+                          <div style="font-weight:700; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(m.file_name || 'Tài liệu đính kèm')}</div>
+                          <div style="font-size:10.5px; opacity:0.85;">${m.file_size ? formatBytes(m.file_size) : 'Tài liệu'}</div>
+                        </div>
+                        <a href="${escapeHtml(m.download_url || m.file_url)}" target="_blank" class="btn btn-sm btn-primary" style="font-size:11px; padding:3px 8px; flex-shrink:0;">📥 Tải về</a>
+                        <a href="${escapeHtml(m.file_url)}" target="_blank" class="btn btn-sm btn-outline" style="font-size:11px; padding:3px 8px; background:#fff; color:#0052cc; flex-shrink:0;">👁️ Mở</a>
+                      </div>
+                    `}
+                  ` : ''}
                 </div>
                 <div class="chat-message-time">
                   ${escapeHtml(m.time_str || '')}
@@ -7402,12 +7783,23 @@ function renderFloatingChatWidget() {
           }).join('')}
         </div>
 
+        <!-- KHUNG NHẬP LIỆU & NÚT ĐÍNH KÈM FILE (Ảnh 3) -->
         <div class="chat-input-row">
+          <input
+            type="file"
+            id="chat-file-input"
+            style="display:none;"
+            onchange="onChatFilePicked(this)"
+            accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.txt"
+          />
+          <button type="button" class="chat-attach-btn" onclick="triggerChatFileInput()" title="Gửi ảnh, video, văn bản, tệp tài liệu... lên Drive">
+            📎
+          </button>
           <input
             type="text"
             id="chat-input-field"
             class="chat-input-field"
-            placeholder="Nhập nội dung trao đổi... (Enter để gửi)"
+            placeholder="Nhập nội dung... (Enter để gửi)"
             onkeydown="onChatKeydown(event)"
           />
           <button class="chat-send-btn" onclick="sendChatMessage()">
