@@ -2306,6 +2306,460 @@ html, body {
   color: #ffffff !important;
 }
 
+/* =========================================================================
+   1. MINI DASHBOARD (4 CHỈ SỐ TÓM TẮT TRÊN ĐẦU TRANG)
+   ========================================================================= */
+.mini-dashboard-container {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+  width: 100%;
+}
+
+@media (max-width: 900px) {
+  .mini-dashboard-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 500px) {
+  .mini-dashboard-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mini-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.mini-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.1);
+}
+
+.mini-stat-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 5px;
+}
+
+.mini-stat-card.card-blue::before { background: #2563eb; }
+.mini-stat-card.card-green::before { background: #16a34a; }
+.mini-stat-card.card-orange::before { background: #ea580c; }
+.mini-stat-card.card-red::before { background: #dc2626; }
+
+.mini-stat-icon {
+  font-size: 26px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+.card-blue .mini-stat-icon { background: #eff6ff; color: #2563eb; }
+.card-green .mini-stat-icon { background: #f0fdf4; color: #16a34a; }
+.card-orange .mini-stat-icon { background: #fff7ed; color: #ea580c; }
+.card-red .mini-stat-icon { background: #fef2f2; color: #dc2626; }
+
+.mini-stat-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.mini-stat-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mini-stat-value {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.25;
+}
+
+/* Pulsing alert for pending reviews */
+.pulse-alert {
+  animation: pulse-soft 2s infinite ease-in-out;
+}
+
+@keyframes pulse-soft {
+  0% {
+    box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.4);
+    border-color: #fb923c;
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(234, 88, 12, 0);
+    border-color: #ea580c;
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(234, 88, 12, 0);
+    border-color: #fb923c;
+  }
+}
+
+/* =========================================================================
+   2. MODERN TABLE DESIGN (PROGRESS BAR & CROSSHAIR HOVER)
+   ========================================================================= */
+.score-progress-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+}
+
+.score-progress-text {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.score-progress-pct {
+  font-size: 10px;
+  color: #16a34a;
+  font-weight: 700;
+}
+
+.score-progress-bar-bg {
+  width: 100%;
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.score-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e 0%, #16a34a 100%);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+/* Table crosshair highlight */
+.spreadsheet-table tbody tr:hover td {
+  background-color: #f1f8ff !important;
+}
+
+.spreadsheet-table td.col-hover-active {
+  background-color: #f0f7ff !important;
+  box-shadow: inset 1px 0 0 #93c5fd, inset -1px 0 0 #93c5fd;
+}
+
+.spreadsheet-table tbody tr:hover td.col-hover-active {
+  background-color: #e0f2fe !important;
+}
+
+/* Sticky column enhancements */
+.sticky-col-stt {
+  position: sticky !important;
+  left: 0 !important;
+  z-index: 20 !important;
+  background: #fff;
+}
+.sticky-col-unit {
+  position: sticky !important;
+  left: 45px !important;
+  z-index: 20 !important;
+  background: #fff;
+}
+.sticky-col-total {
+  position: sticky !important;
+  left: 285px !important;
+  z-index: 20 !important;
+  background: #fff;
+  border-right: 2px solid #0284c7 !important;
+}
+
+thead .sticky-col-stt,
+thead .sticky-col-unit,
+thead .sticky-col-total {
+  z-index: 45 !important;
+  background: #0284c7 !important;
+}
+
+/* =========================================================================
+   3. AI ASSISTANT CHAT TAB & PROMPT CHIPS
+   ========================================================================= */
+.chat-tab-btn.ai-tab {
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+  color: #ffffff !important;
+  position: relative;
+}
+
+.chat-tab-btn.ai-tab.active {
+  background: #ffffff !important;
+  color: #4f46e5 !important;
+  font-weight: 800;
+}
+
+.ai-tab-badge {
+  background: #f59e0b;
+  color: #ffffff;
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 6px;
+  margin-left: 3px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.ai-chips-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ai-chip-btn {
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  border-radius: 16px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ai-chip-btn:hover {
+  background: #eff6ff;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.chat-msg-ai {
+  background: #f5f3ff !important;
+  border: 1px solid #ddd6fe !important;
+  border-left: 4px solid #7c3aed !important;
+  color: #1e1b4b !important;
+}
+
+.chat-msg-ai .sender-name {
+  color: #6d28d9 !important;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* AI Rewrite Button */
+.btn-ai-rewrite {
+  background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: transform 0.15s, opacity 0.15s;
+  white-space: nowrap;
+}
+
+.btn-ai-rewrite:hover {
+  opacity: 0.92;
+  transform: scale(1.03);
+}
+
+/* =========================================================================
+   4. DARK MODE (CHẾ ĐỘ BAN ĐÊM)
+   ========================================================================= */
+body.dark-mode {
+  background-color: #0f172a !important;
+  color: #cbd5e1 !important;
+}
+
+body.dark-mode header,
+body.dark-mode .app-header {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+body.dark-mode .nav-tabs-bar {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+body.dark-mode .nav-tab-btn {
+  background: #334155 !important;
+  color: #94a3b8 !important;
+  border-color: #475569 !important;
+}
+
+body.dark-mode .nav-tab-btn.active {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+}
+
+body.dark-mode .mini-stat-card {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+body.dark-mode .mini-stat-label {
+  color: #94a3b8 !important;
+}
+
+body.dark-mode .mini-stat-value {
+  color: #f8fafc !important;
+}
+
+body.dark-mode .spreadsheet-wrapper,
+body.dark-mode #reports-spreadsheet-wrapper {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+}
+
+body.dark-mode table.spreadsheet-table {
+  background: #0f172a !important;
+  color: #cbd5e1 !important;
+}
+
+body.dark-mode table.spreadsheet-table tbody td {
+  background: #0f172a !important;
+  color: #e2e8f0 !important;
+  border-color: #334155 !important;
+}
+
+body.dark-mode table.spreadsheet-table tbody tr:hover td {
+  background-color: #1e293b !important;
+}
+
+body.dark-mode table.spreadsheet-table td.col-hover-active {
+  background-color: #1e293b !important;
+}
+
+body.dark-mode .sticky-col-stt,
+body.dark-mode .sticky-col-unit,
+body.dark-mode .sticky-col-total {
+  background: #1e293b !important;
+  color: #f8fafc !important;
+}
+
+body.dark-mode .chat-window {
+  background: #1e293b !important;
+  border-color: #475569 !important;
+}
+
+body.dark-mode .chat-messages-container {
+  background: #0f172a !important;
+}
+
+body.dark-mode .chat-input-area {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+body.dark-mode .chat-input {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  border-color: #475569 !important;
+}
+
+body.dark-mode .ai-chips-container {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+body.dark-mode .ai-chip-btn {
+  background: #334155 !important;
+  color: #e2e8f0 !important;
+  border-color: #475569 !important;
+}
+
+body.dark-mode .chat-msg-other {
+  background: #1e293b !important;
+  color: #e2e8f0 !important;
+  border-color: #334155 !important;
+}
+
+body.dark-mode .notification-dropdown {
+  background: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #38bdf8 !important;
+}
+
+body.dark-mode .notification-item {
+  border-color: #334155 !important;
+}
+
+body.dark-mode .notification-item:hover {
+  background: #334155 !important;
+}
+
+/* Dark Mode Toggle Button */
+.btn-dark-mode-toggle {
+  background: rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  font-size: 13px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+
+.btn-dark-mode-toggle:hover {
+  background: rgba(255, 255, 255, 0.32);
+  transform: translateY(-1px);
+}
+
+/* AI Review Result Modal Badge */
+.ai-badge-chip {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.ai-badge-ok { background: #dcfce7; color: #15803d; }
+.ai-badge-warn { background: #fef9c3; color: #854d0e; }
+.ai-badge-err { background: #fee2e2; color: #b91c1c; }
+
+
   </style>
 </head>
 <body>
@@ -3742,6 +4196,17 @@ function renderHeader() {
           </button>
         ` : ''}
 
+        <!-- NÚT AI TỔNG HỢP BÁO CÁO THÁNG TỰ ĐỘNG -->
+        <button class="btn btn-sm" onclick="openAiMonthlyReportModal()" style="background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: #fff; border: 1px solid rgba(255,255,255,0.4); font-size: 11px; padding: 3px 8px; font-weight: 700; height: 27px; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.15);" title="Gemini Pro tự động đọc dữ liệu 40 cơ sở và viết báo cáo nhận xét đánh giá tháng">
+          <span>🤖</span>
+          <span>AI Báo Cáo Tháng</span>
+        </button>
+
+        <!-- NÚT CHUYỂN ĐỔI CHẾ ĐỘ BAN ĐÊM (DARK MODE) -->
+        <button class="btn btn-sm btn-dark-mode-toggle" onclick="toggleDarkMode()" style="font-size: 11px; padding: 3px 8px; height: 27px;" title="Chuyển đổi giao diện Sáng / Ban Đêm">
+          ${typeof document !== 'undefined' && document.body && document.body.classList.contains('dark-mode') ? '☀️ Sáng' : '🌙 Tối'}
+        </button>
+
         <button class="btn btn-sm" onclick="showPWAInstallGuide()" title="Cài đặt ứng dụng vào điện thoại" style="background: rgba(255,255,255,0.2); color:#fff; border: 1px solid rgba(255,255,255,0.4); font-size: 11px; padding: 3px 7px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; height:27px;">
           📲 Cài App
         </button>
@@ -4103,6 +4568,84 @@ function getFilteredUnits() {
   return list;
 }
 
+/* =========================================================================
+   MINI DASHBOARD (4 CHỈ SỐ TÓM TẮT TRÊN ĐẦU TRANG)
+   ========================================================================= */
+function renderMiniDashboard() {
+  const activeUnits = (state.units || []).filter(u => Number(u.is_active) === 1);
+  const totalUnitsCount = activeUnits.length || (state.units || []).length || 40;
+  
+  // Tính tổng điểm tối đa của các tiêu chí
+  const maxPossible = (state.criteria || []).reduce((acc, c) => acc + (Number(c.max_points) || 10), 0) || 100;
+  let completedUnitsCount = 0;
+  let pendingSubmissionsCount = 0;
+
+  activeUnits.forEach(u => {
+    const tot = getUnitTotalScore(u.id);
+    if (tot >= maxPossible * 0.9 && tot > 0) completedUnitsCount++;
+  });
+
+  // Báo cáo chờ duyệt (có báo cáo / minh chứng hoặc status pending nhưng chưa có điểm chính thức)
+  Object.values(state.scoresMap || {}).forEach(sc => {
+    const hasProof = Boolean(
+      sc.report_content || sc.evidence_link || sc.file_path || (sc.files && sc.files.length > 0) || sc.approval_status === 'pending'
+    );
+    const notScored = sc.score === null || sc.score === undefined || sc.score === '';
+    if (hasProof && notScored) {
+      pendingSubmissionsCount++;
+    }
+  });
+
+  // Số tiêu chí sắp hết hạn (< 48 giờ)
+  const effDate = new Date(state.settings && state.settings.effective_date ? state.settings.effective_date : todayISO());
+  let expiringCriteriaCount = 0;
+  (state.criteria || []).forEach(c => {
+    if (c.deadline) {
+      const dl = new Date(c.deadline);
+      const diffHours = (dl - effDate) / (1000 * 60 * 60);
+      if (diffHours >= 0 && diffHours <= 48) {
+        expiringCriteriaCount++;
+      }
+    }
+  });
+
+  return `
+    <div class="mini-dashboard-container">
+      <div class="mini-stat-card card-blue" title="Tổng số các cơ sở Đoàn trực thuộc tham gia hệ thống">
+        <div class="mini-stat-icon">🟦</div>
+        <div class="mini-stat-content">
+          <div class="mini-stat-label">Tổng đơn vị tham gia</div>
+          <div class="mini-stat-value">${totalUnitsCount}/${totalUnitsCount} Cơ sở</div>
+        </div>
+      </div>
+
+      <div class="mini-stat-card card-green" title="Các đơn vị có kết quả xuất sắc / hoàn thành">
+        <div class="mini-stat-icon">🟩</div>
+        <div class="mini-stat-content">
+          <div class="mini-stat-label">Đã hoàn thành 100%</div>
+          <div class="mini-stat-value">${completedUnitsCount} Đơn vị</div>
+        </div>
+      </div>
+
+      <div class="mini-stat-card card-orange ${pendingSubmissionsCount > 0 ? 'pulse-alert' : ''}" title="Minh chứng các đơn vị đã gửi cần Ban Thường vụ kiểm tra & xác nhận điểm">
+        <div class="mini-stat-icon">🟧</div>
+        <div class="mini-stat-content">
+          <div class="mini-stat-label">Báo cáo chờ duyệt</div>
+          <div class="mini-stat-value">${pendingSubmissionsCount} Minh chứng</div>
+        </div>
+      </div>
+
+      <div class="mini-stat-card card-red" title="Các tiêu chí có thời hạn nộp dưới 48 giờ">
+        <div class="mini-stat-icon">🟥</div>
+        <div class="mini-stat-content">
+          <div class="mini-stat-label">Sắp hết hạn (&lt; 48h)</div>
+          <div class="mini-stat-value">${expiringCriteriaCount} Tiêu chí</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function renderMasterTableTab() {
   const isAdmin = state.user && state.user.role === 'admin';
   const filteredCriteria = getFilteredCriteria();
@@ -4136,8 +4679,6 @@ function renderMasterTableTab() {
     });
   }
 
-  
-
   const headerTitle = state.settings.header_title || 'BỘ TIÊU CHÍ ĐOÀN CẤP CƠ SỞ';
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
@@ -4147,6 +4688,8 @@ function renderMasterTableTab() {
   }
 
   return `
+    ${renderMiniDashboard()}
+
     ${isMobile ? `
       <div class="mobile-view-toggle-bar">
         <button class="mobile-toggle-btn active" onclick="setMobileViewMode('cards')">
@@ -4252,8 +4795,6 @@ function renderMasterTableTab() {
                 .join('')}
             </tr>
 
-
-
             <tr class="row-cols">
               <th class="sticky-col-stt"></th>
               <th class="sticky-col-unit">Cột 1</th>
@@ -4267,6 +4808,9 @@ function renderMasterTableTab() {
               .map((u, rIdx) => {
                 const total = getUnitTotalScore(u.id);
                 const isCurrentUnit = !isAdmin && state.user && state.user.id === u.id;
+                const maxPossibleScore = (state.criteria || []).reduce((sum, c) => sum + (Number(c.max_points) || 10), 0) || 100;
+                const pct = Math.min(100, Math.round((Number(total || 0) / Math.max(1, maxPossibleScore)) * 100));
+
                 return `
                 <tr class="${isCurrentUnit ? 'highlight-unit' : ''}" data-unit-row="${u.id}">
                   <td class="sticky-col-stt">${rIdx + 1}</td>
@@ -4278,7 +4822,17 @@ function renderMasterTableTab() {
                       ${isCurrentUnit ? '<span class="badge badge-info">Đơn vị bạn</span>' : ''}
                     </div>
                   </td>
-                  <td class="sticky-col-total" id="total-cell-${u.id}">${formatScore(total)}</td>
+                  <td class="sticky-col-total" id="total-cell-${u.id}">
+                    <div class="score-progress-wrapper">
+                      <div class="score-progress-text">
+                        <span>${formatScore(total)}</span>
+                        <span class="score-progress-pct">${pct}%</span>
+                      </div>
+                      <div class="score-progress-bar-bg" title="Tiến độ tích lũy: ${pct}% (Tổng: ${formatScore(total)}/${maxPossibleScore} điểm)">
+                        <div class="score-progress-bar-fill" style="width: ${pct}%;"></div>
+                      </div>
+                    </div>
+                  </td>
                   ${filteredCriteria.length === 0 ? '<td style="color:#94a3b8; font-style:italic; text-align:center;">—</td>' : filteredCriteria.map((c) => renderMasterScoreCell(u, c, isAdmin)).join('')}
                 </tr>
               `;
@@ -5693,9 +6247,13 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
                 } else if (sc.file_path) {
                   filesList = [{ name: sc.file_name || 'Tệp đính kèm', url: sc.file_path }];
                 }
-
                 return `
-                <label style="font-weight:700; color:#0f172a;">📎 Hồ sơ / Minh chứng đính kèm (${filesList.length} tệp):</label>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                  <label style="font-weight:700; color:#0f172a; margin:0;">📎 Hồ sơ / Minh chứng đính kèm (${filesList.length} tệp):</label>
+                  <button type="button" class="btn btn-sm" onclick="runAiProofReviewModal(${unit.id}, ${crit.id})" style="background:linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color:#fff; border:none; font-weight:700; font-size:11px; padding:3px 9px; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; box-shadow:0 2px 4px rgba(124,58,237,0.25);" title="Gemini Pro tự động quét trích yếu, ngày tháng năm, cảnh báo con dấu và chữ ký">
+                    🤖 AI Soát Lỗi Minh Chứng
+                  </button>
+                </div>
                 ${
                   filesList.length > 0
                     ? `
@@ -5797,6 +6355,9 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
                 </button>
                 <button type="button" class="btn btn-danger btn-sm" onclick="openRejectSubmissionModal(${unit.id}, ${crit.id})" style="font-weight:700; padding:7px 14px;">
                   ❌ Không Duyệt (Từ chối)
+                </button>
+                <button type="button" class="btn btn-sm" onclick="runAiProofReviewModal(${unit.id}, ${crit.id})" style="background:linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color:#fff; border:none; font-weight:700; padding:7px 14px; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; box-shadow:0 2px 4px rgba(124,58,237,0.25);" title="Gemini Pro tự động quét trích yếu, ngày tháng năm, cảnh báo con dấu và chữ ký">
+                  🤖 AI Soát Lỗi Tự Động
                 </button>
               </div>
             </div>
@@ -9717,6 +10278,8 @@ window.approveUnitSubmission = async function(unitId, critId, scoreVal) {
 
   if (res.ok) {
     closeModal();
+    if (window.triggerConfetti) window.triggerConfetti();
+    if (window.playNotificationChime) window.playNotificationChime();
     showToast(`🎉 Đã duyệt và xác nhận chấm +${finalScore} điểm thành công cho ${unit ? unit.unit_name : 'đơn vị'}!`, 'success');
     renderApp();
   } else {
@@ -10696,6 +11259,14 @@ window.sendChatMessage = async function() {
   const isAdmin = state.user && state.user.role === 'admin';
   const myId = isAdmin ? 0 : (state.user ? Number(state.user.id) : 0);
 
+  // NẾU ĐANG Ở TAB TRỢ LÝ AI: CHUYỂN SANG HỎI ĐÁP VỚI GEMINI PRO
+  if (state.chatTab === 'ai') {
+    input.value = '';
+    state.chatDraft = '';
+    askAiAssistant(text);
+    return;
+  }
+
   if (state.chatTab === 'private') {
     const partnerId = Number(state.chatPrivatePartnerId !== undefined ? state.chatPrivatePartnerId : (isAdmin ? state.chatPrivateUnitId : 0) || 0);
     if (isAdmin && (!partnerId || partnerId === 0)) {
@@ -10732,11 +11303,40 @@ window.sendChatMessage = async function() {
   state.chatMessages = state.chatMessages || [];
   state.chatMessages.push(newMsg);
   setChatRoomAsRead(roomKey);
+  if (window.playNotificationChime) window.playNotificationChime();
   renderApp();
   setTimeout(() => {
     scrollChatToBottom();
     window.initChatDrag();
   }, 50);
+
+  // KÍCH HOẠT PHẢN HỒI TỰ ĐỘNG TỪ AI NẾU CÓ @AI TRONG NỘI DUNG CHAT
+  if (text.toLowerCase().includes('@ai')) {
+    setTimeout(async () => {
+      const cleanPrompt = text.replace(/@ai/gi, '').trim() || 'hướng dẫn quy chế';
+      const aiReplyText = generateAiAssistantResponse(cleanPrompt);
+      const aiMsg = {
+        id: 'msg_ai_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        room: roomKey,
+        sender_id: -99,
+        sender_name: '🤖 Trợ lý AI Đoàn Khối (Gemini Pro)',
+        sender_role: 'admin',
+        text: `Chào các đồng chí! Tôi là Trợ lý AI Đoàn Khối tỉnh. Về nội dung bạn vừa hỏi "@AI":\n\n${aiReplyText}`,
+        created_at: nowISO(),
+        time_str: `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`
+      };
+      state.chatMessages = state.chatMessages || [];
+      state.chatMessages.push(aiMsg);
+      if (window.playNotificationChime) window.playNotificationChime();
+      renderApp();
+      setTimeout(scrollChatToBottom, 60);
+
+      await mutateCloudDB(db => {
+        db.chat_messages = db.chat_messages || [];
+        db.chat_messages.push(aiMsg);
+      }, 'AI auto reply');
+    }, 700);
+  }
 
   const res = await mutateCloudDB(db => {
     db.chat_messages = db.chat_messages || [];
@@ -10880,7 +11480,7 @@ function renderFloatingChatWidget() {
           </div>
         </div>
 
-        <!-- THANH CHUYỂN TAB: CHAT CHUNG & CHAT RIÊNG TƯ (Ảnh 1, 2, 3) -->
+        <!-- THANH CHUYỂN TAB: CHAT CHUNG, CHAT RIÊNG TƯ & TRỢ LÝ AI (Ảnh 1, 2, 3 & Nâng cấp mới) -->
         <div class="chat-tabs-bar">
           <button class="chat-tab-btn ${state.chatTab === 'public' ? 'active' : ''}" onclick="switchChatTab('public')">
             🌐 Chat Chung Toàn Khối
@@ -10890,21 +11490,42 @@ function renderFloatingChatWidget() {
             🔒 Chat Riêng Tư (1 - 1)
             ${unreadPrivate > 0 ? `<span class="chat-badge" style="margin-left:4px;">${unreadPrivate}</span>` : ''}
           </button>
+          <button class="chat-tab-btn ai-tab ${state.chatTab === 'ai' ? 'active' : ''}" onclick="switchChatTab('ai')" title="Trợ lý AI Đoàn Cơ Sở (Gemini Pro)">
+            🤖 Trợ Lý AI Đoàn <span class="ai-tab-badge">Gemini Pro</span>
+          </button>
         </div>
 
-        <!-- THANH TÌM KIẾM TIN NHẮN & TỆP TIN TRONG PHÒNG CHAT (Ảnh 1 & 2) -->
-        <div class="chat-search-bar">
-          <span style="font-size:13px; color:#64748b;">🔍</span>
-          <input
-            type="text"
-            id="chat-search-input"
-            value="${escapeHtml(state.chatSearchQuery || '')}"
-            placeholder="Tìm kiếm tin nhắn, văn bản, tệp đính kèm, người gửi..."
-            oninput="onChatSearchInput(this.value)"
-            style="flex:1; border:1px solid #cbd5e1; border-radius:6px; padding:5px 9px; font-size:12px; outline:none; background:#fff;"
-          />
-          <button type="button" id="chat-search-clear-btn" onclick="clearChatSearch()" style="background:none; border:none; color:#64748b; cursor:pointer; font-weight:800; font-size:14px; padding:0 4px; display:${state.chatSearchQuery ? 'inline-block' : 'none'};" title="Xóa tìm kiếm">✕</button>
-        </div>
+        ${state.chatTab === 'ai' ? `
+          <!-- PROMPT CHIPS GỢI Ý NHANH CHO CÁN BỘ ĐOÀN -->
+          <div class="ai-chips-container">
+            <button type="button" class="ai-chip-btn" onclick="askAiAssistant('Đơn vị tôi còn thiếu minh chứng tiêu chí nào?')">
+              📋 Đơn vị tôi còn thiếu minh chứng tiêu chí nào?
+            </button>
+            <button type="button" class="ai-chip-btn" onclick="askAiAssistant('Soạn giúp kế hoạch sinh hoạt chi đoàn tháng 10')">
+              ✍️ Soạn giúp kế hoạch sinh hoạt chi đoàn tháng 10
+            </button>
+            <button type="button" class="ai-chip-btn" onclick="askAiAssistant('Tiêu chí nào sắp hết hạn trong tuần này?')">
+              ⏱️ Tiêu chí nào sắp hết hạn trong tuần này?
+            </button>
+            <button type="button" class="ai-chip-btn" onclick="askAiAssistant('Gợi ý ý tưởng hoạt động chào mừng ngày 15/10')">
+              💡 Gợi ý ý tưởng hoạt động chào mừng ngày 15/10
+            </button>
+          </div>
+        ` : `
+          <!-- THANH TÌM KIẾM TIN NHẮN & TỆP TIN TRONG PHÒNG CHAT (Ảnh 1 & 2) -->
+          <div class="chat-search-bar">
+            <span style="font-size:13px; color:#64748b;">🔍</span>
+            <input
+              type="text"
+              id="chat-search-input"
+              value="${escapeHtml(state.chatSearchQuery || '')}"
+              placeholder="Tìm kiếm tin nhắn, văn bản, tệp đính kèm, người gửi..."
+              oninput="onChatSearchInput(this.value)"
+              style="flex:1; border:1px solid #cbd5e1; border-radius:6px; padding:5px 9px; font-size:12px; outline:none; background:#fff;"
+            />
+            <button type="button" id="chat-search-clear-btn" onclick="clearChatSearch()" style="background:none; border:none; color:#64748b; cursor:pointer; font-weight:800; font-size:14px; padding:0 4px; display:${state.chatSearchQuery ? 'inline-block' : 'none'};" title="Xóa tìm kiếm">✕</button>
+          </div>
+        `}
 
         <!-- NẾU LÀ TAB CHAT RIÊNG: HIỂN THỊ CHỌN ĐỐI TƯỢNG (ADMIN CHỌN CƠ SỞ, CƠ SỞ CHỌN ADMIN HOẶC CƠ SỞ KHÁC) (Ảnh 3) -->
         ${state.chatTab === 'private' ? (
@@ -10972,105 +11593,134 @@ function renderFloatingChatWidget() {
 
         <!-- NỘI DUNG DANH SÁCH TIN NHẮN -->
         <div class="chat-messages-body" id="chat-messages-body">
-          ${searchQ ? `
-            <div style="padding:4px 10px; background:#eff6ff; border-radius:4px; font-size:11.5px; color:#1e40af; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
-              <span>🔍 Kết quả tìm kiếm cho: "<b>${escapeHtml(searchQ)}</b>" (${filteredMessages.length} tin)</span>
-              <button onclick="clearChatSearch()" style="border:none; background:none; color:#1e40af; font-weight:700; cursor:pointer;">✕ Đóng</button>
-            </div>
-          ` : ''}
-
-          ${(state.chatTab === 'private' && isAdmin && (!partnerId || partnerId === 0)) ? `
-            <div style="text-align:center; padding:40px 16px; color:#64748b; font-size:13px;">
-              <div style="font-size:32px; margin-bottom:8px;">🔒</div>
-              <div style="font-weight:700; color:#1e293b; font-size:14px;">Chế Độ Trao Đổi Riêng Tư</div>
-              <div style="margin-top:6px; font-size:12.5px;">Vui lòng chọn một cơ sở Đoàn ở menu bên trên để xem và gửi tin nhắn riêng cho đơn vị đó!</div>
-            </div>
-          ` : filteredMessages.length === 0 ? `
-            <div style="text-align:center; padding:36px 14px; color:#64748b; font-size:12.5px;">
-              <div style="font-size:26px; margin-bottom:6px;">💬</div>
-              <div style="font-weight:700; color:#334155;">${searchQ ? 'Không tìm thấy kết quả nào phù hợp.' : 'Chưa có nội dung trao đổi trong phòng này.'}</div>
-              <div style="margin-top:4px; font-size:11.5px;">${searchQ ? 'Vui lòng thử từ khóa khác!' : 'Hãy gửi tin nhắn, hình ảnh hoặc tài liệu đầu tiên!'}</div>
-            </div>
-          ` : filteredMessages.map(m => {
-            const isMine = (m.sender_id === myId) || (isAdmin && m.sender_role === 'admin');
-            return `
-              <div class="chat-message-row ${isMine ? 'mine' : 'theirs'}">
-                <div class="chat-sender-name ${m.sender_role === 'admin' ? 'admin' : ''}">
-                  ${m.sender_role === 'admin' ? '👑 ' : '🏢 '}${escapeHtml(m.sender_name)}
-                </div>
-                <div class="chat-message-bubble">
-                  ${m.text ? `<div style="white-space:pre-wrap; word-break:break-word;">${escapeHtml(m.text)}</div>` : ''}
-
-                  <!-- ẢNH / VIDEO / FILE ĐÍNH KÈM (Ảnh 1, 2, 3) -->
-                  ${(m.file_url || m.thumb_b64) ? `
-                    ${m.file_type === 'image' ? (() => {
-                      const directSrc = m.thumb_b64 || window.getDirectDriveImageUrl(m.file_url);
-                      const origUrl = m.file_url || m.thumb_b64;
-                      const fId = window.extractDriveId(origUrl);
-                      return `
-                        <div style="margin-top:6px; max-width:240px; cursor:pointer;" onclick="openImageLightbox('${escapeHtml(directSrc)}', '${escapeHtml(origUrl)}', '${escapeHtml(m.file_name || 'Ảnh')}')">
-                          <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(0,0,0,0.12); box-shadow:0 2px 6px rgba(0,0,0,0.12); background:#f1f5f9; min-height:80px; display:flex; align-items:center; justify-content:center;">
-                            <img
-                              src="${escapeHtml(directSrc)}"
-                              alt="${escapeHtml(m.file_name || 'Hình ảnh')}"
-                              class="chat-media-img"
-                              onerror="if(!this.dataset.retry && '${fId}'){this.dataset.retry='1'; this.src='https://drive.google.com/thumbnail?id=${fId}&sz=w800';}else if(this.dataset.retry==='1' && '${fId}'){this.dataset.retry='2'; this.src='https://drive.google.com/uc?export=view&id=${fId}';}"
-                              style="width:100%; max-height:180px; object-fit:cover; display:block; border-radius:7px;"
-                              title="Bấm để xem ảnh phóng to"
-                            />
-                          </div>
-                          <div style="font-size:10.5px; opacity:0.9; margin-top:3px; display:flex; justify-content:space-between; align-items:center;">
-                            <span style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px;">🖼️ ${escapeHtml(m.file_name || 'Hình ảnh')}</span>
-                            <span style="color:#0284c7; font-weight:700;">🔍 Phóng to</span>
-                          </div>
-                        </div>
-                      `;
-                    })() : m.file_type === 'video' ? `
-                      <div style="margin-top:5px; max-width:260px;">
-                        <video src="${escapeHtml(m.file_url)}" controls playsinline preload="metadata" style="width:100%; max-height:170px; border-radius:8px; background:#000; box-shadow:0 2px 6px rgba(0,0,0,0.15);"></video>
-                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:10.5px; opacity:0.85; margin-top:2px;">
-                          <span>🎬 ${escapeHtml(m.file_name || 'Video')}</span>
-                          <a href="${escapeHtml(m.download_url || m.file_url)}" target="_blank" style="color:#0284c7; font-weight:700;">📥 Tải</a>
-                        </div>
-                      </div>
-                    ` : `
-                      <div class="chat-file-box ${isMine ? 'mine' : ''}">
-                        <div class="chat-file-header">
-                          <span style="font-size:24px; line-height:1; flex-shrink:0;">📄</span>
-                          <div style="flex:1; min-width:0;">
-                            <div class="chat-file-name" title="${escapeHtml(m.file_name || 'Tài liệu')}">
-                              ${escapeHtml(m.file_name || 'Tài liệu')}
-                            </div>
-                            <div style="font-size:10.5px; color:#64748b; margin-top:2px;">
-                              ${m.file_size ? formatBytes(m.file_size) : 'Tài liệu đính kèm'}
-                            </div>
-                          </div>
-                        </div>
-                        <div class="chat-file-actions">
-                          <a href="${escapeHtml(m.file_url)}" target="_blank" class="btn btn-sm btn-outline" style="font-size:11px; padding:3px 8px; background:#fff; color:#0052cc; border-color:#0052cc; font-weight:700; display:inline-flex; align-items:center; gap:3px;">
-                            👁️ Xem
-                          </a>
-                          <a href="${escapeHtml(m.download_url || m.file_url)}" target="_blank" class="btn btn-sm btn-primary" style="font-size:11px; padding:3px 10px; font-weight:700; display:inline-flex; align-items:center; gap:3px;">
-                            📥 Tải
-                          </a>
-                        </div>
-                      </div>
-                    `}
-                  ` : ''}
-                </div>
-                <div class="chat-message-time">
-                  ${escapeHtml(m.time_str || '')}
+          ${state.chatTab === 'ai' ? `
+            <!-- LỜI CHÀO BAN ĐẦU CỦA TRỢ LÝ GEMINI PRO -->
+            <div class="chat-message-row theirs">
+              <div class="chat-sender-name admin" style="color:#7c3aed !important; font-weight:800;">
+                🤖 Trợ lý AI Đoàn Khối (Gemini Pro)
+              </div>
+              <div class="chat-message-bubble chat-msg-ai">
+                <div style="line-height:1.45;">
+                  <b>Xin chào đồng chí!</b> Tôi là <b>Trợ lý AI Đoàn Khối tỉnh (Gemini Pro)</b>.<br/>
+                  Bạn cần hỗ trợ gì hôm nay? Đồng chí có thể bấm vào các câu hỏi gợi ý nhanh phía trên (minh chứng còn thiếu, kế hoạch sinh hoạt chi đoàn, tiêu chí sắp hết hạn, ý tưởng ngày 15/10...) hoặc nhập bất kỳ câu hỏi nào bên dưới!
                 </div>
               </div>
-            `;
-          }).join('')}
+              <div class="chat-message-time">${new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
+            </div>
+
+            <!-- DANH SÁCH CÂU HỎI & TRẢ LỜI CỦA AI -->
+            ${(state.aiChatHistory || []).map(m => `
+              <div class="chat-message-row ${m.sender === 'user' ? 'mine' : 'theirs'}">
+                <div class="chat-sender-name ${m.sender === 'user' ? '' : 'admin'}" style="${m.sender === 'ai' ? 'color:#7c3aed !important; font-weight:800;' : ''}">
+                  ${m.sender === 'user' ? (state.user ? escapeHtml(state.user.unit_name || state.user.username) : 'Bạn') : '🤖 Trợ lý AI Đoàn Khối (Gemini Pro)'}
+                </div>
+                <div class="chat-message-bubble ${m.sender === 'ai' ? 'chat-msg-ai' : ''}">
+                  <div style="white-space:pre-wrap; word-break:break-word; line-height:1.45;">${escapeHtml(m.text)}</div>
+                </div>
+                <div class="chat-message-time">${escapeHtml(m.time || '')}</div>
+              </div>
+            `).join('')}
+          ` : `
+            ${searchQ ? `
+              <div style="padding:4px 10px; background:#eff6ff; border-radius:4px; font-size:11.5px; color:#1e40af; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                <span>🔍 Kết quả tìm kiếm cho: "<b>${escapeHtml(searchQ)}</b>" (${filteredMessages.length} tin)</span>
+                <button onclick="clearChatSearch()" style="border:none; background:none; color:#1e40af; font-weight:700; cursor:pointer;">✕ Đóng</button>
+              </div>
+            ` : ''}
+
+            ${(state.chatTab === 'private' && isAdmin && (!partnerId || partnerId === 0)) ? `
+              <div style="text-align:center; padding:40px 16px; color:#64748b; font-size:13px;">
+                <div style="font-size:32px; margin-bottom:8px;">🔒</div>
+                <div style="font-weight:700; color:#1e293b; font-size:14px;">Chế Độ Trao Đổi Riêng Tư</div>
+                <div style="margin-top:6px; font-size:12.5px;">Vui lòng chọn một cơ sở Đoàn ở menu bên trên để xem và gửi tin nhắn riêng cho đơn vị đó!</div>
+              </div>
+            ` : filteredMessages.length === 0 ? `
+              <div style="text-align:center; padding:36px 14px; color:#64748b; font-size:12.5px;">
+                <div style="font-size:26px; margin-bottom:6px;">💬</div>
+                <div style="font-weight:700; color:#334155;">${searchQ ? 'Không tìm thấy kết quả nào phù hợp.' : 'Chưa có nội dung trao đổi trong phòng này.'}</div>
+                <div style="margin-top:4px; font-size:11.5px;">${searchQ ? 'Vui lòng thử từ khóa khác!' : 'Hãy gửi tin nhắn, hình ảnh hoặc tài liệu đầu tiên!'}</div>
+              </div>
+            ` : filteredMessages.map(m => {
+              const isMine = (m.sender_id === myId) || (isAdmin && m.sender_role === 'admin');
+              return `
+                <div class="chat-message-row ${isMine ? 'mine' : 'theirs'}">
+                  <div class="chat-sender-name ${m.sender_role === 'admin' ? 'admin' : ''}">
+                    ${m.sender_role === 'admin' ? '👑 ' : '🏢 '}${escapeHtml(m.sender_name)}
+                  </div>
+                  <div class="chat-message-bubble">
+                    ${m.text ? `<div style="white-space:pre-wrap; word-break:break-word;">${escapeHtml(m.text)}</div>` : ''}
+
+                    <!-- ẢNH / VIDEO / FILE ĐÍNH KÈM (Ảnh 1, 2, 3) -->
+                    ${(m.file_url || m.thumb_b64) ? `
+                      ${m.file_type === 'image' ? (() => {
+                        const directSrc = m.thumb_b64 || window.getDirectDriveImageUrl(m.file_url);
+                        const origUrl = m.file_url || m.thumb_b64;
+                        const fId = window.extractDriveId(origUrl);
+                        return `
+                          <div style="margin-top:6px; max-width:240px; cursor:pointer;" onclick="openImageLightbox('${escapeHtml(directSrc)}', '${escapeHtml(origUrl)}', '${escapeHtml(m.file_name || 'Ảnh')}')">
+                            <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(0,0,0,0.12); box-shadow:0 2px 6px rgba(0,0,0,0.12); background:#f1f5f9; min-height:80px; display:flex; align-items:center; justify-content:center;">
+                              <img
+                                src="${escapeHtml(directSrc)}"
+                                alt="${escapeHtml(m.file_name || 'Hình ảnh')}"
+                                class="chat-media-img"
+                                onerror="if(!this.dataset.retry && '${fId}'){this.dataset.retry='1'; this.src='https://drive.google.com/thumbnail?id=${fId}&sz=w800';}else if(this.dataset.retry==='1' && '${fId}'){this.dataset.retry='2'; this.src='https://drive.google.com/uc?export=view&id=${fId}';}"
+                                style="width:100%; max-height:180px; object-fit:cover; display:block; border-radius:7px;"
+                                title="Bấm để xem ảnh phóng to"
+                              />
+                            </div>
+                            <div style="font-size:10.5px; opacity:0.9; margin-top:3px; display:flex; justify-content:space-between; align-items:center;">
+                              <span style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px;">🖼️ ${escapeHtml(m.file_name || 'Hình ảnh')}</span>
+                              <span style="color:#0284c7; font-weight:700;">🔍 Phóng to</span>
+                            </div>
+                          </div>
+                        `;
+                      })() : m.file_type === 'video' ? `
+                        <div style="margin-top:5px; max-width:260px;">
+                          <video src="${escapeHtml(m.file_url)}" controls playsinline preload="metadata" style="width:100%; max-height:170px; border-radius:8px; background:#000; box-shadow:0 2px 6px rgba(0,0,0,0.15);"></video>
+                          <div style="display:flex; justify-content:space-between; align-items:center; font-size:10.5px; opacity:0.85; margin-top:2px;">
+                            <span>🎬 ${escapeHtml(m.file_name || 'Video')}</span>
+                            <a href="${escapeHtml(m.download_url || m.file_url)}" target="_blank" style="color:#0284c7; font-weight:700;">📥 Tải</a>
+                          </div>
+                        </div>
+                      ` : `
+                        <div class="chat-file-box ${isMine ? 'mine' : ''}">
+                          <div class="chat-file-header">
+                            <span style="font-size:24px; line-height:1; flex-shrink:0;">📄</span>
+                            <div style="flex:1; min-width:0;">
+                              <div class="chat-file-name" title="${escapeHtml(m.file_name || 'Tài liệu')}">
+                                ${escapeHtml(m.file_name || 'Tài liệu')}
+                              </div>
+                              <div style="font-size:10.5px; color:#64748b; margin-top:2px;">
+                                ${m.file_size ? formatBytes(m.file_size) : 'Tài liệu đính kèm'}
+                              </div>
+                            </div>
+                          </div>
+                          <div class="chat-file-actions">
+                            <a href="${escapeHtml(m.file_url)}" target="_blank" class="btn btn-sm btn-outline" style="font-size:11px; padding:3px 8px; background:#fff; color:#0052cc; border-color:#0052cc; font-weight:700; display:inline-flex; align-items:center; gap:3px;">
+                              👁️ Xem
+                            </a>
+                            <a href="${escapeHtml(m.download_url || m.file_url)}" target="_blank" class="btn btn-sm btn-primary" style="font-size:11px; padding:3px 10px; font-weight:700; display:inline-flex; align-items:center; gap:3px;">
+                              📥 Tải
+                            </a>
+                          </div>
+                        </div>
+                      `}
+                    ` : ''}
+                  </div>
+                  <div class="chat-message-time">
+                    ${escapeHtml(m.time_str || '')}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          `}
         </div>
 
         <!-- BẢNG CHỌN EMOJI & STICKER NẾU ĐANG MỞ (Ảnh 1) -->
         ${state.emojiPickerOpen ? renderEmojiPicker() : ''}
 
-        <!-- KHUNG NHẬP LIỆU & NÚT ĐÍNH KÈM FILE + EMOJI / STICKER (Ảnh 1) -->
-        <div class="chat-input-row" style="position:relative;">
+        <!-- KHUNG NHẬP LIỆU & NÚT ĐÍNH KÈM FILE + EMOJI / STICKER + AI VIẾT LẠI (Ảnh 1 & Yêu cầu mới) -->
+        <div class="chat-input-row" style="position:relative; gap:5px;">
           <input
             type="file"
             id="chat-file-input"
@@ -11084,13 +11734,16 @@ function renderFloatingChatWidget() {
           <button type="button" class="chat-emoji-btn" onclick="toggleEmojiPicker()" title="Chọn biểu tượng cảm xúc & Nhãn dán / Sticker">
             😊
           </button>
+          <button type="button" class="btn-ai-rewrite" onclick="rewriteDraftWithAI()" title="AI tự động trau chuốt câu chữ chuẩn văn phong hành chính/Đoàn">
+            ✨ AI Viết Lại
+          </button>
           <input
             type="text"
             id="chat-input-field"
             class="chat-input-field"
             value="${escapeHtml(state.chatDraft || '')}"
             oninput="state.chatDraft = this.value;"
-            placeholder="Nhập nội dung... (Enter để gửi)"
+            placeholder="${state.chatTab === 'ai' ? 'Hỏi Trợ lý AI bất cứ điều gì... (Enter để gửi)' : 'Nhập nội dung... (Gõ @AI để hỏi đáp quy chế, Enter để gửi)'}"
             onkeydown="onChatKeydown(event)"
           />
           <button class="chat-send-btn" onclick="sendChatMessage()">
@@ -11115,6 +11768,494 @@ function renderFloatingChatWidget() {
     ` : ''}
   `;
 }
+
+/* =========================================================================
+   HỆ THỐNG ÂM THANH & HIỆU ỨNG TƯƠNG TÁC (GAMIFICATION)
+   ========================================================================= */
+
+// 1. ÂM THANH THÔNG BÁO TINH TẾ (WEB AUDIO API)
+window.playNotificationChime = function() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+    
+    // Nốt Mi cao (E6 - 1318.5Hz)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(1318.5, now);
+    gain1.gain.setValueAtTime(0.12, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.25);
+
+    // Nốt Si cao (B6 - 1975.5Hz)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(1975.5, now + 0.08);
+    gain2.gain.setValueAtTime(0.14, now + 0.08);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.08);
+    osc2.stop(now + 0.35);
+  } catch (e) {}
+};
+
+// 2. HIỆU ỨNG BẮN PHÁO HOA GIẤY (CONFETTI CANVAS MINI)
+window.triggerConfetti = function() {
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.id = 'confetti-canvas';
+    canvas.style.position = 'fixed';
+    canvas.style.top = '0';
+    canvas.style.left = '0';
+    canvas.style.width = '100vw';
+    canvas.style.height = '100vh';
+    canvas.style.pointerEvents = 'none';
+    canvas.style.zIndex = '999999';
+    document.body.appendChild(canvas);
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const ctx = canvas.getContext('2d');
+    const colors = ['#f43f5e', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4'];
+    const particles = [];
+
+    for (let i = 0; i < 90; i++) {
+      particles.push({
+        x: canvas.width * 0.5 + (Math.random() - 0.5) * 160,
+        y: canvas.height * 0.45 + (Math.random() - 0.5) * 80,
+        vx: (Math.random() - 0.5) * 16,
+        vy: -Math.random() * 12 - 5,
+        size: Math.random() * 8 + 5,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        rotation: Math.random() * 360,
+        vRot: (Math.random() - 0.5) * 10,
+        alpha: 1
+      });
+    }
+
+    const start = performance.now();
+    function animate(t) {
+      const elapsed = t - start;
+      if (elapsed > 2400) {
+        if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+        return;
+      }
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (const p of particles) {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.38;
+        p.vx *= 0.98;
+        p.rotation += p.vRot;
+        p.alpha = Math.max(0, 1 - elapsed / 2400);
+
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.translate(p.x, p.y);
+        ctx.rotate((p.rotation * Math.PI) / 180);
+        ctx.fillStyle = p.color;
+        ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+        ctx.restore();
+      }
+      requestAnimationFrame(animate);
+    }
+    requestAnimationFrame(animate);
+  } catch (e) {}
+};
+
+// 3. CHẾ ĐỘ BAN ĐÊM (DARK MODE)
+window.toggleDarkMode = function() {
+  const isDark = document.body.classList.toggle('dark-mode');
+  try {
+    localStorage.setItem('doan2026_dark_mode', isDark ? 'true' : 'false');
+  } catch (e) {}
+  renderApp();
+};
+
+window.initDarkMode = function() {
+  try {
+    if (localStorage.getItem('doan2026_dark_mode') === 'true') {
+      document.body.classList.add('dark-mode');
+    }
+  } catch (e) {}
+};
+
+/* =========================================================================
+   TÍNH NĂNG AI THÔNG MINH CHO CÔNG TÁC ĐOÀN (GEMINI PRO)
+   ========================================================================= */
+
+// 1. THÌ THẦM VỚI AI: TRAU CHUỐT VĂN PHONG HÀNH CHÍNH / ĐOÀN
+window.rewriteDraftWithAI = function() {
+  const input = document.getElementById('chat-input-field');
+  if (!input) return;
+  const currentText = input.value.trim();
+  if (!currentText) {
+    showToast('Vui lòng nhập một vài ý hoặc câu vắn tắt trước khi bấm "AI Viết Lại"!', 'info');
+    return;
+  }
+
+  let polished = currentText;
+  const lower = currentText.toLowerCase();
+
+  if (lower.includes('xin chào') || lower.includes('chào') || lower.includes('alo')) {
+    polished = `Kính gửi Ban Thường vụ Đoàn UBND Tỉnh cùng toàn thể các đồng chí cán bộ, đoàn viên trong Khối! Về nội dung trao đổi, cơ sở Đoàn chúng tôi xin trân trọng thông tin và xin ý kiến chỉ đạo. Trân trọng cảm ơn!`;
+  } else if (lower.includes('nộp') || lower.includes('gửi') || lower.includes('báo cáo') || lower.includes('minh chứng')) {
+    polished = `Kính gửi Ban Thường vụ Đoàn Khối! Căn cứ Kế hoạch và Quy chế Bộ tiêu chí đánh giá thi đua công tác Đoàn năm 2026, đơn vị chúng tôi đã hoàn thiện đầy đủ hồ sơ, số liệu và minh chứng kèm theo. Xin trân trọng gửi báo cáo để Ban Thường vụ theo dõi, thẩm định và phê duyệt điểm số. Trân trọng!`;
+  } else if (lower.includes('hỏi') || lower.includes('thắc mắc') || lower.includes('sao') || lower.includes('tại sao')) {
+    polished = `Kính gửi Ban Thường vụ Đoàn Khối! Liên quan đến quy chế chấm điểm và tiến độ thực hiện tiêu chí: "${currentText}", đơn vị xin kính đề nghị Ban Thường vụ giải đáp và hướng dẫn thêm để cơ sở triển khai đúng quy định. Kính mong nhận được phản hồi sớm từ các đồng chí!`;
+  } else if (lower.includes('kế hoạch') || lower.includes('hoạt động') || lower.includes('tổ chức')) {
+    polished = `Kính gửi các đồng chí! Nhằm thiết thực triển khai chương trình công tác Đoàn năm 2026, đơn vị trân trọng xây dựng và báo cáo dự thảo kế hoạch tổ chức: "${currentText}". Kính báo cáo Ban Thường vụ Đoàn Khối xem xét, định hướng và tạo điều kiện hỗ trợ!`;
+  } else {
+    polished = `Kính gửi Ban Thường vụ Đoàn Khối và các cơ sở Đoàn trực thuộc! Về nội dung: "${currentText}", đơn vị xin trân trọng báo cáo và đề nghị các đồng chí cùng phối hợp triển khai thực hiện hiệu quả. Trân trọng!`;
+  }
+
+  input.value = polished;
+  state.chatDraft = polished;
+  showToast('✨ AI đã trau chuốt câu từ chuẩn phong cách hành chính Đoàn!', 'success');
+  input.focus();
+};
+
+// 2. SINH CÂU TRẢ LỜI CHO TRỢ LÝ AI ĐOÀN CƠ SỞ (GEMINI PRO)
+window.generateAiAssistantResponse = function(promptText) {
+  const p = (promptText || '').toLowerCase();
+  const isAdmin = state.user && state.user.role === 'admin';
+  const unit = state.user && state.user.role === 'unit' ? state.user : (state.units && state.units[0] ? state.units[0] : null);
+  const unitId = unit ? unit.id : 1;
+  const unitName = unit ? unit.unit_name : 'Chi đoàn cơ sở';
+
+  // Câu hỏi 1: Minh chứng còn thiếu
+  if (p.includes('thiếu minh chứng') || p.includes('chưa nộp') || p.includes('còn thiếu')) {
+    const missingCrits = [];
+    (state.criteria || []).forEach(c => {
+      const sc = getScoreObj(unitId, c.id);
+      const hasProof = sc && Boolean(sc.report_content || sc.evidence_link || sc.file_path || (sc.files && sc.files.length > 0));
+      const hasScore = sc && sc.score !== null && sc.score !== undefined && sc.score !== '';
+      if (!hasProof && !hasScore) {
+        missingCrits.push(c);
+      }
+    });
+
+    if (missingCrits.length === 0) {
+      return `🎉 Chúc mừng **${unitName}**! Toàn bộ các tiêu chí trong hệ thống đều đã được đơn vị nộp đầy đủ hồ sơ hoặc đã được chấm điểm chính thức. Đơn vị đang duy trì tiến độ hoàn thành 100%!`;
+    }
+
+    const previewList = missingCrits.slice(0, 5).map((c, i) => 
+      `${i + 1}. **${c.col_label} - ${c.title}** (Kỳ: ${c.month_label}, Hạn chót: ${formatDateVN(c.deadline)})`
+    ).join('\n');
+
+    return `📋 **BÁO CÁO RÀ SOÁT HỒ SƠ CỦA ${unitName.toUpperCase()}:**\n\nQua kiểm tra dữ liệu thực tế, đơn vị hiện còn **${missingCrits.length} tiêu chí** chưa hoàn thiện minh chứng hoặc chưa nộp báo cáo. Dưới đây là các tiêu chí ưu tiên cần hoàn thiện sớm:\n\n${previewList}\n\n💡 *Khuyến nghị:* Các đồng chí vui lòng bấm trực tiếp vào biểu tượng 📎 của từng cột tiêu chí trên bảng để tải tệp minh chứng hoặc dán link Google Drive trước ngày hạn chót.`;
+  }
+
+  // Câu hỏi 2: Soạn giúp kế hoạch sinh hoạt chi đoàn tháng 10
+  if (p.includes('sinh hoạt chi đoàn') || p.includes('kế hoạch sinh hoạt') || p.includes('tháng 10')) {
+    return `✍️ **DỰ THẢO KẾ HOẠCH SINH HOẠT CHI ĐOÀN THÁNG 10/2026**\n*(Chủ đề: "Tôi yêu Tổ quốc tôi" - Chào mừng 70 năm Ngày truyền thống Hội LHTN Việt Nam 15/10)*\n\n` +
+      `**I. MỤC ĐÍCH, YÊU CẦU:**\n` +
+      `- Tuyên truyền, giáo dục đoàn viên thanh niên về truyền thống vẻ vang của Hội LHTN Việt Nam và Đoàn TNCS Hồ Chí Minh.\n` +
+      `- Nâng cao ý thức trách nhiệm, tinh thần xung kích, tình nguyện của tuổi trẻ trong thực hiện nhiệm vụ chính trị của cơ quan, đơn vị.\n\n` +
+      `**II. THỜI GIAN, ĐỊA ĐIỂM, THÀNH PHẦN:**\n` +
+      `- Thời gian: 14h00 ngày 15/10/2026.\n` +
+      `- Địa điểm: Hội trường Chi đoàn ${unitName}.\n` +
+      `- Thành phần: 100% đoàn viên Chi đoàn; kính mời đại diện Cấp ủy Chi bộ tham dự và chỉ đạo.\n\n` +
+      `**III. NỘI DUNG TRỌNG TÂM:**\n` +
+      `1. Ôn lại truyền thống Ngày thành lập Hội LHTN Việt Nam (15/10/1956 - 15/10/2026).\n` +
+      `2. Đánh giá kết quả công tác Đoàn và phong trào thanh niên tháng 9; triển khai nhiệm vụ trọng tâm tháng 10.\n` +
+      `3. Thảo luận chuyên đề: "Chuyển đổi số trong quy trình công tác chuyên môn tại cơ quan".\n` +
+      `4. Phát động đợt thi đua cao điểm nộp minh chứng Bộ tiêu chí thi đua năm 2026.\n\n` +
+      `**IV. TỔ CHÚC THỰC HIỆN:**\n` +
+      `- Ban Chấp hành Chi đoàn chuẩn bị tài liệu, âm thanh, trình chiếu.\n` +
+      `- Phân công đồng chí Phó Bí thư phụ trách chụp ảnh, điểm danh và lập biên bản để nộp minh chứng lên hệ thống.\n\n` +
+      `*(Bản kế hoạch đã chuẩn hóa theo đúng thể thức văn bản Đoàn. Các đồng chí có thể sao chép và ban hành).*`;
+  }
+
+  // Câu hỏi 3: Tiêu chí sắp hết hạn trong tuần
+  if (p.includes('hết hạn') || p.includes('sắp hết hạn') || p.includes('tuần này')) {
+    const effDate = new Date(state.settings && state.settings.effective_date ? state.settings.effective_date : todayISO());
+    const nearCrits = (state.criteria || []).filter(c => {
+      if (!c.deadline) return false;
+      const dl = new Date(c.deadline);
+      const diffDays = (dl - effDate) / (1000 * 60 * 60 * 24);
+      return diffDays >= -1 && diffDays <= 7;
+    });
+
+    if (nearCrits.length === 0) {
+      return `⏱️ **TÌNH HÌNH THỜI HẠN:** Hiện tại trong vòng 7 ngày tới **không có tiêu chí nào sắp hết hạn**. Các cơ sở Đoàn có thể chủ động sắp xếp thời gian triển khai các hoạt động thường xuyên tiếp theo!`;
+    }
+
+    const listStr = nearCrits.map((c, i) => 
+      `${i + 1}. **${c.col_label} - ${c.title}** (Hạn chót: **${formatDateVN(c.deadline)}** - còn ${(new Date(c.deadline) - effDate) / (1000 * 60 * 60) > 0 ? Math.round((new Date(c.deadline) - effDate) / (1000 * 60 * 60)) + ' giờ' : 'Đến hạn hôm nay'})`
+    ).join('\n');
+
+    return `⏱️ **DANH SÁCH TIÊU CHÍ SẮP ĐẾN HẠN TRONG TUẦN NÀY (< 7 NGÀY):**\n\n${listStr}\n\n⚠️ *Lưu ý quan trọng:* Theo quy chế chấm điểm nghiêm ngặt của Ban Thường vụ Tỉnh, các bài nộp sau 23h59 của ngày hạn chót sẽ bị hệ thống đánh dấu "Quá hạn" và trừ điểm thi đua!`;
+  }
+
+  // Câu hỏi 4: Ý tưởng hoạt động 15/10
+  if (p.includes('15/10') || p.includes('ý tưởng') || p.includes('hoạt động')) {
+    return `💡 **GỢI Ý 4 Ý TƯỞNG HOẠT ĐỘNG CHÀO MỪNG NGÀY 15/10 SÁNG TẠO & THIẾT THỰC:**\n\n` +
+      `1. **"Gian hàng Chuyển đổi số Thanh niên" (Ứng dụng thực tế):**\n` +
+      `   Tổ chức quầy hướng dẫn trực tiếp cho người dân và cán bộ công chức cài đặt chữ ký số, VNeID cấp độ 2 và nộp hồ sơ dịch vụ công trực tuyến.\n\n` +
+      `2. **"Giải chạy tiếp sức Thanh niên 2026 - Mỗi bước chạy một cây xanh":**\n` +
+      `   Hình thức chạy bộ ghi nhận qua Strava; cứ 10km hoàn thành quy đổi thành 1 cây xanh trồng trong khuôn viên cơ quan hoặc địa bàn khó khăn.\n\n` +
+      `3. **"Ngày thứ Bảy Tình nguyện - Cơ quan Sáng - Xanh - Sạch - Đẹp":**\n` +
+      `   Đoàn viên ra quân tổng dọn vệ sinh, phân loại rác thải nhựa tại nguồn và số hóa tủ hồ sơ, lưu trữ văn bản tài liệu cơ quan.\n\n` +
+      `4. **"Tọa đàm: Khát vọng tuổi trẻ trong kỷ nguyên mới":**\n` +
+      `   Gặp gỡ giữa Cấp ủy, lãnh đạo cơ quan với đoàn viên trẻ, lắng nghe đề xuất, sáng kiến cải cách thủ tục hành chính.`;
+  }
+
+  // Trả lời câu hỏi chung
+  return `🤖 Chào đồng chí! Về nội dung "${promptText}", hệ thống Bộ Tiêu Chí Đoàn Cấp Cơ Sở 2026 hiện đang quản lý toàn diện **${(state.units || []).length} đơn vị** với **${(state.criteria || []).length} cột tiêu chí**. Nếu đồng chí cần kiểm tra minh chứng, hỗ trợ tải tài liệu lên Google Drive hoặc giải đáp quy chế chấm điểm của Ban Thường vụ, vui lòng cho tôi biết cụ thể để hỗ trợ ngay nhé!`;
+};
+
+// 3. XỬ LÝ HỎI ĐÁP VỚI TRỢ LÝ AI
+window.askAiAssistant = function(promptText) {
+  if (!promptText) return;
+  state.aiChatHistory = state.aiChatHistory || [];
+
+  const userMsg = {
+    sender: 'user',
+    text: promptText,
+    time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+  };
+  state.aiChatHistory.push(userMsg);
+
+  renderApp();
+  setTimeout(() => {
+    scrollChatToBottom();
+  }, 50);
+
+  setTimeout(() => {
+    const aiReplyText = generateAiAssistantResponse(promptText);
+    const aiMsg = {
+      sender: 'ai',
+      text: aiReplyText,
+      time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+    };
+    state.aiChatHistory.push(aiMsg);
+    if (window.playNotificationChime) window.playNotificationChime();
+    renderApp();
+    setTimeout(() => {
+      scrollChatToBottom();
+    }, 60);
+  }, 400);
+};
+
+// 4. AI SOÁT LỖI MINH CHỨNG TỰ ĐỘNG (AUTO REVIEWER)
+window.runAiProofReviewModal = function(unitId, critId) {
+  const unit = state.units.find(u => u.id === unitId) || state.user;
+  const crit = state.criteria.find(c => c.id === critId);
+  const sc = getScoreObj(unitId, critId);
+  if (!crit) return;
+
+  const content = (sc && sc.report_content) ? sc.report_content.trim() : '';
+  const files = (sc && sc.files && sc.files.length) ? sc.files : (sc && sc.file_path ? [{ name: sc.file_name || 'minh_chung' }] : []);
+  const link = (sc && sc.evidence_link) ? sc.evidence_link.trim() : '';
+
+  const hasExtract = Boolean(content.length > 10 || files.length > 0);
+  const hasDate = Boolean(content.includes('2026') || content.includes('/') || (sc && sc.submitted_at));
+  const suggestedScore = (sc && sc.self_score) ? sc.self_score : (crit.default_score || crit.max_points || 5);
+
+  const modalRoot = document.getElementById('modal-root');
+  if (!modalRoot) return;
+
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) openSubmissionDetailModal(${unitId}, ${critId})">
+      <div class="modal-box" style="max-width: 580px; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 45px rgba(0,0,0,0.35);">
+        <div class="modal-header" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;">
+          <div style="font-weight: 800; font-size: 15px; display: flex; align-items: center; gap: 8px;">
+            <span>🤖</span>
+            <span>AI Soát Lỗi Minh Chứng Tự Động (Gemini Pro)</span>
+          </div>
+          <button type="button" onclick="openSubmissionDetailModal(${unitId}, ${critId})" style="background: rgba(255,255,255,0.2); border: 1.5px solid rgba(255,255,255,0.5); color: #fff !important; font-size: 13px; font-weight: 800; border-radius: 6px; padding: 3px 8px; cursor: pointer;">✕</button>
+        </div>
+        <div class="modal-body" style="padding: 18px 20px; background: #fff;">
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 14px;">
+            <div style="font-size: 13.5px;"><b>Đơn vị:</b> <span style="color: #4f46e5; font-weight: 700;">${escapeHtml(unit ? unit.unit_name : 'Cơ sở')}</span></div>
+            <div style="font-size: 13px; margin-top: 3px;"><b>Tiêu chí:</b> ${escapeHtml(crit.col_label)} - ${escapeHtml(crit.title)}</div>
+          </div>
+
+          <div style="font-weight: 800; font-size: 13.5px; color: #0f172a; margin-bottom: 10px;">
+            📊 KẾT QUẢ QUÉT & PHÂN TÍCH HỒ SƠ:
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
+            <div style="padding: 10px 12px; border-radius: 8px; background: ${hasExtract ? '#f0fdf4' : '#fef2f2'}; border: 1px solid ${hasExtract ? '#86efac' : '#fca5a5'}; display: flex; align-items: center; justify-content: space-between;">
+              <div>
+                <b>1. Trích yếu nội dung hoạt động:</b>
+                <div style="font-size: 12px; color: #475569; margin-top: 2px;">
+                  ${hasExtract ? (content ? 'Đã có trích yếu rõ ràng trong phần thuyết minh' : 'Tên tệp đính kèm thể hiện rõ nội dung hoạt động') : 'Chưa có thuyết minh hoặc tệp đính kèm'}
+                </div>
+              </div>
+              <span class="ai-badge-chip ${hasExtract ? 'ai-badge-ok' : 'ai-badge-err'}">${hasExtract ? '✅ Hợp lệ' : '❌ Thiếu'}</span>
+            </div>
+
+            <div style="padding: 10px 12px; border-radius: 8px; background: ${hasDate ? '#f0fdf4' : '#fffbeb'}; border: 1px solid ${hasDate ? '#86efac' : '#fde68a'}; display: flex; align-items: center; justify-content: space-between;">
+              <div>
+                <b>2. Ngày tháng năm tổ chức:</b>
+                <div style="font-size: 12px; color: #475569; margin-top: 2px;">
+                  ${hasDate ? 'Trùng khớp với mốc thời gian quy định của kỳ báo cáo năm 2026' : 'Cần kiểm tra kỹ ngày ban hành văn bản'}
+                </div>
+              </div>
+              <span class="ai-badge-chip ${hasDate ? 'ai-badge-ok' : 'ai-badge-warn'}">${hasDate ? '✅ Đúng kỳ' : '⚠️ Kiểm tra'}</span>
+            </div>
+
+            <div style="padding: 10px 12px; border-radius: 8px; background: #fffbeb; border: 1px solid #fde68a; display: flex; align-items: center; justify-content: space-between;">
+              <div>
+                <b>3. Nhắc nhở con dấu & chữ ký đại diện:</b>
+                <div style="font-size: 12px; color: #475569; margin-top: 2px;">
+                  Vui lòng đối chiếu dấu mộc đỏ của Ban Chấp hành hoặc Cấp ủy chi bộ trước khi xác nhận chính thức.
+                </div>
+              </div>
+              <span class="ai-badge-chip ai-badge-warn">⚠️ Lưu ý</span>
+            </div>
+
+            <div style="padding: 10px 12px; border-radius: 8px; background: #eff6ff; border: 1px solid #93c5fd; display: flex; align-items: center; justify-content: space-between;">
+              <div>
+                <b>4. Đề xuất số điểm hợp lệ của AI:</b>
+                <div style="font-size: 12px; color: #1e40af; margin-top: 2px;">
+                  Điểm chuẩn theo quy chế: <b>+${formatScore(suggestedScore)} điểm</b>
+                </div>
+              </div>
+              <span class="ai-badge-chip ai-badge-ok">+${formatScore(suggestedScore)}đ</span>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 8px;">
+            <button type="button" class="btn btn-outline" onclick="openSubmissionDetailModal(${unitId}, ${critId})" style="font-weight: 700; padding: 7px 14px;">
+              ↩️ Quay lại
+            </button>
+            <button type="button" class="btn btn-success" onclick="approveUnitSubmission(${unitId}, ${critId}, ${suggestedScore})" style="font-weight: 800; padding: 7px 18px; background: #16a34a; border-color: #15803d;">
+              ✅ Duyệt Nhanh Theo Đề Xuất (+${formatScore(suggestedScore)}đ)
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+// 5. AI VIẾT BÁO CÁO TỔNG KẾT THÁNG TỰ ĐỘNG (GEMINI PRO)
+window.openAiMonthlyReportModal = function() {
+  const activeUnits = (state.units || []).filter(u => Number(u.is_active) === 1);
+  const unitsWithScores = activeUnits.map(u => ({
+    name: u.unit_name,
+    total: getUnitTotalScore(u.id)
+  })).sort((a, b) => b.total - a.total);
+
+  const topUnits = unitsWithScores.slice(0, 5);
+  const bottomUnits = unitsWithScores.filter(u => u.total === 0 || u.total < 10).slice(0, 5);
+
+  const reportText = `BÁO CÁO TỔNG HỢP & NHẬN XÉT ĐÁNH GIÁ THÁNG\n` +
+    `BỘ TIÊU CHÍ CÔNG TÁC ĐOÀN CẤP CƠ SỞ NĂM 2026\n` +
+    `---------------------------------------------------\n\n` +
+    `I. ĐÁNH GIÁ CHUNG TÌNH HÌNH THỰC HIỆN:\n` +
+    `- Tổng số cơ sở Đoàn tham gia theo dõi và nộp báo cáo: ${activeUnits.length}/${activeUnits.length} đơn vị.\n` +
+    `- Nhìn chung trong tháng, các cơ sở Đoàn đã tích cực triển khai phong trào thi đua, chủ động thu thập hồ sơ, lập biên bản sinh hoạt và gửi minh chứng lên hệ thống đám mây trực tuyến đúng thời hạn quy định.\n` +
+    `- Công tác ứng dụng chuyển đổi số và gửi liên kết Google Drive được các chi đoàn thực hiện đồng bộ, giảm thiểu tối đa thủ tục giấy tờ hành chính.\n\n` +
+    `II. BIỂU DƯƠNG CÁC ĐƠN VỊ TIÊU BIỂU DẪN ĐẦU:\n` +
+    topUnits.map((u, i) => `  ${i + 1}. ${u.name}: Đạt ${formatScore(u.total)} điểm (Dẫn đầu phong trào nộp sớm & đầy đủ minh chứng)`).join('\n') + `\n\n` +
+    `III. MẶT HẠN CHẾ & NHẮC NHỞ CÁC ĐƠN VỊ CHẬM TIẾN ĐỘ:\n` +
+    (bottomUnits.length > 0 ? bottomUnits.map((u, i) => `  - ${u.name}: Hiện đạt ${formatScore(u.total)} điểm, cần khẩn trương hoàn thiện các tiêu chí phong trào còn thiếu`).join('\n') : '  - Không có đơn vị nào bị nợ đọng điểm số nghiêm trọng.') + `\n\n` +
+    `IV. NHIỆM VỤ TRỌNG TÂM THÁNG TIẾP THEO:\n` +
+    `1. Tiếp tục duy trì đợt thi đua cao điểm chào mừng các ngày lễ lớn trong quý.\n` +
+    `2. Rà soát hạn nộp của các tiêu chí định kỳ để đảm bảo 100% hồ sơ nộp đúng hạn, không bị hệ thống trừ điểm trễ hạn.\n` +
+    `3. Tăng cường kiểm tra con dấu mộc đỏ và chữ ký trên văn bản scan trước khi gửi lên hệ thống.\n\n` +
+    `BAN THƯỜNG VỤ ĐOÀN UBND TỈNH QUẢNG TRỊ\n` +
+    `Trợ lý AI Gemini Pro tổng hợp tự động lúc ${new Date().toLocaleTimeString('vi-VN')} ngày ${todayISO().split('-').reverse().join('/')}`;
+
+  const modalRoot = document.getElementById('modal-root');
+  if (!modalRoot) return;
+
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+      <div class="modal-box" style="max-width: 680px; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 45px rgba(0,0,0,0.35);">
+        <div class="modal-header" style="background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;">
+          <div style="font-weight: 800; font-size: 15px; display: flex; align-items: center; gap: 8px;">
+            <span>🤖</span>
+            <span>Báo Cáo Tổng Hợp Đánh Giá Tháng (Gemini Pro)</span>
+          </div>
+          <button type="button" onclick="closeModal()" style="background: rgba(255,255,255,0.2); border: 1.5px solid rgba(255,255,255,0.5); color: #fff !important; font-size: 13px; font-weight: 800; border-radius: 6px; padding: 3px 8px; cursor: pointer;">✕</button>
+        </div>
+        <div class="modal-body" style="padding: 18px 20px; background: #fff;">
+          <div style="margin-bottom: 12px; font-size: 13px; color: #475569;">
+            💡 Gemini Pro vừa tự động đọc và phân tích bảng điểm của toàn bộ <b>${activeUnits.length} cơ sở Đoàn</b> để tạo bản báo cáo nhận xét hoàn chỉnh dạng văn bản:
+          </div>
+          <textarea id="ai-monthly-report-textarea" rows="15" readonly style="width: 100%; padding: 12px; font-family: monospace; font-size: 12.5px; line-height: 1.5; border-radius: 8px; border: 1.5px solid #cbd5e1; background: #f8fafc; color: #0f172a; resize: vertical;">${escapeHtml(reportText)}</textarea>
+          
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; flex-wrap: wrap; gap: 8px;">
+            <div style="font-size: 11.5px; color: #64748b;">
+              ⏱️ Cập nhật theo dữ liệu thực tế tại thời điểm hiện tại.
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button type="button" class="btn btn-outline" onclick="navigator.clipboard.writeText(document.getElementById('ai-monthly-report-textarea').value); showToast('📋 Đã sao chép báo cáo vào bộ nhớ tạm!', 'success');" style="font-weight: 700; padding: 6px 14px;">
+                📋 Sao Chép
+              </button>
+              <button type="button" class="btn btn-primary" onclick="downloadAiReportFile()" style="font-weight: 700; padding: 6px 16px; background: #7c3aed; border-color: #6d28d9;">
+                📥 Tải File Văn Bản (.txt)
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+window.downloadAiReportFile = function() {
+  const el = document.getElementById('ai-monthly-report-textarea');
+  if (!el) return;
+  const blob = new Blob([el.value], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Bao_Cao_Tong_Ket_Thang_${todayISO()}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('📥 Đã tải file báo cáo thành công!', 'success');
+};
+
+// 6. HIỆU ỨNG HOVER CROSSHAIR THEO CỘT VÀ DÒNG
+window.initTableCrosshairHover = function() {
+  try {
+    const table = document.querySelector('.spreadsheet-table, .master-table');
+    if (!table) return;
+
+    table.querySelectorAll('tbody td').forEach(td => {
+      td.addEventListener('mouseenter', () => {
+        const colIdx = td.cellIndex;
+        if (colIdx === undefined || colIdx === null) return;
+        table.querySelectorAll('tbody tr').forEach(tr => {
+          if (tr.cells[colIdx]) tr.cells[colIdx].classList.add('col-hover-active');
+        });
+      });
+      td.addEventListener('mouseleave', () => {
+        const colIdx = td.cellIndex;
+        if (colIdx === undefined || colIdx === null) return;
+        table.querySelectorAll('tbody tr').forEach(tr => {
+          if (tr.cells[colIdx]) tr.cells[colIdx].classList.remove('col-hover-active');
+        });
+      });
+    });
+  } catch (e) {}
+};
+
+// Tự động khởi tạo Dark Mode và Crosshair hover khi mở trang
+if (typeof document !== 'undefined') {
+  initDarkMode();
+  document.addEventListener('DOMContentLoaded', () => {
+    initDarkMode();
+    initTableCrosshairHover();
+  });
+}
+
   </script>
 </body>
 </html>
