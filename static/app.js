@@ -9486,21 +9486,37 @@ window.askAiAssistant = async function(promptText) {
 
     // =========================================================================
     // A. PHƯƠNG THỨC CHÍNH: GOOGLE GENERATIVE LANGUAGE INTERACTIONS API (gemini-3.8-flash)
+    // Duy trì ngữ cảnh hội thoại đa lượt mượt mà, độc lập, không phụ thuộc previous_interaction_id
     // =========================================================================
     try {
       const interactionsUrl = `https://generativelanguage.googleapis.com/v1beta/interactions?key=${encodeURIComponent(apiKey)}`;
+      
+      // Xây dựng ngữ cảnh các lượt hỏi đáp gần nhất vào input để AI luôn hiểu mạch hội thoại
+      let fullInput = prompt;
+      const prevHistory = (state.aiChatHistory || []).slice(-6, -1);
+      const conversationContext = [];
+      for (const h of prevHistory) {
+        if (h.text && !h.text.startsWith('⚠️')) {
+          if (h.sender === 'user') {
+            conversationContext.push(`Người hỏi: ${h.text}`);
+          } else if (h.sender === 'ai') {
+            conversationContext.push(`Trợ lý AI: ${h.text}`);
+          }
+        }
+      }
+      if (conversationContext.length > 0) {
+        fullInput = `${conversationContext.join('\n')}\nNgười hỏi: ${prompt}\nTrợ lý AI:`;
+      }
+
       const payload = {
         model: 'gemini-3.8-flash',
-        input: prompt
+        input: fullInput
       };
-      if (state.lastGeminiInteractionId) {
-        payload.previous_interaction_id = state.lastGeminiInteractionId;
-      }
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 45000);
 
-      let r = await fetch(interactionsUrl, {
+      const r = await fetch(interactionsUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -9511,29 +9527,8 @@ window.askAiAssistant = async function(promptText) {
       });
       clearTimeout(timeoutId);
 
-      // Nếu lỗi 400 hoặc 404 khi có previous_interaction_id (phiên cũ bị hết hạn hoặc không tồn tại), tự động thử lại 1 lần không kèm previous_interaction_id
-      if (!r.ok && payload.previous_interaction_id && (r.status === 400 || r.status === 404)) {
-        delete payload.previous_interaction_id;
-        state.lastGeminiInteractionId = null;
-        const retryCtrl = new AbortController();
-        const retryTimeout = setTimeout(() => retryCtrl.abort(), 45000);
-        r = await fetch(interactionsUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey
-          },
-          body: JSON.stringify(payload),
-          signal: retryCtrl.signal
-        });
-        clearTimeout(retryTimeout);
-      }
-
       if (r.ok) {
         const resData = await r.json();
-        if (resData.id) {
-          state.lastGeminiInteractionId = resData.id;
-        }
 
         // Trích xuất văn bản trả về chuẩn theo tài liệu Interactions API
         if (resData.output_text && typeof resData.output_text === 'string') {
