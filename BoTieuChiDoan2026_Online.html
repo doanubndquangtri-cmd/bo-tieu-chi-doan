@@ -1494,9 +1494,11 @@ textarea:focus {
   bottom: 82px;
   right: 22px;
   width: 440px;
-  max-width: calc(100vw - 28px);
+  min-width: 440px;
+  max-width: 100vw;
   height: 590px;
-  max-height: calc(100vh - 105px);
+  min-height: 590px;
+  max-height: 100vh;
   background: #ffffff;
   border-radius: 12px;
   box-shadow: 0 16px 45px rgba(0, 0, 0, 0.3);
@@ -1505,7 +1507,125 @@ textarea:focus {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  box-sizing: border-box;
   animation: slideUp 0.2s ease-out;
+}
+
+.chat-widget-box.maximized {
+  left: 8px !important;
+  top: 8px !important;
+  right: 8px !important;
+  bottom: 8px !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: none !important;
+  max-height: none !important;
+  border-radius: 10px !important;
+  z-index: 99999 !important;
+}
+
+.chat-header,
+.chat-tabs-bar,
+.chat-search-bar,
+.chat-private-unit-bar,
+.chat-input-row {
+  flex-shrink: 0 !important;
+}
+
+/* Chat resize handles */
+.chat-resize-handle {
+  position: absolute;
+  z-index: 1000;
+  touch-action: none;
+}
+
+.chat-resize-handle-se {
+  bottom: 0;
+  right: 0;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  user-select: none;
+}
+
+.chat-resize-handle-r {
+  top: 0;
+  right: 0;
+  width: 7px;
+  height: 100%;
+  cursor: ew-resize;
+}
+
+.chat-resize-handle-b {
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 7px;
+  cursor: ns-resize;
+}
+
+.chat-resize-handle-l {
+  top: 0;
+  left: 0;
+  width: 7px;
+  height: 100%;
+  cursor: ew-resize;
+}
+
+.chat-resize-handle-t {
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 7px;
+  cursor: ns-resize;
+}
+
+.chat-resize-handle-sw {
+  bottom: 0;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nesw-resize;
+}
+
+.chat-resize-handle-ne {
+  top: 0;
+  right: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nesw-resize;
+}
+
+.chat-resize-handle-nw {
+  top: 0;
+  left: 0;
+  width: 14px;
+  height: 14px;
+  cursor: nwse-resize;
+}
+
+.chat-maximize-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: #fff;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+
+.chat-maximize-btn:hover {
+  background: rgba(255, 255, 255, 0.35);
 }
 
 .chat-tabs-bar {
@@ -1612,9 +1732,11 @@ textarea:focus {
 }
 
 .chat-messages-body {
-  flex: 1;
-  padding: 14px;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 14px 16px;
   overflow-y: auto;
+  overflow-x: hidden;
   background: #f8fafc;
   display: flex;
   flex-direction: column;
@@ -2561,6 +2683,8 @@ const state = {
   notificationsOpen: false,
   chatMessages: [],
   chatOpen: false,
+  chatSize: null, // { width: 440, height: 590 }
+  chatMaximized: false,
   chatTab: 'public', // 'public' | 'private'
   chatPrivateUnitId: 0,
   chatSendingFile: false,
@@ -9894,6 +10018,12 @@ window.scrollChatToBottom = function() {
 window.toggleChatWidget = function() {
   state.chatOpen = !state.chatOpen;
   if (state.chatOpen) {
+    try {
+      const saved = JSON.parse(localStorage.getItem('tieuchidoan_chat_layout') || '{}');
+      if (saved.pos) state.chatPos = saved.pos;
+      if (saved.size) state.chatSize = saved.size;
+      if (saved.maximized !== undefined) state.chatMaximized = saved.maximized;
+    } catch (e) {}
     setChatRoomAsRead(getChatRoomKey());
   }
   renderApp();
@@ -9903,6 +10033,25 @@ window.toggleChatWidget = function() {
       window.initChatDrag();
     }, 80);
   }
+};
+
+window.toggleMaximizeChatWidget = function() {
+  state.chatMaximized = !state.chatMaximized;
+  if (!state.chatMaximized && !state.chatSize) {
+    state.chatSize = { width: 440, height: 590 };
+  }
+  renderApp();
+  setTimeout(() => {
+    scrollChatToBottom();
+    window.initChatDrag();
+  }, 50);
+  try {
+    localStorage.setItem('tieuchidoan_chat_layout', JSON.stringify({
+      pos: state.chatPos,
+      size: state.chatSize,
+      maximized: state.chatMaximized
+    }));
+  } catch (e) {}
 };
 
 window.switchChatTab = function(tab) {
@@ -10177,77 +10326,221 @@ window.clearPrivateChatHistory = function() {
   window.openClearChatOptionsModal();
 };
 
-// TÍNH NĂNG KÉO THẢ DI CHUYỂN KHUNG CHAT BẤT KỲ ĐÂU TRÊN MÀN HÌNH (Ảnh 4)
+// TÍNH NĂNG KÉO THẢ DI CHUYỂN & KÉO DÃN MỞ RỘNG KHUNG CHAT TÙY Ý (Ảnh 4 & Yêu cầu mới)
 window.initChatDrag = function() {
   const headerEl = document.getElementById('chat-drag-header');
   const widget = document.getElementById('chat-widget-box');
-  if (!headerEl || !widget) return;
+  if (!widget) return;
 
-  let startX = 0, startY = 0, initialLeft = 0, initialTop = 0;
+  const getZoom = () => parseFloat(getComputedStyle(document.body).zoom) || 1.0;
+  const MIN_W = 440;
+  const MIN_H = 590;
 
-  headerEl.onmousedown = function(e) {
-    if (e.target.tagName === 'BUTTON' || e.target.closest('button') || e.target.tagName === 'INPUT') return;
-    e.preventDefault();
-    startX = e.clientX;
-    startY = e.clientY;
-    const rect = widget.getBoundingClientRect();
-    initialLeft = rect.left;
-    initialTop = rect.top;
+  // 1. DI CHUYỂN KHUNG CHAT (DRAG)
+  if (headerEl) {
+    let startX = 0, startY = 0, initialLeft = 0, initialTop = 0;
 
-    document.onmousemove = function(e) {
+    headerEl.onmousedown = function(e) {
+      if (state.chatMaximized) return;
+      if (e.target.tagName === 'BUTTON' || e.target.closest('button') || e.target.tagName === 'INPUT') return;
       e.preventDefault();
-      const dx = e.clientX - startX;
-      const dy = e.clientY - startY;
-      let newLeft = initialLeft + dx;
-      let newTop = initialTop + dy;
-      const maxLeft = window.innerWidth - rect.width - 8;
-      const maxTop = window.innerHeight - rect.height - 8;
-      newLeft = Math.max(8, Math.min(newLeft, maxLeft));
-      newTop = Math.max(8, Math.min(newTop, maxTop));
-      widget.style.left = newLeft + 'px';
-      widget.style.top = newTop + 'px';
+      const zoom = getZoom();
+      startX = e.clientX / zoom;
+      startY = e.clientY / zoom;
+      const rect = widget.getBoundingClientRect();
+      initialLeft = rect.left / zoom;
+      initialTop = rect.top / zoom;
+
+      document.onmousemove = function(e) {
+        e.preventDefault();
+        const curX = e.clientX / zoom;
+        const curY = e.clientY / zoom;
+        const dx = curX - startX;
+        const dy = curY - startY;
+        let newLeft = initialLeft + dx;
+        let newTop = initialTop + dy;
+        const maxLeft = (window.innerWidth / zoom) - (rect.width / zoom) - 8;
+        const maxTop = (window.innerHeight / zoom) - (rect.height / zoom) - 8;
+        newLeft = Math.max(8, Math.min(newLeft, maxLeft));
+        newTop = Math.max(8, Math.min(newTop, maxTop));
+        widget.style.left = Math.round(newLeft) + 'px';
+        widget.style.top = Math.round(newTop) + 'px';
+        widget.style.right = 'auto';
+        widget.style.bottom = 'auto';
+        state.chatPos = { left: Math.round(newLeft), top: Math.round(newTop) };
+      };
+
+      document.onmouseup = function() {
+        document.onmousemove = null;
+        document.onmouseup = null;
+        try {
+          localStorage.setItem('tieuchidoan_chat_layout', JSON.stringify({
+            pos: state.chatPos,
+            size: state.chatSize,
+            maximized: state.chatMaximized
+          }));
+        } catch (err) {}
+      };
+    };
+
+    headerEl.ontouchstart = function(e) {
+      if (state.chatMaximized) return;
+      if (e.target.tagName === 'BUTTON' || e.target.closest('button') || e.target.tagName === 'INPUT') return;
+      const touch = e.touches[0];
+      const zoom = getZoom();
+      startX = touch.clientX / zoom;
+      startY = touch.clientY / zoom;
+      const rect = widget.getBoundingClientRect();
+      initialLeft = rect.left / zoom;
+      initialTop = rect.top / zoom;
+
+      document.ontouchmove = function(e) {
+        const t = e.touches[0];
+        const curX = t.clientX / zoom;
+        const curY = t.clientY / zoom;
+        const dx = curX - startX;
+        const dy = curY - startY;
+        let newLeft = initialLeft + dx;
+        let newTop = initialTop + dy;
+        const maxLeft = (window.innerWidth / zoom) - (rect.width / zoom) - 8;
+        const maxTop = (window.innerHeight / zoom) - (rect.height / zoom) - 8;
+        newLeft = Math.max(8, Math.min(newLeft, maxLeft));
+        newTop = Math.max(8, Math.min(newTop, maxTop));
+        widget.style.left = Math.round(newLeft) + 'px';
+        widget.style.top = Math.round(newTop) + 'px';
+        widget.style.right = 'auto';
+        widget.style.bottom = 'auto';
+        state.chatPos = { left: Math.round(newLeft), top: Math.round(newTop) };
+      };
+
+      document.ontouchend = function() {
+        document.ontouchmove = null;
+        document.ontouchend = null;
+        try {
+          localStorage.setItem('tieuchidoan_chat_layout', JSON.stringify({
+            pos: state.chatPos,
+            size: state.chatSize,
+            maximized: state.chatMaximized
+          }));
+        } catch (err) {}
+      };
+    };
+  }
+
+  // 2. KÉO DÃN KÍCH THƯỚC KHUNG CHAT (RESIZE TO RỘNG TÙY Ý, NHỎ NHẤT LÀ NGUYÊN MẪU)
+  const resizers = widget.querySelectorAll('.chat-resize-handle');
+  resizers.forEach(handle => {
+    const dir = handle.dataset.dir || 'se';
+
+    const startResize = (clientX, clientY, e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const zoom = getZoom();
+      const startX = clientX / zoom;
+      const startY = clientY / zoom;
+      const rect = widget.getBoundingClientRect();
+      const startW = rect.width / zoom;
+      const startH = rect.height / zoom;
+      const startL = rect.left / zoom;
+      const startT = rect.top / zoom;
+
+      const maxViewportW = (window.innerWidth / zoom) - 8;
+      const maxViewportH = (window.innerHeight / zoom) - 8;
+      const minW = Math.min(MIN_W, maxViewportW);
+      const minH = Math.min(MIN_H, maxViewportH);
+
+      // Chuyển vị trí sang pixel tuyệt đối
+      widget.style.left = Math.round(startL) + 'px';
+      widget.style.top = Math.round(startT) + 'px';
       widget.style.right = 'auto';
       widget.style.bottom = 'auto';
-      state.chatPos = { left: newLeft, top: newTop };
+
+      const onMove = (curClientX, curClientY) => {
+        const curX = curClientX / zoom;
+        const curY = curClientY / zoom;
+        const dx = curX - startX;
+        const dy = curY - startY;
+
+        let newW = startW;
+        let newH = startH;
+        let newL = startL;
+        let newT = startT;
+
+        // Phía Đông (phải)
+        if (dir.includes('e')) {
+          newW = Math.max(minW, Math.min(startW + dx, maxViewportW - startL));
+        }
+        // Phía Nam (dưới)
+        if (dir.includes('s')) {
+          newH = Math.max(minH, Math.min(startH + dy, maxViewportH - startT));
+        }
+        // Phía Tây (trái)
+        if (dir.includes('w')) {
+          const targetW = startW - dx;
+          if (targetW >= minW) {
+            const maxLeftAllowed = startL + startW - minW;
+            newL = Math.max(8, Math.min(startL + dx, maxLeftAllowed));
+            newW = startW + (startL - newL);
+          } else {
+            newW = minW;
+            newL = startL + startW - minW;
+          }
+        }
+        // Phía Bắc (trên)
+        if (dir.includes('n')) {
+          const targetH = startH - dy;
+          if (targetH >= minH) {
+            const maxTopAllowed = startT + startH - minH;
+            newT = Math.max(8, Math.min(startT + dy, maxTopAllowed));
+            newH = startH + (startT - newT);
+          } else {
+            newH = minH;
+            newT = startT + startH - minH;
+          }
+        }
+
+        widget.style.width = Math.round(newW) + 'px';
+        widget.style.height = Math.round(newH) + 'px';
+        widget.style.left = Math.round(newL) + 'px';
+        widget.style.top = Math.round(newT) + 'px';
+
+        state.chatSize = { width: Math.round(newW), height: Math.round(newH) };
+        state.chatPos = { left: Math.round(newL), top: Math.round(newT) };
+        state.chatMaximized = false;
+      };
+
+      const onEnd = () => {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        document.removeEventListener('touchmove', onTouchMove);
+        document.removeEventListener('touchend', onTouchEnd);
+        try {
+          localStorage.setItem('tieuchidoan_chat_layout', JSON.stringify({
+            pos: state.chatPos,
+            size: state.chatSize,
+            maximized: state.chatMaximized
+          }));
+        } catch (err) {}
+      };
+
+      const onMouseMove = (ev) => { ev.preventDefault(); onMove(ev.clientX, ev.clientY); };
+      const onMouseUp = () => { onEnd(); };
+      const onTouchMove = (ev) => { const t = ev.touches[0]; onMove(t.clientX, t.clientY); };
+      const onTouchEnd = () => { onEnd(); };
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+      document.addEventListener('touchmove', touchMoveHandler, { passive: false });
+      document.addEventListener('touchend', touchEndHandler);
     };
 
-    document.onmouseup = function() {
-      document.onmousemove = null;
-      document.onmouseup = null;
-    };
-  };
+    const touchMoveHandler = (ev) => { const t = ev.touches[0]; startResize(t.clientX, t.clientY, ev); };
+    const touchEndHandler = () => {};
 
-  headerEl.ontouchstart = function(e) {
-    if (e.target.tagName === 'BUTTON' || e.target.closest('button') || e.target.tagName === 'INPUT') return;
-    const touch = e.touches[0];
-    startX = touch.clientX;
-    startY = touch.clientY;
-    const rect = widget.getBoundingClientRect();
-    initialLeft = rect.left;
-    initialTop = rect.top;
-
-    document.ontouchmove = function(e) {
-      const t = e.touches[0];
-      const dx = t.clientX - startX;
-      const dy = t.clientY - startY;
-      let newLeft = initialLeft + dx;
-      let newTop = initialTop + dy;
-      const maxLeft = window.innerWidth - rect.width - 8;
-      const maxTop = window.innerHeight - rect.height - 8;
-      newLeft = Math.max(8, Math.min(newLeft, maxLeft));
-      newTop = Math.max(8, Math.min(newTop, maxTop));
-      widget.style.left = newLeft + 'px';
-      widget.style.top = newTop + 'px';
-      widget.style.right = 'auto';
-      widget.style.bottom = 'auto';
-      state.chatPos = { left: newLeft, top: newTop };
-    };
-
-    document.ontouchend = function() {
-      document.ontouchmove = null;
-      document.ontouchend = null;
-    };
-  };
+    handle.onmousedown = (e) => startResize(e.clientX, e.clientY, e);
+    handle.ontouchstart = (e) => startResize(e.touches[0].clientX, e.touches[0].clientY, e);
+  });
 };
 
 // CHỌN VÀ GỬI TỆP, ẢNH, VIDEO TRONG CHAT (Ảnh 3)
@@ -10559,22 +10852,29 @@ function renderFloatingChatWidget() {
   const selectedPartnerName = selectedPartner ? selectedPartner.unit_name : 'Cơ sở Đoàn';
 
   return `
-    <!-- KHUNG CHAT TRỰC TUYẾN (CÓ THỂ DÍ VÀO THANH TIÊU ĐỀ ĐỂ KÉO DI CHUYỂN BẤT KỲ ĐÂU) -->
+    <!-- KHUNG CHAT TRỰC TUYẾN (CÓ THỂ DÍ VÀO THANH TIÊU ĐỀ ĐỂ KÉO DI CHUYỂN, KÉO CẠNH/GÓC ĐỂ MỞ RỘNG TO NHỎ TÙY Ý) -->
     ${state.chatOpen ? `
-      <div class="chat-widget-box" id="chat-widget-box" ${state.chatPos ? `style="left:${state.chatPos.left}px; top:${state.chatPos.top}px; right:auto; bottom:auto;"` : ''}>
-        <!-- HEADER KHUNG CHAT (DRAGGABLE) -->
-        <div class="chat-header" id="chat-drag-header" title="Bấm giữ và kéo rê để di chuyển ô chat bất kỳ nơi nào trên màn hình">
+      <div class="chat-widget-box ${state.chatMaximized ? 'maximized' : ''}" id="chat-widget-box" style="${
+        state.chatMaximized
+          ? ''
+          : `${state.chatPos ? `left:${state.chatPos.left}px; top:${state.chatPos.top}px; right:auto; bottom:auto;` : ''} ${state.chatSize ? `width:${state.chatSize.width}px; height:${state.chatSize.height}px;` : ''}`
+      }">
+        <!-- HEADER KHUNG CHAT (DRAGGABLE & DBLCLICK MAXIMIZE) -->
+        <div class="chat-header" id="chat-drag-header" ondblclick="toggleMaximizeChatWidget()" title="Bấm giữ và kéo rê để di chuyển ô chat, hoặc nhấp đúp để phóng to / thu nhỏ">
           <div>
             <div class="chat-header-title">
               <span>💬</span> Trao Đổi Đoàn UBND Tỉnh & Cơ Sở
             </div>
             <div class="chat-header-user" title="Đang đăng nhập: ${escapeHtml(myName)}">
-              👤 ${escapeHtml(myName)} <span style="font-size:10px; opacity:0.8; margin-left:4px;">(✥ Kéo di chuyển)</span>
+              👤 ${escapeHtml(myName)} <span style="font-size:10px; opacity:0.8; margin-left:4px;">(✥ Kéo di chuyển / ⤡ Kéo dãn)</span>
             </div>
           </div>
           <div style="display:flex; align-items:center; gap:6px;">
             <button class="btn btn-sm" onclick="openClearChatOptionsModal()" style="background:rgba(239,68,68,0.25); border:1px solid rgba(239,68,68,0.5); color:#fff; font-size:11px; font-weight:700; padding:2px 7px;" title="Tùy chọn xóa / làm mới lịch sử chat">
               🗑️ Xóa / Làm mới
+            </button>
+            <button class="chat-maximize-btn" onclick="toggleMaximizeChatWidget()" title="${state.chatMaximized ? 'Thu nhỏ về kích thước ban đầu (nhỏ nhất)' : 'Phóng to toàn màn hình'}">
+              ${state.chatMaximized ? '❐' : '⛶'}
             </button>
             <button class="chat-close-btn" onclick="toggleChatWidget()" title="Đóng ô trao đổi">✕</button>
           </div>
@@ -10797,6 +11097,20 @@ function renderFloatingChatWidget() {
             Gửi 📤
           </button>
         </div>
+
+        <!-- CÁC TAY NẮM KÉO DÃN KHUNG CHAT TO RỘNG TÙY Ý (Ảnh 4 & Yêu cầu mới) -->
+        <div class="chat-resize-handle chat-resize-handle-r" data-dir="e" title="Kéo ngang để thay đổi chiều rộng"></div>
+        <div class="chat-resize-handle chat-resize-handle-b" data-dir="s" title="Kéo dọc để thay đổi chiều cao"></div>
+        <div class="chat-resize-handle chat-resize-handle-l" data-dir="w" title="Kéo ngang để thay đổi chiều rộng"></div>
+        <div class="chat-resize-handle chat-resize-handle-t" data-dir="n" title="Kéo dọc để thay đổi chiều cao"></div>
+        <div class="chat-resize-handle chat-resize-handle-se" data-dir="se" title="Kéo góc để mở rộng / thu nhỏ kích thước khung chat">
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M11 2L2 11M11 6L6 11M11 10L10 11" stroke="#94a3b8" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="chat-resize-handle chat-resize-handle-sw" data-dir="sw" title="Kéo góc để thay đổi kích thước"></div>
+        <div class="chat-resize-handle chat-resize-handle-ne" data-dir="ne" title="Kéo góc để thay đổi kích thước"></div>
+        <div class="chat-resize-handle chat-resize-handle-nw" data-dir="nw" title="Kéo góc để thay đổi kích thước"></div>
       </div>
     ` : ''}
   `;
