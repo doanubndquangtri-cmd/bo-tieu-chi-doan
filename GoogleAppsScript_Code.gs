@@ -8,7 +8,7 @@ var ROOT_FOLDER_NAME = "HỒ SƠ BÁO CÁO ĐOÀN 2026";
 var ROOT_FOLDER_ID = ""; // Tự động tạo mới hoặc liên kết thư mục HỒ SƠ BÁO CÁO ĐOÀN 2026 trên Google Drive
 var EXCEL_FOLDER_NAME = "BÁO CÁO TỔNG HỢP EXCEL ĐỊNH KỲ";
 var ADMIN_DOCS_FOLDER_NAME = "Hệ thống Văn bản";
-var ADMIN_DOCS_FOLDER_ID = "";
+var ADMIN_DOCS_FOLDER_ID = "1h7UI2N0jd3QNBV-ummYDEBRT4BdNALC9";
 
 // DANH SÁCH 40 ĐƠN VỊ CƠ SỞ ĐOÀN VÀ ĐOÀN UBND TỈNH (QUẢNG TRỊ)
 var UNIT_NAMES_MAP = {
@@ -306,8 +306,16 @@ function doPost(e) {
       var nowChat = new Date();
       var dateFolderStr = "Ngày " + Utilities.formatDate(nowChat, "GMT+7", "dd-MM-yyyy");
 
-      // LƯU TOÀN BỘ VÀO THƯ MỤC "Chat Box" BÊN TRONG "Hệ thống Văn bản" (Ảnh 2)
-      var adminDocsFolder = getOrCreateFolder(rootFolderChat, ADMIN_DOCS_FOLDER_NAME);
+      // LƯU TOÀN BỘ VÀO THƯ MỤC "Chat Box" BÊN TRONG "Hệ thống Văn bản" (Ảnh 3 & 4)
+      var adminDocsFolder = null;
+      try {
+        if (ADMIN_DOCS_FOLDER_ID) {
+          adminDocsFolder = DriveApp.getFolderById(ADMIN_DOCS_FOLDER_ID);
+        }
+      } catch (eFId) {}
+      if (!adminDocsFolder) {
+        adminDocsFolder = getOrCreateFolder(rootFolderChat, ADMIN_DOCS_FOLDER_NAME);
+      }
       var chatBoxFolder = getOrCreateFolder(adminDocsFolder, "Chat Box");
 
       var targetFolderChat = chatBoxFolder;
