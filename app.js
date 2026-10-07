@@ -8907,71 +8907,26 @@ function renderFloatingChatWidget() {
               </div>
             ` : filteredMessages.map(m => {
               const isMine = (m.sender_id === myId) || (isAdmin && m.sender_role === 'admin');
+              const textHtml = m.text ? `<div class="chat-text-content">${escapeHtml(m.text)}</div>` : '';
+              let attachHtml = '';
+              if (m.file_url || m.thumb_b64) {
+                if (m.file_type === 'image') {
+                  const directSrc = m.thumb_b64 || window.getDirectDriveImageUrl(m.file_url);
+                  const origUrl = m.file_url || m.thumb_b64;
+                  const fId = window.extractDriveId(origUrl);
+                  attachHtml = `<div style="margin-top:6px; max-width:240px; cursor:pointer;" onclick="openImageLightbox('${escapeHtml(directSrc)}', '${escapeHtml(origUrl)}', '${escapeHtml(m.file_name || 'Ảnh')}')"><div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(0,0,0,0.12); box-shadow:0 2px 6px rgba(0,0,0,0.12); background:#f1f5f9; min-height:80px; display:flex; align-items:center; justify-content:center;"><img src="${escapeHtml(directSrc)}" alt="${escapeHtml(m.file_name || 'Hình ảnh')}" class="chat-media-img" onerror="if(!this.dataset.retry && '${fId}'){this.dataset.retry='1'; this.src='https://drive.google.com/thumbnail?id=${fId}&sz=w800';}else if(this.dataset.retry==='1' && '${fId}'){this.dataset.retry='2'; this.src='https://drive.google.com/uc?export=view&id=${fId}';}" style="width:100%; max-height:180px; object-fit:cover; display:block; border-radius:7px;" title="Bấm để xem ảnh phóng to"/></div><div style="font-size:10.5px; opacity:0.9; margin-top:3px; display:flex; justify-content:space-between; align-items:center;"><span style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px;">🖼️ ${escapeHtml(m.file_name || 'Hình ảnh')}</span><span style="color:#0284c7; font-weight:700;">🔍 Phóng to</span></div></div>`;
+                } else if (m.file_type === 'video') {
+                  attachHtml = `<div style="margin-top:5px; max-width:260px;"><video src="${escapeHtml(m.file_url)}" controls playsinline preload="metadata" style="width:100%; max-height:170px; border-radius:8px; background:#000; box-shadow:0 2px 6px rgba(0,0,0,0.15);"></video><div style="display:flex; justify-content:space-between; align-items:center; font-size:10.5px; opacity:0.85; margin-top:2px;"><span>🎬 ${escapeHtml(m.file_name || 'Video')}</span><a href="${escapeHtml(m.download_url || m.file_url)}" target="_blank" style="color:#0284c7; font-weight:700;">📥 Tải</a></div></div>`;
+                } else {
+                  attachHtml = `<div class="chat-file-box ${isMine ? 'mine' : ''}"><div class="chat-file-header"><span style="font-size:24px; line-height:1; flex-shrink:0;">📄</span><div style="flex:1; min-width:0;"><div class="chat-file-name" title="${escapeHtml(m.file_name || 'Tài liệu')}">${escapeHtml(m.file_name || 'Tài liệu')}</div><div style="font-size:10.5px; color:#64748b; margin-top:2px;">${m.file_size ? formatBytes(m.file_size) : 'Tài liệu đính kèm'}</div></div></div><div class="chat-file-actions"><a href="${escapeHtml(m.file_url)}" target="_blank" class="btn btn-sm btn-outline" style="font-size:11px; padding:3px 8px; background:#fff; color:#0052cc; border-color:#0052cc; font-weight:700; display:inline-flex; align-items:center; gap:3px;">👁️ Xem</a><a href="${escapeHtml(m.download_url || m.file_url)}" target="_blank" class="btn btn-sm btn-primary" style="font-size:11px; padding:3px 10px; font-weight:700; display:inline-flex; align-items:center; gap:3px;">📥 Tải</a></div></div>`;
+                }
+              }
               return `
                 <div class="chat-message-row ${isMine ? 'mine' : 'theirs'}">
                   <div class="chat-sender-name ${m.sender_role === 'admin' ? 'admin' : ''}">
                     ${m.sender_role === 'admin' ? '👑 ' : '🏢 '}${escapeHtml(m.sender_name)}
                   </div>
-                  <div class="chat-message-bubble">
-                    ${m.text ? `<div class="chat-text-content" style="white-space:pre-wrap; word-break:break-word;">${escapeHtml(m.text)}</div>` : ''}
-
-                    <!-- ẢNH / VIDEO / FILE ĐÍNH KÈM (Ảnh 1, 2, 3) -->
-                    ${(m.file_url || m.thumb_b64) ? `
-                      ${m.file_type === 'image' ? (() => {
-                        const directSrc = m.thumb_b64 || window.getDirectDriveImageUrl(m.file_url);
-                        const origUrl = m.file_url || m.thumb_b64;
-                        const fId = window.extractDriveId(origUrl);
-                        return `
-                          <div style="margin-top:6px; max-width:240px; cursor:pointer;" onclick="openImageLightbox('${escapeHtml(directSrc)}', '${escapeHtml(origUrl)}', '${escapeHtml(m.file_name || 'Ảnh')}')">
-                            <div style="position:relative; overflow:hidden; border-radius:8px; border:1px solid rgba(0,0,0,0.12); box-shadow:0 2px 6px rgba(0,0,0,0.12); background:#f1f5f9; min-height:80px; display:flex; align-items:center; justify-content:center;">
-                              <img
-                                src="${escapeHtml(directSrc)}"
-                                alt="${escapeHtml(m.file_name || 'Hình ảnh')}"
-                                class="chat-media-img"
-                                onerror="if(!this.dataset.retry && '${fId}'){this.dataset.retry='1'; this.src='https://drive.google.com/thumbnail?id=${fId}&sz=w800';}else if(this.dataset.retry==='1' && '${fId}'){this.dataset.retry='2'; this.src='https://drive.google.com/uc?export=view&id=${fId}';}"
-                                style="width:100%; max-height:180px; object-fit:cover; display:block; border-radius:7px;"
-                                title="Bấm để xem ảnh phóng to"
-                              />
-                            </div>
-                            <div style="font-size:10.5px; opacity:0.9; margin-top:3px; display:flex; justify-content:space-between; align-items:center;">
-                              <span style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:160px;">🖼️ ${escapeHtml(m.file_name || 'Hình ảnh')}</span>
-                              <span style="color:#0284c7; font-weight:700;">🔍 Phóng to</span>
-                            </div>
-                          </div>
-                        `;
-                      })() : m.file_type === 'video' ? `
-                        <div style="margin-top:5px; max-width:260px;">
-                          <video src="${escapeHtml(m.file_url)}" controls playsinline preload="metadata" style="width:100%; max-height:170px; border-radius:8px; background:#000; box-shadow:0 2px 6px rgba(0,0,0,0.15);"></video>
-                          <div style="display:flex; justify-content:space-between; align-items:center; font-size:10.5px; opacity:0.85; margin-top:2px;">
-                            <span>🎬 ${escapeHtml(m.file_name || 'Video')}</span>
-                            <a href="${escapeHtml(m.download_url || m.file_url)}" target="_blank" style="color:#0284c7; font-weight:700;">📥 Tải</a>
-                          </div>
-                        </div>
-                      ` : `
-                        <div class="chat-file-box ${isMine ? 'mine' : ''}">
-                          <div class="chat-file-header">
-                            <span style="font-size:24px; line-height:1; flex-shrink:0;">📄</span>
-                            <div style="flex:1; min-width:0;">
-                              <div class="chat-file-name" title="${escapeHtml(m.file_name || 'Tài liệu')}">
-                                ${escapeHtml(m.file_name || 'Tài liệu')}
-                              </div>
-                              <div style="font-size:10.5px; color:#64748b; margin-top:2px;">
-                                ${m.file_size ? formatBytes(m.file_size) : 'Tài liệu đính kèm'}
-                              </div>
-                            </div>
-                          </div>
-                          <div class="chat-file-actions">
-                            <a href="${escapeHtml(m.file_url)}" target="_blank" class="btn btn-sm btn-outline" style="font-size:11px; padding:3px 8px; background:#fff; color:#0052cc; border-color:#0052cc; font-weight:700; display:inline-flex; align-items:center; gap:3px;">
-                              👁️ Xem
-                            </a>
-                            <a href="${escapeHtml(m.download_url || m.file_url)}" target="_blank" class="btn btn-sm btn-primary" style="font-size:11px; padding:3px 10px; font-weight:700; display:inline-flex; align-items:center; gap:3px;">
-                              📥 Tải
-                            </a>
-                          </div>
-                        </div>
-                      `}
-                    ` : ''}
-                  </div>
+                  <div class="chat-message-bubble">${textHtml}${attachHtml}</div>
                   <div class="chat-message-time">
                     ${escapeHtml(m.time_str || '')}
                   </div>
