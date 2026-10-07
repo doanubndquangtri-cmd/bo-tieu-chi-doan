@@ -373,18 +373,27 @@ function doPost(e) {
     // ---------------------------------------------------------------------
     // TRƯỜNG HỢP 5: XÓA TỆP TRÊN GOOGLE DRIVE
     // ---------------------------------------------------------------------
-    if (data.action === "delete_file" || data.action === "delete_files") {
+    // TRƯỜNG HỢP 5: XÓA TỆP HOẶC THƯ MỤC TRÊN GOOGLE DRIVE (ĐƯA VÀO THÙNG RÁC)
+    // ---------------------------------------------------------------------
+    if (data.action === "delete_file" || data.action === "delete_files" || data.action === "delete_folder") {
       var idsToDelete = [];
       if (data.fileId) idsToDelete.push(data.fileId);
+      if (data.folderId) idsToDelete.push(data.folderId);
       if (Array.isArray(data.fileIds)) idsToDelete = idsToDelete.concat(data.fileIds);
+      if (Array.isArray(data.folderIds)) idsToDelete = idsToDelete.concat(data.folderIds);
 
       var urls = Array.isArray(data.fileUrls) ? data.fileUrls : (data.fileUrl ? [data.fileUrl] : []);
+      if (data.folderUrl) urls.push(data.folderUrl);
+      if (Array.isArray(data.folderUrls)) urls = urls.concat(data.folderUrls);
+
       urls.forEach(function(u) {
         if (!u) return;
         var m1 = String(u).match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
         if (m1 && m1[1]) idsToDelete.push(m1[1]);
         var m2 = String(u).match(/[?&]id=([a-zA-Z0-9_-]+)/);
         if (m2 && m2[1]) idsToDelete.push(m2[1]);
+        var m3 = String(u).match(/\/folders\/([a-zA-Z0-9_-]+)/);
+        if (m3 && m3[1]) idsToDelete.push(m3[1]);
       });
 
       var uniqueIds = [];
@@ -395,10 +404,16 @@ function doPost(e) {
       var deletedCount = 0;
       uniqueIds.forEach(function(fId) {
         try {
-          var f = DriveApp.getFileById(fId);
-          f.setTrashed(true);
+          var folder = DriveApp.getFolderById(fId);
+          folder.setTrashed(true);
           deletedCount++;
-        } catch (errDel) {}
+        } catch (errFo) {
+          try {
+            var f = DriveApp.getFileById(fId);
+            f.setTrashed(true);
+            deletedCount++;
+          } catch (errFi) {}
+        }
       });
 
       return createJsonResponse({
@@ -432,17 +447,17 @@ function doPost(e) {
       var renamed = false;
       var objType = "unknown";
       try {
-        var fileObj = DriveApp.getFileById(targetId);
-        fileObj.setName(newName);
+        var folderObj = DriveApp.getFolderById(targetId);
+        folderObj.setName(newName);
         renamed = true;
-        objType = "file";
-      } catch (errF) {
+        objType = "folder";
+      } catch (errFo) {
         try {
-          var folderObj = DriveApp.getFolderById(targetId);
-          folderObj.setName(newName);
+          var fileObj = DriveApp.getFileById(targetId);
+          fileObj.setName(newName);
           renamed = true;
-          objType = "folder";
-        } catch (errFo) {}
+          objType = "file";
+        } catch (errF) {}
       }
 
       if (renamed) {
