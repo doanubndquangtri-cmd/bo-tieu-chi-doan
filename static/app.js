@@ -1054,7 +1054,10 @@ function renderApp() {
   `;
   requestAnimationFrame(updateMasterHeaderTops);
   if (state.chatOpen) {
-    setTimeout(window.initChatDrag, 30);
+    setTimeout(() => {
+      window.initChatDrag();
+      window.scrollChatToBottom();
+    }, 30);
   }
 }
 
@@ -2162,6 +2165,14 @@ function renderUnitSubmitTab() {
   const unitCriteriaList = state.criteria.filter((c) => {
     if (monthFilter === 0) return true;
     return Number(c.month_group) === monthFilter;
+  });
+
+  // SẮP XẾP TIÊU CHÍ THEO THỨ TỰ THỜI GIAN THÁNG 1, 2, 3... (Ảnh 3)
+  unitCriteriaList.sort((a, b) => {
+    const mgA = Number(a.month_group) || 999;
+    const mgB = Number(b.month_group) || 999;
+    if (mgA !== mgB) return mgA - mgB;
+    return (Number(a.id) || 0) - (Number(b.id) || 0);
   });
 
   const monthButtons = [
@@ -6378,7 +6389,14 @@ function renderAdminDocsTab() {
       uniqueDocs.push(d);
     }
   }
-  const docs = uniqueDocs.reverse();
+  // SẮP XẾP VĂN BẢN ĐÚNG THỨ TỰ THỜI GIAN NGÀY THÁNG (Ảnh 3)
+  uniqueDocs.sort((a, b) => {
+    const dateA = a.doc_date || a.created_at || '1970-01-01';
+    const dateB = b.doc_date || b.created_at || '1970-01-01';
+    if (dateA !== dateB) return dateB.localeCompare(dateA);
+    return String(b.id || '').localeCompare(String(a.id || ''));
+  });
+  const docs = uniqueDocs;
 
   return `
     <div class="panel">
@@ -7481,6 +7499,17 @@ function getTotalUnreadChatCount() {
   return total;
 }
 
+
+// TỰ ĐỘNG CUỘN XUỐNG DƯỚI CÙNG NƠI CÓ TIN NHẮN MỚI (Ảnh 1)
+window.scrollChatToBottom = function() {
+  requestAnimationFrame(() => {
+    const box = document.getElementById('chat-messages-body');
+    if (box) {
+      box.scrollTop = box.scrollHeight + 1000;
+    }
+  });
+};
+
 window.toggleChatWidget = function() {
   state.chatOpen = !state.chatOpen;
   if (state.chatOpen) {
@@ -7565,6 +7594,88 @@ window.getDirectDriveImageUrl = function(url) {
   }
   return s;
 };
+
+
+// TÍNH NĂNG CHÈN STICKER & EMOJI ĐẦY ĐỦ (Ảnh 1)
+state.emojiTab = state.emojiTab || 'emoji';
+state.emojiPickerOpen = false;
+
+window.toggleEmojiPicker = function() {
+  state.emojiPickerOpen = !state.emojiPickerOpen;
+  renderApp();
+};
+
+window.switchEmojiTab = function(tab) {
+  state.emojiTab = tab;
+  renderApp();
+};
+
+window.insertEmoji = function(emo) {
+  const inp = document.getElementById('chat-input-field');
+  if (inp) {
+    const start = inp.selectionStart || inp.value.length;
+    const end = inp.selectionEnd || inp.value.length;
+    inp.value = inp.value.substring(0, start) + emo + inp.value.substring(end);
+    inp.focus();
+    inp.selectionStart = inp.selectionEnd = start + emo.length;
+  }
+  state.emojiPickerOpen = false;
+  renderApp();
+};
+
+window.sendStickerMessage = function(stickerText) {
+  const inp = document.getElementById('chat-input-field');
+  if (inp) {
+    inp.value = stickerText;
+    state.emojiPickerOpen = false;
+    sendChatMessage();
+  }
+};
+
+function renderEmojiPicker() {
+  const emojis = [
+    '😀','😃','😄','😁','😆','😅','🤣','😂','🙂','😊','😇','🥰','😍','🤩','😘','😋',
+    '😛','😜','🤪','😝','🤗','🤭','🤫','🫡','😎','🥳','🥺','😭','😤','😡','👍','👎',
+    '👌','✌️','🤞','🫰','🤟','👏','🙌','🤝','🙏','💪','❤️','💖','🔥','💯','✨','⭐',
+    '🏆','🥇','🎖️','🇻🇳','🚩','🏢','📋','📝','📊','📌','📍','📢','🔔','💡','🚀','⚡'
+  ];
+
+  const stickers = [
+    '🎉 Chúc mừng đồng chí!',
+    '👍 Hoàn thành xuất sắc!',
+    '🚩 Sẵn sàng - Tiên phong!',
+    '⏰ Đã nộp báo cáo đúng hạn!',
+    '⭐ Đạt điểm tối đa!',
+    '💪 Đoàn kết - Quyết tâm!',
+    '✅ Đã duyệt hồ sơ!',
+    '📢 Thông báo quan trọng!',
+    '🤝 Cảm ơn sự phối hợp!',
+    '📋 Kế hoạch đã hoàn thành!'
+  ];
+
+  return `
+    <div class="chat-emoji-picker">
+      <div class="emoji-picker-tabs">
+        <button class="emoji-tab-btn ${state.emojiTab === 'emoji' ? 'active' : ''}" onclick="switchEmojiTab('emoji')">
+          😀 Biểu tượng (${emojis.length})
+        </button>
+        <button class="emoji-tab-btn ${state.emojiTab === 'sticker' ? 'active' : ''}" onclick="switchEmojiTab('sticker')">
+          🎭 Nhãn dán / Sticker Đoàn (${stickers.length})
+        </button>
+        <button type="button" onclick="toggleEmojiPicker()" style="background:none; border:none; color:#64748b; font-weight:800; padding:0 8px; cursor:pointer;" title="Đóng">✕</button>
+      </div>
+      ${state.emojiTab === 'emoji' ? `
+        <div class="emoji-grid">
+          ${emojis.map(e => `<span class="emoji-item" onclick="insertEmoji('${e}')">${e}</span>`).join('')}
+        </div>
+      ` : `
+        <div class="sticker-list">
+          ${stickers.map(s => `<div class="sticker-item" onclick="sendStickerMessage('${escapeHtml(s)}')">${escapeHtml(s)}</div>`).join('')}
+        </div>
+      `}
+    </div>
+  `;
+}
 
 window.openClearChatOptionsModal = function() {
   const roomKey = getChatRoomKey();
@@ -8046,13 +8157,6 @@ function renderFloatingChatWidget() {
   const selectedPartnerName = selectedPartner ? selectedPartner.unit_name : 'Cơ sở Đoàn';
 
   return `
-    <!-- NÚT NỔI CHAT GÓC MÀN HÌNH VỚI BADGE CHƯA ĐỌC -->
-    <div class="floating-chat-trigger" onclick="toggleChatWidget()" title="Bấm để mở ô trao đổi giữa các đơn vị và Admin">
-      <span>💬</span>
-      <span>Trao Đổi Đoàn</span>
-      ${totalUnread > 0 ? `<span class="chat-badge">${totalUnread > 99 ? '99+' : totalUnread}</span>` : ''}
-    </div>
-
     <!-- KHUNG CHAT TRỰC TUYẾN (CÓ THỂ DÍ VÀO THANH TIÊU ĐỀ ĐỂ KÉO DI CHUYỂN BẤT KỲ ĐÂU) -->
     ${state.chatOpen ? `
       <div class="chat-widget-box" id="chat-widget-box" ${state.chatPos ? `style="left:${state.chatPos.left}px; top:${state.chatPos.top}px; right:auto; bottom:auto;"` : ''}>
@@ -8250,8 +8354,11 @@ function renderFloatingChatWidget() {
           }).join('')}
         </div>
 
-        <!-- KHUNG NHẬP LIỆU & NÚT ĐÍNH KÈM FILE (Ảnh 1) -->
-        <div class="chat-input-row">
+        <!-- BẢNG CHỌN EMOJI & STICKER NẾU ĐANG MỞ (Ảnh 1) -->
+        ${state.emojiPickerOpen ? renderEmojiPicker() : ''}
+
+        <!-- KHUNG NHẬP LIỆU & NÚT ĐÍNH KÈM FILE + EMOJI / STICKER (Ảnh 1) -->
+        <div class="chat-input-row" style="position:relative;">
           <input
             type="file"
             id="chat-file-input"
@@ -8261,6 +8368,9 @@ function renderFloatingChatWidget() {
           />
           <button type="button" class="chat-attach-btn" onclick="triggerChatFileInput()" title="Gửi ảnh, video, văn bản, tệp tài liệu... lên Drive">
             📎
+          </button>
+          <button type="button" class="chat-emoji-btn" onclick="toggleEmojiPicker()" title="Chọn biểu tượng cảm xúc & Nhãn dán / Sticker">
+            😊
           </button>
           <input
             type="text"
