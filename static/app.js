@@ -1395,8 +1395,8 @@ function renderHeader() {
         ${state.notificationsOpen ? renderNotificationDropdown() : ''}
       </div>
 
-      <!-- Ở GIỮA: CÁC NÚT CÔNG CỤ DỊCH LÊN TRÊN HÀNG GỌN GÀNG (Ảnh 3 & 4) -->
-      <div class="header-actions" style="display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+      <!-- Ở GIỮA: CÁC NÚT CÔNG CỤ DỊCH LÊN TRÊN HÀNG GỌN GÀNG (NẰM TRỰC TIẾP TRÊN THANH HEADER) -->
+      <div class="header-actions" style="display: flex; align-items: center; gap: 5px; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; background: transparent; border: none; padding: 0;">
         <button class="btn btn-sm btn-outline" onclick="syncFromCloudNow(false)" style="background:rgba(255,255,255,0.15); color:#fff; border-color:rgba(255,255,255,0.3); font-size:11px; padding:3px 7px; height:27px;" title="Tải dữ liệu mới nhất từ đám mây">
           🔄 Đồng bộ
         </button>
