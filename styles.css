@@ -1649,28 +1649,55 @@ thead th.sticky-col-total {
   display: flex;
   background: #003380;
   border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: thin;
 }
 
 .chat-tab-btn {
-  flex: 1;
+  flex: 1 0 auto;
   background: transparent;
   color: #bfdbfe;
   border: none;
   padding: 9px 8px;
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.chat-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
 }
 
 .chat-tab-btn.active {
   background: #0052cc;
   color: #ffffff;
   border-bottom: 3px solid #fde047;
+}
+
+.chat-tab-btn.video-tab.active {
+  background: linear-gradient(135deg, #e11d48 0%, #be123c 100%) !important;
+  color: #ffffff !important;
+  border-bottom: 3px solid #fde047 !important;
+}
+
+.chat-tab-btn.tts-tab.active {
+  background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+  color: #ffffff !important;
+  border-bottom: 3px solid #fde047 !important;
+}
+
+.chat-tab-btn.ai-tab.active {
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%) !important;
+  color: #ffffff !important;
+  border-bottom: 3px solid #fde047 !important;
 }
 
 .chat-private-unit-bar {
