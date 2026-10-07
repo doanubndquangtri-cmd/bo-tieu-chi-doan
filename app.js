@@ -1915,6 +1915,8 @@ function renderMasterTableTab() {
             <option value="score_desc" ${state.sortBy === 'score_desc' ? 'selected' : ''}>🏆 Xếp hạng Tổng điểm (Cao → Thấp)</option>
             <option value="order" ${state.sortBy === 'order' ? 'selected' : ''}>Thứ tự đơn vị (1 → ${state.units.length})</option>
           </select>
+          <button class="btn btn-sm btn-outline" onclick="scrollTableHorizontally('master-spreadsheet-wrapper', -280)" style="height:32px; font-size:11.5px; font-weight:700; color:#0052cc; background:#fff; border:1.5px solid #0052cc;" title="Cuộn bảng sang trái">◀ Cuộn Trái</button>
+          <button class="btn btn-sm btn-outline" onclick="scrollTableHorizontally('master-spreadsheet-wrapper', 280)" style="height:32px; font-size:11.5px; font-weight:700; color:#0052cc; background:#fff; border:1.5px solid #0052cc;" title="Cuộn bảng sang phải">Cuộn Phải ▶</button>
         </div>
       </div>
 
@@ -1923,8 +1925,8 @@ function renderMasterTableTab() {
         <table class="master-table">
           <thead>
             <tr class="row-banner">
-              <th class="sticky-col-stt">#</th>
-              <th class="sticky-col-unit banner-unit-cell" colspan="2" style="background:#003d99 !important; color:#ffffff !important; font-weight:800 !important; min-width:476px !important; z-index:65 !important;">${escapeHtml(headerTitle)}</th>
+              <th class="sticky-col-stt" style="position:sticky; left:0; top:0; z-index:60; width:42px; min-width:42px; max-width:42px;">#</th>
+              <th class="sticky-col-unit banner-unit-cell" colspan="2" style="background:#003d99 !important; color:#ffffff !important; font-weight:800 !important; width:370px !important; min-width:370px !important; max-width:370px !important; position:sticky; left:42px; top:0; z-index:60 !important;">${escapeHtml(headerTitle)}</th>
               <th colspan="${Math.max(1, filteredCriteria.length)}">
                 ${
                   isAdmin
@@ -1935,9 +1937,9 @@ function renderMasterTableTab() {
             </tr>
 
             <tr class="row-titles">
-              <th class="sticky-col-stt">STT</th>
-              <th class="sticky-col-unit">ĐƠN VỊ</th>
-              <th class="sticky-col-total">TỔNG ĐIỂM</th>
+              <th class="sticky-col-stt" style="position:sticky; left:0; top:38px; z-index:55; background:#dbeafe; width:42px; min-width:42px; max-width:42px; text-align:center;">STT</th>
+              <th class="sticky-col-unit" style="position:sticky; left:42px; top:38px; z-index:55; background:#dbeafe; width:290px; min-width:290px; max-width:290px; text-align:left;">ĐƠN VỊ</th>
+              <th class="sticky-col-total" style="position:sticky; left:332px; top:38px; z-index:55; background:#fff9db; width:80px; min-width:80px; max-width:80px; text-align:center; box-shadow:3px 0 6px rgba(0,0,0,0.12); border-right:2px solid #0052cc;">TỔNG ĐIỂM</th>
               ${filteredCriteria.length === 0 ? `
                 <th style="min-width:320px; font-weight:700; color:#334155; background:#e2e8f0; text-align:center; padding:18px; font-size:13px;">
                   📋 CHƯA CÓ TIÊU CHÍ NÀO TRONG BẢNG<br/>
@@ -1999,16 +2001,16 @@ function renderMasterTableTab() {
 
                 return `
                 <tr class="${isCurrentUnit ? 'highlight-unit' : ''}" data-unit-row="${u.id}">
-                  <td class="sticky-col-stt">${rIdx + 1}</td>
-                  <td class="sticky-col-unit" title="${escapeHtml(u.unit_name)} (TK: ${escapeHtml(u.username)})">
-                    <div style="display:flex; align-items:center; justify-content:space-between; gap:4px;">
-                      <span style="white-space:normal; line-height:1.4; font-weight:600; color:#0f172a; word-break:break-word;">
+                  <td class="sticky-col-stt" style="position:sticky; left:0; z-index:18; background:#ffffff; width:42px; min-width:42px; max-width:42px; text-align:center; font-weight:700;">${rIdx + 1}</td>
+                  <td class="sticky-col-unit" style="position:sticky; left:42px; z-index:18; background:#ffffff; width:290px; min-width:290px; max-width:290px; text-align:left;" title="${escapeHtml(u.unit_name)} (TK: ${escapeHtml(u.username)})">
+                    <div style="width:270px; max-width:270px; display:flex; align-items:center; justify-content:space-between; gap:4px;">
+                      <span style="white-space:normal; line-height:1.35; font-weight:600; color:#0f172a; word-break:break-word;">
                         ${escapeHtml(u.unit_name)}
                       </span>
-                      ${isCurrentUnit ? '<span class="badge badge-info">Đơn vị bạn</span>' : ''}
+                      ${isCurrentUnit ? '<span class="badge badge-info" style="flex-shrink:0;">Đơn vị bạn</span>' : ''}
                     </div>
                   </td>
-                  <td class="sticky-col-total" id="total-cell-${u.id}">
+                  <td class="sticky-col-total" id="total-cell-${u.id}" style="position:sticky; left:332px; z-index:18; background:#fff9db; width:80px; min-width:80px; max-width:80px; text-align:center; box-shadow:3px 0 6px rgba(0,0,0,0.12); border-right:2px solid #0052cc;">
                     <div class="score-progress-wrapper">
                       <div class="score-progress-text">
                         <span>${formatScore(total)}</span>
@@ -4022,20 +4024,30 @@ function renderAdminReportsTab() {
               </div>
             </div>
 
-            <!-- THANH LỌC LIÊN KẾT: TẤT CẢ / BÁO CÁO / HOẠT ĐỘNG / ADMIN CHẤM -->
-            <div class="filter-pills-bar" style="padding:4px 10px; flex-shrink:0; display:flex; gap:4px; overflow-x:auto;">
-              <button class="filter-pill-btn ${state.reportTypeFilter === 'all' ? 'active' : ''}" onclick="state.reportTypeFilter = 'all'; renderApp();" style="font-size:11px; padding:2px 7px;">
-                🌐 Tất Cả Tiêu Chí (${allCriteria.length})
-              </button>
-              <button class="filter-pill-btn ${state.reportTypeFilter === 'report' ? 'active' : ''}" onclick="state.reportTypeFilter = 'report'; renderApp();" style="font-size:11px; padding:2px 7px;">
-                📋 Báo Cáo Định Kỳ (${reportCriteria.length})
-              </button>
-              <button class="filter-pill-btn ${state.reportTypeFilter === 'activity' ? 'active' : ''}" onclick="state.reportTypeFilter = 'activity'; renderApp();" style="font-size:11px; padding:2px 7px;">
-                🎯 Hoạt Động / Phong Trào (${activityCriteria.length})
-              </button>
-              <button class="filter-pill-btn ${state.reportTypeFilter === 'admin' ? 'active' : ''}" onclick="state.reportTypeFilter = 'admin'; renderApp();" style="font-size:11px; padding:2px 7px;">
-                👑 Admin Tự Chấm Điểm (${adminCriteria.length})
-              </button>
+            <!-- THANH LỌC LIÊN KẾT: TẤT CẢ / BÁO CÁO / HOẠT ĐỘNG / ADMIN CHẤM & NÚT CUỘN NGANG -->
+            <div class="filter-pills-bar" style="padding:4px 10px; flex-shrink:0; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+              <div style="display:flex; gap:4px; overflow-x:auto; flex-wrap:wrap; align-items:center;">
+                <button class="filter-pill-btn ${state.reportTypeFilter === 'all' ? 'active' : ''}" onclick="state.reportTypeFilter = 'all'; renderApp();" style="font-size:11px; padding:2px 7px;">
+                  🌐 Tất Cả Tiêu Chí (${allCriteria.length})
+                </button>
+                <button class="filter-pill-btn ${state.reportTypeFilter === 'report' ? 'active' : ''}" onclick="state.reportTypeFilter = 'report'; renderApp();" style="font-size:11px; padding:2px 7px;">
+                  📋 Báo Cáo Định Kỳ (${reportCriteria.length})
+                </button>
+                <button class="filter-pill-btn ${state.reportTypeFilter === 'activity' ? 'active' : ''}" onclick="state.reportTypeFilter = 'activity'; renderApp();" style="font-size:11px; padding:2px 7px;">
+                  🎯 Hoạt Động / Phong Trào (${activityCriteria.length})
+                </button>
+                <button class="filter-pill-btn ${state.reportTypeFilter === 'admin' ? 'active' : ''}" onclick="state.reportTypeFilter = 'admin'; renderApp();" style="font-size:11px; padding:2px 7px;">
+                  👑 Admin Tự Chấm Điểm (${adminCriteria.length})
+                </button>
+              </div>
+              <div style="display:flex; gap:6px; align-items:center; flex-shrink:0;">
+                <button class="btn btn-sm btn-outline" onclick="scrollTableHorizontally('reports-spreadsheet-wrapper', -280)" style="font-size:11px; padding:2px 8px; font-weight:700; color:#0052cc; background:#fff; border-color:#0052cc;" title="Cuộn bảng sang trái">
+                  ◀ Cuộn Trái
+                </button>
+                <button class="btn btn-sm btn-outline" onclick="scrollTableHorizontally('reports-spreadsheet-wrapper', 280)" style="font-size:11px; padding:2px 8px; font-weight:700; color:#0052cc; background:#fff; border-color:#0052cc;" title="Cuộn bảng sang phải">
+                  Cuộn Phải ▶
+                </button>
+              </div>
             </div>
 
             <!-- NỘI DUNG BẢNG MA TRẬN CUỘN RÕ RÀNG KHÔNG BỊ CO HẸP -->
@@ -4043,9 +4055,9 @@ function renderAdminReportsTab() {
               <table class="master-table">
                 <thead>
                   <tr class="row-titles">
-                    <th class="sticky-col-stt">STT</th>
-                    <th class="sticky-col-unit">ĐƠN VỊ</th>
-                    <th class="sticky-col-total">Đã Đạt</th>
+                    <th class="sticky-col-stt" style="position:sticky; left:0; top:0; z-index:55; background:#f1f5f9; width:42px; min-width:42px; max-width:42px; text-align:center;">STT</th>
+                    <th class="sticky-col-unit" style="position:sticky; left:42px; top:0; z-index:55; background:#f1f5f9; width:290px; min-width:290px; max-width:290px; text-align:left;">ĐƠN VỊ</th>
+                    <th class="sticky-col-total" style="position:sticky; left:332px; top:0; z-index:55; background:#fef3c7; width:80px; min-width:80px; max-width:80px; text-align:center; box-shadow:3px 0 6px rgba(0,0,0,0.12); border-right:2px solid #0052cc;">Đã Đạt</th>
                     ${targetCriteria.map(c => `
                       <th style="min-width:125px;">
                         <div style="font-weight:700;">${escapeHtml(c.col_label || '')}: ${escapeHtml(c.title)}</div>
@@ -4086,9 +4098,13 @@ function renderAdminReportsTab() {
                     }).join('');
                     return `
                       <tr>
-                        <td class="sticky-col-stt">${idx + 1}</td>
-                        <td class="sticky-col-unit">${escapeHtml(u.unit_name)}</td>
-                        <td class="sticky-col-total" style="font-weight:700; color:#0052cc;">${doneCount}/${targetCriteria.length}</td>
+                        <td class="sticky-col-stt" style="position:sticky; left:0; z-index:18; background:#ffffff; width:42px; min-width:42px; max-width:42px; text-align:center; font-weight:700;">${idx + 1}</td>
+                        <td class="sticky-col-unit" style="position:sticky; left:42px; z-index:18; background:#ffffff; width:290px; min-width:290px; max-width:290px; text-align:left;" title="${escapeHtml(u.unit_name)}">
+                          <div style="width:270px; max-width:270px; white-space:normal; word-break:break-word; line-height:1.35; font-weight:600; color:#0f172a;">
+                            ${escapeHtml(u.unit_name)}
+                          </div>
+                        </td>
+                        <td class="sticky-col-total" style="position:sticky; left:332px; z-index:18; background:#fff9db; width:80px; min-width:80px; max-width:80px; text-align:center; font-weight:800; color:#0052cc; box-shadow:3px 0 6px rgba(0,0,0,0.12); border-right:2px solid #0052cc;">${doneCount}/${targetCriteria.length}</td>
                         ${cells}
                       </tr>
                     `;
