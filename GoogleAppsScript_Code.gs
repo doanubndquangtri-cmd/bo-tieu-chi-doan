@@ -306,14 +306,17 @@ function doPost(e) {
       var nowChat = new Date();
       var dateFolderStr = "Ngày " + Utilities.formatDate(nowChat, "GMT+7", "dd-MM-yyyy");
 
-      var targetFolderChat = null;
+      // LƯU TOÀN BỘ VÀO THƯ MỤC "Chat Box" BÊN TRONG "Hệ thống Văn bản" (Ảnh 2)
+      var adminDocsFolder = getOrCreateFolder(rootFolderChat, ADMIN_DOCS_FOLDER_NAME);
+      var chatBoxFolder = getOrCreateFolder(adminDocsFolder, "Chat Box");
+
+      var targetFolderChat = chatBoxFolder;
       if (isPrivate) {
-        var parentPrivateFolder = getOrCreateFolder(rootFolderChat, "TRAO ĐỔI RIÊNG TƯ");
-        var unitPrivateFolder = getOrCreateFolder(parentPrivateFolder, unitNameChat);
-        targetFolderChat = getOrCreateFolder(unitPrivateFolder, dateFolderStr);
+        var privateBoxFolder = getOrCreateFolder(chatBoxFolder, "Trao đổi riêng - " + unitNameChat);
+        targetFolderChat = getOrCreateFolder(privateBoxFolder, dateFolderStr);
       } else {
-        var parentPublicFolder = getOrCreateFolder(rootFolderChat, "TRAO ĐỔI & CHAT TOÀN KHỐI");
-        targetFolderChat = getOrCreateFolder(parentPublicFolder, dateFolderStr);
+        var publicBoxFolder = getOrCreateFolder(chatBoxFolder, "Trao đổi chung toàn khối");
+        targetFolderChat = getOrCreateFolder(publicBoxFolder, dateFolderStr);
       }
 
       try {
