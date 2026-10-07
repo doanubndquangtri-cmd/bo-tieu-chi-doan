@@ -9476,7 +9476,6 @@ window.askAiAssistant = async function(promptText) {
           body: JSON.stringify({
             contents: chatContents,
             generationConfig: {
-              thinking_level: "low",
               temperature: 0.7
             }
           }),
@@ -10050,7 +10049,7 @@ window.generateTtsStudioAudio = async function() {
           {
             parts: [
               {
-                text: "Hãy đọc văn bản sau bằng tiếng Việt với giọng đọc tự nhiên, diễn cảm, chuẩn âm điệu. Chỉ đọc đúng nội dung văn bản dưới đây, không thêm lời chào, không bình luận hay dẫn chuyện:\n\n" + cleanText
+                text: cleanText
               }
             ]
           }
@@ -10251,15 +10250,66 @@ function renderVideoStudioContent() {
         <span style="font-size:28px; line-height:1;">🎬</span>
         <div style="flex:1;">
           <div style="font-weight:800; color:#9f1239; font-size:13.5px;">XƯỞNG TẠO VIDEO AI DỌC 9:16 (SHORTS / TIKTOK / REELS)</div>
-          <div style="font-size:11.5px; color:#be123c; margin-top:2px;">Tự động tóm tắt kịch bản, lồng tiếng AI & render video đồ họa chuyển động trực tiếp trên trình duyệt.</div>
+          <div style="font-size:11.5px; color:#be123c; margin-top:2px;">Tự động đọc bài viết, viết kịch bản phân cảnh script.json, lồng tiếng AI Speech & render đồ họa 9:16 trực tiếp.</div>
         </div>
       </div>
 
-      <!-- VÙNG NHẬP NỘI DUNG & MẪU GỢI Ý -->
+      <!-- SƠ ĐỒ QUY TRÌNH TỰ ĐỘNG HÓA VIDEO 5 BƯỚC -->
+      <div style="background:#ffffff; border:1px solid #fecdd3; border-radius:10px; padding:10px 12px; box-shadow:0 1px 4px rgba(225,29,72,0.06);">
+        <div style="font-size:11px; font-weight:800; color:#9f1239; margin-bottom:6px; display:flex; align-items:center; gap:5px;">
+          <span>⚡</span> QUY TRÌNH XUẤT BẢN VIDEO AI TỰ ĐỘNG (5 GIAI ĐOẠN):
+        </div>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:4px; font-size:10px; font-weight:700; text-align:center; overflow-x:auto;">
+          <div style="flex:1; min-width:80px; background:#eff6ff; color:#1e40af; border:1px solid #bfdbfe; border-radius:6px; padding:5px 3px;">
+            📄 URL / Văn bản<br/><span style="font-size:9px; font-weight:500; opacity:0.85;">Đầu vào bài viết</span>
+          </div>
+          <span style="color:#cbd5e1; font-weight:900;">➔</span>
+          <div style="flex:1; min-width:85px; background:#fdf4ff; color:#86198f; border:1px solid #f5d0fe; border-radius:6px; padding:5px 3px;">
+            🤖 1. Gemini AI<br/><span style="font-size:9px; font-weight:500; opacity:0.85;">script.json</span>
+          </div>
+          <span style="color:#cbd5e1; font-weight:900;">➔</span>
+          <div style="flex:1; min-width:85px; background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; border-radius:6px; padding:5px 3px;">
+            🎙️ 2. AI Speech<br/><span style="font-size:9px; font-weight:500; opacity:0.85;">Phân cảnh audio</span>
+          </div>
+          <span style="color:#cbd5e1; font-weight:900;">➔</span>
+          <div style="flex:1; min-width:90px; background:#fff7ed; color:#9a3412; border:1px solid #fed7aa; border-radius:6px; padding:5px 3px;">
+            🎨 3. HyperFrames<br/><span style="font-size:9px; font-weight:500; opacity:0.85;">Đồ họa 9:16 + SFX</span>
+          </div>
+          <span style="color:#cbd5e1; font-weight:900;">➔</span>
+          <div style="flex:1; min-width:85px; background:#fef2f2; color:#991b1b; border:1px solid #fecaca; border-radius:6px; padding:5px 3px;">
+            🎬 4. Xuất Video<br/><span style="font-size:9px; font-weight:500; opacity:0.85;">video.mp4 / webm</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- VÙNG NHẬP NỘI DUNG: URL HOẶC VĂN BẢN TRỰC TIẾP -->
       <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:12px; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+        <!-- NHẬP URL BÀI BÁO / TIN TỨC -->
+        <div style="margin-bottom:10px;">
+          <label style="font-size:11.5px; font-weight:800; color:#334155; display:block; margin-bottom:4px;">
+            🔗 URL bài báo / tin tức Đoàn (Tùy chọn: AI tự đọc & trích xuất nội dung):
+          </label>
+          <div style="display:flex; gap:6px;">
+            <input
+              type="text"
+              id="video-studio-url"
+              placeholder="https://... (Dán link bài viết hoặc báo cáo Đoàn để AI tự động trích xuất)"
+              style="flex:1; padding:7px 10px; font-size:12px; border:1px solid #cbd5e1; border-radius:6px; outline:none;"
+            />
+            <button
+              type="button"
+              onclick="extractUrlToVideoText()"
+              style="background:#0284c7; color:#fff; border:none; padding:7px 12px; font-size:11.5px; font-weight:700; border-radius:6px; cursor:pointer; white-space:nowrap; display:flex; align-items:center; gap:4px;"
+              title="Kích hoạt AI đọc và trích xuất nội dung cốt lõi từ bài báo"
+            >
+              <span>⚡</span> Trích xuất AI
+            </button>
+          </div>
+        </div>
+
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:4px;">
           <label style="font-size:12px; font-weight:800; color:#1e293b; display:flex; align-items:center; gap:5px;">
-            <span>📝</span> Dán nội dung bản tin Đoàn hoặc bài viết cần tạo video ngắn:
+            <span>📝</span> Hoặc dán trực tiếp nội dung bài viết cần tạo video ngắn:
           </label>
           <div style="display:flex; gap:4px;">
             <button type="button" class="btn btn-sm" onclick="setVideoSample(1)" style="font-size:11px; padding:2px 7px; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-weight:600; cursor:pointer;" title="Mẫu bản tin phong trào Đoàn">📢 Bản tin</button>
@@ -10271,7 +10321,7 @@ function renderVideoStudioContent() {
           id="video-studio-text"
           oninput="state.videoStudioText = this.value; const c = document.getElementById('video-char-count'); if(c) c.innerText = this.value.length;"
           placeholder="Dán nội dung bài viết, tin tức hoặc báo cáo phong trào Đoàn cần chuyển thành video ngắn..."
-          style="width:100%; height:90px; min-height:75px; max-height:160px; resize:vertical; padding:8px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:13px; font-family:inherit; box-sizing:border-box; outline:none; line-height:1.5;"
+          style="width:100%; height:85px; min-height:70px; max-height:160px; resize:vertical; padding:8px 12px; border-radius:8px; border:1px solid #cbd5e1; font-size:13px; font-family:inherit; box-sizing:border-box; outline:none; line-height:1.5;"
         >${escapeHtml(defaultText)}</textarea>
         <div style="display:flex; justify-content:flex-end; margin-top:4px;">
           <span style="font-size:11px; color:#94a3b8;"><span id="video-char-count">${defaultText.length}</span> ký tự</span>
@@ -10384,11 +10434,71 @@ function renderVideoStudioContent() {
               <span>⬇️ Tải Video Về Máy (.webm)</span>
             </a>
           </div>
+
+          <!-- THẺ HIỂN THỊ KỊCH BẢN PHÂN CẢNH SCRIPT.JSON DO AI TẠO -->
+          <div id="video-script-card" style="width:100%; margin-top:8px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:10px; font-size:11.5px; box-sizing:border-box;">
+            <div style="font-weight:800; color:#1e293b; margin-bottom:6px; display:flex; justify-content:space-between; align-items:center;">
+              <span>📋 Kịch bản phân cảnh (script.json) AI:</span>
+              <span style="font-size:10px; color:#0284c7; font-weight:700;">✓ Đồng bộ thời lượng</span>
+            </div>
+            <div id="video-script-scenes-list" style="max-height:130px; overflow-y:auto; line-height:1.5; color:#334155;">
+              ${state.videoStudioScriptJson ? (state.videoStudioScriptJson.scenes || []).map((sc, i) => `<div style="margin-bottom:4px; padding:4px 8px; background:#fff; border-radius:4px; border:1px solid #e2e8f0;"><b>Phân cảnh ${i+1}:</b> ${escapeHtml(sc)}</div>`).join('') : ''}
+            </div>
+          </div>
         </div>
       </div>
     </div>
   `;
 }
+
+// HÀM TRÍCH XUẤT NỘI DUNG TỪ URL BÀI BÁO / TIN TỨC BẰNG GEMINI
+window.extractUrlToVideoText = async function() {
+  const urlInput = document.getElementById('video-studio-url');
+  const url = urlInput ? urlInput.value.trim() : '';
+  if (!url) {
+    showToast('Vui lòng nhập đường link URL bài báo hoặc tin tức!', 'warning');
+    return;
+  }
+  const storedKey = (typeof localStorage !== 'undefined' ? (localStorage.getItem('gemini_api_key') || '') : '').trim();
+  if (!storedKey) {
+    showToast('Vui lòng bấm [🔑 Cài Key AI] để kích hoạt tính năng trích xuất bài báo!', 'warning');
+    openGeminiApiKeyModal();
+    return;
+  }
+  showToast('Đang kết nối Gemini AI đọc và trích xuất nội dung từ liên kết...', 'info');
+  try {
+    const prompt = `Bạn là trợ lý truyền thông Đoàn TNCS Hồ Chí Minh. Hãy đọc và tóm tắt ngắn gọn nội dung cốt lõi của bài viết/liên kết sau đây thành 3-4 câu ngắn gọn, truyền cảm hứng về phong trào thanh niên (khoảng 60-90 từ) để làm video ngắn:\n\n${url}`;
+    const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(storedKey)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.7 }
+      })
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      const candidate = data?.candidates?.[0];
+      const parts = candidate?.content?.parts || [];
+      const actualParts = parts.filter(p => !p.thought && p.text).map(p => p.text);
+      const txt = actualParts.length > 0 ? actualParts.join('\n').trim() : (parts.map(p => p.text || '').join('\n').trim());
+      if (txt) {
+        const textInput = document.getElementById('video-studio-text');
+        if (textInput) {
+          textInput.value = txt;
+          state.videoStudioText = txt;
+          const c = document.getElementById('video-char-count');
+          if (c) c.innerText = txt.length;
+        }
+        showToast('Trích xuất nội dung bài viết thành công!', 'success');
+        return;
+      }
+    }
+  } catch (e) {
+    console.warn("Lỗi trích xuất URL:", e);
+  }
+  showToast('Không thể đọc tự động trang này, đồng chí vui lòng sao chép nội dung dán vào ô bên dưới!', 'warning');
+};
 
 // HÀM VẼ KHUNG HÌNH CANVAS CHO VIDEO DỌC (720 x 1280)
 function drawRoundRectHelper(ctx, x, y, width, height, radius, fillColor, strokeColor, lineWidth = 1) {
@@ -10694,7 +10804,6 @@ ${rawText}`;
             body: JSON.stringify({
               contents: [{ role: 'user', parts: [{ text: prompt }] }],
               generationConfig: {
-                thinking_level: "low",
                 temperature: 0.7
               }
             })
@@ -10750,7 +10859,7 @@ async function generateVideoAudioBlob(fullText, selectedVoice, rate, apiKey) {
     const payload = {
       contents: [{
         parts: [{
-          text: "Hãy đọc văn bản sau bằng tiếng Việt với giọng đọc tự nhiên, diễn cảm, chuẩn âm điệu. Chỉ đọc đúng nội dung văn bản dưới đây, không thêm lời chào, không bình luận hay dẫn chuyện:\n\n" + cleanText
+          text: cleanText
         }]
       }],
       generationConfig: {
@@ -11000,23 +11109,34 @@ window.startGenerateAiVideo = async function() {
   state.videoStudioIsGenerating = true;
 
   try {
-    // BƯỚC 1: BIÊN SOẠN KỊCH BẢN VIDEO (AI SCRIPTING)
-    updateStatus('✍️ Bước 1/3: Đang phân tích nội dung & biên soạn kịch bản ngắn...', 20);
+    // BƯỚC 1: AI GEMINI VIẾT KỊCH BẢN PHÂN CẢNH (SCRIPT.JSON)
+    updateStatus('🤖 [1/4] AI Gemini: Đang phân tích bài viết & trích xuất kịch bản phân cảnh (script.json)...', 25);
     const scriptData = await prepareVideoScript(rawText, apiKey);
+    state.videoStudioScriptJson = scriptData;
 
-    // BƯỚC 2: TẠO ÂM THANH GIỌNG ĐỌC AI (TTS AUDIO)
-    updateStatus(`🎙️ Bước 2/3: Đang tạo giọng đọc AI (${selectedVoice})...`, 50);
+    // Cập nhật thẻ kịch bản trên giao diện
+    const scenesListEl = document.getElementById('video-script-scenes-list');
+    if (scenesListEl && scriptData.scenes) {
+      scenesListEl.innerHTML = scriptData.scenes.map((sc, i) => `<div style="margin-bottom:4px; padding:4px 8px; background:#fff; border-radius:4px; border:1px solid #e2e8f0;"><b>Phân cảnh ${i+1}:</b> ${escapeHtml(sc)}</div>`).join('');
+    }
+
+    // BƯỚC 2: AI SPEECH STUDIO TỰ ĐỘNG ĐỌC TỪNG PHÂN CẢNH THÀNH FILE ÂM THANH
+    updateStatus(`🎙️ [2/4] AI Speech: Đang tự động đọc từng phân cảnh (${selectedVoice})...`, 50);
     const fullVoiceoverText = scriptData.scenes.join('. ');
     const audioBlob = await generateVideoAudioBlob(fullVoiceoverText, selectedVoice, rate, apiKey);
     if (!audioBlob) {
       throw new Error('Không thể tạo file âm thanh lồng tiếng cho video!');
     }
 
-    // BƯỚC 3: RENDER CANVAS & GHI HÌNH VIDEO (CANVAS + MEDIARECORDER)
-    updateStatus('🎥 Bước 3/3: Đang vẽ khung hình đồ họa & ghi hình video 9:16...', 75);
+    // BƯỚC 3 & 4: HYPERFRAMES GRAPHICS ENGINE & MUXING ĐỒNG BỘ VIDEO + SFX
+    updateStatus('🎨 [3/4] HyperFrames: Đang dựng đồ họa Kinetic Typography & visualizer 9:16...', 75);
     const videoBlob = await renderAndRecordVideo(scriptData, audioBlob, selectedTemplate, rate, (percent) => {
-      const p = 75 + Math.floor(percent * 0.24);
-      if (progressBar) progressBar.style.width = p + '%';
+      if (percent > 80) {
+        updateStatus('🎬 [4/4] Muxing: Đang đóng gói video hoàn chỉnh kèm hiệu ứng âm thanh SFX...', Math.min(98, 75 + Math.floor(percent * 0.23)));
+      } else {
+        const p = 75 + Math.floor(percent * 0.15);
+        if (progressBar) progressBar.style.width = p + '%';
+      }
     });
 
     const videoUrl = URL.createObjectURL(videoBlob);
@@ -11025,7 +11145,7 @@ window.startGenerateAiVideo = async function() {
     state.videoStudioVideoUrl = videoUrl;
     state.videoStudioFileName = fileName;
     state.videoStudioIsGenerating = false;
-    updateStatus('✓ Video đã được tạo thành công!', 100);
+    updateStatus('✓ Xuất bản phẩm video hoàn chỉnh 9:16 thành công!', 100);
 
     const previewVideo = document.getElementById('video-studio-preview');
     const downloadLink = document.getElementById('video-studio-download-link');
@@ -11035,7 +11155,7 @@ window.startGenerateAiVideo = async function() {
       downloadLink.download = fileName;
     }
     if (resultBox) resultBox.style.display = 'block';
-    showToast('🎉 Đã tạo video AI dọc 9:16 thành công!', 'success');
+    showToast('🎉 Đã xuất bản video AI dọc 9:16 hoàn chỉnh!', 'success');
   } catch (err) {
     console.error("Lỗi tạo video AI:", err);
     showToast('Lỗi tạo video: ' + (err.message || 'Không thể render video'), 'danger');
