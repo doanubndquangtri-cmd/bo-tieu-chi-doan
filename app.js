@@ -3468,20 +3468,6 @@ function renderNavTabs() {
           </div>
           ${isReportsActive && sub === 'log' ? '<span style="color:#0284c7; font-weight:800; font-size:15px;">✓</span>' : ''}
         </div>
-
-        <!-- DÒNG 3: HIỂN THỊ CẢ 2 BẢNG (TRÊN - DƯỚI) -->
-        <div
-          class="nav-tab-dropdown-item ${isReportsActive && sub === 'both' ? 'active' : ''}"
-          onclick="setReportsSubSection('both')"
-          style="padding:10px 14px; border-radius:6px; cursor:pointer; display:flex; align-items:center; gap:10px; font-size:13px; font-weight:800; color:#0f766e; border:1.5px solid ${isReportsActive && sub === 'both' ? '#0d9488' : '#e2e8f0'}; background:${isReportsActive && sub === 'both' ? '#f0fdfa' : '#f8fafc'}; border-top:1px dashed #cbd5e1; margin-top:2px; transition:all 0.15s;"
-        >
-          <span style="font-size:20px; line-height:1;">📑</span>
-          <div style="flex:1;">
-            <div style="line-height:1.3; color:#0f766e;">📑 HIỂN THỊ CẢ 2 BẢNG (TRÊN - DƯỚI)</div>
-            <div style="font-size:11px; font-weight:500; color:#64748b; margin-top:2px;">Xem cùng lúc cả bảng theo dõi tiến độ và bảng nhật ký minh chứng</div>
-          </div>
-          ${isReportsActive && sub === 'both' ? '<span style="color:#0d9488; font-weight:800; font-size:15px;">✓</span>' : ''}
-        </div>
       </div>
     </div>
   `;
@@ -7757,10 +7743,10 @@ window.executeBatchFillColumn = async function (criterionId) {
    COMPONENTS: BẢNG 1 (MA TRẬN) VÀ BẢNG 2 (NHẬT KÝ NỘP BÁO CÁO)
    ========================================================================= */
 
-function renderReportsMatrixTableComponent(targetCriteria, allCriteria, reportCriteria, activityCriteria, adminCriteria, activeUnits, isFullscreen) {
+function renderReportsMatrixTableComponent(targetCriteria, allCriteria, reportCriteria, activityCriteria, adminCriteria, activeUnits) {
   return `
-    <div class="panel ${isFullscreen ? 'fullscreen-table-panel' : ''}" style="display:flex; flex-direction:column; ${isFullscreen ? 'height:calc(100vh - 215px); max-height:calc(100vh - 215px); flex:1;' : 'margin-bottom:18px;'} min-height:0; border-radius:6px; border:1px solid #cbd5e1; overflow:hidden;">
-      <div class="panel-header" style="flex-wrap:wrap; gap:8px; padding:8px 12px; flex-shrink:0;">
+    <div class="panel reports-table-panel fullscreen-table-panel" style="display:flex; flex-direction:column; min-height:540px; flex:1 1 auto; margin-bottom:4px; border-radius:6px; border:1px solid #cbd5e1; overflow:hidden;">
+      <div class="panel-header" style="flex-wrap:wrap; gap:8px; padding:6px 12px; flex-shrink:0;">
         <div class="panel-title" style="font-size:13.5px; display:flex; align-items:center; gap:8px;">
           <span>📊 BẢNG 1: THEO DÕI NỘP BÁO CÁO & HOẠT ĐỘNG CỦA CÁC ĐƠN VỊ (${targetCriteria.length} TIÊU CHÍ)</span>
         </div>
@@ -7798,8 +7784,8 @@ function renderReportsMatrixTableComponent(targetCriteria, allCriteria, reportCr
         </div>
       </div>
 
-      <!-- NỘI DUNG BẢNG MA TRẬN CHIẾM CHIỀU CAO THÍCH HỢP -->
-      <div class="spreadsheet-wrapper" id="reports-spreadsheet-wrapper" style="${isFullscreen ? 'flex:1 1 auto; min-height:0;' : 'max-height:480px;'} overflow:auto !important; border:none;">
+      <!-- NỘI DUNG BẢNG MA TRẬN CHIẾM TRỌN CHIỀU CAO GẦN SÁT ĐÁY (GIỐNG ẢNH 2) -->
+      <div class="spreadsheet-wrapper" id="reports-spreadsheet-wrapper" style="flex:1 1 auto; min-height:480px; height:calc(100vh - 185px); overflow:auto !important; border:none;">
         <table class="master-table">
           <thead>
             <tr class="row-titles">
@@ -7866,10 +7852,10 @@ function renderReportsMatrixTableComponent(targetCriteria, allCriteria, reportCr
   `;
 }
 
-function renderReportsLogTableComponent(filteredLogs, activeUnits, isFullscreen) {
+function renderReportsLogTableComponent(filteredLogs, activeUnits) {
   return `
-    <div class="panel ${isFullscreen ? 'fullscreen-table-panel' : ''}" style="display:flex; flex-direction:column; ${isFullscreen ? 'height:calc(100vh - 215px); max-height:calc(100vh - 215px); flex:1;' : 'margin-bottom:18px;'} min-height:0; border-radius:6px; border:1px solid #cbd5e1; overflow:hidden;">
-      <div class="panel-header" style="padding:8px 14px; flex-shrink:0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+    <div class="panel reports-table-panel fullscreen-table-panel" style="display:flex; flex-direction:column; min-height:540px; flex:1 1 auto; margin-bottom:4px; border-radius:6px; border:1px solid #cbd5e1; overflow:hidden;">
+      <div class="panel-header" style="padding:6px 14px; flex-shrink:0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
         <div class="panel-title" style="font-size:13.5px; display:flex; align-items:center; gap:8px;">
           <span>🕒 BẢNG 2: NHẬT KÝ ĐƠN VỊ NỘP BÁO CÁO & MINH CHỨNG GẦN ĐÂY</span>
         </div>
@@ -7880,7 +7866,7 @@ function renderReportsLogTableComponent(filteredLogs, activeUnits, isFullscreen)
           </select>
         </div>
       </div>
-      <div class="panel-body" style="${isFullscreen ? 'flex:1 1 auto; min-height:0;' : 'max-height:450px;'} padding:0; overflow:auto;">
+      <div class="panel-body reports-log-container" style="flex:1 1 auto; min-height:480px; height:calc(100vh - 185px); padding:0; overflow:auto !important;">
         <table class="data-table">
           <thead style="position:sticky; top:0; z-index:20; background:#f8fafc; box-shadow:0 1px 2px rgba(0,0,0,0.08);">
             <tr>
@@ -7978,32 +7964,29 @@ function renderAdminReportsTab() {
   });
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
-  const subMode = state.reportsSubSection || 'matrix';
+  const subMode = (state.reportsSubSection === 'log') ? 'log' : 'matrix';
 
   return `
     <!-- Banner Cong khai Bao cao -->
-    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px;">
-      <div style="font-size: 13px; color: #166534;">
+    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 6px 14px; margin-bottom: 6px;">
+      <div style="font-size: 12.5px; color: #166534;">
         🌐 <b>Tính năng Công Khai & Minh Bạch Toàn Khối:</b> Tất cả các cơ sở Đoàn đều có thể theo dõi tiến độ nộp báo cáo và xem hồ sơ minh chứng của các đơn vị.
       </div>
     </div>
 
-    <!-- THANH ĐIỀU HƯỚNG CHỌN BẢNG RÕ RÀNG TRỰC TIẾP TRÊN TRANG -->
-    <div class="reports-subnav-bar" style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:8px; padding:10px 14px; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; box-shadow:0 2px 6px rgba(0,0,0,0.04);">
+    <!-- THANH ĐIỀU HƯỚNG CHỌN BẢNG RÕ RÀNG TRỰC TIẾP TRÊN TRANG (CHỈ CÒN 2 BẢNG) -->
+    <div class="reports-subnav-bar" style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:8px; padding:6px 12px; margin-bottom:6px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
       <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-        <span style="font-size:12.5px; font-weight:800; color:#1e293b; text-transform:uppercase;">📌 Bảng Hiển Thị:</span>
+        <span style="font-size:12px; font-weight:800; color:#1e293b; text-transform:uppercase;">📌 BẢNG HIỂN THỊ:</span>
         <button type="button" class="btn ${subMode === 'matrix' ? 'btn-primary' : 'btn-outline'}" onclick="setReportsSubSection('matrix')" style="font-size:12.5px; font-weight:700; padding:6px 14px; border-radius:6px; display:inline-flex; align-items:center; gap:6px; ${subMode === 'matrix' ? 'background:#0052cc; color:#fff; border-color:#0052cc;' : 'background:#fff; color:#1e40af; border-color:#93c5fd;'}">
           📊 Dòng 1: Theo Dõi Nộp Báo Cáo & Hoạt Động (${targetCriteria.length} Tiêu Chí)
         </button>
         <button type="button" class="btn ${subMode === 'log' ? 'btn-primary' : 'btn-outline'}" onclick="setReportsSubSection('log')" style="font-size:12.5px; font-weight:700; padding:6px 14px; border-radius:6px; display:inline-flex; align-items:center; gap:6px; ${subMode === 'log' ? 'background:#0284c7; color:#fff; border-color:#0284c7;' : 'background:#fff; color:#0369a1; border-color:#93c5fd;'}">
           🕒 Dòng 2: Nhật Ký Đơn Vị Nộp Báo Cáo & Minh Chứng Gần Đây
         </button>
-        <button type="button" class="btn ${subMode === 'both' ? 'btn-primary' : 'btn-outline'}" onclick="setReportsSubSection('both')" style="font-size:12.5px; font-weight:700; padding:6px 14px; border-radius:6px; display:inline-flex; align-items:center; gap:6px; ${subMode === 'both' ? 'background:#0f766e; color:#fff; border-color:#0f766e;' : 'background:#fff; color:#0f766e; border-color:#99f6e4;'}">
-          📑 Hiển Thị Cả 2 Bảng (Trên - Dưới)
-        </button>
       </div>
       <div style="font-size:12px; color:#64748b; font-weight:600;">
-        ${subMode === 'matrix' ? 'Đang mở Bảng 1: Ma Trận Tiến Độ' : (subMode === 'log' ? 'Đang mở Bảng 2: Nhật Ký Nộp Minh Chứng' : 'Đang mở Cả 2 Bảng')}
+        ${subMode === 'matrix' ? 'Đang mở Bảng 1: Ma Trận Tiến Độ' : 'Đang mở Bảng 2: Nhật Ký Nộp Minh Chứng'}
       </div>
     </div>
 
@@ -8033,7 +8016,6 @@ function renderAdminReportsTab() {
           </div>
         </div>
 
-        <!-- MOBILE TABS CHO DANH SÁCH THẺ HOẶC NHẬT KÝ -->
         <div style="padding: 10px;">
           <div style="font-size: 11.5px; color: #64748b; margin-bottom: 10px; display:flex; justify-content:space-between;">
             <span>Hiển thị <b>${activeUnits.length}</b> đơn vị (${targetCriteria.length} tiêu chí)</span>
@@ -8121,16 +8103,10 @@ function renderAdminReportsTab() {
         </div>
       </div>
     ` : `
-      <!-- DESKTOP / TABLE VIEW: HIỂN THỊ THEO CHẾ ĐỘ ĐÃ CHỌN -->
+      <!-- DESKTOP / TABLE VIEW: HIỂN THỊ THEO CHẾ ĐỘ ĐÃ CHỌN (BẢNG RỘNG SÁT ĐÁY MÀN HÌNH NHƯ ẢNH 2) -->
       ${subMode === 'matrix'
-        ? renderReportsMatrixTableComponent(targetCriteria, allCriteria, reportCriteria, activityCriteria, adminCriteria, activeUnits, true)
-        : (subMode === 'log'
-            ? renderReportsLogTableComponent(filteredLogs, activeUnits, true)
-            : `
-              ${renderReportsMatrixTableComponent(targetCriteria, allCriteria, reportCriteria, activityCriteria, adminCriteria, activeUnits, false)}
-              ${renderReportsLogTableComponent(filteredLogs, activeUnits, false)}
-            `
-          )
+        ? renderReportsMatrixTableComponent(targetCriteria, allCriteria, reportCriteria, activityCriteria, adminCriteria, activeUnits)
+        : renderReportsLogTableComponent(filteredLogs, activeUnits)
       }
     `}
   `;
