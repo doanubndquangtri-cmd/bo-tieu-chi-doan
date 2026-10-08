@@ -917,6 +917,40 @@ function getRankingMonthGroups() {
   return groups;
 }
 
+
+function getCriteriaMaxTotalScore() {
+  const crits = state.criteria || [];
+  if (crits.length === 0) return 100;
+  let sum = 0;
+  for (const c of crits) {
+    if (c.score_type === 'penalty') continue;
+    const val = Number(c.max_score !== undefined && c.max_score !== null && c.max_score !== '' ? c.max_score : c.default_score);
+    if (!isNaN(val) && val > 0) {
+      sum += val;
+    }
+  }
+  return sum > 0 ? Math.round(sum * 100) / 100 : 100;
+}
+
+function updateUnitTotalCellDOM(unitId) {
+  const totCell = document.getElementById(`total-cell-${unitId}`);
+  if (!totCell) return;
+  const total = getUnitTotalScore(unitId);
+  const maxPossibleScore = getCriteriaMaxTotalScore();
+  const pct = Math.min(100, Math.max(0, Math.round((Number(total || 0) / Math.max(1, maxPossibleScore)) * 100)));
+  totCell.innerHTML = `
+    <div class="score-progress-wrapper">
+      <div class="score-progress-text">
+        <span>${formatScore(total)}</span>
+        <span class="score-progress-pct">${pct}%</span>
+      </div>
+      <div class="score-progress-bar-bg" title="Tiến độ tích lũy: ${pct}% (Tổng: ${formatScore(total)}/${maxPossibleScore} điểm)">
+        <div class="score-progress-bar-fill" style="width: ${pct}%;"></div>
+      </div>
+    </div>
+  `;
+}
+
 function getUnitTotalScore(unitId) {
   let sum = 0;
   for (const c of state.criteria) {
@@ -1457,6 +1491,11 @@ function renderHeader() {
 
         <button class="btn btn-sm" onclick="showPWAInstallGuide()" title="Cài đặt ứng dụng vào điện thoại" style="background: rgba(255,255,255,0.2); color:#fff; border: 1px solid rgba(255,255,255,0.4); font-size: 11px; padding: 3px 7px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; height:27px;">
           📲 Cài App
+        </button>
+
+        <button class="btn btn-sm" onclick="openQrGeneratorTab()" title="Tiện ích tạo mã QR có Logo Đoàn bằng đường link" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #fff; border: 1px solid rgba(255,255,255,0.4); font-size: 11px; padding: 3px 8px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); cursor: pointer; border-radius: 5px; height:27px;">
+          <span>📱</span>
+          <span>Tạo Mã QR</span>
         </button>
 
         <button class="btn btn-sm" onclick="toggleChatWidget()" title="Bấm để mở ô Trao Đổi Đoàn giữa các đơn vị và Ban Thường vụ Tỉnh" style="background: linear-gradient(135deg, #0284c7 0%, #0052cc 100%); color: #fff; border: 1px solid rgba(255,255,255,0.4); font-size: 11px; padding: 3px 8px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); cursor: pointer; border-radius: 5px; height:27px;">
@@ -2052,12 +2091,13 @@ function renderMasterTableTab() {
           </thead>
 
           <tbody>
-            ${filteredUnits
-              .map((u, rIdx) => {
-                const total = getUnitTotalScore(u.id);
-                const isCurrentUnit = !isAdmin && state.user && state.user.id === u.id;
-                const maxPossibleScore = (state.criteria || []).reduce((sum, c) => sum + (Number(c.max_points) || 10), 0) || 100;
-                const pct = Math.min(100, Math.round((Number(total || 0) / Math.max(1, maxPossibleScore)) * 100));
+            ${(() => {
+              const maxPossibleScore = getCriteriaMaxTotalScore();
+              return filteredUnits
+                .map((u, rIdx) => {
+                  const total = getUnitTotalScore(u.id);
+                  const isCurrentUnit = !isAdmin && state.user && state.user.id === u.id;
+                  const pct = Math.min(100, Math.max(0, Math.round((Number(total || 0) / Math.max(1, maxPossibleScore)) * 100)));
 
                 return `
                 <tr class="${isCurrentUnit ? 'highlight-unit' : ''}" data-unit-row="${u.id}">
@@ -2085,7 +2125,8 @@ function renderMasterTableTab() {
                 </tr>
               `;
               })
-              .join('')}
+              .join('');
+            })()}
           </tbody>
         </table>
       </div>
@@ -2236,8 +2277,7 @@ window.onAdminInlineScoreChange = async function (inputEl) {
       }
     }
 
-    const totCell = document.getElementById(`total-cell-${unitId}`);
-    if (totCell) totCell.textContent = formatScore(getUnitTotalScore(unitId));
+    updateUnitTotalCellDOM(unitId);
     showToast('🟢 Đã cập nhật điểm thành công!', 'success');
   }
 };
@@ -8091,6 +8131,9 @@ window.switchChatTab = function(tab) {
   setTimeout(() => {
     scrollChatToBottom();
     window.initChatDrag();
+    if (tab === 'qr') {
+      generateCurrentQrCode();
+    }
   }, 80);
 };
 
@@ -8999,9 +9042,12 @@ function renderFloatingChatWidget() {
           <button class="chat-tab-btn tts-tab ${state.chatTab === 'tts' ? 'active' : ''}" onclick="switchChatTab('tts')" title="Tạo Giọng Nói AI & Tải Về (AI Text-to-Speech Studio)">
             🎙️ Giọng Nói AI
           </button>
+          <button class="chat-tab-btn qr-tab ${state.chatTab === 'qr' ? 'active' : ''}" onclick="switchChatTab('qr')" title="Tiện ích tạo mã QR có Logo Đoàn bằng link & Tải về, Chia sẻ">
+            📱 Tạo Mã QR
+          </button>
         </div>
 
-        ${state.chatTab === 'tts' ? '' : `
+        ${(state.chatTab === 'tts' || state.chatTab === 'qr') ? '' : `
           <!-- THANH TÌM KIẾM TIN NHẮN & TỆP TIN TRONG PHÒNG CHAT (Ảnh 1 & 2) -->
           <div class="chat-search-bar">
             <span style="font-size:13px; color:#64748b;">🔍</span>
@@ -9083,7 +9129,7 @@ function renderFloatingChatWidget() {
 
         <!-- NỘI DUNG DANH SÁCH TIN NHẮN -->
         <div class="chat-messages-body" id="chat-messages-body">
-          ${state.chatTab === 'tts' ? renderTtsStudioContent() : `
+          ${state.chatTab === 'tts' ? renderTtsStudioContent() : state.chatTab === 'qr' ? renderQrGeneratorTabContent() : `
             ${searchQ ? `
               <div style="padding:4px 10px; background:#eff6ff; border-radius:4px; font-size:11.5px; color:#1e40af; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
                 <span>🔍 Kết quả tìm kiếm cho: "<b>${escapeHtml(searchQ)}</b>" (${filteredMessages.length} tin)</span>
@@ -9138,7 +9184,7 @@ function renderFloatingChatWidget() {
         ${state.emojiPickerOpen ? renderEmojiPicker() : ''}
 
         <!-- KHUNG NHẬP LIỆU & NÚT ĐÍNH KÈM FILE + EMOJI / STICKER (ẨN KHI Ở TAB GIỌNG NÓI AI) -->
-        ${state.chatTab === 'tts' ? '' : `
+        ${(state.chatTab === 'tts' || state.chatTab === 'qr') ? '' : `
           <div class="chat-input-row" style="position:relative; gap:6px;">
             <input
               type="file"
@@ -10423,6 +10469,450 @@ window.generateTtsStudioAudio = async function() {
   }
 };
 
+
+/* =========================================================================
+   📱 TIỆN ÍCH TẠO MÃ QR TỰ ĐỘNG CÓ HUY HIỆU ĐOÀN & TẢI VỀ, CHIA SẺ
+   Render trực tiếp bằng Canvas với mức sửa lỗi High (30%) + Logo Đoàn tâm
+   ========================================================================= */
+
+function ensureQRCodeLoaded() {
+  if (typeof QRCode !== 'undefined') return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const s = document.createElement('script');
+    s.src = './qrcode.min.js';
+    s.onload = () => resolve(true);
+    s.onerror = () => {
+      const s2 = document.createElement('script');
+      s2.src = 'https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js';
+      s2.onload = () => resolve(true);
+      s2.onerror = () => resolve(false);
+      document.head.appendChild(s2);
+    };
+    document.head.appendChild(s);
+  });
+}
+
+function renderQrGeneratorTabContent() {
+  const currentUrl = state.qrStudioUrl || PUBLIC_WEB_URL || window.location.href;
+  const currentColor = state.qrStudioColor || '#0052cc';
+  const currentSize = state.qrStudioSize || 400;
+
+  return `
+    <div class="qr-studio-wrapper" style="padding:14px; background:#f8fafc; border-radius:8px; display:flex; flex-direction:column; gap:12px; height:100%; box-sizing:border-box; overflow-y:auto;">
+      <!-- BANNER GIỚI THIỆU -->
+      <div style="background:linear-gradient(135deg, #eff6ff 0%, #e0f2fe 100%); border:1px solid #bfdbfe; border-radius:10px; padding:10px 14px; display:flex; align-items:center; gap:12px;">
+        <span style="font-size:30px; line-height:1;">📱</span>
+        <div style="flex:1;">
+          <div style="font-weight:800; color:#1e40af; font-size:13.5px; text-transform:uppercase;">
+            TIỆN ÍCH TẠO MÃ QR TỰ ĐỘNG CÓ HUY HIỆU ĐOÀN
+          </div>
+          <div style="font-size:11.5px; color:#0369a1; margin-top:2px;">
+            Chuyển đổi đường link (URL) bất kỳ thành mã QR sắc nét có logo Đoàn TNCS Hồ Chí Minh ở chính giữa. Hỗ trợ tải ảnh về máy và chia sẻ nhanh chóng.
+          </div>
+        </div>
+      </div>
+
+      <!-- VÙNG NHẬP ĐƯỜNG LINK -->
+      <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:12px; box-shadow:0 1px 3px rgba(0,0,0,0.04);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-wrap:wrap; gap:4px;">
+          <label style="font-size:12px; font-weight:800; color:#1e293b; display:flex; align-items:center; gap:5px;">
+            <span>🔗</span> Nhập hoặc dán đường link (URL) cần tạo mã QR:
+          </label>
+          <div style="display:flex; gap:4px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-sm" onclick="setQrLinkSample(1)" style="font-size:11px; padding:2px 7px; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-weight:600; cursor:pointer;" title="Dán link hệ thống hiện tại">🌐 Link Hệ thống</button>
+            <button type="button" class="btn btn-sm" onclick="setQrLinkSample(2)" style="font-size:11px; padding:2px 7px; background:#f0fdf4; color:#15803d; border:1px solid #bbf7d0; font-weight:600; cursor:pointer;" title="Dán link Google Drive toàn Đoàn">☁️ Link Google Drive</button>
+            <button type="button" class="btn btn-sm" onclick="pasteQrLinkFromClipboard()" style="font-size:11px; padding:2px 7px; background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:600; cursor:pointer;" title="Dán nhanh từ Clipboard">📋 Dán từ máy</button>
+            <button type="button" class="btn btn-sm" onclick="clearQrLinkInput()" style="font-size:11px; padding:2px 7px; background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:600; cursor:pointer;" title="Xóa trắng">✕ Xóa</button>
+          </div>
+        </div>
+
+        <input
+          type="url"
+          id="qr-studio-url-input"
+          value="${escapeHtml(currentUrl)}"
+          oninput="onQrStudioUrlChange(this.value)"
+          placeholder="Nhập đường link... Ví dụ: https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/"
+          style="width:100%; padding:9px 12px; border-radius:8px; border:1.5px solid #0284c7; font-size:13px; font-family:inherit; box-sizing:border-box; outline:none; font-weight:600; color:#0f172a; background:#f8fafc;"
+        />
+
+        <!-- TÙY CHỌN MÀU SẮC & KÍCH THƯỚC -->
+        <div style="display:flex; gap:12px; margin-top:10px; flex-wrap:wrap; align-items:center;">
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label style="font-size:11.5px; font-weight:700; color:#475569;">🎨 Màu mã QR:</label>
+            <select id="qr-studio-color-select" onchange="state.qrStudioColor = this.value; generateCurrentQrCode();" style="font-size:12px; font-weight:700; padding:4px 8px; border-radius:6px; border:1px solid #cbd5e1; background:#fff;">
+              <option value="#0052cc" ${currentColor === '#0052cc' ? 'selected' : ''}>🔵 Xanh Đoàn TNCS</option>
+              <option value="#000000" ${currentColor === '#000000' ? 'selected' : ''}>⚫ Đen truyền thống</option>
+              <option value="#dc2626" ${currentColor === '#dc2626' ? 'selected' : ''}>🔴 Đỏ cờ Tổ quốc</option>
+              <option value="#059669" ${currentColor === '#059669' ? 'selected' : ''}>🟢 Xanh lá phong trào</option>
+            </select>
+          </div>
+
+          <div style="display:flex; align-items:center; gap:6px;">
+            <label style="font-size:11.5px; font-weight:700; color:#475569;">📐 Độ phân giải:</label>
+            <select id="qr-studio-size-select" onchange="state.qrStudioSize = Number(this.value); generateCurrentQrCode();" style="font-size:12px; font-weight:700; padding:4px 8px; border-radius:6px; border:1px solid #cbd5e1; background:#fff;">
+              <option value="400" ${currentSize === 400 ? 'selected' : ''}>400 x 400 px (Tiêu chuẩn)</option>
+              <option value="600" ${currentSize === 600 ? 'selected' : ''}>600 x 600 px (Nét cao HD)</option>
+              <option value="800" ${currentSize === 800 ? 'selected' : ''}>800 x 800 px (In ấn Banner/Poster)</option>
+            </select>
+          </div>
+
+          <button type="button" class="btn btn-sm" onclick="generateCurrentQrCode()" style="background:#0284c7; color:#fff; border:none; padding:5px 12px; font-weight:700; border-radius:6px; cursor:pointer; margin-left:auto;">
+            ⚡ Tạo Lại Mã QR
+          </button>
+        </div>
+      </div>
+
+      <!-- VÙNG HIỂN THỊ MÃ QR & NÚT TẢI VỀ, CHIA SẺ -->
+      <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,0.04); display:flex; flex-direction:column; align-items:center; text-align:center;">
+        <!-- Container canvas -->
+        <div style="position:relative; padding:12px; background:#ffffff; border-radius:14px; box-shadow:0 4px 16px rgba(0,0,0,0.08); border:1px solid #e2e8f0; margin-bottom:14px;">
+          <canvas id="qr-studio-canvas" width="400" height="400" style="width:230px; height:230px; max-width:100%; display:block; border-radius:8px;"></canvas>
+          <div id="qr-studio-temp-holder" style="display:none;"></div>
+        </div>
+
+        <!-- Tên/Tiêu đề hiển thị dưới QR -->
+        <div style="font-size:12px; font-weight:700; color:#1e293b; margin-bottom:4px; max-width:90%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" id="qr-studio-link-display">
+          ${escapeHtml(currentUrl)}
+        </div>
+        <div style="font-size:11px; color:#64748b; margin-bottom:14px; display:flex; align-items:center; gap:4px;">
+          <span>🛡️ Mức sửa lỗi cao (High 30%)</span> • <span>Huy hiệu Đoàn chính giữa</span> • <span>Quét cực nhạy</span>
+        </div>
+
+        <!-- CÁC NÚT THAO TÁC: TẢI VỀ, CHIA SẺ, SAO CHÉP -->
+        <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center;">
+          <button type="button" class="btn btn-primary" onclick="downloadQrStudioImage()" style="background:linear-gradient(135deg, #0284c7 0%, #0052cc 100%); color:#fff; border:none; font-weight:800; font-size:13px; padding:8px 16px; border-radius:7px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(2,132,199,0.3);">
+            <span>📥</span> Tải Về Máy (.PNG)
+          </button>
+
+          <button type="button" class="btn btn-success" onclick="shareQrStudioCode()" style="background:linear-gradient(135deg, #16a34a 0%, #15803d 100%); color:#fff; border:none; font-weight:800; font-size:13px; padding:8px 16px; border-radius:7px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(22,163,74,0.3);">
+            <span>📤</span> Chia Sẻ QR
+          </button>
+
+          <button type="button" class="btn" onclick="copyQrStudioImageToClipboard()" style="background:#f1f5f9; color:#334155; border:1px solid #cbd5e1; font-weight:700; font-size:12.5px; padding:8px 14px; border-radius:7px; cursor:pointer; display:inline-flex; align-items:center; gap:5px;" title="Sao chép ảnh vào bộ nhớ tạm để dán vào Zalo/Word/PowerPoint">
+            <span>📋</span> Sao Chép Ảnh QR
+          </button>
+
+          <button type="button" class="btn" onclick="copyQrStudioLinkToClipboard()" style="background:#f8fafc; color:#64748b; border:1px solid #e2e8f0; font-weight:600; font-size:12px; padding:8px 12px; border-radius:7px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;" title="Sao chép đường link đã tạo">
+            <span>🔗</span> Sao Chép Link
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+window.generateCurrentQrCode = function() {
+  const canvas = document.getElementById('qr-studio-canvas');
+  if (!canvas) return;
+
+  const urlInput = document.getElementById('qr-studio-url-input');
+  const url = (urlInput ? urlInput.value.trim() : '') || state.qrStudioUrl || PUBLIC_WEB_URL || window.location.href;
+  state.qrStudioUrl = url;
+
+  const colorSelect = document.getElementById('qr-studio-color-select');
+  const qrColor = (colorSelect ? colorSelect.value : state.qrStudioColor) || '#0052cc';
+  state.qrStudioColor = qrColor;
+
+  const sizeSelect = document.getElementById('qr-studio-size-select');
+  const qrSize = Number(sizeSelect ? sizeSelect.value : (state.qrStudioSize || 400)) || 400;
+  state.qrStudioSize = qrSize;
+
+  const displayEl = document.getElementById('qr-studio-link-display');
+  if (displayEl) displayEl.innerText = url;
+
+  canvas.width = qrSize;
+  canvas.height = qrSize;
+  const ctx = canvas.getContext('2d');
+
+  if (typeof QRCode === 'undefined') {
+    ctx.fillStyle = '#f8fafc';
+    ctx.fillRect(0, 0, qrSize, qrSize);
+    ctx.fillStyle = '#64748b';
+    ctx.font = '14px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Đang tải tiện ích tạo mã QR...', qrSize / 2, qrSize / 2);
+
+    ensureQRCodeLoaded().then(ok => {
+      if (ok) window.generateCurrentQrCode();
+    });
+    return;
+  }
+
+  const tempHolder = document.getElementById('qr-studio-temp-holder') || document.createElement('div');
+  tempHolder.innerHTML = '';
+
+  try {
+    new QRCode(tempHolder, {
+      text: url,
+      width: qrSize,
+      height: qrSize,
+      colorDark: qrColor,
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.H
+    });
+
+    setTimeout(() => {
+      const generatedCanvas = tempHolder.querySelector('canvas');
+      const generatedImg = tempHolder.querySelector('img');
+
+      const drawFinal = (source) => {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, qrSize, qrSize);
+
+        const pad = Math.round(qrSize * 0.05);
+        const drawDim = qrSize - pad * 2;
+        ctx.drawImage(source, pad, pad, drawDim, drawDim);
+
+        const cx = qrSize / 2;
+        const cy = qrSize / 2;
+        const logoR = Math.round(qrSize * 0.11);
+        const bgR = logoR + 5;
+
+        // White circle background with subtle shadow
+        ctx.save();
+        ctx.shadowColor = 'rgba(0,0,0,0.2)';
+        ctx.shadowBlur = Math.round(qrSize * 0.02);
+        ctx.shadowOffsetY = 2;
+        ctx.beginPath();
+        ctx.arc(cx, cy, bgR, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+        ctx.restore();
+
+        // Border ring around logo
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, bgR, 0, Math.PI * 2);
+        ctx.lineWidth = Math.max(2, Math.round(qrSize * 0.007));
+        ctx.strokeStyle = qrColor;
+        ctx.stroke();
+        ctx.restore();
+
+        // Draw Youth Union logo
+        const logo = new Image();
+        logo.onload = () => {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(cx, cy, logoR, 0, Math.PI * 2);
+          ctx.clip();
+          ctx.drawImage(logo, cx - logoR, cy - logoR, logoR * 2, logoR * 2);
+          ctx.restore();
+        };
+        logo.src = LOGO_DOAN_SRC;
+        if (logo.complete) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(cx, cy, logoR, 0, Math.PI * 2);
+          ctx.clip();
+          ctx.drawImage(logo, cx - logoR, cy - logoR, logoR * 2, logoR * 2);
+          ctx.restore();
+        }
+      };
+
+      if (generatedCanvas) {
+        drawFinal(generatedCanvas);
+      } else if (generatedImg && generatedImg.complete) {
+        drawFinal(generatedImg);
+      } else if (generatedImg) {
+        generatedImg.onload = () => drawFinal(generatedImg);
+      }
+    }, 40);
+  } catch (err) {
+    console.error('Error generating QR:', err);
+    showToast('Lỗi khi tạo mã QR: ' + err.message, 'error');
+  }
+};
+
+window.onQrStudioUrlChange = function(val) {
+  state.qrStudioUrl = val;
+  const d = document.getElementById('qr-studio-link-display');
+  if (d) d.innerText = val || '';
+  if (window._qrDebounceTimer) clearTimeout(window._qrDebounceTimer);
+  window._qrDebounceTimer = setTimeout(() => {
+    generateCurrentQrCode();
+  }, 300);
+};
+
+window.setQrLinkSample = function(type) {
+  let val = '';
+  if (type === 1) {
+    val = PUBLIC_WEB_URL || window.location.href;
+  } else if (type === 2) {
+    val = (state.settings && state.settings.gdrive_root_folder_url) || 'https://drive.google.com/';
+  }
+  state.qrStudioUrl = val;
+  const input = document.getElementById('qr-studio-url-input');
+  if (input) input.value = val;
+  generateCurrentQrCode();
+};
+
+window.pasteQrLinkFromClipboard = async function() {
+  try {
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        state.qrStudioUrl = text.trim();
+        const input = document.getElementById('qr-studio-url-input');
+        if (input) input.value = text.trim();
+        generateCurrentQrCode();
+        showToast('📋 Đã dán liên kết từ bộ nhớ tạm!', 'success');
+        return;
+      }
+    }
+    const manual = prompt('Dán đường link của bạn vào đây:');
+    if (manual) {
+      state.qrStudioUrl = manual.trim();
+      const input = document.getElementById('qr-studio-url-input');
+      if (input) input.value = manual.trim();
+      generateCurrentQrCode();
+    }
+  } catch (e) {
+    const manual = prompt('Dán đường link của bạn vào đây:');
+    if (manual) {
+      state.qrStudioUrl = manual.trim();
+      const input = document.getElementById('qr-studio-url-input');
+      if (input) input.value = manual.trim();
+      generateCurrentQrCode();
+    }
+  }
+};
+
+window.clearQrLinkInput = function() {
+  state.qrStudioUrl = '';
+  const input = document.getElementById('qr-studio-url-input');
+  if (input) {
+    input.value = '';
+    input.focus();
+  }
+  generateCurrentQrCode();
+};
+
+window.downloadQrStudioImage = function() {
+  const canvas = document.getElementById('qr-studio-canvas');
+  if (!canvas) {
+    showToast('Chưa có mã QR để tải về!', 'warning');
+    return;
+  }
+  try {
+    const dataUrl = canvas.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = dataUrl;
+    a.download = `Ma_QR_Doan_${Date.now()}.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    showToast('📥 Đã tải hình ảnh mã QR Đoàn về máy thành công!', 'success');
+  } catch (e) {
+    showToast('Lỗi khi tải ảnh: ' + e.message, 'error');
+  }
+};
+
+window.shareQrStudioCode = async function() {
+  const canvas = document.getElementById('qr-studio-canvas');
+  const url = state.qrStudioUrl || PUBLIC_WEB_URL || window.location.href;
+
+  if (navigator.share) {
+    try {
+      if (canvas && canvas.toBlob && navigator.canShare) {
+        canvas.toBlob(async (blob) => {
+          if (!blob) {
+            await navigator.share({
+              title: 'Mã QR Đoàn TNCS Hồ Chí Minh',
+              text: `Mã QR liên kết: ${url}`,
+              url: url
+            });
+            showToast('📤 Đã chia sẻ liên kết thành công!', 'success');
+            return;
+          }
+          const file = new File([blob], 'Ma_QR_Doan.png', { type: 'image/png' });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({
+              title: 'Mã QR Đoàn TNCS Hồ Chí Minh',
+              text: `Mã QR liên kết: ${url}`,
+              files: [file]
+            });
+            showToast('📤 Đã chia sẻ mã QR thành công!', 'success');
+          } else {
+            await navigator.share({
+              title: 'Mã QR Đoàn TNCS Hồ Chí Minh',
+              text: `Mã QR liên kết: ${url}`,
+              url: url
+            });
+            showToast('📤 Đã chia sẻ liên kết thành công!', 'success');
+          }
+        }, 'image/png');
+        return;
+      } else {
+        await navigator.share({
+          title: 'Mã QR Đoàn TNCS Hồ Chí Minh',
+          text: `Mã QR liên kết: ${url}`,
+          url: url
+        });
+        showToast('📤 Đã chia sẻ liên kết thành công!', 'success');
+        return;
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        console.warn('Share error:', e);
+      } else {
+        return;
+      }
+    }
+  }
+
+  window.copyQrStudioLinkToClipboard();
+};
+
+window.copyQrStudioImageToClipboard = async function() {
+  const canvas = document.getElementById('qr-studio-canvas');
+  if (!canvas || !canvas.toBlob) {
+    showToast('Chưa có mã QR để sao chép!', 'warning');
+    return;
+  }
+  try {
+    if (navigator.clipboard && window.ClipboardItem) {
+      canvas.toBlob(async (blob) => {
+        try {
+          await navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': blob })
+          ]);
+          showToast('📋 Đã sao chép hình ảnh mã QR vào Clipboard! (Bạn có thể Paste vào Zalo, Word...)', 'success');
+        } catch (err) {
+          window.copyQrStudioLinkToClipboard();
+        }
+      }, 'image/png');
+    } else {
+      window.copyQrStudioLinkToClipboard();
+    }
+  } catch (e) {
+    window.copyQrStudioLinkToClipboard();
+  }
+};
+
+window.copyQrStudioLinkToClipboard = function() {
+  const url = state.qrStudioUrl || PUBLIC_WEB_URL || window.location.href;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(url).then(() => {
+      showToast('🔗 Đã sao chép đường link vào bộ nhớ tạm!', 'success');
+    }).catch(() => {
+      prompt('Sao chép đường link này:', url);
+    });
+  } else {
+    prompt('Sao chép đường link này:', url);
+  }
+};
+
+window.openQrGeneratorTab = function() {
+  state.chatOpen = true;
+  state.chatTab = 'qr';
+  renderApp();
+  setTimeout(() => {
+    generateCurrentQrCode();
+    const inp = document.getElementById('qr-studio-url-input');
+    if (inp) inp.focus();
+  }, 120);
+};
+
 /* =========================================================================
    🎬 XƯỞNG TẠO VIDEO AI DỌC 9:16 (SHORTS / TIKTOK / REELS STUDIO)
    Render trực tiếp trên trình duyệt bằng Canvas + Web Audio API + MediaRecorder
@@ -11393,7 +11883,7 @@ window.runAiProofReviewModal = function(unitId, critId) {
 
   const hasExtract = Boolean(content.length > 10 || files.length > 0);
   const hasDate = Boolean(content.includes('2026') || content.includes('/') || (sc && sc.submitted_at));
-  const suggestedScore = (sc && sc.self_score) ? sc.self_score : (crit.default_score || crit.max_points || 5);
+  const suggestedScore = (sc && sc.self_score) ? sc.self_score : (crit.default_score || crit.max_score || 5);
 
   const modalRoot = document.getElementById('modal-root');
   if (!modalRoot) return;
@@ -11588,4 +12078,4 @@ if (typeof document !== 'undefined') {
     initDarkMode();
     initTableCrosshairHover();
   });
-}
+}
