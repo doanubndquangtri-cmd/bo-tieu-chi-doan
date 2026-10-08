@@ -1,5 +1,5 @@
 // Service Worker Tiêu Chí Đoàn - Tự động xóa sạch Cache khi có phiên bản mới
-const SW_VERSION = '1791429690';
+const SW_VERSION = '1791431102';
 const CACHE_NAME = 'tieuchidoan-v' + SW_VERSION;
 const ASSETS_TO_CACHE = [
   './logo_doan.png',
