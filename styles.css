@@ -43,7 +43,7 @@ body {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 99999 !important;
   flex-wrap: wrap;
 }
 
@@ -206,11 +206,11 @@ body {
   border-bottom: 1px solid var(--border);
   padding: 0 20px;
   display: flex;
-  gap: 4px;
-  overflow: visible !important;
+  gap: 2px;
+  overflow-x: auto;
   position: relative;
-  z-index: 500;
-  flex-wrap: wrap;
+  z-index: 50 !important;
+  flex-wrap: nowrap;
 }
 
 .nav-tab {
@@ -1449,11 +1449,11 @@ thead th.sticky-col-total {
   width: 480px;
   max-width: min(480px, calc(100vw - 28px));
   max-height: calc(100vh - 120px);
-  background: #ffffff;
+  background: #ffffff !important;
   border-radius: 12px;
-  box-shadow: 0 16px 45px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(0, 82, 204, 0.25);
   border: 2px solid #0052cc;
-  z-index: 100000;
+  z-index: 999999 !important;
   overflow: hidden;
   color: #0f172a;
   text-align: left;
@@ -2358,7 +2358,7 @@ html, body {
   background: linear-gradient(135deg, #003380 0%, #0052cc 100%);
   color: #fff;
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-  z-index: 100;
+  z-index: 99999 !important;
   overflow: visible !important;
 }
 
@@ -2366,7 +2366,7 @@ html, body {
   position: relative;
   flex-shrink: 0;
   overflow: visible !important;
-  z-index: 10000;
+  z-index: 999999 !important;
 }
 
 .brand-box {
