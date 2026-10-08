@@ -3476,3 +3476,61 @@ body.dark-mode #tts-result-box {
   border-color: #334155 !important;
 }
 
+/* KHUNG PANEL DÀI XUỐNG SÁT ĐÁY (CHUẨN MẪU SỐ 3) CHO VĂN BẢN VÀ LỊCH SỬ NỘP */
+.admin-docs-panel {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  height: calc(100vh - 128px) !important;
+  min-height: 520px !important;
+  max-height: none !important;
+  margin-bottom: 2px !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+}
+
+.admin-docs-table-container {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: auto !important;
+  background: #fff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+}
+
+#admin-docs-table thead th {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 20 !important;
+  background: #f8fafc !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.unit-history-panel {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  height: calc(100vh - 215px) !important;
+  min-height: 420px !important;
+  max-height: none !important;
+  margin-bottom: 2px !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+}
+
+.unit-history-panel .panel-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: auto !important;
+}
+
+.unit-history-panel .data-table thead th {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 20 !important;
+  background: #f8fafc !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
