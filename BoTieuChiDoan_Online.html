@@ -2386,6 +2386,7 @@ html, body {
   flex-shrink: 0;
 }
 
+@media (min-width: 769px) {
 .header-actions {
   display: flex;
   align-items: center;
@@ -2423,6 +2424,7 @@ html, body {
   font-size: 11px !important;
   padding: 2px 5px !important;
   max-width: 165px !important;
+}
 }
 
 .header-status-box {
@@ -3543,6 +3545,198 @@ body.dark-mode #tts-result-box {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
+
+
+/* =========================================================================
+   TỐI ƯU HÓA CUỘN NỘI DUNG VÀ VUỐT CHẠM CHO KHUNG CHAT (CHAT TOUCH SCROLL)
+   ========================================================================= */
+.chat-messages-body {
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important;
+  overscroll-behavior-y: contain !important;
+}
+
+.chat-messages-body *,
+.chat-message-row,
+.chat-message-bubble,
+.chat-text-content,
+.tts-studio-wrapper,
+.qr-studio-wrapper {
+  touch-action: pan-y !important;
+}
+
+/* =========================================================================
+   CHẾ ĐỘ TỐI ƯU MOBILE & TABLET (<= 768px): THANH CÔNG CỤ VÀ KHUNG CHAT PRO
+   ========================================================================= */
+@media (max-width: 768px) {
+  .app-header {
+    flex-wrap: wrap !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    padding: 8px 10px !important;
+    gap: 8px !important;
+  }
+
+  .brand-box {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .brand-title h1 {
+    font-size: 13.5px !important;
+    line-height: 1.25 !important;
+  }
+
+  /* Sắp xếp thanh công cụ trên mobile: Gọn gàng, thoáng đẹp, bấm chọn dễ dàng */
+  .header-actions {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 6px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: visible !important;
+    flex-shrink: 1 !important;
+    padding: 2px 0 4px 0 !important;
+  }
+
+  .header-actions .btn {
+    padding: 4px 9px !important;
+    font-size: 11.5px !important;
+    font-weight: 600 !important;
+    height: 30px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    white-space: nowrap !important;
+    touch-action: manipulation !important;
+    cursor: pointer !important;
+    border-radius: 6px !important;
+    flex: 0 0 auto !important;
+  }
+
+  .header-actions select {
+    height: 30px !important;
+    font-size: 11.5px !important;
+    max-width: 170px !important;
+    padding: 3px 6px !important;
+    border-radius: 6px !important;
+  }
+
+  .header-actions .date-pill {
+    height: 30px !important;
+    padding: 3px 8px !important;
+    font-size: 11.5px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    border-radius: 6px !important;
+  }
+
+  /* KHUNG CHAT TOÀN MÀN HÌNH TRÊN MOBILE: VUỐT CHẠM CUỘN CỰC KỲ MƯỢT MÀ */
+  .chat-widget-box {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    min-width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100% !important;
+    height: 100dvh !important;
+    min-height: 100% !important;
+    min-height: 100dvh !important;
+    max-height: 100% !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    z-index: 999999 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    margin: 0 !important;
+    transform: none !important;
+  }
+
+  .chat-resize-handle {
+    display: none !important;
+    pointer-events: none !important;
+  }
+
+  .chat-header {
+    padding: 10px 14px !important;
+    border-radius: 0 !important;
+    cursor: default !important;
+    touch-action: auto !important;
+    flex-shrink: 0 !important;
+  }
+
+  .chat-header .chat-maximize-btn {
+    display: none !important;
+  }
+
+  .chat-header .chat-header-user span {
+    display: none !important;
+  }
+
+  .chat-tabs-bar {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-x !important;
+    flex-shrink: 0 !important;
+    padding: 6px 10px !important;
+    gap: 6px !important;
+    background: #f1f5f9 !important;
+  }
+
+  .chat-tab-btn {
+    white-space: nowrap !important;
+    flex-shrink: 0 !important;
+    padding: 6px 10px !important;
+    font-size: 12px !important;
+    border-radius: 6px !important;
+  }
+
+  .chat-search-bar {
+    flex-shrink: 0 !important;
+    padding: 6px 10px !important;
+  }
+
+  .chat-private-unit-bar {
+    flex-shrink: 0 !important;
+    padding: 6px 10px !important;
+  }
+
+  .chat-messages-body {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: auto !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    -webkit-overflow-scrolling: touch !important;
+    touch-action: pan-y !important;
+    overscroll-behavior-y: contain !important;
+    padding: 12px 14px !important;
+    -webkit-user-select: text !important;
+    user-select: text !important;
+  }
+
+  .chat-input-row {
+    flex-shrink: 0 !important;
+    padding: 8px 10px !important;
+    background: #ffffff !important;
+    border-top: 1px solid #e2e8f0 !important;
+  }
+
+  .chat-input-field {
+    font-size: 14px !important;
+  }
+}
 
   </style>
 </head>
@@ -6581,10 +6775,6 @@ function renderHeader() {
 
         <button class="btn btn-sm btn-outline" onclick="syncFromCloudNow(false)" style="background:rgba(255,255,255,0.15); color:#fff; border-color:rgba(255,255,255,0.3); font-size:11px; padding:3px 7px; height:27px;" title="Tải dữ liệu mới nhất từ đám mây">
           🔄 Đồng bộ
-        </button>
-
-        <button class="btn btn-sm" onclick="forceClearCacheAndReload()" style="background:#0284c7; color:#fff; border:1px solid #0369a1; font-size:11px; font-weight:700; padding:3px 8px; height:27px; border-radius:4px; cursor:pointer;" title="Xóa toàn bộ Cache & nạp ngay phiên bản mới nhất từ máy chủ (khắc phục lỗi kẹt F5 trên Chrome/PWA)">
-          🔄 Tải bản mới
         </button>
 
         <div class="date-pill" onclick="${isAdmin ? 'openDateSettingsModal()' : ''}" title="Ngày hệ thống dùng để đối chiếu hạn nộp báo cáo" style="font-size:11px; padding:2px 7px; height:27px;">
@@ -19228,6 +19418,10 @@ window.clearPrivateChatHistory = function() {
 
 window.initChatDrag = function() {
 
+  // Trên mobile (màn hình <= 768px), tắt hoàn toàn kéo rê / co dãn để ưu tiên 100% vuốt chạm cuộn nội dung mượt mà
+  if (typeof window !== "undefined" && window.innerWidth <= 768) return;
+
+
   const headerEl = document.getElementById('chat-drag-header');
 
   const widget = document.getElementById('chat-widget-box');
@@ -19624,7 +19818,7 @@ window.initChatDrag = function() {
 
       const onMouseUp = () => { onEnd(); };
 
-      const onTouchMove = (ev) => { const t = ev.touches[0]; onMove(t.clientX, t.clientY); };
+      const onTouchMove = (ev) => { ev.preventDefault(); const t = ev.touches[0]; onMove(t.clientX, t.clientY); };
 
       const onTouchEnd = () => { onEnd(); };
 
@@ -19634,9 +19828,9 @@ window.initChatDrag = function() {
 
       document.addEventListener('mouseup', onMouseUp);
 
-      document.addEventListener('touchmove', touchMoveHandler, { passive: false });
+      document.addEventListener('touchmove', onTouchMove, { passive: false });
 
-      document.addEventListener('touchend', touchEndHandler);
+      document.addEventListener('touchend', onTouchEnd);
 
     };
 
@@ -20355,8 +20549,7 @@ function renderFloatingChatWidget() {
     ${state.chatOpen ? `
 
       <div class="chat-widget-box ${state.chatMaximized ? 'maximized' : ''}" id="chat-widget-box" style="${
-
-        state.chatMaximized
+        (state.chatMaximized || (typeof window !== 'undefined' && window.innerWidth <= 768))
 
           ? ''
 
@@ -20385,12 +20578,6 @@ function renderFloatingChatWidget() {
           </div>
 
           <div style="display:flex; align-items:center; gap:6px;">
-
-            <button class="btn btn-sm" onclick="forceClearCacheAndReload()" style="background:#0284c7; border:1px solid #0369a1; color:#fff; font-size:11px; font-weight:700; padding:2px 8px; border-radius:4px; cursor:pointer;" title="Xóa sạch bộ nhớ đệm (Cache) & nạp phiên bản mới nhất ngay tức thì">
-
-              🔄 Tải bản mới
-
-            </button>
 
             <button class="btn btn-sm" onclick="openClearChatOptionsModal()" style="background:rgba(239,68,68,0.25); border:1px solid rgba(239,68,68,0.5); color:#fff; font-size:11px; font-weight:700; padding:2px 7px;" title="Tùy chọn xóa / làm mới lịch sử chat">
 
