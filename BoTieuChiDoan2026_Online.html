@@ -6557,132 +6557,67 @@ function renderHeader() {
       <div class="header-actions" style="display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; flex-shrink: 0; overflow: visible; background: transparent; border: none; padding: 0;">
 
         <!-- CHUÔNG THÔNG BÁO CHO ADMIN & CÁC ĐƠN VỊ -->
-
         <div class="notification-bell-container" id="notif-bell-container" style="position: relative; flex-shrink: 0; z-index: 999999 !important;">
-
           <button class="btn btn-sm notification-bell-btn" onclick="toggleNotificationPanel(event)" style="font-size:11px; padding:3px 7px; height:27px;">
-
             🔔 <span style="font-weight:700;">Thông báo</span>
-
             ${(() => {
-
               const isAdminUser = state.user && state.user.role === 'admin';
-
               const unreadList = (state.notifications || []).filter(n => isAdminUser ? !n.read : (n.unit_id === (state.user && state.user.id) && !n.read_by_unit));
-
               const unreadCount = unreadList.length;
-
               return unreadCount > 0 ? `<span class="notification-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>` : '';
-
             })()}
-
           </button>
-
           ${state.notificationsOpen ? renderNotificationDropdown() : ''}
-
         </div>
-
-
-
-        <button class="btn btn-sm btn-outline" onclick="syncFromCloudNow(false)" style="background:rgba(255,255,255,0.15); color:#fff; border-color:rgba(255,255,255,0.3); font-size:11px; padding:3px 7px; height:27px;" title="Tải dữ liệu mới nhất từ đám mây">
-
-          🔄 Đồng bộ
-
-        </button>
-
-
-
-        <button class="btn btn-sm" onclick="forceClearCacheAndReload()" style="background:#0284c7; color:#fff; border:1px solid #0369a1; font-size:11px; font-weight:700; padding:3px 8px; height:27px; border-radius:4px; cursor:pointer;" title="Xóa toàn bộ Cache & nạp ngay phiên bản mới nhất từ máy chủ (khắc phục lỗi kẹt F5 trên Chrome/PWA)">
-
-          🔄 Tải bản mới
-
-        </button>
-
-
-
-        <div class="date-pill" onclick="${isAdmin ? 'openDateSettingsModal()' : ''}" title="Ngày hệ thống dùng để đối chiếu hạn nộp báo cáo" style="font-size:11px; padding:2px 7px; height:27px;">
-
-          📅 <b>${formatDateVN(effDate)}</b>
-
-          <span class="badge ${strict ? 'badge-warning' : 'badge-success'}" style="margin-left:3px; padding:1px 4px; font-size:9.5px;">
-
-            ${strict ? 'Đúng hạn' : 'Tự do'}
-
-          </span>
-
-          ${isAdmin ? '⚙️' : ''}
-
-        </div>
-
-
-
-        ${isAdminSession ? `
-
-          <select onchange="switchAccountQuick(this.value)" title="Chuyển đổi góc nhìn giữa Admin và các Đơn vị" style="max-width: 170px; font-size: 11px; padding: 2px 6px; font-weight: 700; border: 1.5px solid #fef08a; background: #fffbeb; color: #1e3a8a; border-radius: 5px; height: 27px;">
-
-            ${switcherOptions}
-
-          </select>
-
-        ` : ''}
-
-
-
-        <button class="btn btn-success btn-sm" onclick="exportToExcelClient()" title="Tải bảng tổng hợp Excel chuẩn về máy" style="font-size:11px; padding:3px 7px; height:27px;">
-
-          📊 Xuất Excel
-
-        </button>
-
-
-
-        ${isAdmin ? `
-
-          <button class="btn btn-primary btn-sm" onclick="saveExcelToGoogleDrive()" title="Tự động xuất và lưu file Excel vào đúng thư mục Tháng trên Google Drive" style="background:#0284c7; border-color:#0284c7; font-weight:700; font-size:11px; padding:3px 7px; height:27px;">
-
-            ☁️ Lưu Drive
-
-          </button>
-
-        ` : ''}
-
-
-
-        <button class="btn btn-sm" onclick="showPWAInstallGuide()" title="Cài đặt ứng dụng vào điện thoại" style="background: rgba(255,255,255,0.2); color:#fff; border: 1px solid rgba(255,255,255,0.4); font-size: 11px; padding: 3px 7px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; height:27px;">
-
-          📲 Cài App
-
-        </button>
-
-
-
-
-
 
         <button class="btn btn-sm" onclick="toggleChatWidget()" title="Bấm để mở ô Trao Đổi Đoàn giữa các đơn vị và Ban Thường vụ Tỉnh" style="background: linear-gradient(135deg, #0284c7 0%, #0052cc 100%); color: #fff; border: 1px solid rgba(255,255,255,0.4); font-size: 11px; padding: 3px 8px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); cursor: pointer; border-radius: 5px; height:27px;">
-
           <span>💬</span>
-
           <span>Trao Đổi Đoàn</span>
-
           ${(() => {
-
             const unread = getTotalUnreadChatCount();
-
             return unread > 0 ? `<span style="background:#ef4444; color:#fff; font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:10px; margin-left:2px;">${unread > 99 ? '99+' : unread}</span>` : '';
-
           })()}
-
         </button>
 
+        <button class="btn btn-sm btn-outline" onclick="syncFromCloudNow(false)" style="background:rgba(255,255,255,0.15); color:#fff; border-color:rgba(255,255,255,0.3); font-size:11px; padding:3px 7px; height:27px;" title="Tải dữ liệu mới nhất từ đám mây">
+          🔄 Đồng bộ
+        </button>
 
+        <button class="btn btn-sm" onclick="forceClearCacheAndReload()" style="background:#0284c7; color:#fff; border:1px solid #0369a1; font-size:11px; font-weight:700; padding:3px 8px; height:27px; border-radius:4px; cursor:pointer;" title="Xóa toàn bộ Cache & nạp ngay phiên bản mới nhất từ máy chủ (khắc phục lỗi kẹt F5 trên Chrome/PWA)">
+          🔄 Tải bản mới
+        </button>
+
+        <div class="date-pill" onclick="${isAdmin ? 'openDateSettingsModal()' : ''}" title="Ngày hệ thống dùng để đối chiếu hạn nộp báo cáo" style="font-size:11px; padding:2px 7px; height:27px;">
+          📅 <b>${formatDateVN(effDate)}</b>
+          <span class="badge ${strict ? 'badge-warning' : 'badge-success'}" style="margin-left:3px; padding:1px 4px; font-size:9.5px;">
+            ${strict ? 'Đúng hạn' : 'Tự do'}
+          </span>
+          ${isAdmin ? '⚙️' : ''}
+        </div>
+
+        ${isAdminSession ? `
+          <select onchange="switchAccountQuick(this.value)" title="Chuyển đổi góc nhìn giữa Admin và các Đơn vị" style="max-width: 170px; font-size: 11px; padding: 2px 6px; font-weight: 700; border: 1.5px solid #fef08a; background: #fffbeb; color: #1e3a8a; border-radius: 5px; height: 27px;">
+            ${switcherOptions}
+          </select>
+        ` : ''}
+
+        <button class="btn btn-success btn-sm" onclick="exportToExcelClient()" title="Tải bảng tổng hợp Excel chuẩn về máy" style="font-size:11px; padding:3px 7px; height:27px;">
+          📊 Xuất Excel
+        </button>
+
+        ${isAdmin ? `
+          <button class="btn btn-primary btn-sm" onclick="saveExcelToGoogleDrive()" title="Tự động xuất và lưu file Excel vào đúng thư mục Tháng trên Google Drive" style="background:#0284c7; border-color:#0284c7; font-weight:700; font-size:11px; padding:3px 7px; height:27px;">
+            ☁️ Lưu Drive
+          </button>
+        ` : ''}
+
+        <button class="btn btn-sm" onclick="showPWAInstallGuide()" title="Cài đặt ứng dụng vào điện thoại" style="background: rgba(255,255,255,0.2); color:#fff; border: 1px solid rgba(255,255,255,0.4); font-size: 11px; padding: 3px 7px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; height:27px;">
+          📲 Cài App
+        </button>
 
         <button class="btn btn-outline btn-sm" onclick="handleLogout()" style="background: rgba(255,255,255,0.15); color: #fff; border-color: rgba(255,255,255,0.3); font-size:11px; padding:3px 7px; height:27px;">
-
           Đăng xuất
-
         </button>
-
       </div>
 
 
