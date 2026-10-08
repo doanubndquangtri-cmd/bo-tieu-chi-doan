@@ -3384,6 +3384,36 @@ body.dark-mode #admin-docs-table thead th {
 }
 
 /* AI Text-to-Speech Studio */
+
+/* QR Code Studio */
+.chat-tab-btn.qr-tab {
+  color: #0284c7;
+}
+.chat-tab-btn.qr-tab:hover {
+  background: #f0f9ff;
+  color: #0369a1;
+}
+.chat-tab-btn.qr-tab.active {
+  background: #0284c7 !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.3) !important;
+}
+
+.qr-studio-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 14px 16px;
+  overflow-y: auto;
+  box-sizing: border-box;
+  background: #ffffff;
+}
+
+body.dark-mode .qr-studio-wrapper {
+  background: #1e293b;
+  color: #f1f5f9;
+}
+
 .chat-tab-btn.tts-tab {
   color: #059669;
 }
