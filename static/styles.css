@@ -450,8 +450,9 @@ textarea:focus {
 .spreadsheet-wrapper,
 #master-spreadsheet-wrapper {
   width: 100% !important;
-  height: calc(100vh - 210px) !important;
-  min-height: 500px !important;
+  flex: 1 1 auto !important;
+  height: calc(100vh - 128px) !important;
+  min-height: 520px !important;
   max-height: none !important;
   overflow: auto !important;
   box-sizing: border-box !important;
@@ -463,6 +464,7 @@ textarea:focus {
   overscroll-behavior-x: contain !important;
   scroll-behavior: smooth;
   border-radius: 6px;
+  margin-bottom: 2px !important;
 }
 
 .master-table {
@@ -2459,7 +2461,8 @@ html, body {
   flex-direction: column;
   overflow-y: auto !important;
   overflow-x: hidden;
-  padding: 8px 14px;
+  padding: 4px 12px;
+  margin-bottom: 2px;
 }
 
 .filter-bar {
