@@ -2526,23 +2526,34 @@ html, body {
   box-shadow: 0 1px 3px rgba(0, 82, 204, 0.3) !important;
 }
 
-.spreadsheet-wrapper,
-#reports-spreadsheet-wrapper {
+.panel.reports-table-panel {
+  flex: 1 1 auto !important;
+  height: calc(100vh - 130px) !important;
+  min-height: 540px !important;
+  max-height: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  margin-bottom: 2px !important;
+}
+
+#reports-spreadsheet-wrapper,
+.reports-log-container {
   width: 100%;
   flex: 1 1 auto !important;
-  min-height: 0 !important;
-  height: auto !important;
+  height: calc(100vh - 185px) !important;
+  min-height: 480px !important;
   max-height: none !important;
   overflow-x: auto !important;
   overflow-y: auto !important;
   position: relative;
-  border: 1.5px solid #94a3b8;
+  border: 1.5px solid #cbd5e1;
   background: #fff;
   -webkit-overflow-scrolling: touch !important;
   touch-action: pan-x pan-y !important;
   overscroll-behavior-x: contain !important;
   scroll-behavior: smooth;
   border-radius: 6px;
+  box-sizing: border-box !important;
 }
 
 .chat-file-box {
