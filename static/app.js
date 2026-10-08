@@ -1148,7 +1148,90 @@ function extractDriveFolderId(urlOrId) {
 
 }
 
+function renderSubmissionEvidenceAndFiles(l) {
+  if (!l) return '<span style="color:#94a3b8; font-size:11px;">(Không có tệp)</span>';
 
+  // 1. Tìm đối tượng điểm tương ứng (fallback) từ state.scoresMap hoặc state.scores
+  let sc = null;
+  const unitId = l.unit_id;
+  const critId = l.criterion_id;
+  if (typeof getScoreObj === 'function' && unitId && critId) {
+    sc = getScoreObj(unitId, critId);
+  }
+  if (!sc && state.scoresMap && unitId && critId) {
+    sc = state.scoresMap[`${unitId}_${critId}`];
+  }
+  if (!sc && Array.isArray(state.scores) && unitId && critId) {
+    sc = state.scores.find(s => Number(s.unit_id) === Number(unitId) && Number(s.criterion_id) === Number(critId));
+  }
+
+  // 2. Tóm tắt nội dung báo cáo / giải trình
+  const content = (l.report_content && String(l.report_content).trim()) || (sc && sc.report_content && String(sc.report_content).trim()) || '';
+
+  // 3. Đường link minh chứng (Google Drive / Trang web / Fanpage)
+  const evLink = (l.evidence_link && String(l.evidence_link).trim()) || (sc && sc.evidence_link && String(sc.evidence_link).trim()) || '';
+
+  // 4. Danh sách tệp đính kèm đa năng
+  let rawFiles = l.files;
+  if (!rawFiles || (Array.isArray(rawFiles) && rawFiles.length === 0)) {
+    if (sc && sc.files) rawFiles = sc.files;
+  }
+  let filesList = [];
+  if (Array.isArray(rawFiles)) {
+    filesList = rawFiles;
+  } else if (typeof rawFiles === 'string' && rawFiles.trim().startsWith('[')) {
+    try { filesList = JSON.parse(rawFiles); } catch(e){}
+  }
+
+  // Nếu chưa có, lấy file_path đơn lẻ từ l hoặc sc
+  if (filesList.length === 0) {
+    const singleUrl = l.file_path || (sc && sc.file_path);
+    const singleName = l.file_name || (sc && sc.file_name) || 'Tệp đính kèm';
+    if (singleUrl) {
+      filesList = [{ name: singleName, url: singleUrl }];
+    }
+  }
+
+  // Nếu vẫn chưa có trong log này, tìm các log khác của cùng đơn vị và tiêu chí
+  if (filesList.length === 0 && Array.isArray(state.logs) && unitId && critId) {
+    const sibling = state.logs.find(x => Number(x.unit_id) === Number(unitId) && Number(x.criterion_id) === Number(critId) && ((Array.isArray(x.files) && x.files.length > 0) || x.file_path));
+    if (sibling) {
+      if (Array.isArray(sibling.files) && sibling.files.length > 0) {
+        filesList = sibling.files;
+      } else if (sibling.file_path) {
+        filesList = [{ name: sibling.file_name || 'Tệp đính kèm', url: sibling.file_path }];
+      }
+    }
+  }
+
+  let html = '';
+  if (content) {
+    html += `<div style="font-size:11.5px; color:#1e293b; margin-bottom:5px; line-height:1.45; max-height:55px; overflow-y:auto; word-break:break-word; background:#f8fafc; padding:4px 8px; border-radius:5px; border:1px solid #cbd5e1;">${escapeHtml(content)}</div>`;
+  }
+
+  const buttons = [];
+  if (evLink) {
+    buttons.push(`<a href="${escapeHtml(evLink)}" target="_blank" class="btn btn-sm btn-outline" style="font-size:10.5px; padding:2px 7px; color:#0284c7; border-color:#38bdf8; background:#f0f9ff; display:inline-flex; align-items:center; gap:3px; text-decoration:none; font-weight:600;" title="Mở liên kết minh chứng">🔗 Link minh chứng</a>`);
+  }
+
+  if (filesList.length > 0) {
+    filesList.forEach(f => {
+      const fn = f.name || f.file_name || (typeof f === 'string' ? f.split('/').pop() : 'Tệp đính kèm');
+      const fp = f.url || f.file_url || f.path || f.file_path || f.link || (typeof f === 'string' ? f : '');
+      if (fp) {
+        buttons.push(`<button type="button" onclick="openFileInlinePreviewModal('${escapeHtml(fp)}', '${escapeHtml(fn)}')" class="btn btn-sm btn-primary" style="font-size:10.5px; padding:2px 7px; background:#0284c7; border:none; cursor:pointer; display:inline-flex; align-items:center; gap:3px; font-weight:600;" title="Xem trước / Tải về tệp">👁️ ${escapeHtml(fn)}</button>`);
+      }
+    });
+  }
+
+  if (buttons.length > 0) {
+    html += `<div style="display:flex; gap:4px; flex-wrap:wrap; align-items:center;">${buttons.join('')}</div>`;
+  } else if (!content) {
+    html += '<span style="color:#94a3b8; font-size:11px; font-style:italic;">(Không có tệp)</span>';
+  }
+
+  return html || '<span style="color:#94a3b8; font-size:11px; font-style:italic;">(Không có tệp)</span>';
+}
 
 async function uploadFileToCloud(fileDataB64, origName, unitId, critId, onProgress) {
 
@@ -1273,25 +1356,19 @@ async function uploadFileToCloud(fileDataB64, origName, unitId, critId, onProgre
       };
 
       let data = null;
-
       try {
-
-        const res = await fetch(gdriveUrl, {
-
-          method: 'POST',
-
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-
-          body: JSON.stringify(payload)
-
-        });
-
-        data = await res.json();
-
-      } catch (fErr) {
-
         data = await uploadWithXHR(gdriveUrl, payload, onProgress);
-
+      } catch (xhrErr) {
+        try {
+          const res = await fetch(gdriveUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify(payload)
+          });
+          data = await res.json();
+        } catch (fetchErr) {
+          console.warn('Google Drive upload error:', xhrErr, fetchErr);
+        }
       }
 
       if (data) {
@@ -1599,26 +1676,55 @@ function ingestCloudDB(db) {
 
 
   state.logs = (db.logs || []).map((l) => {
-
     const u = unitMap[l.unit_id] || {};
-
     const c = critMap[l.criterion_id] || {};
-
+    const sc = state.scoresMap[`${l.unit_id}_${l.criterion_id}`] || (db.scores || []).find(s => Number(s.unit_id) === Number(l.unit_id) && Number(s.criterion_id) === Number(l.criterion_id));
     return {
-
       ...l,
-
       unit_name: l.unit_name || u.unit_name || `Đơn vị #${l.unit_id}`,
-
       unit_code: l.unit_code || u.unit_code || '',
-
       col_label: l.col_label || c.col_label || '',
-
       criterion_title: l.criterion_title || c.title || '',
-
+      report_content: l.report_content || (sc ? sc.report_content : '') || '',
+      evidence_link: l.evidence_link || (sc ? sc.evidence_link : '') || '',
+      files: (l.files && l.files.length > 0) ? l.files : (sc && sc.files ? sc.files : []),
+      file_name: l.file_name || (sc ? sc.file_name : '') || '',
+      file_path: l.file_path || (sc ? sc.file_path : '') || '',
     };
-
   });
+
+  // Tự động đồng bộ các bản ghi đã nộp điểm / minh chứng trong scores nhưng chưa có trong logs
+  for (const s of db.scores || []) {
+    const hasProof = (s.files && s.files.length > 0) || s.file_path || s.evidence_link || s.report_content || (s.score !== null && s.score !== undefined);
+    if (hasProof) {
+      const exists = state.logs.some(l => Number(l.unit_id) === Number(s.unit_id) && Number(l.criterion_id) === Number(s.criterion_id));
+      if (!exists) {
+        const u = unitMap[s.unit_id] || {};
+        const c = critMap[s.criterion_id] || {};
+        state.logs.push({
+          id: 'score_log_' + s.unit_id + '_' + s.criterion_id,
+          unit_id: s.unit_id,
+          criterion_id: s.criterion_id,
+          unit_name: u.unit_name || `Đơn vị #${s.unit_id}`,
+          unit_code: u.unit_code || '',
+          col_label: c.col_label || '',
+          criterion_title: c.title || '',
+          submitted_at: s.submitted_at || nowISO(),
+          submitted_date: s.submitted_date || todayISO(),
+          deadline: c.deadline || '',
+          is_on_time: s.is_on_time !== undefined ? s.is_on_time : 1,
+          requested_score: s.self_score || s.score || 0,
+          awarded_score: s.score,
+          report_content: s.report_content || '',
+          evidence_link: s.evidence_link || '',
+          files: s.files || (s.file_path ? [{ name: s.file_name || 'Tệp đính kèm', url: s.file_path }] : []),
+          file_name: s.file_name || '',
+          file_path: s.file_path || '',
+          status_text: s.score !== null ? `Đã có điểm (+${s.score}đ)` : 'Đã nộp hồ sơ minh chứng'
+        });
+      }
+    }
+  }
 
 
 
@@ -7528,48 +7634,64 @@ window.saveAdminSubmissionDetail = async function (unitId, critId) {
       }
 
       db.scores[idx].updated_by = 'admin';
-
       db.scores[idx].submitted_at = nowISO();
-
     } else {
-
       const mergedFiles = [...newlyUploadedFiles];
-
       db.scores.push({
-
         unit_id: unitId,
-
         criterion_id: critId,
-
         score: newScore !== null ? newScore : 0,
-
         quantity: 1,
-
         self_score: newScore,
-
         report_content: newContent,
-
         evidence_link: newLink,
-
         files: mergedFiles,
-
         file_name: mergedFiles.length === 1 ? mergedFiles[0].name : (mergedFiles.length > 1 ? `${mergedFiles.length} tệp đính kèm` : ''),
-
         file_path: mergedFiles.length > 0 ? mergedFiles[0].url : '',
-
         submitted_at: nowISO(),
-
         submitted_date: todayISO(),
-
         is_on_time: 1,
-
         updated_by: 'admin',
-
         admin_note: '',
-
       });
-
     }
+
+    // ĐỒNG BỘ 100% VÀO NHẬT KÝ DB.LOGS
+    db.logs = db.logs || [];
+    const critObj = (db.criteria || []).find(c => c.id === critId);
+    const savedScoreRow = idx >= 0 ? db.scores[idx] : db.scores[db.scores.length - 1];
+    for (const oldLog of db.logs) {
+      if (Number(oldLog.unit_id) === Number(unitId) && Number(oldLog.criterion_id) === Number(critId)) {
+        if (newScore !== null) {
+          oldLog.awarded_score = newScore;
+          oldLog.is_admin_approval = true;
+        }
+        oldLog.report_content = newContent;
+        oldLog.evidence_link = newLink;
+        if (savedScoreRow && savedScoreRow.files && savedScoreRow.files.length > 0) {
+          oldLog.files = savedScoreRow.files;
+          oldLog.file_name = savedScoreRow.file_name;
+          oldLog.file_path = savedScoreRow.file_path;
+        }
+      }
+    }
+    db.logs.unshift({
+      id: (db.logs[0] ? db.logs[0].id : 0) + 1,
+      unit_id: unitId,
+      criterion_id: critId,
+      submitted_at: nowISO(),
+      submitted_date: todayISO(),
+      deadline: critObj ? critObj.deadline : '',
+      is_on_time: 1,
+      is_admin_approval: newScore !== null,
+      awarded_score: newScore,
+      report_content: newContent,
+      evidence_link: newLink,
+      files: savedScoreRow ? (savedScoreRow.files || []) : [],
+      file_name: savedScoreRow ? (savedScoreRow.file_name || '') : '',
+      file_path: savedScoreRow ? (savedScoreRow.file_path || '') : '',
+      status_text: newScore !== null ? `Admin cập nhật chi tiết & chấm điểm (+${newScore}đ)` : 'Admin cập nhật hồ sơ minh chứng'
+    });
 
   }, `Admin updated detail U${unitId} C${critId}`);
 
@@ -7914,21 +8036,7 @@ function renderReportsLogTableComponent(filteredLogs, activeUnits) {
                   ${l.awarded_score !== null && l.awarded_score !== undefined ? '+' + formatScore(l.awarded_score) + 'đ' : '0đ'}
                 </td>
                 <td style="max-width:320px;">
-                  ${l.report_content ? `<div style="font-size:11.5px; color:#334155; margin-bottom:4px; max-height:45px; overflow-y:auto;">${escapeHtml(l.report_content)}</div>` : ''}
-                  ${(() => {
-                    const fileBtns = [];
-                    if (l.evidence_link) fileBtns.push(`<a href="${escapeHtml(l.evidence_link)}" target="_blank" class="btn btn-sm btn-outline" style="font-size:10.5px; padding:2px 6px;">🔗 Link minh chứng</a>`);
-                    if (l.files && l.files.length > 0) {
-                      l.files.forEach(f => {
-                        const fn = f.name || f.file_name;
-                        const fp = f.path || f.file_path;
-                        if (fp) fileBtns.push(`<button type="button" onclick="openFileInlinePreviewModal('${escapeHtml(fp)}', '${escapeHtml(fn)}')" class="btn btn-sm btn-primary" style="font-size:10.5px; padding:2px 6px; background:#0284c7; border:none; cursor:pointer;">👁️ ${escapeHtml(fn)}</button>`);
-                      });
-                    } else if (l.file_path) {
-                      fileBtns.push(`<button type="button" onclick="openFileInlinePreviewModal('${escapeHtml(l.file_path)}', '${escapeHtml(l.file_name || 'File')}')" class="btn btn-sm btn-primary" style="font-size:10.5px; padding:2px 6px; background:#0284c7; border:none; cursor:pointer;">👁️ ${escapeHtml(l.file_name || 'File')}</button>`);
-                    }
-                    return fileBtns.length > 0 ? `<div style="display:flex; gap:4px; flex-wrap:wrap;">${fileBtns.join('')}</div>` : '<span style="color:#94a3b8; font-size:11px;">(Không có tệp)</span>';
-                  })()}
+                  ${renderSubmissionEvidenceAndFiles(l)}
                 </td>
               </tr>
             `).join('')}
@@ -10356,20 +10464,8 @@ function renderUnitHistoryTab() {
 
                     </td>
 
-                    <td>
-
-                      ${escapeHtml(l.report_content || '')}
-
-                      ${
-
-                        l.file_path
-
-                          ? `<a href="${escapeHtml(l.file_path)}" target="_blank" style="margin-left:6px; font-weight:700;">[📎 ${escapeHtml(l.file_name)}]</a>`
-
-                          : ''
-
-                      }
-
+                    <td style="max-width:320px;">
+                      ${renderSubmissionEvidenceAndFiles(l)}
                     </td>
 
                   </tr>
@@ -14391,99 +14487,73 @@ window.approveUnitSubmission = async function(unitId, critId, scoreVal) {
     db.scores = db.scores || [];
 
     const idx = db.scores.findIndex(s => s.unit_id === unitId && s.criterion_id === critId);
-
+    let prevScore = null;
     if (idx >= 0) {
-
+      prevScore = JSON.parse(JSON.stringify(db.scores[idx]));
       db.scores[idx].score = finalScore;
-
       db.scores[idx].approval_status = 'approved';
-
       db.scores[idx].updated_by = 'admin';
-
     } else {
-
       db.scores.push({
-
         unit_id: unitId,
-
         criterion_id: critId,
-
         score: finalScore,
-
         self_score: finalScore,
-
         approval_status: 'approved',
-
         updated_by: 'admin',
-
         submitted_at: now,
-
         submitted_date: todayISO(),
-
         is_on_time: 1
-
       });
-
+      prevScore = db.scores[db.scores.length - 1];
     }
 
-
-
     // THÊM THÔNG BÁO VÀO MỤC THÔNG BÁO LÀ ĐÃ DUYỆT & TỰ CHẤM ĐIỂM (Ảnh 1)
-
     db.notifications = db.notifications || [];
-
     db.notifications.unshift({
-
       id: notifId,
-
       unit_id: unitId,
-
       unit_name: unit ? unit.unit_name : 'Đơn vị',
-
       criterion_id: critId,
-
       col_label: crit ? crit.col_label : '',
-
       criterion_title: crit ? crit.title : '',
-
       is_admin_approval: true,
-
       score: finalScore,
-
       submitted_at: now,
-
       read: false,
-
       read_by_unit: false
-
     });
 
-
-
-    // Thêm vào nhật ký toàn khối
-
+    // Thêm vào nhật ký toàn khối & đồng bộ đầy đủ văn bản/tệp minh chứng
     db.logs = db.logs || [];
+    for (const oldLog of db.logs) {
+      if (Number(oldLog.unit_id) === Number(unitId) && Number(oldLog.criterion_id) === Number(critId)) {
+        oldLog.awarded_score = finalScore;
+        oldLog.is_admin_approval = true;
+        if (!oldLog.report_content && prevScore && prevScore.report_content) oldLog.report_content = prevScore.report_content;
+        if (!oldLog.evidence_link && prevScore && prevScore.evidence_link) oldLog.evidence_link = prevScore.evidence_link;
+        if ((!oldLog.files || oldLog.files.length === 0) && prevScore && prevScore.files) oldLog.files = prevScore.files;
+        if (!oldLog.file_path && prevScore && prevScore.file_path) oldLog.file_path = prevScore.file_path;
+        if (!oldLog.file_name && prevScore && prevScore.file_name) oldLog.file_name = prevScore.file_name;
+      }
+    }
 
     db.logs.unshift({
-
       id: (db.logs[0] ? db.logs[0].id : 0) + 1,
-
       unit_id: unitId,
-
       criterion_id: critId,
-
       submitted_at: now,
-
-      submitted_date: todayISO(),
-
+      submitted_date: (prevScore && prevScore.submitted_date) || todayISO(),
       deadline: crit ? crit.deadline : '',
-
-      is_on_time: 1,
-
+      is_on_time: (prevScore && prevScore.is_on_time !== undefined) ? prevScore.is_on_time : 1,
+      is_admin_approval: true,
       awarded_score: finalScore,
-
+      report_content: (prevScore && prevScore.report_content) || '',
+      evidence_link: (prevScore && prevScore.evidence_link) || '',
+      files: (prevScore && prevScore.files) || [],
+      file_name: (prevScore && prevScore.file_name) || '',
+      file_path: (prevScore && prevScore.file_path) || '',
       status_text: `Admin đã duyệt & xác nhận chấm điểm (+${finalScore}đ)`
-
     });
 
   }, `Admin approved U${unitId} C${critId}`);
@@ -14649,77 +14719,61 @@ window.confirmRejectUnitSubmission = async function(unitId, critId) {
     db.scores = db.scores || [];
 
     const idx = db.scores.findIndex(s => s.unit_id === unitId && s.criterion_id === critId);
-
+    let prevScore = null;
     if (idx >= 0) {
-
+      prevScore = JSON.parse(JSON.stringify(db.scores[idx]));
       db.scores[idx].score = null; // Điểm trong bảng điểm TRỐNG, không đánh số vào
-
       db.scores[idx].approval_status = 'rejected';
-
       db.scores[idx].admin_note = reason || 'Ban Thường vụ không duyệt bài nộp (vui lòng nộp lại minh chứng)';
-
       db.scores[idx].updated_by = 'admin';
-
     }
 
-
-
     // THÊM THÔNG BÁO VÀO MỤC THÔNG BÁO LÀ KHÔNG DUYỆT (Ảnh 1)
-
     db.notifications = db.notifications || [];
-
     db.notifications.unshift({
-
       id: notifId,
-
       unit_id: unitId,
-
       unit_name: unit ? unit.unit_name : 'Đơn vị',
-
       criterion_id: critId,
-
       col_label: crit ? crit.col_label : '',
-
       criterion_title: crit ? crit.title : '',
-
       is_rejected: true,
-
       reject_reason: reason || 'Chưa đạt yêu cầu, vui lòng nộp bổ sung minh chứng',
-
       submitted_at: now,
-
       read: false,
-
       read_by_unit: false
-
     });
 
-
-
-    // Thêm vào nhật ký toàn khối
-
+    // Thêm vào nhật ký toàn khối & đồng bộ đầy đủ văn bản/tệp minh chứng
     db.logs = db.logs || [];
+    for (const oldLog of db.logs) {
+      if (Number(oldLog.unit_id) === Number(unitId) && Number(oldLog.criterion_id) === Number(critId)) {
+        oldLog.is_rejected = true;
+        oldLog.awarded_score = null;
+        if (!oldLog.report_content && prevScore && prevScore.report_content) oldLog.report_content = prevScore.report_content;
+        if (!oldLog.evidence_link && prevScore && prevScore.evidence_link) oldLog.evidence_link = prevScore.evidence_link;
+        if ((!oldLog.files || oldLog.files.length === 0) && prevScore && prevScore.files) oldLog.files = prevScore.files;
+        if (!oldLog.file_path && prevScore && prevScore.file_path) oldLog.file_path = prevScore.file_path;
+        if (!oldLog.file_name && prevScore && prevScore.file_name) oldLog.file_name = prevScore.file_name;
+      }
+    }
 
     db.logs.unshift({
-
       id: (db.logs[0] ? db.logs[0].id : 0) + 1,
-
       unit_id: unitId,
-
       criterion_id: critId,
-
       submitted_at: now,
-
-      submitted_date: todayISO(),
-
+      submitted_date: (prevScore && prevScore.submitted_date) || todayISO(),
       deadline: crit ? crit.deadline : '',
-
-      is_on_time: 1,
-
+      is_on_time: (prevScore && prevScore.is_on_time !== undefined) ? prevScore.is_on_time : 1,
+      is_rejected: true,
       awarded_score: null,
-
+      report_content: (prevScore && prevScore.report_content) || '',
+      evidence_link: (prevScore && prevScore.evidence_link) || '',
+      files: (prevScore && prevScore.files) || [],
+      file_name: (prevScore && prevScore.file_name) || '',
+      file_path: (prevScore && prevScore.file_path) || '',
       status_text: `Ban Thường vụ không duyệt: ${reason || 'Yêu cầu nộp lại'}`
-
     });
 
   }, `Admin rejected U${unitId} C${critId}`);
