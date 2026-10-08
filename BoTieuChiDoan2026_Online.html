@@ -459,8 +459,9 @@ textarea:focus {
 .spreadsheet-wrapper,
 #master-spreadsheet-wrapper {
   width: 100% !important;
-  height: calc(100vh - 210px) !important;
-  min-height: 500px !important;
+  flex: 1 1 auto !important;
+  height: calc(100vh - 128px) !important;
+  min-height: 520px !important;
   max-height: none !important;
   overflow: auto !important;
   box-sizing: border-box !important;
@@ -472,6 +473,7 @@ textarea:focus {
   overscroll-behavior-x: contain !important;
   scroll-behavior: smooth;
   border-radius: 6px;
+  margin-bottom: 2px !important;
 }
 
 .master-table {
@@ -2468,7 +2470,8 @@ html, body {
   flex-direction: column;
   overflow-y: auto !important;
   overflow-x: hidden;
-  padding: 8px 14px;
+  padding: 4px 12px;
+  margin-bottom: 2px;
 }
 
 .filter-bar {
@@ -5436,30 +5439,39 @@ function getRankingMonthGroups() {
 
 
 
-function getCriteriaMaxTotalScore() {
-
-  const crits = state.criteria || [];
-
-  if (crits.length === 0) return 100;
-
-  let sum = 0;
-
-  for (const c of crits) {
-
-    if (c.score_type === 'penalty') continue;
-
-    const val = Number(c.max_score !== undefined && c.max_score !== null && c.max_score !== '' ? c.max_score : c.default_score);
-
-    if (!isNaN(val) && val > 0) {
-
-      sum += val;
-
+function getCriterionTargetPoints(c) {
+  if (!c) return 5;
+  if (c.score_type === 'penalty') return 0;
+  if (c.points_text) {
+    const m = String(c.points_text).match(/(\d+(?:\.\d+)?)\s*(?:điểm|đ)/i);
+    if (m && !isNaN(Number(m[1]))) {
+      return Number(m[1]);
     }
-
   }
+  if (c.max_score !== undefined && c.max_score !== null && c.max_score !== '' && !isNaN(Number(c.max_score)) && Number(c.max_score) > 0) {
+    return Number(c.max_score);
+  }
+  if (c.default_score !== undefined && c.default_score !== null && c.default_score !== '' && !isNaN(Number(c.default_score)) && Number(c.default_score) > 0) {
+    return Number(c.default_score);
+  }
+  if (c.title) {
+    const mTitle = String(c.title).match(/(\d+(?:\.\d+)?)\s*(?:điểm|đ)/i);
+    if (mTitle && !isNaN(Number(mTitle[1]))) {
+      return Number(mTitle[1]);
+    }
+  }
+  return 5;
+}
 
+function getCriteriaMaxTotalScore() {
+  const crits = state.criteria || [];
+  if (crits.length === 0) return 100;
+  let sum = 0;
+  for (const c of crits) {
+    if (c.score_type === 'penalty') continue;
+    sum += getCriterionTargetPoints(c);
+  }
   return sum > 0 ? Math.round(sum * 100) / 100 : 100;
-
 }
 
 
@@ -7464,7 +7476,7 @@ function renderMasterTableTab() {
 
       <div class="mobile-scroll-hint">👉 Vuốt ngón tay sang trái / phải để xem 131 cột điểm tiêu chí 👈</div>
 
-      <div class="spreadsheet-wrapper" id="master-spreadsheet-wrapper">
+      <div class="spreadsheet-wrapper" id="master-spreadsheet-wrapper" style="flex:1 1 auto; height:calc(100vh - 128px) !important; min-height:520px !important; max-height:none !important; margin-bottom:2px !important;">
 
         <table class="master-table">
 
@@ -10386,20 +10398,15 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
 
             </div>
 
-            <div style="margin-top:6px;">
-
+            <div style="margin-top:6px; display:flex; align-items:center; gap:8px;">
               <b>Trạng thái:</b>
-
               ${
-
-                Number(sc.is_on_time) === 1
-
-                  ? '<span class="badge badge-success">✅ Đúng hạn (Hợp lệ)</span>'
-
-                  : '<span class="badge badge-warning">⚠️ Quá hạn nộp</span>'
-
+                (sc && sc.score !== null && sc.score !== '' && Number(sc.score) > 0 && sc.approval_status !== 'pending')
+                  ? `<span class="badge badge-success" style="font-weight:700;">✅ Đã duyệt (+${formatScore(sc.score)} điểm)</span>`
+                  : (sc && (sc.approval_status === 'pending' || (sc.score === null && ((sc.files && sc.files.length > 0) || sc.file_path || sc.report_content || sc.evidence_link))))
+                  ? '<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;">⏳ Chờ Admin duyệt</span>'
+                  : '<span class="badge badge-danger" style="font-weight:700;">❌ Chưa nộp</span>'
               }
-
             </div>
 
           </div>
@@ -10500,11 +10507,11 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
 
                   <label style="font-weight:700; color:#0f172a; margin:0;">📎 Hồ sơ / Minh chứng đính kèm (${filesList.length} tệp):</label>
 
+                  ${isAdmin ? `
                   <button type="button" class="btn btn-sm" onclick="runAiProofReviewModal(${unit.id}, ${crit.id})" style="background:linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color:#fff; border:none; font-weight:700; font-size:11px; padding:3px 9px; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; box-shadow:0 2px 4px rgba(124,58,237,0.25);" title="Gemini Pro tự động quét trích yếu, ngày tháng năm, cảnh báo con dấu và chữ ký">
-
                     🤖 AI Soát Lỗi Minh Chứng
-
                   </button>
+                  ` : ''}
 
                 </div>
 
@@ -11322,10 +11329,9 @@ function renderReportsMatrixTableComponent(targetCriteria, allCriteria, reportCr
           <span>📊 BẢNG 1: THEO DÕI NỘP BÁO CÁO & HOẠT ĐỘNG CỦA CÁC ĐƠN VỊ (${targetCriteria.length} TIÊU CHÍ)</span>
         </div>
         <div style="font-size:11px; color:#475569; display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
-          <span class="badge badge-success" style="font-size:9.5px;">✅ Đã nộp / Đã duyệt</span>
-          <span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700; font-size:9.5px;">⏳ Chờ Admin duyệt</span>
-          <span class="badge badge-warning" style="font-size:9.5px;">⚠️ Nộp trễ hạn</span>
-          <span class="badge badge-danger" style="font-size:9.5px;">❌ Chưa nộp</span>
+          <span class="badge badge-success" style="font-size:10px; font-weight:700; padding:2px 8px;">✅ Đã duyệt</span>
+          <span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700; font-size:10px; padding:2px 8px;">⏳ Chờ Admin duyệt</span>
+          <span class="badge badge-danger" style="font-size:10px; font-weight:700; padding:2px 8px;">❌ Chưa nộp</span>
         </div>
       </div>
 
@@ -11388,18 +11394,15 @@ function renderReportsMatrixTableComponent(targetCriteria, allCriteria, reportCr
                 const hasScore = sc && sc.score !== null && sc.score !== '' && Number(sc.score) > 0 && sc.approval_status !== 'pending';
                 if (hasScore) doneCount++;
                 const isPending = sc && (sc.approval_status === 'pending' || (sc.score === null && ((sc.files && sc.files.length > 0) || sc.file_path || sc.report_content || sc.evidence_link)));
-                const isLate = sc && Number(sc.is_on_time) === 0 && !hasScore && !isPending;
                 const hasDetail = sc && (hasScore || isPending || sc.report_content || sc.evidence_link || sc.file_path || (sc.files && sc.files.length > 0));
 
                 return `
-                  <td style="text-align:center; ${hasDetail ? 'cursor:pointer;' : 'cursor:default;'}" ${hasDetail ? `onclick="openSubmissionDetailModal(${u.id}, ${c.id})" title="Bấm để xem chi tiết báo cáo & minh chứng đã nộp (Chỉ xem)"` : `title="Chưa có báo cáo hoặc minh chứng"`}>
+                  <td style="text-align:center; ${hasDetail ? 'cursor:pointer;' : 'cursor:default;'}" ${hasDetail ? `onclick="openSubmissionDetailModal(${u.id}, ${c.id})" title="Bấm để xem chi tiết báo cáo & minh chứng đã nộp (Chỉ xem)"` : `title="Chưa nộp báo cáo hoặc minh chứng"`}>
                     ${hasScore
-                      ? `<span class="badge badge-success">+${formatScore(sc.score)}đ</span>`
+                      ? `<span class="badge badge-success" title="Đã duyệt">+${formatScore(sc.score)}đ</span>`
                       : isPending
-                      ? `<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;" title="Đã nộp minh chứng, chờ Admin duyệt">+${formatScore(sc.self_score)}đ ⏳</span>`
-                      : isLate
-                      ? `<span class="badge badge-warning">Trễ hạn</span>`
-                      : (Number(c.is_report) === 3 ? `<span style="color:#94a3b8; font-size:11px;">—</span>` : `<span style="color:#cbd5e1;">—</span>`)}
+                      ? `<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;" title="Đã nộp minh chứng, chờ Admin duyệt">+${formatScore(sc.self_score || getCriterionTargetPoints(c))}đ ⏳</span>`
+                      : `<span style="color:#cbd5e1; font-weight:600;" title="Chưa nộp">—</span>`}
                   </td>
                 `;
               }).join('');
@@ -11477,8 +11480,10 @@ function renderReportsLogTableComponent(filteredLogs, activeUnits) {
                 <td style="text-align:center;">
                   ${(() => {
                     if (l.is_rejected) return '<span class="badge badge-danger">Từ chối</span>';
-                    if (l.is_admin_approval) return '<span class="badge badge-success">Đã duyệt</span>';
-                    return Number(l.is_on_time) === 1 ? '<span class="badge badge-success">Đúng hạn</span>' : '<span class="badge badge-warning">Trễ hạn</span>';
+                    if (l.is_admin_approval || (l.awarded_score !== null && l.awarded_score !== undefined && Number(l.awarded_score) > 0)) {
+                      return '<span class="badge badge-success" style="font-weight:700;">✅ Đã duyệt</span>';
+                    }
+                    return '<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;">⏳ Chờ Admin duyệt</span>';
                   })()}
                 </td>
                 <td style="font-weight:700; color:#15803d; font-size:13px; text-align:center;">
@@ -11566,9 +11571,8 @@ function renderAdminReportsTab() {
             📊 THEO DÕI NỘP BÁO CÁO & HOẠT ĐỘNG CỦA CÁC ĐƠN VỊ (${targetCriteria.length} TIÊU CHÍ)
           </div>
           <div style="font-size:12px; color:#475569; display:flex; gap:6px; flex-wrap:wrap;">
-            <span class="badge badge-success">✅ Đã nộp / Đã duyệt</span>
-            <span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;">⏳ Chờ duyệt</span>
-            <span class="badge badge-warning">⚠️ Nộp trễ</span>
+            <span class="badge badge-success">✅ Đã duyệt</span>
+            <span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;">⏳ Chờ Admin duyệt</span>
             <span class="badge badge-danger">❌ Chưa nộp</span>
           </div>
         </div>
@@ -11586,8 +11590,7 @@ function renderAdminReportsTab() {
                 const hasScore = sc && sc.score !== null && sc.score !== '' && Number(sc.score) > 0 && sc.approval_status !== 'pending';
                 if (hasScore) doneCount++;
                 const isPending = sc && (sc.approval_status === 'pending' || (sc.score === null && ((sc.files && sc.files.length > 0) || sc.file_path || sc.report_content || sc.evidence_link)));
-                const isLate = sc && Number(sc.is_on_time) === 0 && !hasScore && !isPending;
-                return { c, sc, hasScore, isPending, isLate };
+                return { c, sc, hasScore, isPending };
               });
               const pct = targetCriteria.length > 0 ? Math.round((doneCount / targetCriteria.length) * 100) : 0;
               const isExpanded = state.mobileExpandedReportUnit === u.id;
@@ -11618,7 +11621,7 @@ function renderAdminReportsTab() {
                       <div style="font-size:12px; font-weight:700; color:#334155; margin-bottom:8px;">
                         Chi tiết các tiêu chí:
                       </div>
-                      ${critStatusList.map(({ c, sc, hasScore, isPending, isLate }) => `
+                      ${critStatusList.map(({ c, sc, hasScore, isPending }) => `
                         <div class="mobile-crit-item ${hasScore ? 'has-score' : ''}">
                           <div class="mobile-crit-header">
                             <div style="flex:1;">
@@ -11627,7 +11630,7 @@ function renderAdminReportsTab() {
                               </div>
                               <div class="mobile-crit-title">${escapeHtml(c.title)}</div>
                               <div style="font-size:10.5px; color:#64748b; margin-top:2px;">
-                                ⏰ Hạn: ${formatShortDateVN(c.deadline)} (${c.max_score}đ)
+                                ⏰ Hạn: ${formatShortDateVN(c.deadline)} (${getCriterionTargetPoints(c)}đ)
                               </div>
                             </div>
                             <div style="text-align:right;">
@@ -11635,9 +11638,7 @@ function renderAdminReportsTab() {
                                 hasScore
                                   ? `<span class="badge badge-success">+${formatScore(sc.score)}đ</span>`
                                   : isPending
-                                  ? `<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;">+${formatScore(sc.self_score)}đ ⏳</span>`
-                                  : isLate
-                                  ? `<span class="badge badge-warning">Trễ hạn</span>`
+                                  ? `<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;">+${formatScore(sc.self_score || getCriterionTargetPoints(c))}đ ⏳</span>`
                                   : `<span class="badge badge-danger">Chưa nộp</span>`
                               }
                             </div>
