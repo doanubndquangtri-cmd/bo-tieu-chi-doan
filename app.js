@@ -8136,7 +8136,7 @@ function renderAdminReportsTab() {
   `;
 }
 
-window.initReportsSplitDragwindow.initReportsSplitDrag = function () {
+window.initReportsSplitDrag = function () {
   // Split drag removed per request
 };
 
