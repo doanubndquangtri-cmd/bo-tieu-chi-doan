@@ -3030,10 +3030,6 @@ function renderHeader() {
           🔄 Đồng bộ
         </button>
 
-        <button class="btn btn-sm" onclick="forceClearCacheAndReload()" style="background:#0284c7; color:#fff; border:1px solid #0369a1; font-size:11px; font-weight:700; padding:3px 8px; height:27px; border-radius:4px; cursor:pointer;" title="Xóa toàn bộ Cache & nạp ngay phiên bản mới nhất từ máy chủ (khắc phục lỗi kẹt F5 trên Chrome/PWA)">
-          🔄 Tải bản mới
-        </button>
-
         <div class="date-pill" onclick="${isAdmin ? 'openDateSettingsModal()' : ''}" title="Ngày hệ thống dùng để đối chiếu hạn nộp báo cáo" style="font-size:11px; padding:2px 7px; height:27px;">
           📅 <b>${formatDateVN(effDate)}</b>
           <span class="badge ${strict ? 'badge-warning' : 'badge-success'}" style="margin-left:3px; padding:1px 4px; font-size:9.5px;">
@@ -15675,6 +15671,10 @@ window.clearPrivateChatHistory = function() {
 
 window.initChatDrag = function() {
 
+  // Trên mobile (màn hình <= 768px), tắt hoàn toàn kéo rê / co dãn để ưu tiên 100% vuốt chạm cuộn nội dung mượt mà
+  if (typeof window !== "undefined" && window.innerWidth <= 768) return;
+
+
   const headerEl = document.getElementById('chat-drag-header');
 
   const widget = document.getElementById('chat-widget-box');
@@ -16071,7 +16071,7 @@ window.initChatDrag = function() {
 
       const onMouseUp = () => { onEnd(); };
 
-      const onTouchMove = (ev) => { const t = ev.touches[0]; onMove(t.clientX, t.clientY); };
+      const onTouchMove = (ev) => { ev.preventDefault(); const t = ev.touches[0]; onMove(t.clientX, t.clientY); };
 
       const onTouchEnd = () => { onEnd(); };
 
@@ -16081,9 +16081,9 @@ window.initChatDrag = function() {
 
       document.addEventListener('mouseup', onMouseUp);
 
-      document.addEventListener('touchmove', touchMoveHandler, { passive: false });
+      document.addEventListener('touchmove', onTouchMove, { passive: false });
 
-      document.addEventListener('touchend', touchEndHandler);
+      document.addEventListener('touchend', onTouchEnd);
 
     };
 
@@ -16802,8 +16802,7 @@ function renderFloatingChatWidget() {
     ${state.chatOpen ? `
 
       <div class="chat-widget-box ${state.chatMaximized ? 'maximized' : ''}" id="chat-widget-box" style="${
-
-        state.chatMaximized
+        (state.chatMaximized || (typeof window !== 'undefined' && window.innerWidth <= 768))
 
           ? ''
 
@@ -16832,12 +16831,6 @@ function renderFloatingChatWidget() {
           </div>
 
           <div style="display:flex; align-items:center; gap:6px;">
-
-            <button class="btn btn-sm" onclick="forceClearCacheAndReload()" style="background:#0284c7; border:1px solid #0369a1; color:#fff; font-size:11px; font-weight:700; padding:2px 8px; border-radius:4px; cursor:pointer;" title="Xóa sạch bộ nhớ đệm (Cache) & nạp phiên bản mới nhất ngay tức thì">
-
-              🔄 Tải bản mới
-
-            </button>
 
             <button class="btn btn-sm" onclick="openClearChatOptionsModal()" style="background:rgba(239,68,68,0.25); border:1px solid rgba(239,68,68,0.5); color:#fff; font-size:11px; font-weight:700; padding:2px 7px;" title="Tùy chọn xóa / làm mới lịch sử chat">
 
