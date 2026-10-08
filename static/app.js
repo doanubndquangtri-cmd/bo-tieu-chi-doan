@@ -3103,13 +3103,6 @@ function renderHeader() {
 
 
 
-        <button class="btn btn-sm" onclick="openQrGeneratorTab()" title="Tiện ích tạo mã QR có Logo Đoàn bằng đường link" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color: #fff; border: 1px solid rgba(255,255,255,0.4); font-size: 11px; padding: 3px 8px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); cursor: pointer; border-radius: 5px; height:27px;">
-
-          <span>📱</span>
-
-          <span>Tạo Mã QR</span>
-
-        </button>
 
 
 
@@ -10295,86 +10288,46 @@ function renderUnitHistoryTab() {
 
   return `
 
-    <div class="panel">
-
-      <div class="panel-header">
-
-        <div class="panel-title">🔑 THÔNG TIN TÀI KHOẢN ĐƠN VỊ</div>
-
+    <div class="panel" style="margin-bottom:8px; flex-shrink:0; border-radius:8px; border:1px solid #cbd5e1;">
+      <div class="panel-header" style="padding:6px 14px; background:#f8fafc;">
+        <div class="panel-title" style="font-size:13px; font-weight:800; color:#0f172a;">🔑 THÔNG TIN TÀI KHOẢN ĐƠN VỊ</div>
       </div>
-
-      <div class="panel-body">
-
-        <div style="max-width:460px;">
-
-          <div class="form-group">
-
-            <label>Tên đơn vị:</label>
-
-            <input type="text" value="${escapeHtml(unit.unit_name)}" disabled />
-
+      <div class="panel-body" style="padding:8px 14px;">
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap:10px; align-items:flex-end;">
+          <div>
+            <label style="font-size:11.5px; font-weight:700; color:#475569; display:block; margin-bottom:3px;">Tên đơn vị:</label>
+            <input type="text" value="${escapeHtml(unit.unit_name)}" disabled style="width:100%; padding:6px 10px; font-size:12.5px; border:1px solid #cbd5e1; border-radius:6px; background:#f1f5f9; font-weight:600;" />
           </div>
-
-          <div class="form-group">
-
-            <label>Tên đăng nhập:</label>
-
-            <input type="text" value="${escapeHtml(unit.username)}" disabled />
-
+          <div>
+            <label style="font-size:11.5px; font-weight:700; color:#475569; display:block; margin-bottom:3px;">Tên đăng nhập:</label>
+            <input type="text" value="${escapeHtml(unit.username)}" disabled style="width:100%; padding:6px 10px; font-size:12.5px; border:1px solid #cbd5e1; border-radius:6px; background:#f1f5f9; font-weight:600;" />
           </div>
-
-          <div class="form-group">
-
-            <label>Đổi mật khẩu mới:</label>
-
-            <div style="display:flex; gap:8px;">
-
-              <input type="password" id="unit-new-pw" placeholder="Nhập mật khẩu mới..." />
-
-              <button class="btn btn-primary" onclick="unitChangePassword()">Lưu mật khẩu Online</button>
-
+          <div>
+            <label style="font-size:11.5px; font-weight:700; color:#475569; display:block; margin-bottom:3px;">Đổi mật khẩu mới:</label>
+            <div style="display:flex; gap:6px;">
+              <input type="password" id="unit-new-pw" placeholder="Nhập mật khẩu mới..." style="flex:1; padding:6px 10px; font-size:12.5px; border:1px solid #cbd5e1; border-radius:6px;" />
+              <button class="btn btn-primary btn-sm" onclick="unitChangePassword()" style="font-size:12px; font-weight:700; white-space:nowrap; padding:6px 12px;">Lưu mật khẩu Online</button>
             </div>
-
           </div>
-
         </div>
-
       </div>
-
     </div>
 
-
-
-    <div class="panel">
-
-      <div class="panel-header">
-
-        <div class="panel-title">🕒 LỊCH SỬ NỘP BÁO CÁO CỦA ĐƠN VỊ (${myLogs.length} LƯỢT)</div>
-
+    <div class="panel unit-history-panel" style="display:flex; flex-direction:column; flex:1 1 auto; height:calc(100vh - 215px) !important; min-height:420px !important; max-height:none !important; margin-bottom:2px !important; border-radius:8px; border:1.5px solid #cbd5e1; overflow:hidden;">
+      <div class="panel-header" style="padding:8px 14px; flex-shrink:0; background:#f8fafc; border-bottom:1px solid #cbd5e1;">
+        <div class="panel-title" style="font-size:13.5px; font-weight:800; color:#0f172a;">🕒 LỊCH SỬ NỘP BÁO CÁO CỦA ĐƠN VỊ (${myLogs.length} LƯỢT)</div>
       </div>
-
-      <div class="panel-body" style="padding:0; overflow-x:auto;">
-
-        <table class="data-table">
-
-          <thead>
-
+      <div class="panel-body" style="padding:0; overflow-y:auto !important; overflow-x:auto !important; flex:1 1 auto; min-height:0;">
+        <table class="data-table" style="width:100%; border-collapse:collapse; font-size:13px;">
+          <thead style="position:sticky; top:0; z-index:15; background:#f8fafc; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
             <tr>
-
-              <th>Thời gian nộp</th>
-
-              <th>Tiêu chí</th>
-
-              <th>Ngày nộp / Hạn chót</th>
-
-              <th>Trạng thái</th>
-
-              <th>Điểm được cộng</th>
-
-              <th>Nội dung & File</th>
-
+              <th style="padding:8px 10px; text-align:left;">Thời gian nộp</th>
+              <th style="padding:8px 10px; text-align:left;">Tiêu chí</th>
+              <th style="padding:8px 10px; text-align:left;">Ngày nộp / Hạn chót</th>
+              <th style="padding:8px 10px; text-align:center;">Trạng thái</th>
+              <th style="padding:8px 10px; text-align:center;">Điểm được cộng</th>
+              <th style="padding:8px 10px; text-align:left;">Nội dung & File</th>
             </tr>
-
           </thead>
 
           <tbody>
@@ -10391,38 +10344,25 @@ function renderUnitHistoryTab() {
 
                       (l) => `
 
-                  <tr>
-
-                    <td>${escapeHtml(l.submitted_at)}</td>
-
-                    <td><b>${escapeHtml(l.col_label)}:</b> ${escapeHtml(l.criterion_title)}</td>
-
-                    <td>Nộp: ${formatDateVN(l.submitted_date)} / Hạn: ${formatDateVN(l.deadline)}</td>
-
-                    <td>
-
-                      ${
-
-                        Number(l.is_on_time) === 1
-
-                          ? '<span class="badge badge-success">Đúng hạn</span>'
-
-                          : '<span class="badge badge-warning">Quá hạn</span>'
-
-                      }
-
+                  <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:8px 10px; white-space:nowrap; font-size:12px; color:#64748b;">${escapeHtml(l.submitted_at)}</td>
+                    <td style="padding:8px 10px;"><b>${escapeHtml(l.col_label)}:</b> ${escapeHtml(l.criterion_title)}</td>
+                    <td style="padding:8px 10px; white-space:nowrap; font-size:12px;">Nộp: <b>${formatDateVN(l.submitted_date)}</b> / Hạn: ${formatDateVN(l.deadline)}</td>
+                    <td style="padding:8px 10px; text-align:center;">
+                      ${(() => {
+                        if (l.is_rejected) return '<span class="badge badge-danger">Từ chối</span>';
+                        if (l.is_admin_approval || (l.awarded_score !== null && l.awarded_score !== undefined && Number(l.awarded_score) > 0)) {
+                          return '<span class="badge badge-success" style="font-weight:700;">✅ Đã duyệt</span>';
+                        }
+                        return '<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;">⏳ Chờ Admin duyệt</span>';
+                      })()}
                     </td>
-
-                    <td style="font-weight:700; color:#15803d;">
-
+                    <td style="padding:8px 10px; font-weight:700; color:#15803d; text-align:center;">
                       ${l.awarded_score !== null && l.awarded_score !== undefined ? '+' + formatScore(l.awarded_score) + 'đ' : '0đ'}
-
                     </td>
-
-                    <td style="max-width:320px;">
+                    <td style="padding:8px 10px; max-width:320px;">
                       ${renderSubmissionEvidenceAndFiles(l)}
                     </td>
-
                   </tr>
 
                 `
@@ -12699,47 +12639,23 @@ function renderAdminDocsTab() {
 
   return `
 
-    <div class="panel">
-
-      <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; background:linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color:#fff; border-radius:10px 10px 0 0; padding:14px 18px;">
-
+    <div class="panel admin-docs-panel" style="display:flex; flex-direction:column; flex:1 1 auto; height:calc(100vh - 128px) !important; min-height:520px !important; max-height:none !important; margin-bottom:2px !important; border-radius:8px; overflow:hidden;">
+      <div class="panel-header" style="flex-shrink:0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; background:linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color:#fff; border-radius:8px 8px 0 0; padding:10px 18px;">
         <div>
-
-          <div class="panel-title" style="font-size:17px; font-weight:800; display:flex; align-items:center; gap:8px;">
-
+          <div class="panel-title" style="font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px;">
             📂 HỆ THỐNG VĂN BẢN & CHỈ ĐẠO ĐOÀN CẤP TRÊN
-
           </div>
-
-          <div style="font-size:12.5px; opacity:0.9; margin-top:3px;">
-
+          <div style="font-size:12px; opacity:0.9; margin-top:2px;">
             Lưu trữ tập trung các Văn bản, Kế hoạch, Hướng dẫn, Thông báo chính thức trên Google Drive
-
           </div>
-
         </div>
-
-
-
-
-
       </div>
 
-
-
-      <div class="panel-body" style="padding:18px;">
-
-
-
-
-
+      <div class="panel-body" style="padding:12px 18px; display:flex; flex-direction:column; flex:1 1 auto; min-height:0; overflow:hidden;">
         ${isAdmin ? `
-
         <!-- Form tải lên tài liệu mới dành cho Admin -->
-
-        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:16px 20px; margin-bottom:24px; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
-
-          <div style="font-weight:800; font-size:15px; color:#0f172a; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:12px 16px; margin-bottom:14px; box-shadow:0 1px 4px rgba(0,0,0,0.04); flex-shrink:0;">
+          <div style="font-weight:800; font-size:14px; color:#0f172a; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
 
             📤 Đăng Tải Văn Bản Mới Lên Google Drive
 
@@ -12869,12 +12785,9 @@ function renderAdminDocsTab() {
 
 
 
-        <div class="table-container" style="background:#fff; border-radius:8px; border:1px solid #e2e8f0; overflow-x:auto;">
-
+        <div class="table-container admin-docs-table-container" style="background:#fff; border-radius:8px; border:1.5px solid #cbd5e1; overflow-y:auto !important; overflow-x:auto !important; flex:1 1 auto; min-height:0; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
           <table class="table" id="admin-docs-table" style="width:100%; border-collapse:collapse; font-size:13px;">
-
-            <thead>
-
+            <thead style="position:sticky; top:0; z-index:15; background:#f8fafc; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
               <tr style="background:#f8fafc; border-bottom:2px solid #cbd5e1;">
 
                 <th style="width:45px; text-align:center;">STT</th>
