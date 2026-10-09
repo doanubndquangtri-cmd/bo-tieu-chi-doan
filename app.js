@@ -1481,6 +1481,12 @@ async function mutateCloudDB(mutatorFn, commitMsg = 'Update data') {
 
       const result = await mutatorFn(db);
 
+      if (state.user) {
+        const myId = state.user.role === 'admin' ? 0 : state.user.id;
+        db.online_presence = db.online_presence || {};
+        db.online_presence[myId] = Date.now();
+      }
+
       db.updated_at = nowISO();
 
       db.version = (db.version || 1) + 1;
@@ -1609,6 +1615,76 @@ function sortCriteriaChronologically(list) {
 
 
 
+
+/* =========================================================================
+   ONLINE PRESENCE TRACKING & REALTIME HEARTBEAT SYSTEM
+   ========================================================================= */
+
+window.isUnitOnline = function(unitId) {
+  if (!state.user) return false;
+  const myId = state.user.role === 'admin' ? 0 : state.user.id;
+  if (myId === unitId) return true; // Người đang truy cập trên trình duyệt luôn Online 100%
+
+  const presence = state.onlinePresence || {};
+  const lastSeen = Number(presence[unitId] || presence[String(unitId)] || 0);
+  const now = Date.now();
+
+  // 1. Kiểm tra heartbeat gửi lên máy chủ trong vòng 4 phút (240.000 ms)
+  if (lastSeen > 0 && (now - lastSeen < 240000)) {
+    return true;
+  }
+
+  // 2. Kiểm tra nếu đơn vị có tin nhắn gửi đi trong vòng 5 phút qua
+  const recentMsg = (state.chatMessages || []).slice(-40).reverse().find(m => {
+    if (unitId === 0) return m.sender_role === 'admin';
+    return m.sender_id === unitId;
+  });
+  if (recentMsg && recentMsg.timestamp && (now - recentMsg.timestamp < 300000)) {
+    return true;
+  }
+
+  // 3. Kiểm tra nếu có nộp báo cáo / minh chứng trong vòng 8 phút qua
+  const recentReport = (state.writtenReports || []).slice(-20).reverse().find(r => r.unit_id === unitId);
+  if (recentReport && recentReport.created_at) {
+    const repTime = new Date(recentReport.created_at).getTime();
+    if (!isNaN(repTime) && (now - repTime < 480000)) {
+      return true;
+    }
+  }
+
+  return false;
+};
+
+window.recordMyPresence = async function() {
+  if (!state.user || !state.cloudOnline || state.isSyncing) return;
+  const myId = state.user.role === 'admin' ? 0 : state.user.id;
+  const now = Date.now();
+
+  // Chỉ gửi heartbeat tối đa 1 lần mỗi 2 phút (120.000 ms) để bảo toàn API rate-limit
+  if (window._lastPresenceSent && (now - window._lastPresenceSent < 120000)) {
+    return;
+  }
+  window._lastPresenceSent = now;
+
+  state.onlinePresence = state.onlinePresence || {};
+  state.onlinePresence[myId] = now;
+
+  try {
+    await mutateCloudDB(db => {
+      db.online_presence = db.online_presence || {};
+      db.online_presence[myId] = now;
+      // Tự động dọn dẹp các mốc thời gian cũ hơn 24 giờ để DB luôn siêu nhẹ
+      for (const k of Object.keys(db.online_presence)) {
+        if (now - Number(db.online_presence[k]) > 86400000) {
+          delete db.online_presence[k];
+        }
+      }
+    }, `Heartbeat: ${state.user.role === 'admin' ? 'Admin' : (state.user.unit_name || myId)} Online`);
+  } catch (err) {
+    // Không làm gián đoạn người dùng nếu mạng chập chờn
+  }
+};
+
 function ingestCloudDB(db) {
 
   const realToday = todayISO();
@@ -1650,6 +1726,8 @@ function ingestCloudDB(db) {
   state.monthLabels = db.month_labels || {};
 
   state.writtenReports = Array.isArray(db.written_reports) ? db.written_reports : [];
+
+  state.onlinePresence = (db.online_presence && typeof db.online_presence === 'object') ? db.online_presence : {};
 
 
 
@@ -1979,6 +2057,38 @@ function getCriteriaMaxTotalScore() {
   return sum > 0 ? Math.round(sum * 100) / 100 : 100;
 }
 
+function getCriteriaFilteredMaxScore() {
+  const mf = Number(state.monthFilter || 0);
+  if (mf === 0) {
+    return getCriteriaMaxTotalScore();
+  }
+  const crits = getFilteredCriteria();
+  if (crits.length === 0) return 100;
+  let sum = 0;
+  for (const c of crits) {
+    if (c.score_type === 'penalty') continue;
+    sum += getCriterionTargetPoints(c);
+  }
+  return sum > 0 ? Math.round(sum * 100) / 100 : 100;
+}
+
+function getUnitFilteredTotalScore(unitId) {
+  const mf = Number(state.monthFilter || 0);
+  if (mf === 0) {
+    return getUnitTotalScore(unitId);
+  }
+  const crits = getFilteredCriteria();
+  let sum = 0;
+  for (const c of crits) {
+    const sc = getScoreObj(unitId, c.id);
+    if (sc && sc.score !== null && sc.score !== undefined && sc.score !== '' && sc.approval_status !== 'pending') {
+      sum += Number(sc.score);
+    }
+  }
+  return Math.round(sum * 100) / 100;
+}
+
+
 
 
 function updateUnitTotalCellDOM(unitId) {
@@ -1987,9 +2097,9 @@ function updateUnitTotalCellDOM(unitId) {
 
   if (!totCell) return;
 
-  const total = getUnitTotalScore(unitId);
+  const total = getUnitFilteredTotalScore(unitId);
 
-  const maxPossibleScore = getCriteriaMaxTotalScore();
+  const maxPossibleScore = getCriteriaFilteredMaxScore();
 
   const pct = Math.min(100, Math.max(0, Math.round((Number(total || 0) / Math.max(1, maxPossibleScore)) * 100)));
 
@@ -2250,6 +2360,8 @@ async function initApp() {
   // TỰ ĐỘNG ĐỒNG BỘ THỜI GIAN THỰC ĐỘ TRỄ CỰC THẤP (Ảnh 1)
 
   setInterval(() => {
+
+    if (window.recordMyPresence && !document.hidden && state.user) window.recordMyPresence();
 
     if (!state.isSyncing) {
 
@@ -3677,9 +3789,8 @@ function getFilteredUnits() {
 
     list = [...list].sort((a, b) => {
 
-      const sA = getUnitTotalScore(a.id);
-
-      const sB = getUnitTotalScore(b.id);
+      const sA = getUnitFilteredTotalScore(a.id);
+      const sB = getUnitFilteredTotalScore(b.id);
 
       if (Math.abs(sB - sA) > 0.0001) return sB - sA;
 
@@ -4049,13 +4160,13 @@ function renderMasterTableTab() {
 
             ${(() => {
 
-              const maxPossibleScore = getCriteriaMaxTotalScore();
+              const maxPossibleScore = getCriteriaFilteredMaxScore();
 
               return filteredUnits
 
                 .map((u, rIdx) => {
 
-                  const total = getUnitTotalScore(u.id);
+                  const total = getUnitFilteredTotalScore(u.id);
 
                   const isCurrentUnit = !isAdmin && state.user && state.user.id === u.id;
 
@@ -12266,7 +12377,7 @@ function renderMasterMobileCardsView(activeUnits, filteredCriteria, isAdmin, mon
 
       ${currentUnits.map((u, idx) => {
 
-        const total = getUnitTotalScore(u.id);
+        const total = getUnitFilteredTotalScore(u.id);
 
         const isExpanded = state.mobileExpandedUnit === u.id;
 
@@ -16932,7 +17043,7 @@ function renderFloatingChatWidget() {
 
                 <label style="font-size:11.5px; font-weight:700; color:#334155;">
 
-                  Chọn cơ sở Đoàn để trao đổi riêng tư (40 đơn vị):
+                  Chọn cơ sở Đoàn để trao đổi riêng tư (${(state.units || []).length} đơn vị):
 
                 </label>
 
@@ -16944,39 +17055,59 @@ function renderFloatingChatWidget() {
 
               </div>
 
-              <select class="chat-unit-select" onchange="switchPrivateChatPartner(this.value)">
+              ${(() => {
+                const allUnits = state.units || [];
+                const onlineUnits = allUnits.filter(u => isUnitOnline(u.id));
+                const offlineUnits = allUnits.filter(u => !isUnitOnline(u.id));
+                const isSelectedOnline = partnerId > 0 ? isUnitOnline(partnerId) : false;
 
-                <option value="0">-- Bấm để chọn cơ sở Đoàn cần chat riêng (40 đơn vị) --</option>
+                return `
+                  <!-- THANH TRẠNG THÁI TRUY CẬP TRANG WEB -->
+                  <div style="display:flex; align-items:center; justify-content:space-between; background:#ffffff; border:1.5px solid #cbd5e1; border-radius:6px; padding:4px 8px; margin-bottom:6px; font-size:11px;">
+                    <span style="font-weight:700; color:#334155; display:flex; align-items:center; gap:4px;">
+                      👥 Trạng thái truy cập web:
+                    </span>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      <span style="color:#15803d; font-weight:700; background:#dcfce7; border:1px solid #86efac; padding:1px 6px; border-radius:10px;">
+                        🟢 ${onlineUnits.length} Đang Online
+                      </span>
+                      <span style="color:#64748b; font-weight:600; background:#f1f5f9; border:1px solid #e2e8f0; padding:1px 6px; border-radius:10px;">
+                        ⚪ ${offlineUnits.length} Offline
+                      </span>
+                    </div>
+                  </div>
 
-                ${(state.units || []).map(u => {
+                  <select class="chat-unit-select" onchange="switchPrivateChatPartner(this.value)">
+                    <option value="0">-- Bấm để chọn cơ sở Đoàn (🟢 ${onlineUnits.length} Online • ⚪ ${offlineUnits.length} Offline) --</option>
+                    ${onlineUnits.length > 0 ? `
+                      <optgroup label="🟢 CÁC ĐƠN VỊ ĐANG ONLINE TRÊN WEB (${onlineUnits.length})">
+                        ${onlineUnits.map(u => {
+                          const uUnread = getUnreadCountForChatRoom(getPrivateRoomKey(0, u.id));
+                          return `<option value="${u.id}" ${partnerId === u.id ? 'selected' : ''}>🟢 ${escapeHtml(u.unit_name)} (Online)${uUnread > 0 ? ` • 🔴 ${uUnread} tin mới` : ''}</option>`;
+                        }).join('')}
+                      </optgroup>
+                    ` : ''}
+                    <optgroup label="⚪ CÁC ĐƠN VỊ NGOẠI TUYẾN (${offlineUnits.length})">
+                      ${offlineUnits.map(u => {
+                        const uUnread = getUnreadCountForChatRoom(getPrivateRoomKey(0, u.id));
+                        return `<option value="${u.id}" ${partnerId === u.id ? 'selected' : ''}>⚪ ${escapeHtml(u.unit_name)} (Offline)${uUnread > 0 ? ` • 🔴 ${uUnread} tin mới` : ''}</option>`;
+                      }).join('')}
+                    </optgroup>
+                  </select>
 
-                  const uUnread = getUnreadCountForChatRoom(getPrivateRoomKey(0, u.id));
-
-                  return `
-
-                    <option value="${u.id}" ${partnerId === u.id ? 'selected' : ''}>
-
-                      ${escapeHtml(u.unit_name)} ${uUnread > 0 ? `(🔴 ${uUnread} tin mới)` : ''}
-
-                    </option>
-
-                  `;
-
-                }).join('')}
-
-              </select>
-
-              ${partnerId > 0 ? `
-
-                <div style="font-size:11.5px; color:#0284c7; font-weight:700; margin-top:5px; display:flex; align-items:center; gap:5px;">
-
-                  <span>🔒</span>
-
-                  <span>Đang kết nối riêng với: <b>${escapeHtml(selectedPartnerName)}</b> (các cơ sở khác không thấy)</span>
-
-                </div>
-
-              ` : ''}
+                  ${partnerId > 0 ? `
+                    <div style="font-size:11.5px; color:#0284c7; font-weight:700; margin-top:5px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px;">
+                      <div style="display:flex; align-items:center; gap:5px;">
+                        <span>🔒</span>
+                        <span>Đang kết nối riêng: <b>${escapeHtml(selectedPartnerName)}</b></span>
+                      </div>
+                      <span style="font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:12px; background:${isSelectedOnline ? '#dcfce7; color:#15803d; border:1px solid #86efac;' : '#f1f5f9; color:#64748b; border:1px solid #cbd5e1;'}">
+                        ${isSelectedOnline ? '🟢 Đang Online trên Web' : '⚪ Hiện không Online'}
+                      </span>
+                    </div>
+                  ` : ''}
+                `;
+              })()}
 
             </div>
 
@@ -17000,45 +17131,61 @@ function renderFloatingChatWidget() {
 
               </div>
 
-              <select class="chat-unit-select" onchange="switchPrivateChatPartner(this.value)" style="border-color:#0284c7;">
+              ${(() => {
+                const isAdminOnline = isUnitOnline(0);
+                const otherUnits = (state.units || []).filter(u => u.id !== myId);
+                const otherOnline = otherUnits.filter(u => isUnitOnline(u.id));
+                const otherOffline = otherUnits.filter(u => !isUnitOnline(u.id));
+                const isSelectedOnline = partnerId === 0 ? isAdminOnline : isUnitOnline(partnerId);
 
-                ${(() => {
+                return `
+                  <!-- THANH TRẠNG THÁI TRUY CẬP TRANG WEB CHO ĐƠN VỊ -->
+                  <div style="display:flex; align-items:center; justify-content:space-between; background:#ffffff; border:1.5px solid #bfdbfe; border-radius:6px; padding:4px 8px; margin-bottom:6px; font-size:11px;">
+                    <span style="font-weight:700; color:#0369a1; display:flex; align-items:center; gap:4px;">
+                      👥 Trạng thái truy cập web:
+                    </span>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      <span style="color:#15803d; font-weight:700; background:#dcfce7; border:1px solid #86efac; padding:1px 6px; border-radius:10px;">
+                        🟢 ${otherOnline.length + (isAdminOnline ? 1 : 0)} Đang Online
+                      </span>
+                      <span style="color:#64748b; font-weight:600; background:#f1f5f9; border:1px solid #e2e8f0; padding:1px 6px; border-radius:10px;">
+                        ⚪ ${otherOffline.length + (!isAdminOnline ? 1 : 0)} Offline
+                      </span>
+                    </div>
+                  </div>
 
-                  const unreadAdmin = getUnreadCountForChatRoom(getPrivateRoomKey(myId, 0));
+                  <select class="chat-unit-select" onchange="switchPrivateChatPartner(this.value)" style="border-color:#0284c7;">
+                    ${(() => {
+                      const unreadAdmin = getUnreadCountForChatRoom(getPrivateRoomKey(myId, 0));
+                      return `<option value="0" ${partnerId === 0 ? 'selected' : ''}>${isAdminOnline ? '🟢' : '⚪'} 👑 Ban Thường vụ Đoàn UBND Tỉnh ${isAdminOnline ? '(Đang Online)' : '(Offline)'}${unreadAdmin > 0 ? ` • 🔴 ${unreadAdmin} tin mới` : ''}</option>`;
+                    })()}
+                    ${otherOnline.length > 0 ? `
+                      <optgroup label="🟢 CÁC CƠ SỞ ĐOÀN ĐANG ONLINE (${otherOnline.length})">
+                        ${otherOnline.map(u => {
+                          const uUnread = getUnreadCountForChatRoom(getPrivateRoomKey(myId, u.id));
+                          return `<option value="${u.id}" ${partnerId === u.id ? 'selected' : ''}>🟢 🏢 ${escapeHtml(u.unit_name)} (Online)${uUnread > 0 ? ` • 🔴 ${uUnread} tin mới` : ''}</option>`;
+                        }).join('')}
+                      </optgroup>
+                    ` : ''}
+                    <optgroup label="⚪ CÁC CƠ SỞ ĐOÀN NGOẠI TUYẾN (${otherOffline.length})">
+                      ${otherOffline.map(u => {
+                        const uUnread = getUnreadCountForChatRoom(getPrivateRoomKey(myId, u.id));
+                        return `<option value="${u.id}" ${partnerId === u.id ? 'selected' : ''}>⚪ 🏢 ${escapeHtml(u.unit_name)} (Offline)${uUnread > 0 ? ` • 🔴 ${uUnread} tin mới` : ''}</option>`;
+                      }).join('')}
+                    </optgroup>
+                  </select>
 
-                  return `<option value="0" ${partnerId === 0 ? 'selected' : ''}>👑 Ban Thường vụ Đoàn UBND Tỉnh ${unreadAdmin > 0 ? `(🔴 ${unreadAdmin} tin mới)` : ''}</option>`;
-
-                })()}
-
-                <optgroup label="-- Hoặc chọn Cơ sở Đoàn khác để chat riêng (1-1) --">
-
-                  ${(state.units || []).filter(u => u.id !== myId).map(u => {
-
-                    const uUnread = getUnreadCountForChatRoom(getPrivateRoomKey(myId, u.id));
-
-                    return `
-
-                      <option value="${u.id}" ${partnerId === u.id ? 'selected' : ''}>
-
-                        🏢 ${escapeHtml(u.unit_name)} ${uUnread > 0 ? `(🔴 ${uUnread} tin mới)` : ''}
-
-                      </option>
-
-                    `;
-
-                  }).join('')}
-
-                </optgroup>
-
-              </select>
-
-              <div style="font-size:11.5px; color:#0284c7; font-weight:700; margin-top:5px; display:flex; align-items:center; gap:5px;">
-
-                <span>🔒</span>
-
-                <span>Đang trao đổi riêng với: <b>${escapeHtml(selectedPartnerName)}</b> (bảo mật tuyệt đối 100%)</span>
-
-              </div>
+                  <div style="font-size:11.5px; color:#0284c7; font-weight:700; margin-top:5px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px;">
+                    <div style="display:flex; align-items:center; gap:5px;">
+                      <span>🔒</span>
+                      <span>Đang trao đổi riêng với: <b>${escapeHtml(selectedPartnerName)}</b></span>
+                    </div>
+                    <span style="font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:12px; background:${isSelectedOnline ? '#dcfce7; color:#15803d; border:1px solid #86efac;' : '#f1f5f9; color:#64748b; border:1px solid #cbd5e1;'}">
+                      ${isSelectedOnline ? '🟢 Đang Online trên Web' : '⚪ Hiện không Online'}
+                    </span>
+                  </div>
+                `;
+              })()}
 
             </div>
 
