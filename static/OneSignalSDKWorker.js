@@ -6,7 +6,7 @@ try {
   console.warn('[OneSignalWorker] Could not import OneSignalSDK.sw.js:', e);
 }
 
-const SW_VERSION = '1792164072';
+const SW_VERSION = '1792167400';
 const CACHE_NAME = 'tieuchidoan-v' + SW_VERSION;
 const ASSETS_TO_CACHE = [
   './logo_doan.png',
@@ -103,22 +103,31 @@ self.addEventListener('push', (event) => {
   else if (data.data && data.data.badgeCount) badgeCount = Number(data.data.badgeCount);
   else if (data.badge) badgeCount = Number(data.badge);
 
-  // Bắn tín hiệu tức thì cho tất cả tab/web/app đang mở để cập nhật dữ liệu ngay lập tức không trễ 1 giây
-  if (self.clients && self.clients.matchAll) {
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      for (let client of clientList) {
-        client.postMessage({ type: 'PUSH_RECEIVED', data: data });
-      }
-    }).catch(() => {});
-  }
-
-  if (self.navigator && 'setAppBadge' in self.navigator) {
-    if (badgeCount > 0) {
-      self.navigator.setAppBadge(badgeCount).catch(() => {});
-    } else {
-      self.navigator.clearAppBadge().catch(() => {});
+  // Bọc toàn bộ tác vụ Async vào waitUntil để đảm bảo Service Worker không bị tắt trước khi đặt Badge
+  const asyncPushWork = async () => {
+    // 1. Cập nhật App Badge tức thì trên icon app ngoài màn hình
+    if (self.navigator && 'setAppBadge' in self.navigator) {
+      try {
+        if (badgeCount > 0) {
+          await self.navigator.setAppBadge(badgeCount);
+        } else {
+          await self.navigator.clearAppBadge();
+        }
+      } catch (e) {}
     }
-  }
+
+    // 2. Gửi tín hiệu PUSH_RECEIVED tới các client đang mở
+    if (self.clients && self.clients.matchAll) {
+      try {
+        const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+        for (let client of clientList) {
+          client.postMessage({ type: 'PUSH_RECEIVED', data: data, badgeCount: badgeCount });
+        }
+      } catch (e) {}
+    }
+  };
+
+  event.waitUntil(asyncPushWork());
 
   // Nếu push này là từ OneSignal (có custom.i), OneSignalSDK.sw.js đã tự xử lý hiển thị banner.
   // Tránh hiển thị trùng lặp 2 thông báo cùng lúc.
