@@ -3244,12 +3244,11 @@ window.WebPushManager = {
       if (!appId) return;
 
       const loc = window.location;
-      let dir = loc.pathname.substring(0, loc.pathname.lastIndexOf('/') + 1);
-      if (!dir.startsWith('/')) dir = '/' + dir;
-      if (!dir.endsWith('/')) dir = dir + '/';
-      // Đảm bảo đường dẫn tuyệt đối bắt đầu bằng / để không bị nhân đôi subpath
-      const swRelPath = dir + 'OneSignalSDKWorker.js';
-      const swScope = dir;
+      const parts = loc.pathname.split('/').filter(Boolean);
+      let dir = '/';
+      if (parts.length > 0 && !parts[0].includes('.')) {
+        dir = '/' + parts[0] + '/';
+      }
 
       window.OneSignalDeferred = window.OneSignalDeferred || [];
       OneSignalDeferred.push(async function(OneSignal) {
@@ -3258,12 +3257,13 @@ window.WebPushManager = {
           await OneSignal.init({
             appId: appId,
             path: dir,
-            serviceWorkerPath: swRelPath,
-            serviceWorkerParam: { scope: swScope },
+            serviceWorkerPath: 'OneSignalSDKWorker.js',
+            serviceWorkerParam: { scope: dir },
             allowLocalhostAsSecureOrigin: true,
             notifyButton: { enable: false }
           });
           window.WebPushManager.isInitialized = true;
+          console.log('[WebPush] OneSignal init thành công! Scope:', dir);
 
           // Kích hoạt nhận Push ngay nếu quyền đã cấp
           try {
@@ -3458,22 +3458,34 @@ window.WebPushManager = {
     } else if (targetUnitId !== undefined && targetUnitId !== null) {
       payload.filters = [{ field: 'tag', key: 'unit_id', relation: '=', value: String(targetUnitId) }];
     } else {
-      payload.included_segments = ['Total Subscriptions', 'Subscribed Users'];
+      payload.included_segments = ['Total Subscriptions'];
     }
 
     let directSent = false;
     // C. Gửi trực tiếp qua OneSignal REST API (siêu nhanh)
     try {
-      const resp = await fetch('https://onesignal.com/api/v1/notifications', {
+      let resp = await fetch('https://api.onesignal.com/notifications', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
-          'Authorization': 'Basic ' + restApiKey
+          'Authorization': 'Key ' + restApiKey
         },
         body: JSON.stringify(payload)
       });
+      if (!resp.ok) {
+        resp = await fetch('https://onesignal.com/api/v1/notifications', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Authorization': 'Basic ' + restApiKey
+          },
+          body: JSON.stringify(payload)
+        });
+      }
       if (resp.ok) {
         directSent = true;
+        const resData = await resp.json().catch(() => ({}));
+        console.log('[WebPush] Gửi thành công tới OneSignal:', resData);
       }
     } catch (eDirect) {
       console.warn('[WebPush] Lỗi gửi trực tiếp OneSignal:', eDirect);
