@@ -6,7 +6,22 @@ try {
   console.warn('[OneSignalWorker] Could not import OneSignalSDK.sw.js:', e);
 }
 
-const SW_VERSION = '1792167400';
+// ĐẢM BẢO MỌI THÔNG BÁO PUSH ĐỀU RUNG MẠNH, BẬT MÀN HÌNH KHÓA VÀ HIỆN BANNER NỔI
+if (typeof self !== 'undefined' && self.registration) {
+  const _origShowNotification = self.registration.showNotification.bind(self.registration);
+  self.registration.showNotification = function(title, options) {
+    options = options || {};
+    options.vibrate = options.vibrate || [500, 200, 500, 200, 500];
+    options.renotify = true;
+    options.requireInteraction = true;
+    options.silent = false;
+    if (!options.badge) options.badge = './favicon.png';
+    if (!options.icon) options.icon = './icon-192.png';
+    return _origShowNotification(title, options);
+  };
+}
+
+const SW_VERSION = '1792193116';
 const CACHE_NAME = 'tieuchidoan-v' + SW_VERSION;
 const ASSETS_TO_CACHE = [
   './logo_doan.png',
