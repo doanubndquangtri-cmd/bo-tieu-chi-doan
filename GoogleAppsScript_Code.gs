@@ -302,6 +302,7 @@ function doPost(e) {
       }
 
       var bCount = Number(data.badgeCount || 1);
+      var bType = data.badgeType || "SetTo";
       var pushPayload = {
         app_id: appId,
         headings: { "en": data.title || "Bộ Tiêu Chí Đoàn", "vi": data.title || "Bộ Tiêu Chí Đoàn" },
@@ -309,23 +310,23 @@ function doPost(e) {
         web_url: data.url || "./",
         chrome_web_icon: "https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/icon-192.png",
         chrome_web_badge: "https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/favicon.png",
-        ios_badgeType: "SetTo",
-        ios_badgeCount: bCount,
-        android_badge_type: "SetTo",
-        android_badge_count: bCount,
-        data: { url: data.url || "./", badgeCount: bCount, custom_data: data.customData || {} }
+        ios_badgeType: bType,
+        ios_badgeCount: bType === "Increase" ? 1 : bCount,
+        android_badge_type: bType,
+        android_badge_count: bType === "Increase" ? 1 : bCount,
+        data: { url: data.url || "./", badgeCount: bCount, badgeType: bType, custom_data: data.customData || {} }
       };
 
       if (data.targetRole) {
         pushPayload.filters = [
           { field: "tag", key: "role", relation: "=", value: data.targetRole }
         ];
-      } else if (data.targetUnitId) {
+      } else if (data.targetUnitId !== undefined && data.targetUnitId !== null) {
         pushPayload.filters = [
           { field: "tag", key: "unit_id", relation: "=", value: String(data.targetUnitId) }
         ];
       } else {
-        pushPayload.included_segments = ["Subscribed Users"];
+        pushPayload.included_segments = ["Total Subscriptions", "Subscribed Users"];
       }
 
       var pushOptions = {
