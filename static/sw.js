@@ -1,5 +1,5 @@
 // Service Worker Tiêu Chí Đoàn - Tự động xóa sạch Cache khi có phiên bản mới
-const SW_VERSION = '1792145139';
+const SW_VERSION = '1792146930';
 const CACHE_NAME = 'tieuchidoan-v' + SW_VERSION;
 const ASSETS_TO_CACHE = [
   './logo_doan.png',
@@ -91,6 +91,16 @@ self.addEventListener('push', (event) => {
   const title = data.title || data.heading || 'Bộ Tiêu Chí Đoàn Cấp Cơ Sở';
   const body = data.body || data.message || 'Bạn có thông báo mới từ hệ thống!';
   const targetUrl = (data.data && data.data.url) || data.web_url || './';
+  const badgeCount = Number(data.badgeCount || (data.custom_data && data.custom_data.badgeCount) || data.badge || 1);
+
+  // CẬP NHẬT SỐ ĐẾM BADGE LÊN BIỂU TƯỢNG APP NGOÀI MÀN HÌNH ĐIỆN THOẠI (ANDROID & IPHONE)
+  if (self.navigator && 'setAppBadge' in self.navigator) {
+    if (badgeCount > 0) {
+      self.navigator.setAppBadge(badgeCount).catch(() => {});
+    } else {
+      self.navigator.clearAppBadge().catch(() => {});
+    }
+  }
 
   const options = {
     body: body,
