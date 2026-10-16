@@ -4660,18 +4660,50 @@ function renderUnitSubmitTab() {
 
 
 
-  // SẮP XẾP TIÊU CHÍ THEO THỨ TỰ THỜI GIAN THÁNG 1, 2, 3... (Ảnh 3)
-
+  // SẮP XẾP TIÊU CHÍ: CÁC TIÊU CHÍ ĐANG CÒN HẠN NỘP LÊN TRÊN CÙNG & THEO TRÌNH TỰ THỜI GIAN
   unitCriteriaList.sort((a, b) => {
+    const stA = getCriterionStatus(a);
+    const stB = getCriterionStatus(b);
+
+    const isBlankA = Number(a.is_report) === 3;
+    const isBlankB = Number(b.is_report) === 3;
+
+    // Nhóm 1: Đang còn hạn nộp (canSubmit) -> LÊN TRÊN CÙNG
+    // Nhóm 2: Chưa đến ngày mở nộp (upcoming)
+    // Nhóm 3: Đã quá hạn (expired / khóa)
+    // Nhóm 4: Tiêu chí nội dung trống / ghi chú (isBlank)
+    const getPrio = (c, st, isBlank) => {
+      if (isBlank) return 4;
+      if (st.canSubmit) return 1;
+      if (st.status === 'upcoming') return 2;
+      return 3;
+    };
+
+    const prioA = getPrio(a, stA, isBlankA);
+    const prioB = getPrio(b, stB, isBlankB);
+
+    if (prioA !== prioB) {
+      return prioA - prioB;
+    }
+
+    // Trong cùng một nhóm: sắp xếp theo trình tự thời gian (hạn nộp gần nhất trước)
+    const dlA = a.deadline || '9999-12-31';
+    const dlB = b.deadline || '9999-12-31';
+    if (dlA !== dlB) {
+      return dlA.localeCompare(dlB);
+    }
+
+    const sdA = a.start_date || '9999-12-31';
+    const sdB = b.start_date || '9999-12-31';
+    if (sdA !== sdB) {
+      return sdA.localeCompare(sdB);
+    }
 
     const mgA = Number(a.month_group) || 999;
-
     const mgB = Number(b.month_group) || 999;
-
     if (mgA !== mgB) return mgA - mgB;
 
     return (Number(a.id) || 0) - (Number(b.id) || 0);
-
   });
 
 
@@ -4929,20 +4961,6 @@ function renderUnitSubmitTab() {
                       }
 
                     </div>
-
-                    ${c.gdrive_folder_url && isAdmin ? `
-
-                      <div style="margin-top:4px;">
-
-                        <a href="${escapeHtml(c.gdrive_folder_url)}" target="_blank" style="font-size:11px; font-weight:700; color:#15803d; text-decoration:none; display:inline-flex; align-items:center; gap:4px; background:#dcfce7; padding:2px 8px; border-radius:4px; border:1px solid #86efac;" title="Thư mục Google Drive tiếp nhận báo cáo của tiêu chí này (Chỉ hiển thị cho Quản trị viên)">
-
-                          📁 Thư mục Google Drive tiếp nhận ↗
-
-                        </a>
-
-                      </div>
-
-                    ` : ''}
 
                     ${
 
@@ -5234,14 +5252,6 @@ function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rank
               </div>
             </div>
 
-            ${c.gdrive_folder_url && isAdminUser ? `
-              <div>
-                <a href="${escapeHtml(c.gdrive_folder_url)}" target="_blank" style="font-size:11.5px; font-weight:700; color:#15803d; text-decoration:none; display:inline-flex; align-items:center; gap:4px; background:#dcfce7; padding:4px 9px; border-radius:6px; border:1px solid #86efac;" title="Thư mục Google Drive tiếp nhận báo cáo của tiêu chí này (Chỉ hiển thị cho Quản trị viên)">
-                  📁 Thư mục Google Drive tiếp nhận ↗
-                </a>
-              </div>
-            ` : ''}
-
             ${isAdminScore ? (sc && (sc.report_content || sc.admin_note) ? `
               <div style="font-size:12px; color:#0369a1; background:#f0f9ff; padding:6px 10px; border-radius:6px; border:1px solid #bae6fd;">
                 👑 <b>Nhận xét của Admin:</b> ${escapeHtml(sc.admin_note || sc.report_content)}
@@ -5408,7 +5418,7 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
 
             </div>
 
-            ${crit.gdrive_folder_url && isAdmin ? `
+            ${crit.gdrive_folder_url && state.user && state.user.role === 'admin' ? `
 
               <div style="margin-top:6px; margin-bottom:4px;">
 
@@ -15128,64 +15138,96 @@ function isMsgClearedForMe(m, roomKey) {
 
 
 
-function getChatLastReadTime(roomKey) {
-
-  try {
-
-    const uId = state.user ? state.user.id : 0;
-
-    const key = `doan2026_chat_read_${uId}_${roomKey}`;
-
-    return Number(localStorage.getItem(key)) || 0;
-
-  } catch (e) { return 0; }
-
+function getMsgTimestamp(m) {
+  if (!m) return 0;
+  if (m.timestamp && Number(m.timestamp) > 0) return Number(m.timestamp);
+  if (m.id && typeof m.id === 'string' && m.id.startsWith('msg_')) {
+    const parts = m.id.split('_');
+    const ts = Number(parts[1]);
+    if (!isNaN(ts) && ts > 0) return ts;
+  }
+  if (m.created_at) {
+    const t = new Date(m.created_at).getTime();
+    if (!isNaN(t) && t > 0) return t;
+    const dMatch = String(m.created_at).match(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
+    if (dMatch) {
+      const parsed = new Date(`${dMatch[1]}-${dMatch[2].padStart(2, '0')}-${dMatch[3].padStart(2, '0')}`).getTime();
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+  }
+  return 0;
 }
 
+function getChatUserStorageKey() {
+  if (!state.user) return 'guest';
+  if (state.user.role === 'admin') return 'admin';
+  return 'unit_' + (state.user.id !== undefined ? state.user.id : 0);
+}
 
+function getChatLastReadTime(roomKey) {
+  try {
+    const userKey = getChatUserStorageKey();
+    const specificRead = Number(localStorage.getItem(`doan2026_chat_read_${userKey}_${roomKey}`)) || 0;
+    const allRead = Number(localStorage.getItem(`doan2026_chat_all_read_${userKey}`)) || 0;
+    return Math.max(specificRead, allRead);
+  } catch (e) { return 0; }
+}
 
 function setChatRoomAsRead(roomKey) {
-
   try {
-
-    const uId = state.user ? state.user.id : 0;
-
-    const key = `doan2026_chat_read_${uId}_${roomKey}`;
-
-    localStorage.setItem(key, String(Date.now()));
-
+    const userKey = getChatUserStorageKey();
+    localStorage.setItem(`doan2026_chat_read_${userKey}_${roomKey}`, String(Date.now()));
   } catch (e) {}
-
 }
 
-
+window.markAllChatAsRead = function() {
+  try {
+    const now = Date.now();
+    const userKey = getChatUserStorageKey();
+    localStorage.setItem(`doan2026_chat_all_read_${userKey}`, String(now));
+    localStorage.setItem(`doan2026_chat_read_${userKey}_public`, String(now));
+    (state.units || []).forEach(u => {
+      localStorage.setItem(`doan2026_chat_read_${userKey}_${getPrivateRoomKey(0, u.id)}`, String(now));
+      if (state.user && state.user.id) {
+        localStorage.setItem(`doan2026_chat_read_${userKey}_${getPrivateRoomKey(state.user.id, u.id)}`, String(now));
+      }
+    });
+  } catch (e) {}
+  renderApp();
+  if (window.showToast) showToast('Đã đánh dấu tất cả tin nhắn là đã đọc!', 'success');
+};
 
 function getUnreadCountForChatRoom(roomKey) {
+  if (!state.user) return 0;
 
-  const isAdmin = state.user && state.user.role === 'admin';
+  // Nếu ô chat đang mở và đang xem đúng phòng này thì coi như đã đọc
+  if (state.chatOpen && getChatRoomKey() === roomKey) {
+    return 0;
+  }
 
+  const isAdmin = state.user.role === 'admin';
   const myId = isAdmin ? 0 : (state.user ? Number(state.user.id) : 0);
-
+  const myName = (state.user && state.user.unit_name) || '';
   const lastRead = getChatLastReadTime(roomKey);
 
   const msgs = (state.chatMessages || []).filter(m => {
-
     if (!isMsgInRoom(m, roomKey)) return false;
-
     if (isMsgClearedForMe(m, roomKey)) return false;
 
-    const isMine = (m.sender_id === myId) || (isAdmin && m.sender_role === 'admin');
-
+    // Tin do chính người đang đăng nhập gửi thì không tính là chưa đọc
+    const sId = Number(m.sender_id);
+    const isMine = (sId === myId && myId !== undefined) ||
+                   (isAdmin && m.sender_role === 'admin') ||
+                   (!isAdmin && (sId === Number(state.user.id) || (myName && m.sender_name === myName)));
     if (isMine) return false;
 
-    const mTime = new Date(m.created_at).getTime() || 0;
+    const mTime = getMsgTimestamp(m);
+    if (!mTime) return false;
 
     return mTime > lastRead;
-
   });
 
   return msgs.length;
-
 }
 
 
@@ -16988,6 +17030,10 @@ function renderFloatingChatWidget() {
 
   if (!state.user) return '';
 
+  if (state.chatOpen) {
+    setChatRoomAsRead(getChatRoomKey());
+  }
+
   const isAdmin = state.user.role === 'admin';
 
   const myId = isAdmin ? 0 : (state.user ? Number(state.user.id) : 0);
@@ -17140,6 +17186,10 @@ function renderFloatingChatWidget() {
           </div>
 
           <div style="display:flex; align-items:center; gap:6px;">
+
+            <button class="btn btn-sm" onclick="markAllChatAsRead()" style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.45); color:#fff; font-size:11px; font-weight:700; padding:2px 8px; border-radius:5px; cursor:pointer;" title="Đánh dấu tất cả tin nhắn trong hệ thống là đã đọc">
+              ✓ Đã đọc hết
+            </button>
 
             <button class="btn btn-sm" onclick="openClearChatOptionsModal()" style="background:rgba(239,68,68,0.25); border:1px solid rgba(239,68,68,0.5); color:#fff; font-size:11px; font-weight:700; padding:2px 7px;" title="Tùy chọn xóa / làm mới lịch sử chat">
 
