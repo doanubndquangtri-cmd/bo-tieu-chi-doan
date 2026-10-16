@@ -7386,6 +7386,7 @@ window.WebPushManager = {
             title: title,
             message: message,
             url: url || './',
+            badgeType: (options && options.badgeType) ? options.badgeType : 'SetTo',
             badgeCount: (typeof getTotalBadgeCount === 'function' ? getTotalBadgeCount() : 1) || 1,
             targetRole: targetRole || null,
             targetUnitId: targetUnitId !== undefined ? targetUnitId : null
@@ -7399,6 +7400,7 @@ window.WebPushManager = {
     // D. Gửi trực tiếp qua OneSignal REST API
     try {
       const bCount = (typeof getTotalBadgeCount === 'function' ? getTotalBadgeCount() : 1) || 1;
+      const bType = (options && options.badgeType) ? options.badgeType : 'SetTo';
       const payload = {
         app_id: appId,
         headings: { en: title, vi: title },
@@ -7406,11 +7408,11 @@ window.WebPushManager = {
         web_url: url || './',
         chrome_web_icon: 'https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/icon-192.png',
         chrome_web_badge: 'https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/favicon.png',
-        ios_badgeType: 'SetTo',
-        ios_badgeCount: bCount,
-        android_badge_type: 'SetTo',
-        android_badge_count: bCount,
-        data: { url: url || './', badgeCount: bCount }
+        ios_badgeType: bType,
+        ios_badgeCount: bType === 'Increase' ? 1 : bCount,
+        android_badge_type: bType,
+        android_badge_count: bType === 'Increase' ? 1 : bCount,
+        data: { url: url || './', badgeCount: bCount, badgeType: bType }
       };
 
       if (targetRole) {
@@ -7418,7 +7420,7 @@ window.WebPushManager = {
       } else if (targetUnitId !== undefined && targetUnitId !== null) {
         payload.filters = [{ field: 'tag', key: 'unit_id', relation: '=', value: String(targetUnitId) }];
       } else {
-        payload.included_segments = ['Subscribed Users'];
+        payload.included_segments = ['Total Subscriptions', 'Subscribed Users'];
       }
 
       fetch('https://onesignal.com/api/v1/notifications', {
@@ -21627,15 +21629,28 @@ window.sendChatMessage = async function() {
           targetUnitId = partnerId;
           pushTitle = `💬 [Tin nhắn riêng] ${senderName}`;
         } else {
-          targetRole = 'admin';
-          pushTitle = `💬 [Tin nhắn riêng] ${senderName}`;
+          if (partnerId === 0 || !partnerId) {
+            targetRole = 'admin';
+            targetUnitId = null;
+            pushTitle = `💬 [Tin nhắn gửi Admin] ${senderName}`;
+          } else {
+            targetUnitId = partnerId;
+            targetRole = null;
+            pushTitle = `💬 [Tin nhắn riêng] ${senderName}`;
+          }
         }
+      } else {
+        pushTitle = `💬 [Trao Đổi Toàn Khối] ${senderName}`;
+        targetRole = null;
+        targetUnitId = null;
       }
       window.WebPushManager.sendPushNotification({
         title: pushTitle,
         message: text.length > 80 ? text.substring(0, 80) + '...' : text,
         targetRole: targetRole,
         targetUnitId: targetUnitId,
+        badgeType: 'Increase',
+        badgeCount: 1,
         url: './'
       });
     }
