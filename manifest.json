@@ -1,8 +1,10 @@
 {
+  "id": "doan-tieu-chi-2026",
   "name": "Bộ Tiêu Chí Đoàn Cấp Cơ Sở 2026",
   "short_name": "Tiêu Chí Đoàn",
   "description": "Hệ thống quản lý, nộp báo cáo và tổng hợp bộ tiêu chí Đoàn cấp cơ sở năm 2026",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#0052cc",
   "theme_color": "#0052cc",
