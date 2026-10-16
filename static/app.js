@@ -2413,7 +2413,7 @@ function renderApp() {
 
     ${isViewingAsUnit ? `
 
-      <div style="background: linear-gradient(90deg, #fef3c7, #fed7aa); color: #9a3412; padding: 7px 20px; font-size: 13px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f59e0b; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+      <div class="admin-view-as-banner" style="background: linear-gradient(90deg, #fef3c7, #fed7aa); color: #9a3412; padding: 7px 20px; font-size: 13px; font-weight: 700; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f59e0b; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
 
         <div style="display:flex; align-items:center; gap:8px;">
 
@@ -4714,7 +4714,25 @@ function renderUnitSubmitTab() {
 
 
 
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+  if (isMobile && state.mobileUnitSubmitViewMode !== 'table') {
+    return renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rankings, monthButtons, monthFilter);
+  }
+
   return `
+    ${isMobile ? `
+      <div class="mobile-view-toggle-bar">
+        <button class="mobile-toggle-btn" onclick="setMobileUnitSubmitViewMode('cards')">
+          📱 Chế Độ Thẻ (Dễ nộp trên điện thoại)
+        </button>
+        <button class="mobile-toggle-btn active" onclick="setMobileUnitSubmitViewMode('table')">
+          📊 Xem Dạng Bảng Kẻ Ô
+        </button>
+      </div>
+      <div class="mobile-scroll-hint" style="background:#eff6ff; color:#1e40af; padding:8px 12px; border-radius:6px; font-size:12px; margin-bottom:8px; border:1px solid #bfdbfe;">
+        👉 <b>Mẹo:</b> Vuốt ngang sang phải để xem cột "Thao tác" và nộp báo cáo, hoặc bấm chuyển sang <b>📱 Chế Độ Thẻ</b> để bấm nộp ngay!
+      </div>
+    ` : ''}
 
     <div class="stats-grid" style="flex-shrink: 0; margin-bottom: 10px;">
 
@@ -5087,6 +5105,183 @@ window.setUnitMonthFilter = function (val) {
   renderApp();
 
 };
+
+window.setMobileUnitSubmitViewMode = function (mode) {
+
+  state.mobileUnitSubmitViewMode = mode;
+
+  renderApp();
+
+};
+
+function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rankings, monthButtons, monthFilter) {
+  return `
+    <div class="mobile-view-toggle-bar">
+      <button class="mobile-toggle-btn active" onclick="setMobileUnitSubmitViewMode('cards')">
+        📱 Chế Độ Thẻ (Dễ nộp trên điện thoại)
+      </button>
+      <button class="mobile-toggle-btn" onclick="setMobileUnitSubmitViewMode('table')">
+        📊 Xem Dạng Bảng Kẻ Ô
+      </button>
+    </div>
+
+    <div class="stats-grid" style="flex-shrink: 0; margin-bottom: 8px;">
+      <div class="stat-card">
+        <span class="stat-label">Đơn vị</span>
+        <div style="font-size: 13.5px; font-weight: 800; color: #0f172a; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(unit.unit_name)}">
+          ${escapeHtml(unit.unit_name)}
+        </div>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Tổng Điểm</span>
+        <span class="stat-value" style="color: #0052cc;">${formatScore(myRankObj.total) || '0'} đ</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Thứ Hạng</span>
+        <span class="stat-value" style="color: #d97706;">Hạng ${myRankObj.rank} / ${rankings.length}</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Đã Có Điểm</span>
+        <span class="stat-value" style="color: #16a34a;">${myRankObj.criteriaCount} / ${state.criteria.length}</span>
+      </div>
+    </div>
+
+    <div style="margin-bottom:10px;">
+      <div style="font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">📅 Lọc theo Tháng / Kỳ:</div>
+      <div class="month-pills" style="display:flex; overflow-x:auto; gap:5px; padding-bottom:6px; -webkit-overflow-scrolling:touch;">
+        ${monthButtons.map(m => `
+          <button class="month-pill ${monthFilter === m.val ? 'active' : ''}" onclick="setUnitMonthFilter(${m.val})" style="font-size:11.5px; padding:5px 10px; white-space:nowrap; flex-shrink:0;">
+            ${m.label}
+          </button>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="mobile-cards-list" style="padding-bottom: 60px;">
+      ${unitCriteriaList.length === 0 ? `
+        <div style="text-align:center; padding:30px 15px; color:#64748b; background:#fff; border-radius:10px; border:1px dashed #cbd5e1;">
+          📭 Không có tiêu chí nào trong tháng được chọn
+        </div>
+      ` : unitCriteriaList.map(c => {
+        const sc = getScoreObj(unit.id, c.id);
+        const st = getCriterionStatus(c);
+        const scoreVal = sc && sc.score !== null && sc.score !== '' ? Number(sc.score) : null;
+        const startDate = c.start_date || '2026-01-01';
+        const isReport = Number(c.is_report) === 1;
+        const isAdminScore = Number(c.is_report) === 2;
+        const isBlankContent = Number(c.is_report) === 3;
+        const isActivity = !isReport && !isAdminScore && !isBlankContent;
+        const isPending = sc && (sc.approval_status === 'pending' || (sc.score === null && ((sc.files && sc.files.length > 0) || sc.file_path || sc.report_content || sc.evidence_link)));
+
+        let scoreBadge = '';
+        if (isBlankContent) {
+          scoreBadge = `<span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;">-</span>`;
+        } else if (scoreVal !== null) {
+          scoreBadge = `<span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-size:12px; font-weight:800;">✅ ${formatScore(scoreVal)} đ</span>`;
+        } else if (isPending) {
+          scoreBadge = `<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-size:11.5px; font-weight:700;">⏳ Chờ duyệt (+${formatScore(sc.self_score)}đ)</span>`;
+        } else {
+          scoreBadge = `<span class="badge" style="background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1; font-size:11.5px;">Chưa có điểm</span>`;
+        }
+
+        let typeBadge = '';
+        if (isAdminScore) {
+          typeBadge = `<span class="badge" style="background:#fef3c7; color:#b45309; font-size:10.5px; border:1px solid #fde68a; font-weight:700;">👑 Admin tự chấm</span>`;
+        } else if (isBlankContent) {
+          typeBadge = `<span class="badge" style="background:#f1f5f9; color:#475569; font-size:10.5px; border:1px solid #cbd5e1; font-weight:700;">📝 Nội dung trống</span>`;
+        } else if (isReport) {
+          typeBadge = `<span class="badge" style="background:#fef2f2; color:#b91c1c; font-size:10.5px; border:1px solid #fecaca; font-weight:700;">📋 Báo cáo định kỳ</span>`;
+        } else {
+          typeBadge = `<span class="badge" style="background:#eff6ff; color:#1d4ed8; font-size:10.5px; border:1px solid #bfdbfe; font-weight:700;">🎯 Hoạt động / Phong trào</span>`;
+        }
+
+        return `
+          <div class="mobile-submit-card ${scoreVal !== null ? 'has-score' : ''} ${isPending ? 'is-pending' : ''}">
+            <div class="mobile-submit-card-header">
+              <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                <span class="mobile-submit-col-badge">${escapeHtml(c.col_label)}</span>
+                <span class="mobile-submit-month-badge">📅 ${escapeHtml(c.month_label)}</span>
+                ${typeBadge}
+              </div>
+              <div style="margin-left:auto;">
+                ${scoreBadge}
+              </div>
+            </div>
+
+            <div class="mobile-submit-card-title">
+              ${escapeHtml(c.title)}
+            </div>
+
+            <div class="mobile-submit-card-meta">
+              <div>
+                <span style="color:#64748b;">Mức điểm:</span>
+                <b style="color:#0f172a; display:block; margin-top:1px;">${escapeHtml(c.points_text || c.max_score + ' điểm')}</b>
+              </div>
+              <div>
+                <span style="color:#64748b;">Hạn nộp chót:</span>
+                <b style="color:#dc2626; display:block; margin-top:1px;">${formatDateVN(c.deadline)}</b>
+              </div>
+              <div>
+                <span style="color:#64748b;">Bắt đầu:</span>
+                <span style="color:#059669; font-weight:600; display:block; margin-top:1px;">${formatDateVN(startDate)}</span>
+              </div>
+              <div>
+                <span style="color:#64748b;">Trạng thái hạn:</span>
+                <span class="badge ${st.badgeClass}" style="display:inline-block; margin-top:1px; font-size:10.5px;">${st.label}</span>
+              </div>
+            </div>
+
+            ${c.gdrive_folder_url ? `
+              <div>
+                <a href="${escapeHtml(c.gdrive_folder_url)}" target="_blank" style="font-size:11.5px; font-weight:700; color:#15803d; text-decoration:none; display:inline-flex; align-items:center; gap:4px; background:#dcfce7; padding:4px 9px; border-radius:6px; border:1px solid #86efac;">
+                  📁 Thư mục Google Drive tiếp nhận ↗
+                </a>
+              </div>
+            ` : ''}
+
+            ${isAdminScore ? (sc && (sc.report_content || sc.admin_note) ? `
+              <div style="font-size:12px; color:#0369a1; background:#f0f9ff; padding:6px 10px; border-radius:6px; border:1px solid #bae6fd;">
+                👑 <b>Nhận xét của Admin:</b> ${escapeHtml(sc.admin_note || sc.report_content)}
+              </div>
+            ` : '') : (sc && (sc.report_content || sc.file_name || sc.evidence_link) ? `
+              <div style="font-size:12px; color:#0369a1; background:#f0f9ff; padding:6px 10px; border-radius:6px; border:1px solid #bae6fd;">
+                📎 <b>Đã nộp (${escapeHtml(sc.submitted_date || '')}):</b> ${escapeHtml(sc.report_content || sc.file_name || sc.evidence_link)}
+                ${sc.file_path ? `<a href="${escapeHtml(sc.file_path)}" target="_blank" style="margin-left:6px; font-weight:700; color:#0052cc;">[Tải file]</a>` : ''}
+              </div>
+            ` : '')}
+
+            <!-- Nút thao tác TO RÕ DỄ BẤM TRÊN MOBILE -->
+            <div style="margin-top:2px;">
+              ${isBlankContent ? `
+                <div style="text-align:center; padding:8px; font-size:12px; color:#94a3b8; font-style:italic; background:#f8fafc; border-radius:6px;">
+                  📝 Tiêu chí ghi chú / Không cần nộp
+                </div>
+              ` : isAdminScore ? `
+                ${scoreVal !== null || (sc && (sc.report_content || sc.admin_note)) ? `
+                  <button class="btn btn-outline mobile-submit-action-btn" onclick="openSubmissionDetailModal(${unit.id}, ${c.id})" style="border-color:#0052cc; color:#0052cc;">
+                    👁️ Xem Chi Tiết Điểm & Nhận Xét
+                  </button>
+                ` : `
+                  <div style="text-align:center; padding:8px; font-size:12px; color:#64748b; font-style:italic; background:#f8fafc; border-radius:6px;">
+                    🔒 Quản trị viên chấm điểm trực tiếp
+                  </div>
+                `}
+              ` : st.canSubmit ? `
+                <button class="btn ${sc ? 'btn-outline' : (isActivity ? 'btn-success' : 'btn-primary')} mobile-submit-action-btn" onclick="openUnitSubmitModal(${c.id})">
+                  ${sc ? '✏️ Cập Nhật Báo Cáo / Minh Chứng Đã Nộp' : (isActivity ? '📤 Nộp Minh Chứng Hoạt Động (Tự Động Chấm)' : '📤 Nộp Báo Cáo Tháng Online')}
+                </button>
+              ` : `
+                <button class="btn btn-outline mobile-submit-action-btn" onclick="openUnitSubmitModal(${c.id})" style="opacity:0.9;">
+                  ${sc ? '👁️ Xem Lại Báo Cáo Đã Nộp' : '🔒 ' + st.label}
+                </button>
+              `}
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
 
 
 
