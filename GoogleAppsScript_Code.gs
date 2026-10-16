@@ -317,7 +317,13 @@ function doPost(e) {
         data: { url: data.url || "./", badgeCount: bCount, badgeType: bType, custom_data: data.customData || {} }
       };
 
-      if (data.targetRole) {
+      if (data.targetRole === "admin") {
+        pushPayload.filters = [
+          { field: "tag", key: "role", relation: "=", value: "admin" },
+          { operator: "OR" },
+          { field: "tag", key: "unit_id", relation: "=", value: "0" }
+        ];
+      } else if (data.targetRole) {
         pushPayload.filters = [
           { field: "tag", key: "role", relation: "=", value: data.targetRole }
         ];
