@@ -3235,7 +3235,7 @@ window.WebPushManager = {
       let dir = loc.pathname.substring(0, loc.pathname.lastIndexOf('/') + 1);
       if (!dir.startsWith('/')) dir = '/' + dir;
       if (!dir.endsWith('/')) dir = dir + '/';
-      const swRelPath = dir.replace(/^\//, '') + 'sw.js';
+      const swRelPath = dir.replace(/^\//, '') + 'OneSignalSDKWorker.js';
       const swScope = dir;
 
       window.OneSignalDeferred = window.OneSignalDeferred || [];
