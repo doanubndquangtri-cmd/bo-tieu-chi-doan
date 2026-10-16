@@ -2346,7 +2346,9 @@ async function initApp() {
 
   renderApp();
 
-
+  if (state.user && window.WebPushManager) {
+    window.WebPushManager.syncUser(state.user);
+  }
 
   // TỰ ĐỘNG ĐỒNG BỘ THỜI GIAN THỰC ĐỘ TRỄ CỰC THẤP (TỨC THÌ)
   setInterval(() => {
@@ -2956,7 +2958,9 @@ function loginAsUnit(unitObj) {
 
 
 window.handleLogout = function () {
-
+  if (window.WebPushManager && window.WebPushManager.logoutUser) {
+    window.WebPushManager.logoutUser();
+  }
   state.user = null;
 
   state.isAdminSession = false;
@@ -3015,6 +3019,8 @@ window.switchAccountQuick = function (val) {
 
     localStorage.setItem('doan2026_user', JSON.stringify(state.user));
 
+    if (window.WebPushManager) window.WebPushManager.syncUser(state.user);
+
     state.activeTab = 'master';
 
     showToast('Đã quay về quyền Quản trị viên (Admin)', 'info');
@@ -3038,6 +3044,8 @@ window.switchAccountQuick = function (val) {
     state.chatPrivatePartnerId = 0; // Mặc định chat riêng với Ban Thường vụ Đoàn UBND Tỉnh
 
     localStorage.setItem('doan2026_user', JSON.stringify(u));
+
+    if (window.WebPushManager) window.WebPushManager.syncUser(u);
 
     state.activeTab = 'unit_submit';
 
@@ -3278,35 +3286,92 @@ window.WebPushManager = {
     }
   },
 
-  // 2. Đồng bộ danh tính User với OneSignal (để gửi đúng người nhận: Admin hoặc Đơn vị cụ thể)
-  syncUser: function(user) {
+  // 2. Đồng bộ danh tính User với OneSignal (Chuẩn xác tuyệt đối giữa Admin và từng Cơ sở)
+  syncUser: function(user, forceFeedback) {
     if (!user) return;
     try {
       window.OneSignalDeferred = window.OneSignalDeferred || [];
       OneSignalDeferred.push(async function(OneSignal) {
         try {
-          const uId = String(user.id);
-          const uRole = user.role || 'unit';
-          const uName = user.unit_name || user.name || (uRole === 'admin' ? 'Ban Thường vụ' : 'Cơ sở Đoàn');
+          const isAdmin = user.role === 'admin' || Number(user.id) === 0;
+          const uId = isAdmin ? '0' : String(user.id);
+          const uRole = isAdmin ? 'admin' : 'unit';
+          const uName = isAdmin
+            ? 'Ban Thường vụ Đoàn UBND Tỉnh'
+            : (user.unit_name || user.name || ('Đoàn Cơ Sở ' + uId));
 
-          if (OneSignal.login) {
-            await OneSignal.login(uId);
+          // Đăng nhập định danh với OneSignal (Chuyển external_id sạch sẽ)
+          if (OneSignal.User && OneSignal.User.externalId && OneSignal.User.externalId !== uId) {
+            if (OneSignal.logout) {
+              await OneSignal.logout().catch(() => {});
+            }
           }
+          if (OneSignal.login) {
+            await OneSignal.login(uId).catch(err => console.warn('[WebPush] OneSignal login error:', err));
+          }
+
           if (OneSignal.User) {
-            if (OneSignal.User.addTags) {
-              await OneSignal.User.addTags({
-                role: uRole,
-                unit_id: uId,
-                unit_name: uName
-              });
-            } else if (OneSignal.User.addTag) {
+            // Lưu lại Subscription ID của thiết bị để phục vụ loại trừ khi gửi
+            if (OneSignal.User.PushSubscription && OneSignal.User.PushSubscription.id) {
+              try {
+                localStorage.setItem('onesignal_sub_id', OneSignal.User.PushSubscription.id);
+              } catch (e) {}
+            }
+
+            // Xóa sạch các thẻ tag cũ tránh còn tàn dư vai trò trước đó
+            try {
+              if (typeof OneSignal.User.removeTags === 'function') {
+                await OneSignal.User.removeTags(['role', 'unit_id', 'unit_name', 'user_id']);
+              } else if (typeof OneSignal.User.removeTag === 'function') {
+                await OneSignal.User.removeTag('role');
+                await OneSignal.User.removeTag('unit_id');
+                await OneSignal.User.removeTag('unit_name');
+                await OneSignal.User.removeTag('user_id');
+              }
+            } catch (rmErr) {}
+
+            // Gán lại bộ thẻ định danh chuẩn xác
+            const tagData = {
+              role: uRole,
+              unit_id: uId,
+              user_id: uId,
+              unit_name: uName
+            };
+
+            if (typeof OneSignal.User.addTags === 'function') {
+              await OneSignal.User.addTags(tagData);
+            } else if (typeof OneSignal.User.addTag === 'function') {
               await OneSignal.User.addTag('role', uRole);
               await OneSignal.User.addTag('unit_id', uId);
+              await OneSignal.User.addTag('user_id', uId);
+              await OneSignal.User.addTag('unit_name', uName);
+            }
+            console.log('[WebPush] ✅ Đã đồng bộ vai trò OneSignal thành công:', tagData);
+            if (forceFeedback && typeof showToast === 'function') {
+              showToast(`✅ Đã định danh thiết bị: <b>${escapeHtml(uName)}</b> (${isAdmin ? 'Admin' : 'Cơ sở ID ' + uId})`, 'success');
             }
           }
         } catch (tagErr) {
           console.warn('[WebPush] Lỗi sync user tags:', tagErr);
         }
+      });
+    } catch (e) {}
+  },
+
+  logoutUser: function() {
+    try {
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(async function(OneSignal) {
+        try {
+          if (OneSignal.User && OneSignal.User.removeTags) {
+            await OneSignal.User.removeTags(['role', 'unit_id', 'unit_name', 'user_id']);
+          }
+          if (OneSignal.logout) {
+            await OneSignal.logout();
+          }
+          localStorage.removeItem('onesignal_sub_id');
+          console.log('[WebPush] Đã đăng xuất OneSignal');
+        } catch (e) {}
       });
     } catch (e) {}
   },
@@ -3395,8 +3460,8 @@ window.WebPushManager = {
     const { title, message, url, targetRole, targetUnitId } = options || {};
     if (!title) return { ok: false };
 
-    // A. Hiển thị Desktop Local Notification trước (nếu tab đang mở)
-    window.WebPushManager.showLocalNativeNotification(title, message, url);
+    // TUYỆT ĐỐI KHÔNG GỌI showLocalNativeNotification Ở ĐÂY!
+    // Vì đây là máy của người gửi, người gửi không bao giờ được tự nhận thông báo của chính mình!
 
     // B. Kiểm tra cấu hình OneSignal trong state.settings
     const appId = ((state.settings && state.settings.onesignal_app_id) ? state.settings.onesignal_app_id.trim() : '') || DEFAULT_ONESIGNAL_APP_ID;
@@ -3422,17 +3487,41 @@ window.WebPushManager = {
       data: { url: url || './', badgeCount: bCount, badgeType: bType }
     };
 
-    if (targetRole === 'admin') {
+    // Loại trừ thiết bị của người gửi để OneSignal không gửi ngược lại chính mình
+    let currentSubId = null;
+    try {
+      if (window.OneSignal && window.OneSignal.User && window.OneSignal.User.PushSubscription) {
+        currentSubId = window.OneSignal.User.PushSubscription.id;
+      }
+      if (!currentSubId) {
+        currentSubId = localStorage.getItem('onesignal_sub_id');
+      }
+    } catch (e) {}
+
+    if (currentSubId && typeof currentSubId === 'string' && currentSubId.length > 10) {
+      payload.exclude_subscription_ids = [currentSubId];
+    }
+
+    // Phân luồng đối tượng nhận chính xác:
+    if (targetRole === 'admin' || targetUnitId === 0 || targetUnitId === '0') {
+      // Tin gửi cho Admin: Chỉ các thiết bị mang vai trò Admin hoặc unit_id 0 nhận
       payload.filters = [
         { field: 'tag', key: 'role', relation: '=', value: 'admin' },
         { operator: 'OR' },
         { field: 'tag', key: 'unit_id', relation: '=', value: '0' }
       ];
+    } else if (targetUnitId !== undefined && targetUnitId !== null && Number(targetUnitId) > 0) {
+      // Tin gửi cho Cơ sở Đoàn cụ thể (ví dụ Đơn vị 4):
+      // Chỉ gửi cho thiết bị có unit_id tương ứng VÀ KHÔNG PHẢI là Admin!
+      payload.filters = [
+        { field: 'tag', key: 'unit_id', relation: '=', value: String(targetUnitId) },
+        { operator: 'AND' },
+        { field: 'tag', key: 'role', relation: '!=', value: 'admin' }
+      ];
     } else if (targetRole) {
       payload.filters = [{ field: 'tag', key: 'role', relation: '=', value: targetRole }];
-    } else if (targetUnitId !== undefined && targetUnitId !== null) {
-      payload.filters = [{ field: 'tag', key: 'unit_id', relation: '=', value: String(targetUnitId) }];
     } else {
+      // Toàn thể cơ sở (thông báo chung toàn khối)
       payload.included_segments = ['Total Subscriptions'];
     }
 
@@ -3485,7 +3574,8 @@ window.WebPushManager = {
               badgeType: bType,
               badgeCount: bCount,
               targetRole: targetRole || null,
-              targetUnitId: targetUnitId !== undefined ? targetUnitId : null
+              targetUnitId: targetUnitId !== undefined ? targetUnitId : null,
+              excludeSubscriptionId: currentSubId || null
             })
           }).catch(() => {});
         } catch (errGas) {
@@ -3618,8 +3708,19 @@ window.WebPushManager = {
             </div>
 
             <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;">
-              <button class="btn btn-primary" onclick="WebPushManager.resubscribePush()" style="font-weight:700; padding:10px; font-size:13.5px; background:linear-gradient(135deg, #0284c7, #0052cc); color:#fff; border:none; box-shadow:0 2px 4px rgba(2,132,199,0.3); border-radius:6px;">
-                ⚡ Kích Hoạt Kết Nối Push (Cho Điện Thoại Này)
+              <div style="background:#e0f2fe; border:1px solid #bae6fd; border-radius:8px; padding:10px; margin-bottom:8px; font-size:12.5px;">
+                <div style="color:#0369a1; font-weight:700;">👤 Vai trò thiết bị này hiện tại:</div>
+                <div style="font-size:13px; font-weight:800; color:#0c4a6e; margin-top:2px;">
+                  ${state.user ? (state.user.role === 'admin' ? '👑 Ban Thường vụ Tỉnh Đoàn (Admin)' : '🏢 ' + escapeHtml(state.user.unit_name || 'Cơ sở ID ' + state.user.id)) : '⚠️ Chưa đăng nhập'}
+                </div>
+              </div>
+
+              <button class="btn btn-primary" onclick="WebPushManager.syncUser(state.user, true)" style="font-weight:700; padding:9px; font-size:13px; background:linear-gradient(135deg, #0284c7, #0052cc); color:#fff; border:none; box-shadow:0 2px 4px rgba(2,132,199,0.3); border-radius:6px;">
+                🔄 Đồng Bộ Lại Vai Trò (Admin / Cơ Sở)
+              </button>
+
+              <button class="btn btn-outline" onclick="WebPushManager.resubscribePush()" style="font-weight:700; padding:8px; font-size:12.5px; border-color:#0284c7; color:#0284c7; border-radius:6px;">
+                ⚡ Đăng Ký Lại Kênh Push (Resubscribe)
               </button>
 
               ${isGranted ? `
@@ -17734,12 +17835,13 @@ window.sendChatMessage = async function() {
     if (isPrivate) {
       if (isAdmin) {
         targetUnitId = partnerId;
-        pushTitle = `💬 [Tin nhắn riêng] ${senderName}`;
+        targetRole = null;
+        pushTitle = `💬 [Ban Thường vụ gửi] ${senderName}`;
       } else {
         if (partnerId === 0 || !partnerId) {
           targetRole = 'admin';
-          targetUnitId = null;
-          pushTitle = `💬 [Tin nhắn gửi Admin] ${senderName}`;
+          targetUnitId = 0;
+          pushTitle = `💬 [Cơ sở Đoàn gửi BTV] ${senderName}`;
         } else {
           targetUnitId = partnerId;
           targetRole = null;
@@ -24332,6 +24434,14 @@ function handleIncomingRealtimeChat(msg) {
   if (exists) return;
 
   state.chatMessages.push(msg);
+
+  // BỎ QUA HOÀN TOÀN TIN NHẮN DO CHÍNH MÌNH VỪA GỬI (Không chuông, không badge, không popup)
+  const myId = state.user ? Number(state.user.id) : null;
+  const isSenderMe = myId !== null && Number(msg.sender_id) === myId;
+  if (isSenderMe) {
+    if (state.chatOpen) renderApp();
+    return;
+  }
 
   // Nếu đang mở đúng phòng chat này -> Hiển thị tin nhắn ngay tức khắc và cuộn xuống
   const currentRoom = typeof getChatRoomKey === 'function' ? getChatRoomKey() : 'public';
