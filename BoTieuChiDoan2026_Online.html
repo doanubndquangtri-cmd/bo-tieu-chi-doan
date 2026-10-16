@@ -7523,33 +7523,44 @@ window.WebPushManager = {
 
     const bCount = (typeof getTotalBadgeCount === 'function' ? getTotalBadgeCount() : 1) || 1;
     const bType = (options && options.badgeType) ? options.badgeType : 'SetTo';
+    const siteBaseUrl = (typeof window !== 'undefined' && window.location && window.location.origin)
+      ? (window.location.origin + window.location.pathname)
+      : 'https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/';
+    const fullTargetUrl = (url && String(url).startsWith('http')) ? url : siteBaseUrl;
+
     const payload = {
       app_id: appId,
       headings: { en: title, vi: title },
       contents: { en: message, vi: message },
-      web_url: url || './',
+      web_url: fullTargetUrl,
+      priority: 10,
+      android_visibility: 1,
+      ttl: 259200,
       chrome_web_icon: 'https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/icon-192.png',
       chrome_web_badge: 'https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/favicon.png',
       ios_badgeType: bType,
       ios_badgeCount: bType === 'Increase' ? 1 : bCount,
       android_badge_type: bType,
       android_badge_count: bType === 'Increase' ? 1 : bCount,
-      data: { url: url || './', badgeCount: bCount, badgeType: bType }
+      data: { url: fullTargetUrl, badgeCount: bCount, badgeType: bType }
     };
 
-    // Loại trừ thiết bị của người gửi để OneSignal không gửi ngược lại chính mình
-    let currentSubId = null;
-    try {
-      if (window.OneSignal && window.OneSignal.User && window.OneSignal.User.PushSubscription) {
-        currentSubId = window.OneSignal.User.PushSubscription.id;
-      }
-      if (!currentSubId) {
-        currentSubId = localStorage.getItem('onesignal_sub_id');
-      }
-    } catch (e) {}
+    // Chỉ loại trừ thiết bị người gửi trong thông báo chung toàn khối (public)
+    // Đối với tin nhắn riêng 1-1, bộ lọc tag role: admin và unit_id đã hoàn toàn tách biệt
+    if (!targetRole && (targetUnitId === undefined || targetUnitId === null)) {
+      let currentSubId = null;
+      try {
+        if (window.OneSignal && window.OneSignal.User && window.OneSignal.User.PushSubscription) {
+          currentSubId = window.OneSignal.User.PushSubscription.id;
+        }
+        if (!currentSubId) {
+          currentSubId = localStorage.getItem('onesignal_sub_id');
+        }
+      } catch (e) {}
 
-    if (currentSubId && typeof currentSubId === 'string' && currentSubId.length > 10) {
-      payload.exclude_subscription_ids = [currentSubId];
+      if (currentSubId && typeof currentSubId === 'string' && currentSubId.length > 10) {
+        payload.exclude_subscription_ids = [currentSubId];
+      }
     }
 
     // Phân luồng đối tượng nhận chính xác:
