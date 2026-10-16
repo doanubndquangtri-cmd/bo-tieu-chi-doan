@@ -6,22 +6,36 @@ try {
   console.warn('[OneSignalWorker] Could not import OneSignalSDK.sw.js:', e);
 }
 
-// ĐẢM BẢO MỌI THÔNG BÁO PUSH ĐỀU RUNG MẠNH, BẬT MÀN HÌNH KHÓA VÀ HIỆN BANNER NỔI
+// ĐẢM BẢO MỌI THÔNG BÁO PUSH ĐỀU CÓ TAG DUY NHẤT (KHÔNG ĐÈ NHAU), RUNG MẠNH, VÀ TÍNH ĐÚNG SỐ BADGE TRÊN LOGO APP
 if (typeof self !== 'undefined' && self.registration) {
   const _origShowNotification = self.registration.showNotification.bind(self.registration);
-  self.registration.showNotification = function(title, options) {
+  self.registration.showNotification = async function(title, options) {
     options = options || {};
+    // Bắt buộc gán tag duy nhất để các tin nhắn gửi liên tục KHÔNG BỊ ĐÈ MẤT NHAU
+    options.tag = 'tieuchidoan_msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
     options.vibrate = options.vibrate || [500, 200, 500, 200, 500];
     options.renotify = true;
     options.requireInteraction = true;
     options.silent = false;
     if (!options.badge) options.badge = './favicon.png';
     if (!options.icon) options.icon = './icon-192.png';
+
+    // Đếm chính xác số lượng thông báo đang có trong khay để hiển thị đúng số badge (1, 2, 3, 4...)
+    try {
+      if (self.registration.getNotifications) {
+        const notifs = await self.registration.getNotifications();
+        const activeCount = notifs.length + 1;
+        if (self.navigator && 'setAppBadge' in self.navigator) {
+          self.navigator.setAppBadge(activeCount).catch(() => {});
+        }
+      }
+    } catch (e) {}
+
     return _origShowNotification(title, options);
   };
 }
 
-const SW_VERSION = '1792193116';
+const SW_VERSION = '1792194435';
 const CACHE_NAME = 'tieuchidoan-v' + SW_VERSION;
 const ASSETS_TO_CACHE = [
   './logo_doan.png',
@@ -92,6 +106,12 @@ self.addEventListener('message', (event) => {
       } else {
         self.navigator.clearAppBadge().catch(() => {});
       }
+    }
+    // Nếu count === 0 (người dùng đã vào đọc hết tin), tự động đóng sạch các thông báo trong khay
+    if (count === 0 && self.registration && self.registration.getNotifications) {
+      self.registration.getNotifications().then(notifs => {
+        notifs.forEach(n => n.close());
+      }).catch(() => {});
     }
   } else if (event.data.type === 'SHOW_NOTIFICATION') {
     const title = event.data.title || 'Bộ Tiêu Chí Đoàn';
@@ -175,7 +195,22 @@ self.addEventListener('notificationclick', (event) => {
   const targetUrl = (event.notification.data && event.notification.data.url) || './';
 
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+    (async () => {
+      // Cập nhật lại số đếm Badge theo số lượng thông báo còn lại trong khay
+      try {
+        if (self.registration.getNotifications) {
+          const remaining = await self.registration.getNotifications();
+          if (self.navigator && 'setAppBadge' in self.navigator) {
+            if (remaining.length > 0) {
+              await self.navigator.setAppBadge(remaining.length);
+            } else {
+              await self.navigator.clearAppBadge();
+            }
+          }
+        }
+      } catch (e) {}
+
+      const clientList = await clients.matchAll({ type: 'window', includeUncontrolled: true });
       for (let client of clientList) {
         if (client.url.includes(self.registration.scope) && 'focus' in client) {
           return client.focus();
@@ -184,6 +219,6 @@ self.addEventListener('notificationclick', (event) => {
       if (clients.openWindow) {
         return clients.openWindow(targetUrl);
       }
-    })
+    })()
   );
 });
