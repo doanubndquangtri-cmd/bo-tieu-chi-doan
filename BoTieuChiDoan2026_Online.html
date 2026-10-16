@@ -6857,6 +6857,7 @@ async function performLogin(username, password) {
     };
 
     state.user = adminUser;
+    if (window.WebPushManager) window.WebPushManager.syncUser(adminUser);
 
     state.isAdminSession = true;
 
@@ -6985,6 +6986,7 @@ async function performLogin(username, password) {
 function loginAsUnit(unitObj) {
 
   state.user = unitObj;
+  if (window.WebPushManager) window.WebPushManager.syncUser(unitObj);
 
   state.isAdminSession = false;
 
@@ -7252,18 +7254,32 @@ window.WebPushManager = {
       const appId = ((state.settings && state.settings.onesignal_app_id) ? state.settings.onesignal_app_id.trim() : '') || DEFAULT_ONESIGNAL_APP_ID;
       if (!appId) return;
 
+      const loc = window.location;
+      let dir = loc.pathname.substring(0, loc.pathname.lastIndexOf('/') + 1);
+      if (!dir.startsWith('/')) dir = '/' + dir;
+      if (!dir.endsWith('/')) dir = dir + '/';
+      const swRelPath = dir.replace(/^\//, '') + 'sw.js';
+      const swScope = dir;
+
       window.OneSignalDeferred = window.OneSignalDeferred || [];
       OneSignalDeferred.push(async function(OneSignal) {
         if (window.WebPushManager.isInitialized) return;
         try {
           await OneSignal.init({
             appId: appId,
-            serviceWorkerParam: { scope: './' },
-            serviceWorkerPath: 'OneSignalSDKWorker.js',
+            serviceWorkerPath: swRelPath,
+            serviceWorkerParam: { scope: swScope },
             allowLocalhostAsSecureOrigin: true,
             notifyButton: { enable: false }
           });
           window.WebPushManager.isInitialized = true;
+
+          // Nếu thiết bị đã cấp quyền thông báo trước đó, tự động opt-in để đảm bảo luôn active
+          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            if (OneSignal.User && OneSignal.User.PushSubscription && OneSignal.User.PushSubscription.optIn) {
+              await OneSignal.User.PushSubscription.optIn().catch(() => {});
+            }
+          }
 
           // Đồng bộ user tags nếu đã đăng nhập
           if (state.user) {
@@ -7306,8 +7322,7 @@ window.WebPushManager = {
                 unit_id: uId,
                 unit_name: uName
               });
-            }
-            if (OneSignal.User.addTag) {
+            } else if (OneSignal.User.addTag) {
               await OneSignal.User.addTag('role', uRole);
               await OneSignal.User.addTag('unit_id', uId);
             }
@@ -7322,9 +7337,21 @@ window.WebPushManager = {
   // 3. Yêu cầu cấp quyền nhận thông báo trên thiết bị hiện tại
   requestPermission: async function() {
     try {
-      if (typeof window.OneSignal !== 'undefined' && window.OneSignal.Notifications) {
-        await window.OneSignal.Notifications.requestPermission();
-      } else if (typeof Notification !== 'undefined') {
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(async function(OneSignal) {
+        try {
+          if (OneSignal.Notifications && OneSignal.Notifications.requestPermission) {
+            await OneSignal.Notifications.requestPermission();
+          }
+          if (OneSignal.User && OneSignal.User.PushSubscription && OneSignal.User.PushSubscription.optIn) {
+            await OneSignal.User.PushSubscription.optIn().catch(() => {});
+          }
+        } catch (pErr) {
+          console.warn('[WebPush] OneSignal requestPermission error:', pErr);
+        }
+      });
+
+      if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
         await Notification.requestPermission();
       }
 
@@ -7402,73 +7429,81 @@ window.WebPushManager = {
       return { ok: false, reason: 'Chưa cấu hình OneSignal App ID & REST API Key' };
     }
 
-    // C. Gửi qua Google Apps Script Web App (Server-to-Server, bảo mật, không bị CORS)
-    const gdriveUrl = typeof getGoogleDriveScriptUrl === 'function' ? getGoogleDriveScriptUrl() : '';
-    if (gdriveUrl && gdriveUrl.startsWith('http')) {
-      try {
-        fetch(gdriveUrl, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'send_push_notification',
-            appId: appId,
-            restApiKey: restApiKey,
-            title: title,
-            message: message,
-            url: url || './',
-            badgeType: (options && options.badgeType) ? options.badgeType : 'SetTo',
-            badgeCount: (typeof getTotalBadgeCount === 'function' ? getTotalBadgeCount() : 1) || 1,
-            targetRole: targetRole || null,
-            targetUnitId: targetUnitId !== undefined ? targetUnitId : null
-          })
-        }).catch(() => {});
-      } catch (errGas) {
-        console.warn('[WebPush] Lỗi gửi qua GAS:', errGas);
-      }
+    const bCount = (typeof getTotalBadgeCount === 'function' ? getTotalBadgeCount() : 1) || 1;
+    const bType = (options && options.badgeType) ? options.badgeType : 'SetTo';
+    const payload = {
+      app_id: appId,
+      headings: { en: title, vi: title },
+      contents: { en: message, vi: message },
+      web_url: url || './',
+      chrome_web_icon: 'https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/icon-192.png',
+      chrome_web_badge: 'https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/favicon.png',
+      ios_badgeType: bType,
+      ios_badgeCount: bType === 'Increase' ? 1 : bCount,
+      android_badge_type: bType,
+      android_badge_count: bType === 'Increase' ? 1 : bCount,
+      data: { url: url || './', badgeCount: bCount, badgeType: bType }
+    };
+
+    if (targetRole === 'admin') {
+      payload.filters = [
+        { field: 'tag', key: 'role', relation: '=', value: 'admin' },
+        { operator: 'OR' },
+        { field: 'tag', key: 'unit_id', relation: '=', value: '0' }
+      ];
+    } else if (targetRole) {
+      payload.filters = [{ field: 'tag', key: 'role', relation: '=', value: targetRole }];
+    } else if (targetUnitId !== undefined && targetUnitId !== null) {
+      payload.filters = [{ field: 'tag', key: 'unit_id', relation: '=', value: String(targetUnitId) }];
+    } else {
+      payload.included_segments = ['Total Subscriptions', 'Subscribed Users'];
     }
 
-    // D. Gửi trực tiếp qua OneSignal REST API
+    let directSent = false;
+    // C. Gửi trực tiếp qua OneSignal REST API (siêu nhanh)
     try {
-      const bCount = (typeof getTotalBadgeCount === 'function' ? getTotalBadgeCount() : 1) || 1;
-      const bType = (options && options.badgeType) ? options.badgeType : 'SetTo';
-      const payload = {
-        app_id: appId,
-        headings: { en: title, vi: title },
-        contents: { en: message, vi: message },
-        web_url: url || './',
-        chrome_web_icon: 'https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/icon-192.png',
-        chrome_web_badge: 'https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/favicon.png',
-        ios_badgeType: bType,
-        ios_badgeCount: bType === 'Increase' ? 1 : bCount,
-        android_badge_type: bType,
-        android_badge_count: bType === 'Increase' ? 1 : bCount,
-        data: { url: url || './', badgeCount: bCount, badgeType: bType }
-      };
-
-      if (targetRole === 'admin') {
-        payload.filters = [
-          { field: 'tag', key: 'role', relation: '=', value: 'admin' },
-          { operator: 'OR' },
-          { field: 'tag', key: 'unit_id', relation: '=', value: '0' }
-        ];
-      } else if (targetRole) {
-        payload.filters = [{ field: 'tag', key: 'role', relation: '=', value: targetRole }];
-      } else if (targetUnitId !== undefined && targetUnitId !== null) {
-        payload.filters = [{ field: 'tag', key: 'unit_id', relation: '=', value: String(targetUnitId) }];
-      } else {
-        payload.included_segments = ['Total Subscriptions', 'Subscribed Users'];
-      }
-
-      fetch('https://onesignal.com/api/v1/notifications', {
+      const resp = await fetch('https://onesignal.com/api/v1/notifications', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
           'Authorization': 'Basic ' + restApiKey
         },
         body: JSON.stringify(payload)
-      }).catch(() => {});
-    } catch (eDirect) {}
+      });
+      if (resp.ok) {
+        directSent = true;
+      }
+    } catch (eDirect) {
+      console.warn('[WebPush] Lỗi gửi trực tiếp OneSignal:', eDirect);
+    }
+
+    // D. Gửi dự phòng qua Google Apps Script Web App (nếu direct bị chặn CORS hoặc lỗi mạng)
+    if (!directSent) {
+      const gdriveUrl = typeof getGoogleDriveScriptUrl === 'function' ? getGoogleDriveScriptUrl() : '';
+      if (gdriveUrl && gdriveUrl.startsWith('http')) {
+        try {
+          fetch(gdriveUrl, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'send_push_notification',
+              appId: appId,
+              restApiKey: restApiKey,
+              title: title,
+              message: message,
+              url: url || './',
+              badgeType: bType,
+              badgeCount: bCount,
+              targetRole: targetRole || null,
+              targetUnitId: targetUnitId !== undefined ? targetUnitId : null
+            })
+          }).catch(() => {});
+        } catch (errGas) {
+          console.warn('[WebPush] Lỗi gửi qua GAS:', errGas);
+        }
+      }
+    }
 
     return { ok: true };
   },
@@ -7484,7 +7519,6 @@ window.WebPushManager = {
     showToast('🎉 Đã phát tín hiệu thông báo đẩy! Hãy thử khóa màn hình điện thoại hoặc thu nhỏ web để xem thông báo nổi.', 'success');
   },
 
-  // 8. Hiển thị modal quản lý thông báo
   showStatusModal: function() {
     const isGranted = window.WebPushManager.isPermissionGranted();
     const modalRoot = document.getElementById('modal-root');
