@@ -303,18 +303,24 @@ function doPost(e) {
 
       var bCount = Number(data.badgeCount || 1);
       var bType = data.badgeType || "SetTo";
+      var fullUrl = (data.url && String(data.url).indexOf("http") === 0)
+        ? data.url
+        : "https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/";
       var pushPayload = {
         app_id: appId,
         headings: { "en": data.title || "Bộ Tiêu Chí Đoàn", "vi": data.title || "Bộ Tiêu Chí Đoàn" },
         contents: { "en": data.message || "", "vi": data.message || "" },
-        web_url: data.url || "./",
+        web_url: fullUrl,
+        priority: 10,
+        android_visibility: 1,
+        ttl: 259200,
         chrome_web_icon: "https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/icon-192.png",
         chrome_web_badge: "https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/favicon.png",
         ios_badgeType: bType,
         ios_badgeCount: bType === "Increase" ? 1 : bCount,
         android_badge_type: bType,
         android_badge_count: bType === "Increase" ? 1 : bCount,
-        data: { url: data.url || "./", badgeCount: bCount, badgeType: bType, custom_data: data.customData || {} }
+        data: { url: fullUrl, badgeCount: bCount, badgeType: bType, custom_data: data.customData || {} }
       };
 
       if (data.excludeSubscriptionId) {
