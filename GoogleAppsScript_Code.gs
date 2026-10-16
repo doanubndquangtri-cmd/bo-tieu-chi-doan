@@ -291,6 +291,12 @@ function doPost(e) {
     if (data.action === "send_push_notification") {
       var appId = data.appId;
       var restApiKey = data.restApiKey;
+      if (restApiKey && restApiKey.indexOf("b64:") === 0) {
+        try {
+          var decodedBytes = Utilities.base64Decode(restApiKey.substring(4));
+          restApiKey = Utilities.newBlob(decodedBytes).getDataAsString();
+        } catch (eB64) {}
+      }
       if (!appId || !restApiKey) {
         return createJsonResponse({ status: "error", message: "Thiếu OneSignal App ID hoặc REST API Key!" });
       }
