@@ -7386,6 +7386,7 @@ window.WebPushManager = {
             title: title,
             message: message,
             url: url || './',
+            badgeCount: (typeof getTotalBadgeCount === 'function' ? getTotalBadgeCount() : 1) || 1,
             targetRole: targetRole || null,
             targetUnitId: targetUnitId !== undefined ? targetUnitId : null
           })
@@ -7397,13 +7398,19 @@ window.WebPushManager = {
 
     // D. Gửi trực tiếp qua OneSignal REST API
     try {
+      const bCount = (typeof getTotalBadgeCount === 'function' ? getTotalBadgeCount() : 1) || 1;
       const payload = {
         app_id: appId,
         headings: { en: title, vi: title },
         contents: { en: message, vi: message },
         web_url: url || './',
         chrome_web_icon: 'https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/icon-192.png',
-        chrome_web_badge: 'https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/favicon.png'
+        chrome_web_badge: 'https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/favicon.png',
+        ios_badgeType: 'SetTo',
+        ios_badgeCount: bCount,
+        android_badge_type: 'SetTo',
+        android_badge_count: bCount,
+        data: { url: url || './', badgeCount: bCount }
       };
 
       if (targetRole) {
@@ -7682,11 +7689,9 @@ function renderHeader() {
 
       <div class="brand-box" style="display: flex; align-items: center; flex-shrink: 0;">
 
-        <div class="brand-logo-badge-container" onclick="toggleNotificationPanel(event)" title="${totalBadgeCount > 0 ? `Có ${totalBadgeCount} thông báo và tin nhắn mới (Bấm để xem)` : 'Hệ Thống Quản Lý & Tổng Hợp Bộ Tiêu Chí Đoàn'}" style="position: relative; display: inline-flex; align-items: center; justify-content: center; margin-right: 8px; flex-shrink: 0; cursor: pointer;">
+        <div style="display: inline-flex; align-items: center; justify-content: center; margin-right: 8px; flex-shrink: 0;">
 
-          <img src="${LOGO_DOAN_SRC}" alt="Huy hiệu Đoàn" class="youth-badge" style="width:38px; height:38px; object-fit:contain; border:none; background:transparent; padding:0; display:block; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2)); transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'" />
-
-          ${totalBadgeCount > 0 ? `<span class="logo-facebook-badge" style="position: absolute; top: -5px; right: -7px; background: #ef4444; color: #ffffff; font-size: 10px; font-weight: 900; min-width: 19px; height: 19px; line-height: 15px; padding: 0 4px; border-radius: 12px; border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 10; animation: logoBadgePulse 2s infinite;">${totalBadgeCount > 99 ? '99+' : totalBadgeCount}</span>` : ''}
+          <img src="${LOGO_DOAN_SRC}" alt="Huy hiệu Đoàn" class="youth-badge" style="width:38px; height:38px; object-fit:contain; border:none; background:transparent; padding:0; display:block; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2));" />
 
         </div>
 
