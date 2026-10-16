@@ -18,7 +18,7 @@
   <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
   <link rel="icon" type="image/png" href="./favicon.png" />
 
-  <link rel="stylesheet" href="./styles.css?v=1792150203" />
+  <link rel="stylesheet" href="./styles.css?v=1792151667" />
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="./qrcode.min.js"></script>
   <!-- OneSignal Web Push SDK v16 (Hỗ trợ thông báo nổi màn hình khi tắt web/tắt máy) -->
@@ -28,7 +28,7 @@
   <div id="app"></div>
   <div id="modal-root"></div>
   <div id="toast-root" class="toast-container"></div>
-  <script src="./app.js?v=1792150203"></script>
+  <script src="./app.js?v=1792151667"></script>
   <script>
     // 1. Tự động lắng nghe khi có Service Worker mới kích hoạt để tải lại trang
     if ('serviceWorker' in navigator) {
@@ -41,7 +41,7 @@
       });
 
       window.addEventListener('load', function () {
-        navigator.serviceWorker.register('./sw.js?v=1792150203').then(function (reg) {
+        navigator.serviceWorker.register('./sw.js?v=1792151667').then(function (reg) {
           reg.update();
         }).catch(function (err) {
           console.log('SW reg error:', err);
