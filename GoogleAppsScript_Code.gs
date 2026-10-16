@@ -285,6 +285,62 @@ function doPost(e) {
     }
 
     // ---------------------------------------------------------------------
+    // TRƯỜNG HỢP 2B: GỬI WEB PUSH NOTIFICATION THỰC THỤ QUA ONESIGNAL
+    // HỖ TRỢ HIỂN THỊ THÔNG BÁO NỔI GÓC MÀN HÌNH PC & MÀN HÌNH KHÓA ĐIỆN THOẠI KHI TẮT WEB
+    // ---------------------------------------------------------------------
+    if (data.action === "send_push_notification") {
+      var appId = data.appId;
+      var restApiKey = data.restApiKey;
+      if (!appId || !restApiKey) {
+        return createJsonResponse({ status: "error", message: "Thiếu OneSignal App ID hoặc REST API Key!" });
+      }
+
+      var pushPayload = {
+        app_id: appId,
+        headings: { "en": data.title || "Bộ Tiêu Chí Đoàn", "vi": data.title || "Bộ Tiêu Chí Đoàn" },
+        contents: { "en": data.message || "", "vi": data.message || "" },
+        web_url: data.url || "./",
+        chrome_web_icon: "https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/icon-192.png",
+        chrome_web_badge: "https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/favicon.png",
+        data: { url: data.url || "./", custom_data: data.customData || {} }
+      };
+
+      if (data.targetRole) {
+        pushPayload.filters = [
+          { field: "tag", key: "role", relation: "=", value: data.targetRole }
+        ];
+      } else if (data.targetUnitId) {
+        pushPayload.filters = [
+          { field: "tag", key: "unit_id", relation: "=", value: String(data.targetUnitId) }
+        ];
+      } else {
+        pushPayload.included_segments = ["Subscribed Users"];
+      }
+
+      var pushOptions = {
+        method: "post",
+        contentType: "application/json; charset=utf-8",
+        headers: {
+          "Authorization": "Basic " + restApiKey
+        },
+        payload: JSON.stringify(pushPayload),
+        muteHttpExceptions: true
+      };
+
+      try {
+        var pushRes = UrlFetchApp.fetch("https://onesignal.com/api/v1/notifications", pushOptions);
+        return createJsonResponse({
+          status: "success",
+          code: pushRes.getResponseCode(),
+          response: pushRes.getContentText()
+        });
+      } catch (errPush) {
+        return createJsonResponse({ status: "error", message: errPush.toString() });
+      }
+    }
+
+
+    // ---------------------------------------------------------------------
     // TRƯỜNG HỢP 3B: TẢI ẢNH, VIDEO, TỆP TIN TRONG KHUNG CHAT (CHUNG & RIÊNG)
     // ---------------------------------------------------------------------
     if (data.action === "chat_upload_file") {
