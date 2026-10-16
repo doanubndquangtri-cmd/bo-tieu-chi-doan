@@ -5726,6 +5726,7 @@ function ingestCloudDB(db) {
 
   state.settings = settings;
   if (window.WebPushManager) window.WebPushManager.init();
+  if (window.initRealtimeLiveBridge) window.initRealtimeLiveBridge();
 
   state.admin_docs = db.admin_docs || [];
 
@@ -7269,7 +7270,8 @@ window.WebPushManager = {
       let dir = loc.pathname.substring(0, loc.pathname.lastIndexOf('/') + 1);
       if (!dir.startsWith('/')) dir = '/' + dir;
       if (!dir.endsWith('/')) dir = dir + '/';
-      const swRelPath = dir.replace(/^\//, '') + 'OneSignalSDKWorker.js';
+      // Đảm bảo đường dẫn tuyệt đối bắt đầu bằng / để không bị nhân đôi subpath
+      const swRelPath = dir + 'OneSignalSDKWorker.js';
       const swScope = dir;
 
       window.OneSignalDeferred = window.OneSignalDeferred || [];
@@ -7278,6 +7280,7 @@ window.WebPushManager = {
         try {
           await OneSignal.init({
             appId: appId,
+            path: dir,
             serviceWorkerPath: swRelPath,
             serviceWorkerParam: { scope: swScope },
             allowLocalhostAsSecureOrigin: true,
@@ -7285,11 +7288,22 @@ window.WebPushManager = {
           });
           window.WebPushManager.isInitialized = true;
 
-          // Nếu thiết bị đã cấp quyền thông báo trước đó, tự động opt-in để đảm bảo luôn active
-          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-            if (OneSignal.User && OneSignal.User.PushSubscription && OneSignal.User.PushSubscription.optIn) {
-              await OneSignal.User.PushSubscription.optIn().catch(() => {});
+          // Kích hoạt nhận Push ngay nếu quyền đã cấp
+          try {
+            if (OneSignal.User && OneSignal.User.PushSubscription) {
+              if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+                await OneSignal.User.PushSubscription.optIn();
+              }
+              if (OneSignal.User.PushSubscription.addEventListener) {
+                OneSignal.User.PushSubscription.addEventListener('change', function(evt) {
+                  if (evt && evt.current && evt.current.optedIn && state.user && window.WebPushManager) {
+                    window.WebPushManager.syncUser(state.user);
+                  }
+                });
+              }
             }
+          } catch (optErr) {
+            console.warn('[WebPush] OptIn error:', optErr);
           }
 
           // Đồng bộ user tags nếu đã đăng nhập
@@ -7522,12 +7536,44 @@ window.WebPushManager = {
   // 7. Gửi thử nghiệm Push Notification
   testPush: async function() {
     showToast('Đang gửi thử nghiệm thông báo đẩy đến tất cả thiết bị đã bật chuông...', 'info');
+    if (window.broadcastLiveEvent) window.broadcastLiveEvent('TEST_PUSH', { time: Date.now() });
     await window.WebPushManager.sendPushNotification({
       title: '🔔 [Thử Nghiệm] Hệ Thống Tiêu Chí Đoàn',
       message: 'Xin chào! Thông báo nổi trên màn hình Desktop & Điện thoại của bạn đang hoạt động cực kỳ hoàn hảo.',
       url: './'
     });
     showToast('🎉 Đã phát tín hiệu thông báo đẩy! Hãy thử khóa màn hình điện thoại hoặc thu nhỏ web để xem thông báo nổi.', 'success');
+  },
+
+  // 8. Kích hoạt trực tiếp đăng ký thiết bị với máy chủ OneSignal
+  resubscribePush: async function() {
+    showToast('Đang kết nối lại kênh Push với OneSignal...', 'info');
+    try {
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(async function(OneSignal) {
+        try {
+          if (OneSignal.Notifications && OneSignal.Notifications.requestPermission) {
+            await OneSignal.Notifications.requestPermission();
+          }
+          if (OneSignal.User && OneSignal.User.PushSubscription) {
+            await OneSignal.User.PushSubscription.optIn();
+            const subId = OneSignal.User.PushSubscription.id;
+            if (subId) {
+              showToast(`✅ Đã kết nối Push thành công! ID: ${subId.substring(0, 8)}...`, 'success');
+            } else {
+              showToast('✅ Đã kích hoạt nhận thông báo đẩy khi tắt web/tắt màn hình!', 'success');
+            }
+            if (state.user && window.WebPushManager) {
+              window.WebPushManager.syncUser(state.user);
+            }
+          }
+        } catch (subErr) {
+          showToast('Lỗi kết nối Push: ' + subErr.message, 'error');
+        }
+      });
+    } catch (e) {
+      showToast('Lỗi: ' + e.message, 'error');
+    }
   },
 
   showStatusModal: function() {
@@ -7562,6 +7608,9 @@ window.WebPushManager = {
               ` : `
                 <button class="btn btn-success" onclick="WebPushManager.testPush()" style="flex:1;">
                   🚀 Gửi Thử Thông Báo Đẩy (Test Push)
+                </button>
+                <button class="btn btn-outline" onclick="WebPushManager.resubscribePush()" style="border-color:#0284c7; color:#0284c7; font-weight:700;">
+                  🔄 Kích Hoạt Lại Kết Nối Push
                 </button>
               `}
             </div>
@@ -11164,8 +11213,9 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
 
     closeModal();
 
-    renderApp();
-
+    if (window.broadcastLiveEvent) {
+      window.broadcastLiveEvent('REPORT_SUBMITTED', { unit_id: unitId, criterion_id: criterionId });
+    }
     if (window.WebPushManager) {
       window.WebPushManager.sendPushNotification({
         title: `📤 ${targetUnit.unit_name || 'Cơ sở Đoàn'} vừa nộp hồ sơ/minh chứng`,
@@ -21650,6 +21700,8 @@ window.sendChatMessage = async function() {
   // 1. CẬP NHẬT GIAO DIỆN CHAT NGAY TỨC THÌ (0ms KHÔNG CHỜ ĐỢI)
   renderApp();
   broadcastLocalSyncSignal();
+  // Phát tin nhắn tức thì qua Live Bridge (0.05 giây tới tất cả thiết bị khác)
+  if (window.broadcastLiveEvent) window.broadcastLiveEvent('CHAT_MSG', newMsg);
   setTimeout(() => {
     scrollChatToBottom();
     window.initChatDrag();
@@ -28170,6 +28222,110 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
       }
     }
   });
+}
+
+// =========================================================================
+// HỆ THỐNG TRUYỀN PHÁT DỮ LIỆU THỜI GIAN THỰC SIÊU TỐC (REALTIME LIVE BRIDGE)
+// ĐỘ TRỄ 0.05 GIÂY - NHẬN TIN NHẮN VÀ THÔNG BÁO TỨC THÌ KHÔNG ĐỢI GIT
+// =========================================================================
+const LIVE_REALTIME_TOPIC = 'doan-ubnd-quangtri-live-sync-2026';
+let _liveEventSource = null;
+
+window.broadcastLiveEvent = function(type, data) {
+  try {
+    // 1. Gửi qua BroadcastChannel nội bộ (các tab cùng máy)
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        const bc = new BroadcastChannel('doan_live_channel');
+        bc.postMessage({ type: type, data: data });
+        bc.close();
+      } catch (eBc) {}
+    }
+
+    // 2. Gửi qua ntfy.sh Realtime PubSub (xuyên suốt các thiết bị khác nhau qua Internet trong 0.05 giây)
+    fetch(`https://ntfy.sh/${LIVE_REALTIME_TOPIC}`, {
+      method: 'POST',
+      headers: { 'Title': type, 'Priority': 'high' },
+      body: JSON.stringify({ type: type, payload: data, sender_id: state.user ? state.user.id : null, ts: Date.now() })
+    }).catch(() => {});
+  } catch (e) {}
+};
+
+window.initRealtimeLiveBridge = function() {
+  if (typeof EventSource === 'undefined') return;
+  if (_liveEventSource) return;
+
+  try {
+    _liveEventSource = new EventSource(`https://ntfy.sh/${LIVE_REALTIME_TOPIC}/sse`);
+
+    _liveEventSource.onmessage = function(event) {
+      try {
+        const raw = JSON.parse(event.data);
+        if (!raw || !raw.message) return;
+        const evt = JSON.parse(raw.message);
+        if (!evt || !evt.type) return;
+
+        // Bỏ qua tin do chính tab này vừa phát đi
+        if (state.user && evt.sender_id === state.user.id && (Date.now() - (evt.ts || 0) < 1500)) {
+          return;
+        }
+
+        if (evt.type === 'CHAT_MSG' && evt.payload) {
+          handleIncomingRealtimeChat(evt.payload);
+        } else if (evt.type === 'REPORT_SUBMITTED' || evt.type === 'NEW_CRITERIA' || evt.type === 'ADMIN_DOC') {
+          if (window.playNotificationChime) window.playNotificationChime();
+          if (typeof window.syncFromCloudNow === 'function') {
+            window.syncFromCloudNow(true);
+          }
+        }
+      } catch (eParse) {}
+    };
+
+    _liveEventSource.onerror = function() {
+      // Tự động kết nối lại
+    };
+  } catch (e) {}
+
+  // Lắng nghe BroadcastChannel nội bộ
+  if (typeof BroadcastChannel !== 'undefined') {
+    try {
+      const bcListen = new BroadcastChannel('doan_live_channel');
+      bcListen.onmessage = function(e) {
+        if (e.data && e.data.type === 'CHAT_MSG' && e.data.data) {
+          handleIncomingRealtimeChat(e.data.data);
+        } else if (e.data && e.data.type === 'REPORT_SUBMITTED') {
+          if (typeof window.syncFromCloudNow === 'function') window.syncFromCloudNow(true);
+        }
+      };
+    } catch (e) {}
+  }
+};
+
+function handleIncomingRealtimeChat(msg) {
+  if (!msg || !msg.id) return;
+  state.chatMessages = state.chatMessages || [];
+  const exists = state.chatMessages.some(m => m.id === msg.id);
+  if (exists) return;
+
+  state.chatMessages.push(msg);
+
+  // Nếu đang mở đúng phòng chat này -> Hiển thị tin nhắn ngay tức khắc và cuộn xuống
+  const currentRoom = typeof getChatRoomKey === 'function' ? getChatRoomKey() : 'public';
+  if (state.chatOpen && (msg.room === currentRoom || isMsgInRoom(msg, currentRoom))) {
+    setChatRoomAsRead(currentRoom);
+    renderApp();
+    setTimeout(() => {
+      if (typeof scrollChatToBottom === 'function') scrollChatToBottom();
+    }, 20);
+  } else {
+    // Nếu không mở phòng này -> Tăng số đếm chưa đọc trên icon Header & Biểu tượng App ngoài màn hình
+    if (typeof updateSystemAppBadge === 'function') {
+      updateSystemAppBadge(getTotalBadgeCount());
+    }
+    renderApp();
+  }
+
+  if (window.playNotificationChime) window.playNotificationChime();
 }
 
   </script>
