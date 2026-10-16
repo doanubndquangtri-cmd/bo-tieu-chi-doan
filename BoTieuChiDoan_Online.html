@@ -5892,55 +5892,71 @@ window.forceClearCacheAndReload = async function () {
 
 
 window.syncFromCloudNow = async function (silent = false) {
-
   try {
-
     const { sha, db } = await fetchCloudDB();
-
     const changed = sha !== state.cloudSha;
-
     state.cloudSha = sha;
-
     state.cloudOnline = true;
-
     state.lastSyncTime = new Date().toLocaleTimeString('vi-VN');
+
+    const prevMsgCount = (state.chatMessages || []).length;
+    const newMsgCount = (db.chat_messages || []).length;
+    const hasNewMsgs = newMsgCount > prevMsgCount;
 
     ingestCloudDB(db);
 
-    if (changed || !silent) {
+    if (changed || !silent || hasNewMsgs) {
+      // Bảo toàn chính xác con trỏ & văn bản đang gõ (không bao giờ bị mất chữ hay mất tiêu điểm)
+      const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
+      const activeId = activeEl ? activeEl.id : null;
+      const activeVal = (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) ? activeEl.value : null;
+      const selStart = (activeEl && 'selectionStart' in activeEl) ? activeEl.selectionStart : null;
+      const selEnd = (activeEl && 'selectionEnd' in activeEl) ? activeEl.selectionEnd : null;
 
-      // Do not interrupt if user is actively typing in an input
+      renderApp();
 
-      const activeEl = document.activeElement;
-
-      const isTyping = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
-
-      if (!isTyping || !silent) {
-
-        renderApp();
-
+      if (activeId && typeof document !== 'undefined') {
+        const el = document.getElementById(activeId);
+        if (el) {
+          if (activeVal !== null && el.value !== activeVal) el.value = activeVal;
+          el.focus();
+          if (selStart !== null && selEnd !== null && 'setSelectionRange' in el) {
+            try { el.setSelectionRange(selStart, selEnd); } catch (e) {}
+          }
+        }
       }
 
+      if (hasNewMsgs) {
+        if (state.chatOpen && typeof scrollChatToBottom === 'function') {
+          setTimeout(scrollChatToBottom, 40);
+        }
+        if (window.playNotificationChime) window.playNotificationChime();
+
+        // Kích hoạt thông báo nổi màn hình Desktop nếu người dùng đang ở cửa sổ khác
+        const latestMsg = (db.chat_messages || [])[db.chat_messages.length - 1];
+        if (latestMsg && state.user && Number(latestMsg.sender_id) !== (state.user.role === 'admin' ? 0 : Number(state.user.id))) {
+          if (typeof window.showDesktopNotification === 'function') {
+            window.showDesktopNotification(
+              `💬 ${latestMsg.sender_name || 'Tin nhắn mới'}`,
+              latestMsg.text || 'Đã gửi một tin nhắn mới trong Trao Đổi Đoàn'
+            );
+          }
+          if (typeof startTitleFlash === 'function') {
+            startTitleFlash(`💬 Tin nhắn mới: ${latestMsg.sender_name}`);
+          }
+        }
+      }
     }
 
     if (!silent) {
-
       showToast('🟢 Đã đồng bộ dữ liệu Online mới nhất thành công!', 'success');
-
     }
-
   } catch (err) {
-
     state.cloudOnline = false;
-
     if (!silent) {
-
       showToast('⚠️ Không thể kết nối máy chủ Cloud, đang dùng dữ liệu bộ nhớ đệm.', 'warning');
-
     }
-
   }
-
 };
 
 
@@ -6382,31 +6398,21 @@ async function initApp() {
 
 
 
-  // TỰ ĐỘNG ĐỒNG BỘ THỜI GIAN THỰC ĐỘ TRỄ CỰC THẤP (Ảnh 1)
-
+  // TỰ ĐỘNG ĐỒNG BỘ THỜI GIAN THỰC ĐỘ TRỄ CỰC THẤP (TỨC THÌ)
   setInterval(() => {
-
     if (window.recordMyPresence && !document.hidden && state.user) window.recordMyPresence();
-
     if (!state.isSyncing) {
-
-      // Khi đang mở chat: đồng bộ liên tục 2.5 giây/lần để nhận tin nhắn ngay tức thì
-
       const isChatActive = state.chatOpen;
-
+      const isVisible = typeof document !== 'undefined' ? !document.hidden : true;
       const now = Date.now();
-
-      if (!window._lastSyncTime || (now - window._lastSyncTime >= (isChatActive ? 2500 : 6000))) {
-
+      // Độ trễ đồng bộ: 1.2 giây khi đang mở chat, 2.5 giây khi màn hình mở, 5 giây khi ẩn tab
+      const syncInterval = isChatActive ? 1200 : (isVisible ? 2500 : 5000);
+      if (!window._lastSyncTime || (now - window._lastSyncTime >= syncInterval)) {
         window._lastSyncTime = now;
-
         syncFromCloudNow(true);
-
       }
-
     }
-
-  }, 1000);
+  }, 500);
 
 }
 
@@ -7141,6 +7147,7 @@ function getTotalBadgeCount() {
 }
 
 function updateSystemAppBadge(count) {
+  // 1. Direct App Badging API for Windows Taskbar & PWA
   try {
     if (typeof navigator !== 'undefined' && 'setAppBadge' in navigator) {
       if (count > 0) {
@@ -7151,12 +7158,97 @@ function updateSystemAppBadge(count) {
     }
   } catch (e) {}
 
+  // 2. Service Worker Badging API
+  try {
+    if (typeof navigator !== 'undefined' && navigator.serviceWorker && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({
+        type: 'SET_BADGE',
+        count: count
+      });
+    }
+  } catch (e) {}
+
+  // 3. Dynamic Favicon Badge
   try {
     updateDynamicFaviconBadge(count);
   } catch (e) {}
 
+  // 4. Tab Document Title
   try {
     updateDocumentTitle(count);
+  } catch (e) {}
+}
+
+let _titleFlashInterval = null;
+function startTitleFlash(text) {
+  if (typeof document === 'undefined') return;
+  if (_titleFlashInterval) clearInterval(_titleFlashInterval);
+  let isAlt = false;
+  const baseTitle = 'Hệ Thống Quản Lý & Tổng Hợp Bộ Tiêu Chí Đoàn Cấp Cơ Sở';
+  _titleFlashInterval = setInterval(() => {
+    if (!document.hidden || getTotalBadgeCount() === 0) {
+      clearInterval(_titleFlashInterval);
+      _titleFlashInterval = null;
+      updateDocumentTitle(getTotalBadgeCount());
+      return;
+    }
+    const total = getTotalBadgeCount();
+    document.title = isAlt ? text : `(${total > 99 ? '99+' : total}) ${baseTitle}`;
+    isAlt = !isAlt;
+  }, 1000);
+}
+
+window.showDesktopNotification = function(title, body) {
+  try {
+    if (typeof Notification === 'undefined') return;
+    if (Notification.permission === 'granted') {
+      const notif = new Notification(title, {
+        body: body,
+        icon: './icon-192.png',
+        badge: './favicon.png',
+        tag: 'tieuchidoan-notification',
+        renotify: true
+      });
+      notif.onclick = function() {
+        window.focus();
+        if (typeof toggleChatWidget === 'function' && !state.chatOpen) {
+          toggleChatWidget();
+        }
+      };
+    } else if (Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
+  } catch (e) {}
+};
+
+// Kênh đồng bộ tức thì liên tab / liên cửa sổ (độ trễ dưới 10ms)
+const _syncChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('doan_realtime_sync') : null;
+if (_syncChannel) {
+  _syncChannel.onmessage = (event) => {
+    if (event.data && event.data.type === 'SYNC') {
+      if (typeof window.syncFromCloudNow === 'function') {
+        window.syncFromCloudNow(true);
+      }
+    }
+  };
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'doan_realtime_sync_ping') {
+      if (typeof window.syncFromCloudNow === 'function') {
+        window.syncFromCloudNow(true);
+      }
+    }
+  });
+}
+
+function broadcastLocalSyncSignal() {
+  try {
+    if (_syncChannel) _syncChannel.postMessage({ type: 'SYNC', ts: Date.now() });
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('doan_realtime_sync_ping', String(Date.now()));
+    }
   } catch (e) {}
 }
 
@@ -20907,30 +20999,21 @@ window.onChatFilePicked = async function(input) {
     setChatRoomAsRead(roomKey);
 
     renderApp();
+    broadcastLocalSyncSignal();
 
     setTimeout(() => {
-
       scrollChatToBottom();
-
       window.initChatDrag();
-
     }, 50);
 
-
-
     await mutateCloudDB(db => {
-
       db.chat_messages = db.chat_messages || [];
-
       db.chat_messages.push(newMsg);
-
       if (db.chat_messages.length > 2000) {
-
         db.chat_messages = db.chat_messages.slice(-2000);
-
       }
-
     }, `Chat file in ${roomKey}`);
+    broadcastLocalSyncSignal();
 
 
 
@@ -21061,13 +21144,11 @@ window.sendChatMessage = async function() {
   if (window.playNotificationChime) window.playNotificationChime();
 
   renderApp();
+  broadcastLocalSyncSignal();
 
   setTimeout(() => {
-
     scrollChatToBottom();
-
     window.initChatDrag();
-
   }, 50);
 
 
@@ -21141,8 +21222,7 @@ window.sendChatMessage = async function() {
     }
 
   }, `Chat msg in ${roomKey}`);
-
-
+  broadcastLocalSyncSignal();
 
   if (!res.ok) {
 
