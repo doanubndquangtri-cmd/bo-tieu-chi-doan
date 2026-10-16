@@ -301,6 +301,7 @@ function doPost(e) {
         return createJsonResponse({ status: "error", message: "Thiếu OneSignal App ID hoặc REST API Key!" });
       }
 
+      var bCount = Number(data.badgeCount || 1);
       var pushPayload = {
         app_id: appId,
         headings: { "en": data.title || "Bộ Tiêu Chí Đoàn", "vi": data.title || "Bộ Tiêu Chí Đoàn" },
@@ -308,7 +309,11 @@ function doPost(e) {
         web_url: data.url || "./",
         chrome_web_icon: "https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/icon-192.png",
         chrome_web_badge: "https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/favicon.png",
-        data: { url: data.url || "./", custom_data: data.customData || {} }
+        ios_badgeType: "SetTo",
+        ios_badgeCount: bCount,
+        android_badge_type: "SetTo",
+        android_badge_count: bCount,
+        data: { url: data.url || "./", badgeCount: bCount, custom_data: data.customData || {} }
       };
 
       if (data.targetRole) {
