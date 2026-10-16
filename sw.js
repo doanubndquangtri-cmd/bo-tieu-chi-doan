@@ -1,5 +1,5 @@
 // Service Worker Tiêu Chí Đoàn - Tự động xóa sạch Cache khi có phiên bản mới
-const SW_VERSION = '1792128528';
+const SW_VERSION = '1792143990';
 const CACHE_NAME = 'tieuchidoan-v' + SW_VERSION;
 const ASSETS_TO_CACHE = [
   './logo_doan.png',
@@ -77,3 +77,52 @@ self.addEventListener('message', (event) => {
     self.registration.showNotification(title, options).catch(() => {});
   }
 });
+
+// XỬ LÝ PUSH NOTIFICATION THỰC THỤ KHI TẮT HẲN TRÌNH DUYỆT / ĐÓNG WEB / MÀN HÌNH KHÓA
+self.addEventListener('push', (event) => {
+  let data = {};
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data = { title: 'Bộ Tiêu Chí Đoàn', message: event.data.text() };
+    }
+  }
+  const title = data.title || data.heading || 'Bộ Tiêu Chí Đoàn Cấp Cơ Sở';
+  const body = data.body || data.message || 'Bạn có thông báo mới từ hệ thống!';
+  const targetUrl = (data.data && data.data.url) || data.web_url || './';
+
+  const options = {
+    body: body,
+    icon: './icon-192.png',
+    badge: './favicon.png',
+    vibrate: [200, 100, 200],
+    tag: data.tag || 'tieuchidoan-push-' + Date.now(),
+    renotify: true,
+    data: { url: targetUrl }
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+  );
+});
+
+// XỬ LÝ KHI NGƯỜI DÙNG BẤM VÀO THÔNG BÁO NỔI
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || './';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (let client of clientList) {
+        if (client.url.includes(self.registration.scope) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
+
