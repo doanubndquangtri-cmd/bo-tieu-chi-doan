@@ -3276,12 +3276,18 @@ window.WebPushManager = {
           if (OneSignal.login) {
             await OneSignal.login(uId);
           }
-          if (OneSignal.User && OneSignal.User.addTags) {
-            await OneSignal.User.addTags({
-              role: uRole,
-              unit_id: uId,
-              unit_name: uName
-            });
+          if (OneSignal.User) {
+            if (OneSignal.User.addTags) {
+              await OneSignal.User.addTags({
+                role: uRole,
+                unit_id: uId,
+                unit_name: uName
+              });
+            }
+            if (OneSignal.User.addTag) {
+              await OneSignal.User.addTag('role', uRole);
+              await OneSignal.User.addTag('unit_id', uId);
+            }
           }
         } catch (tagErr) {
           console.warn('[WebPush] Lỗi sync user tags:', tagErr);
@@ -3305,6 +3311,9 @@ window.WebPushManager = {
         if (typeof navigator !== 'undefined' && 'setAppBadge' in navigator) {
           const bCount = (typeof getTotalBadgeCount === 'function' ? getTotalBadgeCount() : 1) || 1;
           navigator.setAppBadge(bCount).catch(() => {});
+        }
+        if (state.user && window.WebPushManager) {
+          window.WebPushManager.syncUser(state.user);
         }
         window.WebPushManager.showLocalNativeNotification(
           '🔔 Thông Báo Đoàn Hoạt Động Chuẩn Xác',
@@ -3414,7 +3423,13 @@ window.WebPushManager = {
         data: { url: url || './', badgeCount: bCount, badgeType: bType }
       };
 
-      if (targetRole) {
+      if (targetRole === 'admin') {
+        payload.filters = [
+          { field: 'tag', key: 'role', relation: '=', value: 'admin' },
+          { operator: 'OR' },
+          { field: 'tag', key: 'unit_id', relation: '=', value: '0' }
+        ];
+      } else if (targetRole) {
         payload.filters = [{ field: 'tag', key: 'role', relation: '=', value: targetRole }];
       } else if (targetUnitId !== undefined && targetUnitId !== null) {
         payload.filters = [{ field: 'tag', key: 'unit_id', relation: '=', value: String(targetUnitId) }];
@@ -10822,9 +10837,9 @@ window.saveNewCriterion = async function () {
 
         if (window.WebPushManager) {
       window.WebPushManager.sendPushNotification({
-        title: '📋 Tiêu Chí / Báo Cáo Mới',
-        message: `Ban Thường vụ đã ban hành tiêu chí/báo cáo mới: "${newCriterionObj.col_label} - ${newCriterionObj.title}"`,
-        targetRole: 'unit',
+        title: '📋 Tiêu Chí / Báo Cáo Mới Được Ban Hành',
+        message: `Ban Thường vụ đã ban hành: "${newCriterionObj.col_label} - ${newCriterionObj.title}"`,
+        targetRole: null,
         url: './'
       });
     }
@@ -14129,8 +14144,8 @@ window.uploadAdminDocument = async function () {
       if (window.WebPushManager) {
         window.WebPushManager.sendPushNotification({
           title: '📜 Văn Bản Mới Từ Ban Thường Vụ',
-          message: `Ban Thường vụ đã ban hành văn bản mới: "${title}"`,
-          targetRole: 'unit',
+          message: `Ban Thường vụ đã ban hành văn bản: "${title}"`,
+          targetRole: null,
           url: './'
         });
       }
@@ -15722,9 +15737,9 @@ window.duplicateCriterion = async function (critId) {
 
         if (window.WebPushManager) {
       window.WebPushManager.sendPushNotification({
-        title: '📋 Tiêu Chí / Báo Cáo Được Nhân Đôi',
-        message: `Đã ban hành tiêu chí/báo cáo: "${newCrit.col_label} - ${newCrit.title}"`,
-        targetRole: 'unit',
+        title: '📋 Tiêu Chí / Báo Cáo Được Ban Hành Bổ Sung',
+        message: `Đã ban hành: "${newCrit.col_label} - ${newCrit.title}"`,
+        targetRole: null,
         url: './'
       });
     }
