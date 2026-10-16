@@ -18,7 +18,7 @@
   <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
   <link rel="icon" type="image/png" href="./favicon.png" />
 
-  <link rel="stylesheet" href="./styles.css?v=1792162336" />
+  <link rel="stylesheet" href="./styles.css?v=1792164072" />
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="./qrcode.min.js"></script>
   <!-- OneSignal Web Push SDK v16 (Hỗ trợ thông báo nổi màn hình khi tắt web/tắt máy) -->
@@ -28,10 +28,10 @@
   <div id="app"></div>
   <div id="modal-root"></div>
   <div id="toast-root" class="toast-container"></div>
-  <script src="./app.js?v=1792162336"></script>
+  <script src="./app.js?v=1792164072"></script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại
-    const CURRENT_BUILD_TS = 1792163000;
+    const CURRENT_BUILD_TS = 1792164000;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;
@@ -59,7 +59,7 @@
       window.addEventListener('load', function () {
         const parts = window.location.pathname.split('/').filter(Boolean);
         const dir = (parts.length > 0 && !parts[0].includes('.')) ? '/' + parts[0] + '/' : '/';
-        const swPath = dir + 'OneSignalSDKWorker.js?v=1792163000';
+        const swPath = dir + 'OneSignalSDKWorker.js?v=1792164072';
         navigator.serviceWorker.register(swPath, { scope: dir }).then(function (reg) {
           if (reg && reg.update) reg.update();
         }).catch(function (err) {
