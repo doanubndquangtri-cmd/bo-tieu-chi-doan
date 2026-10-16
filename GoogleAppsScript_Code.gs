@@ -317,22 +317,28 @@ function doPost(e) {
         data: { url: data.url || "./", badgeCount: bCount, badgeType: bType, custom_data: data.customData || {} }
       };
 
-      if (data.targetRole === "admin") {
+      if (data.excludeSubscriptionId) {
+        pushPayload.exclude_subscription_ids = [data.excludeSubscriptionId];
+      }
+
+      if (data.targetRole === "admin" || data.targetUnitId === 0 || data.targetUnitId === "0") {
         pushPayload.filters = [
           { field: "tag", key: "role", relation: "=", value: "admin" },
           { operator: "OR" },
           { field: "tag", key: "unit_id", relation: "=", value: "0" }
         ];
+      } else if (data.targetUnitId !== undefined && data.targetUnitId !== null && Number(data.targetUnitId) > 0) {
+        pushPayload.filters = [
+          { field: "tag", key: "unit_id", relation: "=", value: String(data.targetUnitId) },
+          { operator: "AND" },
+          { field: "tag", key: "role", relation: "!=", value: "admin" }
+        ];
       } else if (data.targetRole) {
         pushPayload.filters = [
           { field: "tag", key: "role", relation: "=", value: data.targetRole }
         ];
-      } else if (data.targetUnitId !== undefined && data.targetUnitId !== null) {
-        pushPayload.filters = [
-          { field: "tag", key: "unit_id", relation: "=", value: String(data.targetUnitId) }
-        ];
       } else {
-        pushPayload.included_segments = ["Total Subscriptions", "Subscribed Users"];
+        pushPayload.included_segments = ["Total Subscriptions"];
       }
 
       var pushOptions = {
