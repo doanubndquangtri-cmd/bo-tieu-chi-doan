@@ -71,16 +71,7 @@ self.addEventListener('message', (event) => {
   if (!event.data) return;
   if (event.data.type === 'SET_BADGE') {
     const count = Number(event.data.count) || 0;
-    // Bắn tín hiệu tức thì cho tất cả tab/web/app đang mở để cập nhật dữ liệu ngay lập tức không trễ 1 giây
-  if (self.clients && self.clients.matchAll) {
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      for (let client of clientList) {
-        client.postMessage({ type: 'PUSH_RECEIVED', data: data });
-      }
-    }).catch(() => {});
-  }
-
-  if (self.navigator && 'setAppBadge' in self.navigator) {
+    if (self.navigator && 'setAppBadge' in self.navigator) {
       if (count > 0) {
         self.navigator.setAppBadge(count).catch(() => {});
       } else {
