@@ -3540,8 +3540,40 @@ window.WebPushManager = {
     }
   },
 
+  ensureActiveSubscription: function() {
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    OneSignalDeferred.push(async function(OneSignal) {
+      if (!OneSignal.User || !OneSignal.User.PushSubscription) return;
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        try {
+          if (!OneSignal.User.PushSubscription.optedIn) {
+            await OneSignal.User.PushSubscription.optIn();
+          }
+          const subId = OneSignal.User.PushSubscription.id;
+          if (subId) {
+            console.log('[WebPush] Active subscription ID:', subId);
+            if (state.user && window.WebPushManager) {
+              window.WebPushManager.syncUser(state.user);
+            }
+          }
+        } catch (eSub) {
+          console.warn('[WebPush] ensureActiveSubscription error:', eSub);
+        }
+      }
+    });
+  },
+
   showStatusModal: function() {
     const isGranted = window.WebPushManager.isPermissionGranted();
+    let subId = '';
+    let isOptedIn = false;
+    try {
+      if (window.OneSignal && window.OneSignal.User && window.OneSignal.User.PushSubscription) {
+        subId = window.OneSignal.User.PushSubscription.id || '';
+        isOptedIn = Boolean(window.OneSignal.User.PushSubscription.optedIn);
+      }
+    } catch (e) {}
+
     const modalRoot = document.getElementById('modal-root');
     if (!modalRoot) return;
     modalRoot.innerHTML = `
@@ -3555,35 +3587,56 @@ window.WebPushManager = {
             <div style="background:${isGranted ? '#f0fdf4' : '#fffbeb'}; border:1px solid ${isGranted ? '#bbf7d0' : '#fde68a'}; border-radius:8px; padding:12px; margin-bottom:14px;">
               <div style="display:flex; align-items:center; gap:8px; font-weight:700; color:${isGranted ? '#166534' : '#92400e'};">
                 <span style="font-size:20px;">${isGranted ? '✅' : '⚠️'}</span>
-                <span>${isGranted ? 'Thiết bị này ĐÃ ĐƯỢC CẤP QUYỀN nhận thông báo!' : 'Thiết bị này CHƯA BẬT quyền thông báo'}</span>
+                <span>${isGranted ? 'Quyền thông báo: ĐÃ ĐƯỢC CẤP' : 'Thiết bị này CHƯA BẬT quyền thông báo'}</span>
               </div>
               <div style="font-size:12px; color:#475569; margin-top:4px;">
                 ${isGranted
-                  ? 'Khi có văn bản mới, tiêu chí mới, bài nộp hoặc tin nhắn chat, hệ thống sẽ đánh thức màn hình Desktop và rung chuông điện thoại ngay cả khi bạn tắt trình duyệt web.'
+                  ? 'Khi có văn bản mới, tiêu chí mới, bài nộp hoặc tin nhắn chat, hệ thống sẽ rung chuông và hiện thông báo ngay cả khi bạn tắt trình duyệt hoặc màn hình khóa.'
                   : 'Vui lòng bấm nút <b>"Bật Thông Báo Ngay"</b> bên dưới để thiết bị nhận được tin tức tức thì.'}
               </div>
             </div>
 
-            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;">
-              ${!isGranted ? `
-                <button class="btn btn-primary" onclick="WebPushManager.requestPermission(); closeModal();" style="flex:1;">
-                  🔔 Bật Thông Báo Ngay Trên Máy Này
-                </button>
-              ` : `
-                <button class="btn btn-success" onclick="WebPushManager.testPush()" style="flex:1;">
-                  🚀 Gửi Thử Thông Báo Đẩy (Test Push)
-                </button>
-                <button class="btn btn-outline" onclick="WebPushManager.resubscribePush()" style="border-color:#0284c7; color:#0284c7; font-weight:700;">
-                  🔄 Kích Hoạt Lại Kết Nối Push
-                </button>
-              `}
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px; margin-bottom:14px; font-size:12.5px;">
+              <div style="font-weight:700; color:#1e293b; margin-bottom:8px;">📡 Tình Trạng Kết Nối Máy Chủ OneSignal:</div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                <span style="color:#64748b;">Mã thiết bị (Push ID):</span>
+                <span style="font-weight:700; color:${subId ? '#16a34a' : '#ea580c'}; font-family:monospace;">
+                  ${subId ? `✅ ${subId.substring(0, 12)}...` : '⚠️ Đang kết nối...'}
+                </span>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                <span style="color:#64748b;">Kênh nhận tin khi tắt máy:</span>
+                <span style="font-weight:700; color:${isOptedIn ? '#16a34a' : '#ea580c'};">
+                  ${isOptedIn ? '🟢 Đã Kích Hoạt' : '🟠 Chưa Kích Hoạt'}
+                </span>
+              </div>
+              ${!subId ? `
+                <div style="margin-top:8px; background:#fff7ed; border:1px solid #fed7aa; border-radius:6px; padding:8px; font-size:12px; color:#c2410c;">
+                  👉 <b>Gợi ý:</b> Nếu bạn vừa mở app từ icon cũ ngoài màn hình chính, hãy bấm nút <b>"Xóa Cache & Tải Lại"</b> màu cam bên dưới để máy nạp bản cập nhật mới nhất!
+                </div>
+              ` : ''}
             </div>
 
-            ${state.user && state.user.role === 'admin' ? `
-              <div style="border-top:1px dashed #cbd5e1; padding-top:12px; margin-top:10px; font-size:12px; color:#64748b;">
-                👑 <b>Quản trị viên:</b> Bạn có thể cấu hình OneSignal App ID & REST API Key trong mục <b>Cài đặt hệ thống (nút Ngày tháng trên Header)</b> để toàn bộ 40 cơ sở Đoàn đều nhận được thông báo khi tắt web.
-              </div>
-            ` : ''}
+            <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;">
+              <button class="btn btn-primary" onclick="WebPushManager.resubscribePush()" style="font-weight:700; padding:10px; font-size:13.5px; background:linear-gradient(135deg, #0284c7, #0052cc); color:#fff; border:none; box-shadow:0 2px 4px rgba(2,132,199,0.3); border-radius:6px;">
+                ⚡ Kích Hoạt Kết Nối Push (Cho Điện Thoại Này)
+              </button>
+
+              ${isGranted ? `
+                <button class="btn btn-success" onclick="WebPushManager.testPush()" style="font-weight:700; padding:8px; font-size:13px; border-radius:6px;">
+                  🚀 Gửi Thử Thông Báo Đẩy (Test Push)
+                </button>
+              ` : ''}
+
+              <button class="btn btn-outline" onclick="if(window.forceClearCacheAndReload) window.forceClearCacheAndReload();" style="border-color:#f97316; color:#ea580c; font-weight:700; padding:8px; font-size:12.5px; border-radius:6px;">
+                🧹 Xóa Cache Cũ & Tải Lại Bản Mới Nhất
+              </button>
+            </div>
+
+            <div style="font-size:11.5px; color:#64748b; background:#f1f5f9; padding:10px; border-radius:6px; line-height:1.5;">
+              📱 <b>Mẹo cho điện thoại Xiaomi / Android:</b>
+              <br/>• Vào <i>Cài đặt &gt; Ứng dụng &gt; Tiêu Chí Đoàn &gt; Tiết kiệm pin</i>: Chọn <b>"Không hạn chế"</b> để máy không tự ngắt thông báo khi tắt màn hình.
+            </div>
           </div>
           <div class="modal-footer">
             <button class="btn btn-outline" onclick="closeModal()">Đóng</button>
