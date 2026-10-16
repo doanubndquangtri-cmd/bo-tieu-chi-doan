@@ -1670,7 +1670,23 @@ function ingestCloudDB(db) {
   state.notifications = Array.isArray(db.notifications) ? db.notifications : [];
 
   state.cloudDB = db;
-  state.chatMessages = Array.isArray(db.chat_messages) ? db.chat_messages : [];
+  // Hợp nhất tin nhắn Cloud DB và bộ nhớ đệm cục bộ không để mất bất kỳ tin nào
+  const cloudMsgs = Array.isArray(db.chat_messages) ? db.chat_messages : [];
+  let localMsgs = [];
+  try {
+    const rawLocal = localStorage.getItem('doan2026_local_chat_messages');
+    if (rawLocal) localMsgs = JSON.parse(rawLocal) || [];
+  } catch (e) {}
+  if (!Array.isArray(localMsgs)) localMsgs = [];
+  const msgMap = new Map();
+  (state.chatMessages || []).forEach(m => { if (m && m.id) msgMap.set(m.id, m); });
+  localMsgs.forEach(m => { if (m && m.id) msgMap.set(m.id, m); });
+  cloudMsgs.forEach(m => { if (m && m.id) msgMap.set(m.id, m); });
+  const mergedMsgs = Array.from(msgMap.values()).sort((a, b) => getMsgTimestamp(a) - getMsgTimestamp(b));
+  state.chatMessages = mergedMsgs;
+  try {
+    localStorage.setItem('doan2026_local_chat_messages', JSON.stringify(mergedMsgs.slice(-1000)));
+  } catch (e) {}
   if (db.chat_read_status && state.user) {
     const uKey = getChatUserStorageKey();
     if (db.chat_read_status[uKey]) {
@@ -2278,6 +2294,17 @@ function getRankings() {
 
 async function initApp() {
 
+  // Khôi phục ngay tức khắc lịch sử tin nhắn trong 0ms từ bộ nhớ đệm cục bộ
+  try {
+    const rawLocal = localStorage.getItem('doan2026_local_chat_messages');
+    if (rawLocal) {
+      const parsedLocal = JSON.parse(rawLocal);
+      if (Array.isArray(parsedLocal) && parsedLocal.length > 0) {
+        state.chatMessages = parsedLocal;
+      }
+    }
+  } catch (e) {}
+
   // Load cache first for instant render if available
 
   const cached = localStorage.getItem('doan2026_cloud_cache');
@@ -2307,6 +2334,16 @@ async function initApp() {
   state.isAdminSession = isAdminAuth;
 
 
+
+  try {
+    const savedTab = localStorage.getItem('doan2026_chat_tab');
+    if (savedTab) state.chatTab = savedTab;
+    const savedPartner = Number(localStorage.getItem('doan2026_chat_partner_id'));
+    if (!isNaN(savedPartner) && savedPartner > 0) {
+      state.chatPrivatePartnerId = savedPartner;
+      state.chatPrivateUnitId = savedPartner;
+    }
+  } catch (e) {}
 
   const savedUser = localStorage.getItem('doan2026_user');
 
@@ -3294,47 +3331,37 @@ window.WebPushManager = {
       OneSignalDeferred.push(async function(OneSignal) {
         try {
           const isAdmin = user.role === 'admin' || Number(user.id) === 0;
-          const uId = isAdmin ? '0' : String(user.id);
+          // OneSignal chặn số "0" làm external_id nên dùng "admin" và "unit_X"
+          const uExtId = isAdmin ? 'admin' : ('unit_' + user.id);
           const uRole = isAdmin ? 'admin' : 'unit';
+          const uUnitId = isAdmin ? '0' : String(user.id);
           const uName = isAdmin
             ? 'Ban Thường vụ Đoàn UBND Tỉnh'
-            : (user.unit_name || user.name || ('Đoàn Cơ Sở ' + uId));
+            : (user.unit_name || user.name || ('Đoàn Cơ Sở ' + user.id));
 
-          // Đăng nhập định danh với OneSignal (Chuyển external_id sạch sẽ)
-          if (OneSignal.User && OneSignal.User.externalId && OneSignal.User.externalId !== uId) {
-            if (OneSignal.logout) {
-              await OneSignal.logout().catch(() => {});
+          // Đăng nhập định danh với OneSignal (đảm bảo chuyển đổi sạch sẽ giữa các tài khoản)
+          const lastExtId = localStorage.getItem('onesignal_ext_id');
+          if (lastExtId && lastExtId !== uExtId) {
+            if (typeof OneSignal.logout === 'function') {
+              try { await OneSignal.logout(); } catch (e) {}
             }
           }
-          if (OneSignal.login) {
-            await OneSignal.login(uId).catch(err => console.warn('[WebPush] OneSignal login error:', err));
+          if (typeof OneSignal.login === 'function') {
+            try { await OneSignal.login(uExtId); } catch (e) {}
           }
+          localStorage.setItem('onesignal_ext_id', uExtId);
 
           if (OneSignal.User) {
-            // Lưu lại Subscription ID của thiết bị để phục vụ loại trừ khi gửi
             if (OneSignal.User.PushSubscription && OneSignal.User.PushSubscription.id) {
               try {
                 localStorage.setItem('onesignal_sub_id', OneSignal.User.PushSubscription.id);
               } catch (e) {}
             }
 
-            // Xóa sạch các thẻ tag cũ tránh còn tàn dư vai trò trước đó
-            try {
-              if (typeof OneSignal.User.removeTags === 'function') {
-                await OneSignal.User.removeTags(['role', 'unit_id', 'unit_name', 'user_id']);
-              } else if (typeof OneSignal.User.removeTag === 'function') {
-                await OneSignal.User.removeTag('role');
-                await OneSignal.User.removeTag('unit_id');
-                await OneSignal.User.removeTag('unit_name');
-                await OneSignal.User.removeTag('user_id');
-              }
-            } catch (rmErr) {}
-
-            // Gán lại bộ thẻ định danh chuẩn xác
             const tagData = {
               role: uRole,
-              unit_id: uId,
-              user_id: uId,
+              unit_id: uUnitId,
+              user_id: uUnitId,
               unit_name: uName
             };
 
@@ -3342,13 +3369,13 @@ window.WebPushManager = {
               await OneSignal.User.addTags(tagData);
             } else if (typeof OneSignal.User.addTag === 'function') {
               await OneSignal.User.addTag('role', uRole);
-              await OneSignal.User.addTag('unit_id', uId);
-              await OneSignal.User.addTag('user_id', uId);
+              await OneSignal.User.addTag('unit_id', uUnitId);
+              await OneSignal.User.addTag('user_id', uUnitId);
               await OneSignal.User.addTag('unit_name', uName);
             }
-            console.log('[WebPush] ✅ Đã đồng bộ vai trò OneSignal thành công:', tagData);
+            console.log('[WebPush] ✅ Đã định danh chính xác thiết bị:', uExtId, tagData);
             if (forceFeedback && typeof showToast === 'function') {
-              showToast(`✅ Đã định danh thiết bị: <b>${escapeHtml(uName)}</b> (${isAdmin ? 'Admin' : 'Cơ sở ID ' + uId})`, 'success');
+              showToast(`✅ Đã định danh thiết bị: <b>${escapeHtml(uName)}</b> (${isAdmin ? 'Admin' : 'Cơ sở ID ' + uUnitId})`, 'success');
             }
           }
         } catch (tagErr) {
@@ -3504,19 +3531,16 @@ window.WebPushManager = {
 
     // Phân luồng đối tượng nhận chính xác:
     if (targetRole === 'admin' || targetUnitId === 0 || targetUnitId === '0') {
-      // Tin gửi cho Admin: Chỉ các thiết bị mang vai trò Admin hoặc unit_id 0 nhận
+      // Tin gửi cho Admin: Chỉ các thiết bị mang vai trò Admin nhận
       payload.filters = [
-        { field: 'tag', key: 'role', relation: '=', value: 'admin' },
-        { operator: 'OR' },
-        { field: 'tag', key: 'unit_id', relation: '=', value: '0' }
+        { field: 'tag', key: 'role', relation: '=', value: 'admin' }
       ];
     } else if (targetUnitId !== undefined && targetUnitId !== null && Number(targetUnitId) > 0) {
       // Tin gửi cho Cơ sở Đoàn cụ thể (ví dụ Đơn vị 4):
-      // Chỉ gửi cho thiết bị có unit_id tương ứng VÀ KHÔNG PHẢI là Admin!
       payload.filters = [
         { field: 'tag', key: 'unit_id', relation: '=', value: String(targetUnitId) },
         { operator: 'AND' },
-        { field: 'tag', key: 'role', relation: '!=', value: 'admin' }
+        { field: 'tag', key: 'role', relation: '=', value: 'unit' }
       ];
     } else if (targetRole) {
       payload.filters = [{ field: 'tag', key: 'role', relation: '=', value: targetRole }];
@@ -16374,6 +16398,7 @@ window.switchChatTab = function(tab) {
   if (tab === 'video' || tab === 'ai') tab = 'public';
 
   state.chatTab = tab;
+  try { localStorage.setItem('doan2026_chat_tab', tab); } catch (e) {}
 
   setChatRoomAsRead(getChatRoomKey());
 
@@ -16418,6 +16443,7 @@ window.switchPrivateChatPartner = function(partnerId) {
   state.chatPrivatePartnerId = Number(partnerId);
 
   state.chatPrivateUnitId = Number(partnerId);
+  try { localStorage.setItem('doan2026_chat_partner_id', String(partnerId)); } catch (e) {}
 
   setChatRoomAsRead(getChatRoomKey());
 
@@ -16863,10 +16889,23 @@ window.openClearChatOptionsModal = function() {
 
             <button type="button" class="btn btn-outline" onclick="clearChatForMeOnly('${myKey}', '${roomKey}')" style="width:100%; border-color:#0284c7; color:#0284c7; font-weight:700; padding:8px 12px; font-size:12.5px; border-radius:6px; background:#fff; cursor:pointer;">
 
-              🗑️ Xóa & làm sạch phía tôi
+              🗑️ Ẩn tin nhắn phía tôi
 
             </button>
 
+          </div>
+
+          <!-- TÙY CHỌN KHÔI PHỤC: HIỆN LẠI TIN NHẮN NẾU ĐÃ LỠ BẤM ẨN -->
+          <div style="background:#f0fdf4; border:1.5px solid #86efac; border-radius:10px; padding:14px; margin-bottom:14px;">
+            <div style="font-weight:800; font-size:13.5px; color:#166534; display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+              <span>♻️</span> Khôi phục toàn bộ tin nhắn đã ẩn
+            </div>
+            <div style="font-size:12px; color:#15803d; line-height:1.5; margin-bottom:10px;">
+              Nếu bạn từng bấm "Ẩn tin nhắn phía tôi" và thấy thiếu tin nhắn, bấm nút này để lập tức hiển thị lại đầy đủ toàn bộ tin nhắn từ máy chủ.
+            </div>
+            <button type="button" class="btn btn-success" onclick="unhideClearedChatForMe('${myKey}', '${roomKey}')" style="width:100%; font-weight:700; padding:8px 12px; font-size:12.5px; border-radius:6px; background:#16a34a; color:#fff; border:none; cursor:pointer;">
+              ♻️ Khôi phục tin nhắn ngay
+            </button>
           </div>
 
 
@@ -16931,6 +16970,23 @@ window.clearChatForMeOnly = function(myKey, roomKey) {
 
   renderApp();
 
+};
+
+window.unhideClearedChatForMe = function(myKey, roomKey) {
+  closeModal();
+  try {
+    localStorage.removeItem(`doan2026_chat_cleared_${myKey}_${roomKey}`);
+    // Xóa sạch các cờ clear liên quan đến phòng này
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('doan2026_chat_cleared_') && k.includes(roomKey)) {
+        localStorage.removeItem(k);
+      }
+    }
+  } catch (e) {}
+  showToast('Đã khôi phục toàn bộ tin nhắn!', 'success');
+  renderApp();
+  setTimeout(() => { if (typeof scrollChatToBottom === 'function') scrollChatToBottom(); }, 60);
 };
 
 
@@ -17670,6 +17726,7 @@ window.onChatFilePicked = async function(input) {
     state.chatMessages = state.chatMessages || [];
 
     state.chatMessages.push(newMsg);
+    try { localStorage.setItem('doan2026_local_chat_messages', JSON.stringify(state.chatMessages.slice(-1000))); } catch (e) {}
 
     setChatRoomAsRead(roomKey);
 
@@ -17812,6 +17869,7 @@ window.sendChatMessage = async function() {
 
   state.chatMessages = state.chatMessages || [];
   state.chatMessages.push(newMsg);
+  try { localStorage.setItem('doan2026_local_chat_messages', JSON.stringify(state.chatMessages.slice(-1000))); } catch (e) {}
   setChatRoomAsRead(roomKey);
   if (window.playNotificationChime) window.playNotificationChime();
 
@@ -18023,7 +18081,41 @@ function renderFloatingChatWidget() {
 
   if (isAdmin) {
 
-    partnerId = Number(state.chatPrivatePartnerId !== undefined ? state.chatPrivatePartnerId : (state.chatPrivateUnitId || 0));
+    partnerId = Number(state.chatPrivatePartnerId !== undefined && state.chatPrivatePartnerId !== null ? state.chatPrivatePartnerId : (state.chatPrivateUnitId || 0));
+
+    // Nếu chưa chọn đơn vị: Tự động khôi phục đơn vị gần nhất hoặc đơn vị vừa có tin nhắn trao đổi
+    if (!partnerId || partnerId <= 0) {
+      const savedP = Number(localStorage.getItem('doan2026_chat_partner_id')) || 0;
+      if (savedP > 0 && (state.units || []).some(u => u.id === savedP)) {
+        partnerId = savedP;
+        state.chatPrivatePartnerId = savedP;
+        state.chatPrivateUnitId = savedP;
+      } else {
+        let latestTime = 0;
+        let latestUId = 0;
+        (state.chatMessages || []).forEach(m => {
+          const room = m.room || '';
+          let uId = 0;
+          if (room.startsWith('private_0_')) {
+            uId = Number(room.replace('private_0_', ''));
+          } else if (room.startsWith('private_') && !room.includes('_0_')) {
+            uId = Number(room.replace('private_', ''));
+          }
+          if (uId > 0) {
+            const t = getMsgTimestamp(m);
+            if (t > latestTime) {
+              latestTime = t;
+              latestUId = uId;
+            }
+          }
+        });
+        if (latestUId > 0) {
+          partnerId = latestUId;
+          state.chatPrivatePartnerId = latestUId;
+          state.chatPrivateUnitId = latestUId;
+        }
+      }
+    }
 
   } else {
 
@@ -18152,13 +18244,17 @@ function renderFloatingChatWidget() {
 
           <div style="display:flex; align-items:center; gap:6px;">
 
-            <button class="btn btn-sm" onclick="markAllChatAsRead()" style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.45); color:#fff; font-size:11px; font-weight:700; padding:2px 8px; border-radius:5px; cursor:pointer;" title="Đánh dấu tất cả tin nhắn trong hệ thống là đã đọc">
+            <button class="btn btn-sm" onclick="syncFromCloudNow(false)" style="background:rgba(255,255,255,0.22); border:1px solid rgba(255,255,255,0.5); color:#fff; font-size:11px; font-weight:700; padding:2px 8px; border-radius:5px; cursor:pointer;" title="Tải lại tin nhắn mới nhất từ máy chủ">
+              🔄 Tải lại
+            </button>
+
+            <button class="btn btn-sm" onclick="markAllChatAsRead()" style="background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.4); color:#fff; font-size:11px; font-weight:700; padding:2px 8px; border-radius:5px; cursor:pointer;" title="Đánh dấu tất cả tin nhắn trong hệ thống là đã đọc">
               ✓ Đã đọc hết
             </button>
 
-            <button class="btn btn-sm" onclick="openClearChatOptionsModal()" style="background:rgba(239,68,68,0.25); border:1px solid rgba(239,68,68,0.5); color:#fff; font-size:11px; font-weight:700; padding:2px 7px;" title="Tùy chọn xóa / làm mới lịch sử chat">
+            <button class="btn btn-sm" onclick="openClearChatOptionsModal()" style="background:rgba(239,68,68,0.25); border:1px solid rgba(239,68,68,0.5); color:#fff; font-size:11px; font-weight:700; padding:2px 7px;" title="Xóa lịch sử trao đổi">
 
-              🗑️ Xóa / Làm mới
+              🗑️ Xóa lịch sử
 
             </button>
 
@@ -18262,7 +18358,7 @@ function renderFloatingChatWidget() {
 
                 <button class="btn btn-sm" onclick="openClearChatOptionsModal()" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-size:10.5px; font-weight:700; padding:2px 7px; cursor:pointer;" title="Tùy chọn xóa / làm mới lịch sử chat">
 
-                  🗑️ Xóa / Làm mới
+                  🗑️ Xóa lịch sử
 
                 </button>
 
@@ -18338,7 +18434,7 @@ function renderFloatingChatWidget() {
 
                 <button class="btn btn-sm" onclick="openClearChatOptionsModal()" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-size:10.5px; font-weight:700; padding:2px 7px; cursor:pointer;" title="Tùy chọn xóa / làm mới lịch sử chat">
 
-                  🗑️ Xóa / Làm mới
+                  🗑️ Xóa lịch sử
 
                 </button>
 
@@ -24434,6 +24530,7 @@ function handleIncomingRealtimeChat(msg) {
   if (exists) return;
 
   state.chatMessages.push(msg);
+  try { localStorage.setItem('doan2026_local_chat_messages', JSON.stringify(state.chatMessages.slice(-1000))); } catch (e) {}
 
   // BỎ QUA HOÀN TOÀN TIN NHẮN DO CHÍNH MÌNH VỪA GỬI (Không chuông, không badge, không popup)
   const myId = state.user ? Number(state.user.id) : null;
