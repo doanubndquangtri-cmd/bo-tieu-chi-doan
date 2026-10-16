@@ -5731,7 +5731,18 @@ function ingestCloudDB(db) {
 
   state.notifications = Array.isArray(db.notifications) ? db.notifications : [];
 
+  state.cloudDB = db;
   state.chatMessages = Array.isArray(db.chat_messages) ? db.chat_messages : [];
+  if (db.chat_read_status && state.user) {
+    const uKey = getChatUserStorageKey();
+    if (db.chat_read_status[uKey]) {
+      const cRead = Number(db.chat_read_status[uKey]) || 0;
+      const lRead = Number(localStorage.getItem(`doan2026_chat_all_read_${uKey}`)) || 0;
+      if (cRead > lRead) {
+        localStorage.setItem(`doan2026_chat_all_read_${uKey}`, String(cRead));
+      }
+    }
+  }
 
   state.deletedMonthKeys = Array.isArray(db.deleted_month_keys) ? db.deleted_month_keys : [];
 
@@ -6407,7 +6418,7 @@ async function initApp() {
       const isVisible = typeof document !== 'undefined' ? !document.hidden : true;
       const now = Date.now();
       // Độ trễ đồng bộ: 1.2 giây khi đang mở chat, 2.5 giây khi màn hình mở, 5 giây khi ẩn tab
-      const syncInterval = isChatActive ? 1200 : (isVisible ? 2500 : 5000);
+      const syncInterval = isChatActive ? 800 : (isVisible ? 1800 : 4000);
       if (!window._lastSyncTime || (now - window._lastSyncTime >= syncInterval)) {
         window._lastSyncTime = now;
         syncFromCloudNow(true);
@@ -19933,14 +19944,32 @@ function getChatLastReadTime(roomKey) {
     const userKey = getChatUserStorageKey();
     const specificRead = Number(localStorage.getItem(`doan2026_chat_read_${userKey}_${roomKey}`)) || 0;
     const allRead = Number(localStorage.getItem(`doan2026_chat_all_read_${userKey}`)) || 0;
-    return Math.max(specificRead, allRead);
+    const cloudAllRead = (state.cloudDB && state.cloudDB.chat_read_status && Number(state.cloudDB.chat_read_status[userKey])) || 0;
+    const cloudSpecific = (state.cloudDB && state.cloudDB.chat_read_status && Number(state.cloudDB.chat_read_status[`${userKey}_${roomKey}`])) || 0;
+    return Math.max(specificRead, allRead, cloudAllRead, cloudSpecific);
   } catch (e) { return 0; }
 }
 
 function setChatRoomAsRead(roomKey) {
   try {
+    const now = Date.now();
     const userKey = getChatUserStorageKey();
-    localStorage.setItem(`doan2026_chat_read_${userKey}_${roomKey}`, String(Date.now()));
+    localStorage.setItem(`doan2026_chat_read_${userKey}_${roomKey}`, String(now));
+    if (state.cloudDB) {
+      state.cloudDB.chat_read_status = state.cloudDB.chat_read_status || {};
+      state.cloudDB.chat_read_status[`${userKey}_${roomKey}`] = now;
+    }
+    // Cập nhật App Badge tức thì
+    if (typeof updateSystemAppBadge === 'function') {
+      setTimeout(() => updateSystemAppBadge(getTotalBadgeCount()), 50);
+    }
+    // Ghi nhận ngầm lên Cloud DB để đồng bộ xuyên suốt sang mọi thiết bị khác
+    if (typeof mutateCloudDB === 'function') {
+      mutateCloudDB(db => {
+        db.chat_read_status = db.chat_read_status || {};
+        db.chat_read_status[`${userKey}_${roomKey}`] = now;
+      }, `Read room ${roomKey} for ${userKey}`).catch(() => {});
+    }
   } catch (e) {}
 }
 
@@ -19956,6 +19985,20 @@ window.markAllChatAsRead = function() {
         localStorage.setItem(`doan2026_chat_read_${userKey}_${getPrivateRoomKey(state.user.id, u.id)}`, String(now));
       }
     });
+    if (state.cloudDB) {
+      state.cloudDB.chat_read_status = state.cloudDB.chat_read_status || {};
+      state.cloudDB.chat_read_status[userKey] = now;
+    }
+    if (typeof updateSystemAppBadge === 'function') {
+      updateSystemAppBadge(0);
+    }
+    // Đồng bộ tức thì lên Cloud DB để Mobile / Desktop / WebAPK đều nhận diện đã đọc vĩnh viễn
+    if (typeof mutateCloudDB === 'function') {
+      mutateCloudDB(db => {
+        db.chat_read_status = db.chat_read_status || {};
+        db.chat_read_status[userKey] = now;
+      }, `Mark all read for ${userKey}`).catch(() => {});
+    }
   } catch (e) {}
   renderApp();
   if (window.showToast) showToast('Đã đánh dấu tất cả tin nhắn là đã đọc!', 'success');
@@ -21600,132 +21643,93 @@ window.sendChatMessage = async function() {
   state.emojiPickerOpen = false;
 
   state.chatMessages = state.chatMessages || [];
-
   state.chatMessages.push(newMsg);
-
   setChatRoomAsRead(roomKey);
-
   if (window.playNotificationChime) window.playNotificationChime();
 
+  // 1. CẬP NHẬT GIAO DIỆN CHAT NGAY TỨC THÌ (0ms KHÔNG CHỜ ĐỢI)
   renderApp();
   broadcastLocalSyncSignal();
-
   setTimeout(() => {
     scrollChatToBottom();
     window.initChatDrag();
-  }, 50);
+  }, 10);
 
-
-
-  // KÍCH HOẠT PHẢN HỒI TỰ ĐỘNG TỪ AI NẾU CÓ @AI TRONG NỘI DUNG CHAT
-
-  if (text.toLowerCase().includes('@ai')) {
-
-    setTimeout(async () => {
-
-      const cleanPrompt = text.replace(/@ai/gi, '').trim() || 'hướng dẫn quy chế';
-
-      const aiReplyText = generateAiAssistantResponse(cleanPrompt);
-
-      const aiMsg = {
-
-        id: 'msg_ai_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-
-        room: roomKey,
-
-        sender_id: -99,
-
-        sender_name: '🤖 Trợ lý AI Đoàn Khối (Gemini Pro)',
-
-        sender_role: 'admin',
-
-        text: `Chào các đồng chí! Tôi là Trợ lý AI Đoàn Khối tỉnh. Về nội dung bạn vừa hỏi "@AI":\n\n${aiReplyText}`,
-
-        created_at: nowISO(),
-
-        time_str: `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`
-
-      };
-
-      state.chatMessages = state.chatMessages || [];
-
-      state.chatMessages.push(aiMsg);
-
-      if (window.playNotificationChime) window.playNotificationChime();
-
-      renderApp();
-
-      setTimeout(scrollChatToBottom, 60);
-
-
-
-      await mutateCloudDB(db => {
-
-        db.chat_messages = db.chat_messages || [];
-
-        db.chat_messages.push(aiMsg);
-
-      }, 'AI auto reply');
-
-    }, 700);
-
+  // 2. BẮN THÔNG BÁO ĐẨY WEB PUSH NGAY LẬP TỨC (SONG SONG - KHÔNG CHỜ GIT COMMIT)
+  if (window.WebPushManager) {
+    const isPrivate = state.chatTab === 'private';
+    const partnerId = isPrivate ? Number(state.chatPrivatePartnerId !== undefined ? state.chatPrivatePartnerId : (isAdmin ? state.chatPrivateUnitId : 0) || 0) : null;
+    let targetRole = null;
+    let targetUnitId = null;
+    let pushTitle = `💬 [Trao Đổi Đoàn] ${senderName}`;
+    if (isPrivate) {
+      if (isAdmin) {
+        targetUnitId = partnerId;
+        pushTitle = `💬 [Tin nhắn riêng] ${senderName}`;
+      } else {
+        if (partnerId === 0 || !partnerId) {
+          targetRole = 'admin';
+          targetUnitId = null;
+          pushTitle = `💬 [Tin nhắn gửi Admin] ${senderName}`;
+        } else {
+          targetUnitId = partnerId;
+          targetRole = null;
+          pushTitle = `💬 [Tin nhắn riêng] ${senderName}`;
+        }
+      }
+    } else {
+      pushTitle = `💬 [Trao Đổi Toàn Khối] ${senderName}`;
+      targetRole = null;
+      targetUnitId = null;
+    }
+    // Gửi Push ngay trong mili-giây đầu tiên
+    window.WebPushManager.sendPushNotification({
+      title: pushTitle,
+      message: text.length > 80 ? text.substring(0, 80) + '...' : text,
+      targetRole: targetRole,
+      targetUnitId: targetUnitId,
+      badgeType: 'Increase',
+      badgeCount: 1,
+      url: './'
+    }).catch(() => {});
   }
 
+  // 3. KÍCH HOẠT PHẢN HỒI TỰ ĐỘNG TỪ AI NẾU CÓ @AI
+  if (text.toLowerCase().includes('@ai')) {
+    setTimeout(async () => {
+      const cleanPrompt = text.replace(/@ai/gi, '').trim() || 'hướng dẫn quy chế';
+      const aiReplyText = generateAiAssistantResponse(cleanPrompt);
+      const aiMsg = {
+        id: 'msg_ai_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        room: roomKey,
+        sender_id: -99,
+        sender_name: '🤖 Trợ lý AI Đoàn Khối (Gemini Pro)',
+        sender_role: 'admin',
+        text: `Chào các đồng chí! Tôi là Trợ lý AI Đoàn Khối tỉnh. Về nội dung bạn vừa hỏi "@AI":\n\n${aiReplyText}`,
+        created_at: nowISO(),
+        time_str: `${String(new Date().getHours()).padStart(2, '0')}:${String(new Date().getMinutes()).padStart(2, '0')}`
+      };
+      state.chatMessages = state.chatMessages || [];
+      state.chatMessages.push(aiMsg);
+      if (window.playNotificationChime) window.playNotificationChime();
+      renderApp();
+      setTimeout(scrollChatToBottom, 30);
+      mutateCloudDB(db => {
+        db.chat_messages = db.chat_messages || [];
+        db.chat_messages.push(aiMsg);
+      }, 'AI auto reply').catch(() => {});
+    }, 400);
+  }
 
-
+  // 4. LƯU CLOUD DB CHẠY NỀN KHÔNG KHÓA GIAO DIỆN
   const res = await mutateCloudDB(db => {
-
     db.chat_messages = db.chat_messages || [];
-
     db.chat_messages.push(newMsg);
-
     if (db.chat_messages.length > 2000) {
-
       db.chat_messages = db.chat_messages.slice(-2000);
-
     }
-
   }, `Chat msg in ${roomKey}`);
   broadcastLocalSyncSignal();
-
-    if (res.ok) {
-    if (window.WebPushManager) {
-      const isPrivate = state.chatTab === 'private';
-      const partnerId = isPrivate ? Number(state.chatPrivatePartnerId !== undefined ? state.chatPrivatePartnerId : (isAdmin ? state.chatPrivateUnitId : 0) || 0) : null;
-      let targetRole = null;
-      let targetUnitId = null;
-      let pushTitle = `💬 [Trao Đổi Đoàn] ${senderName}`;
-      if (isPrivate) {
-        if (isAdmin) {
-          targetUnitId = partnerId;
-          pushTitle = `💬 [Tin nhắn riêng] ${senderName}`;
-        } else {
-          if (partnerId === 0 || !partnerId) {
-            targetRole = 'admin';
-            targetUnitId = null;
-            pushTitle = `💬 [Tin nhắn gửi Admin] ${senderName}`;
-          } else {
-            targetUnitId = partnerId;
-            targetRole = null;
-            pushTitle = `💬 [Tin nhắn riêng] ${senderName}`;
-          }
-        }
-      } else {
-        pushTitle = `💬 [Trao Đổi Toàn Khối] ${senderName}`;
-        targetRole = null;
-        targetUnitId = null;
-      }
-      window.WebPushManager.sendPushNotification({
-        title: pushTitle,
-        message: text.length > 80 ? text.substring(0, 80) + '...' : text,
-        targetRole: targetRole,
-        targetUnitId: targetUnitId,
-        badgeType: 'Increase',
-        badgeCount: 1,
-        url: './'
-      });
-    }
-  }
 
   if (!res.ok) {
 
@@ -28156,6 +28160,17 @@ document.addEventListener('click', function (e) {
     renderApp();
   }
 });
+
+// LẮNG NGHE TÍN HIỆU TỨC THÌ TỪ SERVICE WORKER KHI CÓ PUSH NOTIFICATION ĐẾN
+if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data && (event.data.type === 'PUSH_RECEIVED' || event.data.type === 'SYNC_NOW')) {
+      if (typeof window.syncFromCloudNow === 'function') {
+        window.syncFromCloudNow(true);
+      }
+    }
+  });
+}
 
   </script>
 </body>
