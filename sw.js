@@ -1,5 +1,5 @@
 // Service Worker Tiêu Chí Đoàn - Tự động xóa sạch Cache khi có phiên bản mới
-const SW_VERSION = '1792126957';
+const SW_VERSION = '1792128528';
 const CACHE_NAME = 'tieuchidoan-v' + SW_VERSION;
 const ASSETS_TO_CACHE = [
   './logo_doan.png',
@@ -57,4 +57,23 @@ self.addEventListener('fetch', (event) => {
       return cached || fetch(event.request);
     })
   );
+});
+
+// HỖ TRỢ ĐẶT HUY HIỆU (APP BADGE) TRÊN THANH TASKBAR WINDOWS & MÀN HÌNH PWA
+self.addEventListener('message', (event) => {
+  if (!event.data) return;
+  if (event.data.type === 'SET_BADGE') {
+    const count = Number(event.data.count) || 0;
+    if (self.navigator && 'setAppBadge' in self.navigator) {
+      if (count > 0) {
+        self.navigator.setAppBadge(count).catch(() => {});
+      } else {
+        self.navigator.clearAppBadge().catch(() => {});
+      }
+    }
+  } else if (event.data.type === 'SHOW_NOTIFICATION') {
+    const title = event.data.title || 'Bộ Tiêu Chí Đoàn';
+    const options = event.data.options || {};
+    self.registration.showNotification(title, options).catch(() => {});
+  }
 });
