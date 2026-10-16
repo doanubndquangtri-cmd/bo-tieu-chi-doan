@@ -6,7 +6,7 @@ try {
   console.warn('[SW] Could not import OneSignalSDK.sw.js:', e);
 }
 
-const SW_VERSION = '1792153901';
+const SW_VERSION = '1792154393';
 const CACHE_NAME = 'tieuchidoan-v' + SW_VERSION;
 const ASSETS_TO_CACHE = [
   './logo_doan.png',
