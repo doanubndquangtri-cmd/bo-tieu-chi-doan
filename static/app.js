@@ -734,6 +734,8 @@ const state = {
 
   notificationsOpen: false,
 
+  notifFilterTab: 'all',
+
   chatMessages: [],
 
   chatOpen: false,
@@ -2466,6 +2468,7 @@ function renderApp() {
   `;
 
   requestAnimationFrame(updateMasterHeaderTops);
+  updateSystemAppBadge(getTotalBadgeCount());
 
   if (state.activeTab === 'reports') {
 
@@ -3049,6 +3052,168 @@ window.switchAccountQuick = function (val) {
 
 
 
+// =========================================================================
+// HỆ THỐNG THÔNG BÁO VÀ HUY HIỆU LOGO (BADGING SYSTEM)
+// =========================================================================
+
+function isNotificationForUser(n, user) {
+  if (!user || !n) return false;
+  const isAdmin = user.role === 'admin';
+  if (isAdmin) {
+    // Admin receives all submissions, approvals, rejections, and broadcasts
+    return true;
+  }
+  const uId = Number(user.id);
+  // Unit receives all broadcasts from Admin (new docs, new criteria)
+  if (n.type === 'admin_doc' || n.type === 'new_criterion' || n.target_role === 'unit' || n.target_all) {
+    return true;
+  }
+  // Unit receives notifications targeted specifically to itself
+  if (n.unit_id !== undefined && Number(n.unit_id) === uId) {
+    return true;
+  }
+  return false;
+}
+
+function isNotificationUnread(n, user) {
+  if (!user || !n) return false;
+  const isAdmin = user.role === 'admin';
+  if (isAdmin) {
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('notif_read_admin_' + n.id)) return false;
+    // Broadcasts created by Admin are not unread for Admin
+    if (n.type === 'admin_doc' || n.type === 'new_criterion') return false;
+    // Approvals or rejections performed by Admin are not unread for Admin
+    if (n.is_admin_approval || n.is_rejected) return false;
+    // Submissions from units
+    return !n.read;
+  } else {
+    const uId = Number(user.id);
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('notif_read_' + uId + '_' + n.id)) return false;
+    // Broadcasts from Admin (văn bản mới, tiêu chí mới)
+    if (n.type === 'admin_doc' || n.type === 'new_criterion' || n.target_role === 'unit' || n.target_all) {
+      const readUnits = Array.isArray(n.read_by_units) ? n.read_by_units.map(Number) : [];
+      return !readUnits.includes(uId);
+    }
+    // Specific notifications for this unit (approval, rejection, report)
+    if (Number(n.unit_id) === uId) {
+      if (n.is_admin_approval || n.is_rejected || n.type === 'admin_report') {
+        return !n.read_by_unit;
+      }
+      return false; // Unit's own submission is not unread for itself
+    }
+    return false;
+  }
+}
+
+function getUnreadNotificationCount() {
+  if (!state.user) return 0;
+  return (state.notifications || []).filter(n => isNotificationForUser(n, state.user) && isNotificationUnread(n, state.user)).length;
+}
+
+function getTotalBadgeCount() {
+  if (!state.user) return 0;
+  const notifUnread = typeof getUnreadNotificationCount === 'function' ? getUnreadNotificationCount() : 0;
+  const chatUnread = typeof getTotalUnreadChatCount === 'function' ? getTotalUnreadChatCount() : 0;
+  return notifUnread + chatUnread;
+}
+
+function updateSystemAppBadge(count) {
+  try {
+    if (typeof navigator !== 'undefined' && 'setAppBadge' in navigator) {
+      if (count > 0) {
+        navigator.setAppBadge(count).catch(() => {});
+      } else {
+        navigator.clearAppBadge().catch(() => {});
+      }
+    }
+  } catch (e) {}
+
+  try {
+    updateDynamicFaviconBadge(count);
+  } catch (e) {}
+
+  try {
+    updateDocumentTitle(count);
+  } catch (e) {}
+}
+
+let _faviconImgCache = null;
+function updateDynamicFaviconBadge(count) {
+  if (typeof document === 'undefined') return;
+  let faviconLink = document.querySelector("link[rel*='icon']");
+  if (!faviconLink) {
+    faviconLink = document.createElement('link');
+    faviconLink.type = 'image/x-icon';
+    faviconLink.rel = 'shortcut icon';
+  }
+
+  if (count <= 0) {
+    if (typeof LOGO_DOAN_SRC !== 'undefined' && LOGO_DOAN_SRC) {
+      faviconLink.href = LOGO_DOAN_SRC;
+    }
+    return;
+  }
+
+  if (typeof document.createElement !== 'function') return;
+  const canvas = document.createElement('canvas');
+  if (!canvas || !canvas.getContext) return;
+  canvas.width = 32;
+  canvas.height = 32;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  function drawBadge(img) {
+    ctx.clearRect(0, 0, 32, 32);
+    if (img) {
+      ctx.drawImage(img, 0, 0, 32, 32);
+    }
+    ctx.beginPath();
+    ctx.arc(23, 9, 8, 0, 2 * Math.PI, false);
+    ctx.fillStyle = '#ef4444';
+    ctx.fill();
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 8.5px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const text = count > 99 ? '99+' : String(count);
+    ctx.fillText(text, 23, 9.5);
+
+    try {
+      faviconLink.href = canvas.toDataURL('image/png');
+      if (document.head && !document.head.contains(faviconLink)) {
+        document.head.appendChild(faviconLink);
+      }
+    } catch (e) {}
+  }
+
+  if (typeof Image !== 'undefined') {
+    if (!_faviconImgCache) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        _faviconImgCache = img;
+        drawBadge(img);
+      };
+      img.onerror = () => {
+        drawBadge(null);
+      };
+      img.src = typeof LOGO_DOAN_SRC !== 'undefined' ? LOGO_DOAN_SRC : '';
+    } else {
+      drawBadge(_faviconImgCache);
+    }
+  }
+}
+
+function updateDocumentTitle(count) {
+  if (typeof document === 'undefined') return;
+  const baseTitle = 'Hệ Thống Quản Lý & Tổng Hợp Bộ Tiêu Chí Đoàn Cấp Cơ Sở';
+  document.title = (count > 0 ? `(${count > 99 ? '99+' : count}) ` : '') + baseTitle;
+}
+
 function renderHeader() {
 
   const isAdminSession = state.isAdminSession || localStorage.getItem('doan2026_admin_authenticated') === '1';
@@ -3079,7 +3244,9 @@ function renderHeader() {
 
   ].join('');
 
-
+  const totalBadgeCount = getTotalBadgeCount();
+  const unreadNotifCount = getUnreadNotificationCount();
+  const unreadChatCount = typeof getTotalUnreadChatCount === 'function' ? getTotalUnreadChatCount() : 0;
 
   return `
 
@@ -3089,7 +3256,13 @@ function renderHeader() {
 
       <div class="brand-box" style="display: flex; align-items: center; flex-shrink: 0;">
 
-        <img src="${LOGO_DOAN_SRC}" alt="Huy hiệu Đoàn" class="youth-badge" style="width:38px; height:38px; object-fit:contain; border:none; background:transparent; padding:0; margin-right:8px; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2));" />
+        <div class="brand-logo-badge-container" onclick="toggleNotificationPanel(event)" title="${totalBadgeCount > 0 ? `Có ${totalBadgeCount} thông báo và tin nhắn mới (Bấm để xem)` : 'Hệ Thống Quản Lý & Tổng Hợp Bộ Tiêu Chí Đoàn'}" style="position: relative; display: inline-flex; align-items: center; justify-content: center; margin-right: 8px; flex-shrink: 0; cursor: pointer;">
+
+          <img src="${LOGO_DOAN_SRC}" alt="Huy hiệu Đoàn" class="youth-badge" style="width:38px; height:38px; object-fit:contain; border:none; background:transparent; padding:0; display:block; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2)); transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.08)'" onmouseout="this.style.transform='scale(1)'" />
+
+          ${totalBadgeCount > 0 ? `<span class="logo-facebook-badge" style="position: absolute; top: -5px; right: -7px; background: #ef4444; color: #ffffff; font-size: 10px; font-weight: 900; min-width: 19px; height: 19px; line-height: 15px; padding: 0 4px; border-radius: 12px; border: 2px solid #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.45); display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 10; animation: logoBadgePulse 2s infinite;">${totalBadgeCount > 99 ? '99+' : totalBadgeCount}</span>` : ''}
+
+        </div>
 
         <div class="brand-title">
 
@@ -3119,12 +3292,7 @@ function renderHeader() {
         <div class="notification-bell-container" id="notif-bell-container" style="position: relative; flex-shrink: 0; z-index: 999999 !important;">
           <button class="btn btn-sm notification-bell-btn" onclick="toggleNotificationPanel(event)" style="font-size:11px; padding:3px 7px; height:27px;">
             🔔 <span style="font-weight:700;">Thông báo</span>
-            ${(() => {
-              const isAdminUser = state.user && state.user.role === 'admin';
-              const unreadList = (state.notifications || []).filter(n => isAdminUser ? !n.read : (n.unit_id === (state.user && state.user.id) && !n.read_by_unit));
-              const unreadCount = unreadList.length;
-              return unreadCount > 0 ? `<span class="notification-badge">${unreadCount > 99 ? '99+' : unreadCount}</span>` : '';
-            })()}
+            ${unreadNotifCount > 0 ? `<span class="notification-badge">${unreadNotifCount > 99 ? '99+' : unreadNotifCount}</span>` : ''}
           </button>
           ${state.notificationsOpen ? renderNotificationDropdown() : ''}
         </div>
@@ -3132,10 +3300,7 @@ function renderHeader() {
         <button class="btn btn-sm" onclick="toggleChatWidget()" title="Bấm để mở ô Trao Đổi Đoàn giữa các đơn vị và Ban Thường vụ Tỉnh" style="background: linear-gradient(135deg, #0284c7 0%, #0052cc 100%); color: #fff; border: 1px solid rgba(255,255,255,0.4); font-size: 11px; padding: 3px 8px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); cursor: pointer; border-radius: 5px; height:27px;">
           <span>💬</span>
           <span>Trao Đổi Đoàn</span>
-          ${(() => {
-            const unread = getTotalUnreadChatCount();
-            return unread > 0 ? `<span style="background:#ef4444; color:#fff; font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:10px; margin-left:2px;">${unread > 99 ? '99+' : unread}</span>` : '';
-          })()}
+          ${unreadChatCount > 0 ? `<span style="background:#ef4444; color:#fff; font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:10px; margin-left:2px;">${unreadChatCount > 99 ? '99+' : unreadChatCount}</span>` : ''}
         </button>
 
         <button class="btn btn-sm btn-outline" onclick="syncFromCloudNow(false)" style="background:rgba(255,255,255,0.15); color:#fff; border-color:rgba(255,255,255,0.3); font-size:11px; padding:3px 7px; height:27px;" title="Tải dữ liệu mới nhất từ đám mây">
@@ -10183,8 +10348,25 @@ window.saveNewCriterion = async function () {
 
 
     // AUTOMATIC CHRONOLOGICAL SORTING BY DEADLINE:
-
     sortCriteriaChronologically(db.criteria);
+
+    db.notifications = db.notifications || [];
+    db.notifications.unshift({
+      id: 'notif_crit_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      type: 'new_criterion',
+      target_role: 'unit',
+      title: 'Bổ sung tiêu chí mới',
+      col_label: newCriterionObj.col_label,
+      criterion_title: newCriterionObj.title,
+      content: `Ban Thường vụ đã ban hành tiêu chí/báo cáo mới: "${newCriterionObj.col_label} - ${newCriterionObj.title}"`,
+      criterion_id: newCriterionObj.id,
+      is_report: newCriterionObj.is_report,
+      submitted_at: nowISO(),
+      read: true,
+      read_by_units: [],
+      created_at: nowISO()
+    });
+    if (db.notifications.length > 200) db.notifications.length = 200;
 
   }, `Create criterion ${title}`);
 
@@ -13420,6 +13602,25 @@ window.uploadAdminDocument = async function () {
 
       db.admin_docs.push(newDoc);
 
+      db.notifications = db.notifications || [];
+      db.notifications.unshift({
+        id: 'notif_doc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        type: 'admin_doc',
+        target_role: 'unit',
+        title: 'Ban hành văn bản mới',
+        doc_title: title,
+        content: `Ban Thường vụ đã ban hành văn bản mới: "${title}"`,
+        doc_id: docId,
+        file_name: file.name,
+        file_url: fileUrl,
+        download_url: downloadUrl,
+        submitted_at: nowISO(),
+        read: true,
+        read_by_units: [],
+        created_at: nowISO()
+      });
+      if (db.notifications.length > 200) db.notifications.length = 200;
+
     }, 'Admin upload document ' + title);
 
 
@@ -14216,368 +14417,334 @@ window.markNotificationRead = async function(notifId) {
 
 // ĐÁNH DẤU TẤT CẢ THÔNG BÁO LÀ ĐÃ ĐỌC
 
+// ĐÁNH DẤU TẤT CẢ THÔNG BÁO LÀ ĐÃ ĐỌC
 window.markAllNotificationsRead = async function() {
-
   const isAdminUser = state.user && state.user.role === 'admin';
+  const uId = state.user ? Number(state.user.id) : null;
 
   (state.notifications || []).forEach(n => {
-
-    if (isAdminUser) n.read = true;
-
-    else if (n.unit_id === (state.user && state.user.id)) n.read_by_unit = true;
-
+    if (isAdminUser) {
+      n.read = true;
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('notif_read_admin_' + n.id, '1');
+      }
+    } else {
+      n.read_by_unit = true;
+      n.read_by_units = Array.isArray(n.read_by_units) ? n.read_by_units : [];
+      if (uId && !n.read_by_units.includes(uId)) {
+        n.read_by_units.push(uId);
+      }
+      if (typeof localStorage !== 'undefined' && uId) {
+        localStorage.setItem('notif_read_' + uId + '_' + n.id, '1');
+      }
+    }
   });
 
   renderApp();
-
-  showToast('Đã đánh dấu tất cả thông báo là đã đọc!', 'success');
+  showToast('✓ Đã đánh dấu tất cả thông báo là đã đọc!', 'success');
 
   await mutateCloudDB(db => {
-
     db.notifications = db.notifications || [];
-
     db.notifications.forEach(n => {
-
-      if (isAdminUser) n.read = true;
-
-      else if (n.unit_id === (state.user && state.user.id)) n.read_by_unit = true;
-
+      if (isAdminUser) {
+        n.read = true;
+      } else {
+        n.read_by_unit = true;
+        n.read_by_units = Array.isArray(n.read_by_units) ? n.read_by_units : [];
+        if (uId && !n.read_by_units.includes(uId)) {
+          n.read_by_units.push(uId);
+        }
+      }
     });
-
   }, 'Mark all notifications as read');
-
 };
 
-
-
 // CLICK VÀO THÔNG BÁO: ĐÁNH DẤU ĐÃ ĐỌC VÀ MỞ CHI TIẾT TIÊU CHÍ/VĂN BẢN
-
 window.openNotificationDetail = async function(notifId) {
-
   const notif = (state.notifications || []).find(n => n.id === notifId);
-
   if (!notif) return;
 
   state.notificationsOpen = false;
-
   const isAdminUser = state.user && state.user.role === 'admin';
+  const uId = state.user ? Number(state.user.id) : null;
 
-  if (isAdminUser) notif.read = true;
-
-  else notif.read_by_unit = true;
+  if (isAdminUser) {
+    notif.read = true;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('notif_read_admin_' + notif.id, '1');
+    }
+  } else {
+    notif.read_by_unit = true;
+    notif.read_by_units = Array.isArray(notif.read_by_units) ? notif.read_by_units : [];
+    if (uId && !notif.read_by_units.includes(uId)) {
+      notif.read_by_units.push(uId);
+    }
+    if (typeof localStorage !== 'undefined' && uId) {
+      localStorage.setItem('notif_read_' + uId + '_' + notif.id, '1');
+    }
+  }
 
   renderApp();
 
-
-
   mutateCloudDB(db => {
-
     db.notifications = db.notifications || [];
-
     const item = db.notifications.find(n => n.id === notifId);
-
     if (item) {
-
-      if (isAdminUser) item.read = true;
-
-      else item.read_by_unit = true;
-
+      if (isAdminUser) {
+        item.read = true;
+      } else {
+        item.read_by_unit = true;
+        item.read_by_units = Array.isArray(item.read_by_units) ? item.read_by_units : [];
+        if (uId && !item.read_by_units.includes(uId)) {
+          item.read_by_units.push(uId);
+        }
+      }
     }
-
   }, 'Mark notification read');
 
-
-
-  // Mở modal xem hồ sơ & xác nhận chấm điểm
-
-  if (notif.unit_id && notif.criterion_id) {
-
-    openSubmissionDetailModal(notif.unit_id, notif.criterion_id);
-
+  // Điều hướng xem chi tiết theo loại thông báo
+  if (notif.type === 'admin_doc') {
+    setTab('admin_docs');
+    return;
   }
-
+  if (notif.type === 'new_criterion') {
+    if (isAdminUser) {
+      setTab('master');
+    } else {
+      setTab('unit_submit');
+    }
+    return;
+  }
+  if (notif.unit_id && notif.criterion_id) {
+    openSubmissionDetailModal(notif.unit_id, notif.criterion_id);
+  }
 };
-
-
 
 // XÓA TOÀN BỘ DANH SÁCH THÔNG BÁO (KÈM HỘP THOẠI XÁC NHẬN)
-
 window.clearAllNotifications = async function() {
-
   const notifs = state.notifications || [];
-
   if (notifs.length === 0) {
-
     showToast('Danh sách thông báo hiện đang trống!', 'info');
-
     return;
-
   }
-
   const ok = confirm('Bạn có chắc chắn muốn XÓA TẤT CẢ các thông báo hệ thống không?\n\n- Thao tác này sẽ dọn sạch toàn bộ thông báo đang có.\n- Bấm "OK" (Đồng ý) để xóa tất cả, hoặc "Cancel" (Hủy) để giữ lại.');
-
   if (!ok) return;
-
-
 
   showToast('Đang xóa toàn bộ thông báo...', 'info');
-
   const res = await mutateCloudDB(db => {
-
     db.notifications = [];
-
   }, 'Clear all notifications');
 
-
-
   if (res.ok) {
-
     state.notifications = [];
-
     showToast('🎉 Đã xóa sạch tất cả thông báo thành công!', 'success');
-
     renderApp();
-
   } else {
-
     showToast('Lỗi khi xóa thông báo trên máy chủ!', 'error');
-
   }
-
 };
-
-
 
 // XÓA TỪNG THÔNG BÁO RIÊNG LẺ (KÈM HỘP THOẠI XÁC NHẬN)
-
 window.deleteSingleNotification = async function(notifId) {
-
   const ok = confirm('Bạn có chắc chắn muốn xóa thông báo này không?\n\n- Bấm "OK" để xóa hoặc "Cancel" để không xóa.');
-
   if (!ok) return;
 
-
-
   showToast('Đang xóa thông báo...', 'info');
-
   const res = await mutateCloudDB(db => {
-
     db.notifications = (db.notifications || []).filter(n => String(n.id) !== String(notifId));
-
   }, `Delete notification ${notifId}`);
 
-
-
   if (res.ok) {
-
     state.notifications = (state.notifications || []).filter(n => String(n.id) !== String(notifId));
-
     showToast('Đã xóa thông báo!', 'success');
-
     renderApp();
-
   } else {
-
     showToast('Lỗi khi xóa thông báo trên máy chủ!', 'error');
-
   }
-
 };
 
+// CHUYỂN ĐỔI TAB LỌC THÔNG BÁO: TẤT CẢ / MỚI / ĐÃ XEM
+window.switchNotifFilterTab = function(tabName) {
+  state.notifFilterTab = tabName;
+  renderApp();
+};
 
-
-// RENDER DROPDOWN THÔNG BÁO CHUÔNG (NGAY DƯỚI NÚT THÔNG BÁO, RÕ NÉT, CÓ NÚT XÓA TẤT CẢ)
-
+// RENDER DROPDOWN THÔNG BÁO CHUÔNG (PHÂN CHIA RÕ RÀNG NỘI DUNG MỚI & CŨ)
 function renderNotificationDropdown() {
-
-  const isAdminUser = state.user && state.user.role === 'admin';
-
+  const user = state.user;
+  const isAdminUser = user && user.role === 'admin';
   const notifs = state.notifications || [];
 
-  const unreadList = notifs.filter(n => isAdminUser ? !n.read : (n.unit_id === (state.user && state.user.id) && !n.read_by_unit));
-
+  // Lọc thông báo thuộc về vai trò người dùng hiện tại
+  const userNotifs = notifs.filter(n => isNotificationForUser(n, user));
+  const unreadList = userNotifs.filter(n => isNotificationUnread(n, user));
+  const readList = userNotifs.filter(n => !isNotificationUnread(n, user));
   const unreadCount = unreadList.length;
 
-
+  const currentTab = state.notifFilterTab || 'all';
+  let displayList = [];
+  if (currentTab === 'unread') {
+    displayList = unreadList;
+  } else if (currentTab === 'read') {
+    displayList = readList;
+  } else {
+    // Hiển thị tất cả, ưu tiên mục chưa đọc lên trước, sau đó theo thời gian giảm dần
+    displayList = [...userNotifs].sort((a, b) => {
+      const aUnread = isNotificationUnread(a, user) ? 1 : 0;
+      const bUnread = isNotificationUnread(b, user) ? 1 : 0;
+      if (aUnread !== bUnread) return bUnread - aUnread;
+      const tA = a.submitted_at || a.created_at || '';
+      const tB = b.submitted_at || b.created_at || '';
+      return tB.localeCompare(tA);
+    });
+  }
 
   return `
-
     <div class="notification-dropdown" onclick="event.stopPropagation()">
-
       <div class="notification-header">
-
         <div style="display:flex; align-items:center; gap:8px;">
-
           <span style="font-size:16px;">🔔</span>
-
-          <span style="font-weight:800; font-size:14px; letter-spacing:0.3px;">THÔNG BÁO HỆ THỐNG</span>
-
-          ${unreadCount > 0 ? `<span class="badge" style="background:#ef4444; color:#fff; font-size:11px; font-weight:800; padding:2px 7px;">${unreadCount} chưa đọc</span>` : ''}
-
+          <span style="font-weight:800; font-size:13.5px; letter-spacing:0.3px;">THÔNG BÁO HỆ THỐNG</span>
+          ${unreadCount > 0 ? `<span class="badge" style="background:#ef4444; color:#fff; font-size:10.5px; font-weight:800; padding:2px 7px; border-radius:10px;">${unreadCount} mới</span>` : ''}
         </div>
-
         <div style="display:flex; align-items:center; gap:6px;">
-
           ${unreadCount > 0 ? `
-
-            <button type="button" onclick="markAllNotificationsRead()" style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.4); color:#fff; font-size:11px; font-weight:700; cursor:pointer; padding:3px 7px; border-radius:4px;" title="Đánh dấu tất cả thông báo là đã đọc">
-
-              ✓✓ Đã đọc
-
+            <button type="button" onclick="markAllNotificationsRead()" style="background:rgba(255,255,255,0.22); border:1px solid rgba(255,255,255,0.5); color:#fff; font-size:11px; font-weight:700; cursor:pointer; padding:3px 8px; border-radius:4px; display:inline-flex; align-items:center; gap:3px;" title="Đánh dấu tất cả thông báo là đã đọc">
+              ✓✓ Đã đọc hết
             </button>
-
           ` : ''}
-
+          <button type="button" onclick="clearAllNotifications()" style="background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.3); color:#fff; font-size:11px; font-weight:700; cursor:pointer; padding:3px 7px; border-radius:4px;" title="Xóa toàn bộ thông báo">
+            🗑️ Dọn dẹp
+          </button>
           <button type="button" onclick="state.notificationsOpen = false; renderApp();" style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:26px; height:26px; border-radius:50%; font-size:14px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center;" title="Đóng bảng thông báo">✕</button>
-
         </div>
+      </div>
 
+      <!-- THANH TAB LỌC: TẤT CẢ / 🔴 MỚI / ⚪ ĐÃ XEM -->
+      <div class="notif-tab-bar">
+        <button type="button" class="notif-tab-btn ${currentTab === 'all' ? 'active' : ''}" onclick="switchNotifFilterTab('all')">
+          📋 Tất cả (${userNotifs.length})
+        </button>
+        <button type="button" class="notif-tab-btn ${currentTab === 'unread' ? 'active' : ''}" onclick="switchNotifFilterTab('unread')">
+          🔴 Mới (${unreadList.length})
+        </button>
+        <button type="button" class="notif-tab-btn ${currentTab === 'read' ? 'active' : ''}" onclick="switchNotifFilterTab('read')">
+          ⚪ Đã xem (${readList.length})
+        </button>
       </div>
 
       <div class="notification-list">
-
-        ${notifs.length === 0 ? `
-
+        ${userNotifs.length === 0 ? `
           <div style="padding:36px 20px; text-align:center; color:#64748b; font-size:13.5px;">
-
             <div style="font-size:28px; margin-bottom:8px;">🔔</div>
-
             <div style="font-weight:700; color:#334155;">Chưa có thông báo nào.</div>
-
-            <div style="font-size:12px; margin-top:4px;">Khi các cơ sở Đoàn nộp minh chứng hoặc văn bản, thông báo sẽ hiển thị chi tiết tại đây.</div>
-
+            <div style="font-size:12px; margin-top:4px;">Khi Ban Thường vụ tải file, ban hành tiêu chí hoặc các đơn vị nộp bài, thông báo sẽ hiển thị chi tiết tại đây.</div>
           </div>
-
-        ` : notifs.slice(0, 60).map(n => {
-
-          const isUnread = isAdminUser ? !n.read : (n.unit_id === (state.user && state.user.id) && !n.read_by_unit);
-
+        ` : (displayList.length === 0 ? `
+          <div style="padding:36px 20px; text-align:center; color:#64748b; font-size:13.5px;">
+            ${currentTab === 'unread' ? `
+              <div style="font-size:28px; margin-bottom:8px;">🎉</div>
+              <div style="font-weight:700; color:#16a34a;">Tuyệt vời! Bạn không có thông báo mới nào chưa đọc.</div>
+            ` : `
+              <div style="font-size:28px; margin-bottom:8px;">📭</div>
+              <div style="font-weight:700; color:#64748b;">Chưa có thông báo nào trong mục đã xem.</div>
+            `}
+          </div>
+        ` : displayList.slice(0, 60).map(n => {
+          const isUnread = isNotificationUnread(n, user);
           const foundCrit = (state.criteria || []).find(c => c.id === n.criterion_id);
-
-          const repType = foundCrit ? Number(foundCrit.is_report) : 0;
+          const repType = foundCrit ? Number(foundCrit.is_report) : (n.is_report !== undefined ? Number(n.is_report) : 0);
 
           return `
-
-            <div class="notification-item ${isUnread ? 'unread' : ''}" onclick="openNotificationDetail('${n.id}')" style="padding:14px 18px;">
-
+            <div class="notification-item ${isUnread ? 'unread' : 'read'}" onclick="openNotificationDetail('${n.id}')" style="padding:12px 16px; border-bottom:1px solid #e2e8f0; border-left:${isUnread ? '4px solid #ef4444' : '4px solid #cbd5e1'}; background:${isUnread ? '#eff6ff' : '#ffffff'}; cursor:pointer; transition:background 0.15s ease;">
               <div class="notification-title" style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
-
                 <span style="color:#003d99; font-weight:800; font-size:13.5px; display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
-
-                  🏢 ${escapeHtml(n.unit_name || 'Đơn vị')}
-
-                  ${isUnread ? '<span class="badge" style="background:#ef4444; color:#fff; font-size:10px; font-weight:800; padding:1px 5px; margin-left:4px;">Mới</span>' : ''}
-
+                  ${n.type === 'admin_doc' ? '📄 Văn bản Ban Thường vụ' : (n.type === 'new_criterion' ? '🎯 Tiêu chí / Báo cáo mới' : (n.is_admin_approval ? '👑 Duyệt điểm đánh giá' : (n.is_rejected ? '❌ Thông báo không duyệt' : `🏢 ${escapeHtml(n.unit_name || 'Đơn vị')}`)))}
+                  ${isUnread ? '<span class="badge" style="background:#ef4444; color:#fff; font-size:10px; font-weight:800; padding:1px 6px; border-radius:10px; margin-left:3px;">🔴 Mới</span>' : '<span class="badge" style="background:#f1f5f9; color:#64748b; font-size:10px; font-weight:600; padding:1px 6px; border-radius:10px; margin-left:3px;">✓ Đã xem</span>'}
                 </span>
-
                 <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
-
                   <span class="notification-time" style="font-size:11px; color:#64748b;">🕒 ${escapeHtml(n.submitted_at ? formatDateVN(n.submitted_at.substring(0, 10)) + ' ' + (n.submitted_at.substring(11, 16) || '') : '')}</span>
-
+                  <button type="button" onclick="event.stopPropagation(); deleteSingleNotification('${n.id}');" style="background:transparent; border:none; color:#94a3b8; font-size:14px; cursor:pointer; padding:0 3px;" title="Xóa thông báo này">✕</button>
                 </div>
-
               </div>
 
               <div class="notification-desc" style="font-size:13px; line-height:1.5; margin-top:4px;">
-
-                ${n.is_rejected
-
+                ${n.type === 'admin_doc'
                   ? `<div>
-
-                       <span style="color:#dc2626; font-weight:700;">❌ Ban Thường vụ không duyệt bài nộp:</span> <b>${escapeHtml(n.col_label || '')}</b> - ${escapeHtml(n.criterion_title || '')}
-
-                       <div style="font-size:12px; color:#991b1b; background:#fef2f2; padding:4px 8px; border-radius:4px; border:1px solid #fecaca; margin-top:4px;">
-
-                         <b>Lý do:</b> ${escapeHtml(n.reject_reason || 'Chưa đạt yêu cầu, vui lòng nộp bổ sung')}
-
-                       </div>
-
+                       <span style="color:#0284c7; font-weight:700;">📄 Ban Thường vụ đã ban hành văn bản mới:</span>
+                       <div style="font-weight:700; color:#0f172a; margin-top:2px;">"${escapeHtml(n.doc_title || n.title || 'Văn bản')}"</div>
+                       ${n.content ? `<div style="font-size:12px; color:#475569; margin-top:2px;">${escapeHtml(n.content)}</div>` : ''}
                      </div>`
-
-                  : (n.is_admin_approval
-
-                    ? `<span style="color:#15803d; font-weight:700;">👑 Ban Thường vụ đã duyệt điểm:</span> <b>${escapeHtml(n.col_label || '')}</b> - ${escapeHtml(n.criterion_title || '')} (<span style="color:#15803d; font-weight:800;">+${formatScore(n.score)}đ</span>)`
-
-                    : `<span style="color:#0369a1; font-weight:700;">📤 Đã nộp hồ sơ minh chứng:</span> <b>${escapeHtml(n.col_label || '')}</b> - ${escapeHtml(n.criterion_title || '')}`
-
+                  : (n.type === 'new_criterion'
+                    ? `<div>
+                         <span style="color:#1d4ed8; font-weight:700;">🎯 Ban Thường vụ đã bổ sung tiêu chí/báo cáo mới:</span>
+                         <div style="font-weight:700; color:#0f172a; margin-top:2px;"><b>${escapeHtml(n.col_label || '')}</b> - ${escapeHtml(n.criterion_title || n.title || '')}</div>
+                       </div>`
+                    : (n.is_rejected
+                      ? `<div>
+                           <span style="color:#dc2626; font-weight:700;">❌ Ban Thường vụ không duyệt bài nộp:</span> <b>${escapeHtml(n.col_label || '')}</b> - ${escapeHtml(n.criterion_title || '')}
+                           <div style="font-size:12px; color:#991b1b; background:#fef2f2; padding:4px 8px; border-radius:4px; border:1px solid #fecaca; margin-top:4px;">
+                             <b>Lý do:</b> ${escapeHtml(n.reject_reason || 'Chưa đạt yêu cầu, vui lòng nộp bổ sung minh chứng')}
+                           </div>
+                         </div>`
+                      : (n.is_admin_approval
+                        ? `<div>
+                             <span style="color:#15803d; font-weight:700;">👑 Ban Thường vụ đã duyệt điểm:</span> <b>${escapeHtml(n.col_label || '')}</b> - ${escapeHtml(n.criterion_title || '')} (<span style="color:#15803d; font-weight:800;">+${formatScore(n.score)}đ</span>)
+                           </div>`
+                        : `<div>
+                             <span style="color:#0369a1; font-weight:700;">📤 Đã nộp hồ sơ minh chứng:</span> <b>${escapeHtml(n.col_label || '')}</b> - ${escapeHtml(n.criterion_title || '')}
+                           </div>`
+                      )
+                    )
                   )
-
                 }
 
-                <div style="margin-top:3px;">
-
-                  ${repType === 1 ? '<span class="badge badge-success" style="font-size:10px;">📋 Báo cáo</span>' : (repType === 2 ? '<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-size:10px; font-weight:700;">👑 Admin chấm</span>' : '<span class="badge" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-size:10px; font-weight:700;">🎯 Hoạt động</span>')}
-
+                <div style="margin-top:4px;">
+                  ${n.type === 'admin_doc'
+                    ? '<span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-size:10px; font-weight:700;">📄 Văn bản chỉ đạo</span>'
+                    : (repType === 1
+                      ? '<span class="badge badge-success" style="font-size:10px;">📋 Báo cáo</span>'
+                      : (repType === 2
+                        ? '<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-size:10px; font-weight:700;">👑 Admin chấm</span>'
+                        : '<span class="badge" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-size:10px; font-weight:700;">🎯 Hoạt động</span>'
+                      )
+                    )
+                  }
                 </div>
-
               </div>
-
-
 
               ${(() => {
-
                 const uniqueFileNames = [];
-
                 if (n.files && n.files.length > 0) {
-
                   n.files.forEach(f => {
-
                     const fn = f.name || f.file_name;
-
                     if (fn && !uniqueFileNames.includes(fn)) uniqueFileNames.push(fn);
-
                   });
-
                 } else if (n.file_name) {
-
                   uniqueFileNames.push(n.file_name);
-
                 }
-
                 if (uniqueFileNames.length === 0) return '';
-
                 return `
-
-                  <div class="notification-files" style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;">
-
-                    ${uniqueFileNames.map(fn => `<span class="notification-file-pill" style="font-size:12px; padding:3px 10px;">📎 ${escapeHtml(fn)}</span>`).join('')}
-
+                  <div class="notification-files" style="margin-top:6px; display:flex; flex-wrap:wrap; gap:6px;">
+                    ${uniqueFileNames.map(fn => `<span class="notification-file-pill" style="font-size:11.5px; padding:3px 8px;">📎 ${escapeHtml(fn)}</span>`).join('')}
                   </div>
-
                 `;
-
               })()}
 
-
-
-              <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center; padding-top:8px; border-top:1px dashed #e2e8f0;">
-
+              <div style="margin-top:8px; display:flex; justify-content:space-between; align-items:center; padding-top:6px; border-top:1px dashed #e2e8f0;">
                 <span style="font-size:12px; color:#d97706; font-weight:700;">
-
                   ${n.self_score ? `Điểm đề xuất: +${formatScore(n.self_score)}đ (Chờ duyệt)` : ''}
-
                 </span>
-
                 <span style="font-size:12px; color:#0052cc; font-weight:800; display:inline-flex; align-items:center; gap:3px;">
-
-                  👉 Bấm Xem Hồ Sơ & Chấm Điểm ↗
-
+                  ${n.type === 'admin_doc' ? '👉 Xem văn bản & tải về ↗' : (n.type === 'new_criterion' ? '👉 Bấm xem tiêu chí ↗' : (n.is_rejected ? '👉 Bấm xem hồ sơ & nộp lại ↗' : '👉 Bấm Xem Hồ Sơ & Chấm Điểm ↗'))}
                 </span>
-
               </div>
-
             </div>
-
           `;
-
-        }).join('')}
-
+        }).join(''))}
       </div>
-
     </div>
-
   `;
-
 }
 
 
@@ -14638,7 +14805,7 @@ window.approveUnitSubmission = async function(unitId, critId, scoreVal) {
       is_admin_approval: true,
       score: finalScore,
       submitted_at: now,
-      read: false,
+      read: true,
       read_by_unit: false
     });
 
@@ -14858,7 +15025,7 @@ window.confirmRejectUnitSubmission = async function(unitId, critId) {
       is_rejected: true,
       reject_reason: reason || 'Chưa đạt yêu cầu, vui lòng nộp bổ sung minh chứng',
       submitted_at: now,
-      read: false,
+      read: true,
       read_by_unit: false
     });
 
@@ -15029,6 +15196,24 @@ window.duplicateCriterion = async function (critId) {
     db.criteria.push(newCrit);
 
     sortCriteriaChronologically(db.criteria);
+
+    db.notifications = db.notifications || [];
+    db.notifications.unshift({
+      id: 'notif_crit_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+      type: 'new_criterion',
+      target_role: 'unit',
+      title: 'Bổ sung tiêu chí mới',
+      col_label: newCrit.col_label,
+      criterion_title: newCrit.title,
+      content: `Ban Thường vụ đã ban hành tiêu chí/báo cáo mới: "${newCrit.col_label} - ${newCrit.title}"`,
+      criterion_id: newCrit.id,
+      is_report: newCrit.is_report,
+      submitted_at: nowISO(),
+      read: true,
+      read_by_units: [],
+      created_at: nowISO()
+    });
+    if (db.notifications.length > 200) db.notifications.length = 200;
 
   }, `Duplicate criterion ${c.id}`);
 
