@@ -5725,6 +5725,7 @@ function ingestCloudDB(db) {
 
 
   state.settings = settings;
+  if (window.WebPushManager) window.WebPushManager.init();
 
   state.admin_docs = db.admin_docs || [];
 
@@ -7198,6 +7199,297 @@ function startTitleFlash(text) {
   }, 1000);
 }
 
+
+// =========================================================================
+// WEBPUSH MANAGER: QUẢN LÝ THÔNG BÁO NỔI THỰC THỤ QUA ONESIGNAL (PHƯƠNG ÁN 2)
+// Hỗ trợ hiển thị thông báo nổi trên Windows Action Center & Màn hình khóa Điện thoại
+// KỂ CẢ KHI TẮT HẲN TRÌNH DUYỆT / ĐÓNG WEB / TẮT MÁY / KHÓA MÀN HÌNH
+// =========================================================================
+
+window.WebPushManager = {
+  isInitialized: false,
+
+  // 1. Khởi tạo OneSignal Web SDK
+  init: function() {
+    try {
+      const appId = (state.settings && state.settings.onesignal_app_id) ? state.settings.onesignal_app_id.trim() : '';
+      if (!appId) return;
+
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(async function(OneSignal) {
+        if (window.WebPushManager.isInitialized) return;
+        try {
+          await OneSignal.init({
+            appId: appId,
+            serviceWorkerParam: { scope: './' },
+            serviceWorkerPath: 'OneSignalSDKWorker.js',
+            allowLocalhostAsSecureOrigin: true,
+            notifyButton: { enable: false }
+          });
+          window.WebPushManager.isInitialized = true;
+
+          // Đồng bộ user tags nếu đã đăng nhập
+          if (state.user) {
+            window.WebPushManager.syncUser(state.user);
+          }
+
+          // Lắng nghe sự kiện thay đổi quyền
+          if (OneSignal.Notifications && OneSignal.Notifications.addEventListener) {
+            OneSignal.Notifications.addEventListener('permissionChange', function() {
+              if (typeof renderApp === 'function') renderApp();
+            });
+          }
+        } catch (initErr) {
+          console.warn('[WebPush] Lỗi khởi tạo OneSignal:', initErr);
+        }
+      });
+    } catch (e) {
+      console.warn('[WebPush] Init error:', e);
+    }
+  },
+
+  // 2. Đồng bộ danh tính User với OneSignal (để gửi đúng người nhận: Admin hoặc Đơn vị cụ thể)
+  syncUser: function(user) {
+    if (!user) return;
+    try {
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      OneSignalDeferred.push(async function(OneSignal) {
+        try {
+          const uId = String(user.id);
+          const uRole = user.role || 'unit';
+          const uName = user.unit_name || user.name || (uRole === 'admin' ? 'Ban Thường vụ' : 'Cơ sở Đoàn');
+
+          if (OneSignal.login) {
+            await OneSignal.login(uId);
+          }
+          if (OneSignal.User && OneSignal.User.addTags) {
+            await OneSignal.User.addTags({
+              role: uRole,
+              unit_id: uId,
+              unit_name: uName
+            });
+          }
+        } catch (tagErr) {
+          console.warn('[WebPush] Lỗi sync user tags:', tagErr);
+        }
+      });
+    } catch (e) {}
+  },
+
+  // 3. Yêu cầu cấp quyền nhận thông báo trên thiết bị hiện tại
+  requestPermission: async function() {
+    try {
+      if (typeof window.OneSignal !== 'undefined' && window.OneSignal.Notifications) {
+        await window.OneSignal.Notifications.requestPermission();
+      } else if (typeof Notification !== 'undefined') {
+        await Notification.requestPermission();
+      }
+
+      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+        showToast('🎉 Đã bật thành công thông báo nổi! Thiết bị sẽ nhận được tin ngay cả khi tắt web.', 'success');
+        if (window.playNotificationChime) window.playNotificationChime();
+        window.WebPushManager.showLocalNativeNotification(
+          '🔔 Thông Báo Đoàn Hoạt Động Chuẩn Xác',
+          'Thiết bị này đã sẵn sàng nhận thông báo mới từ Ban Thường vụ và các cơ sở Đoàn!'
+        );
+      } else if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
+        showToast('Trình duyệt đang chặn thông báo. Vui lòng bấm vào icon ổ khóa cạnh tên miền để Cho phép (Allow).', 'warning');
+      }
+      if (typeof renderApp === 'function') renderApp();
+    } catch (err) {
+      console.warn('[WebPush] Request permission error:', err);
+    }
+  },
+
+  // 4. Kiểm tra trạng thái cấp quyền
+  isPermissionGranted: function() {
+    if (typeof Notification === 'undefined') return false;
+    return Notification.permission === 'granted';
+  },
+
+  // 5. Hiển thị thông báo ngay tại local (nếu browser đang mở)
+  showLocalNativeNotification: function(title, body, url) {
+    try {
+      if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+      if (typeof navigator !== 'undefined' && navigator.serviceWorker && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'SHOW_NOTIFICATION',
+          title: title,
+          options: {
+            body: body,
+            icon: './icon-192.png',
+            badge: './favicon.png',
+            vibrate: [200, 100, 200],
+            data: { url: url || './' }
+          }
+        });
+      } else {
+        const n = new Notification(title, {
+          body: body,
+          icon: './icon-192.png',
+          badge: './favicon.png'
+        });
+        n.onclick = function() {
+          window.focus();
+        };
+      }
+    } catch (e) {}
+  },
+
+  // 6. GỬI PUSH NOTIFICATION THỰC THỤ ĐẾN MÁY TÍNH / ĐIỆN THOẠI (KỂ CẢ KHI TẮT WEB)
+  sendPushNotification: async function(options) {
+    const { title, message, url, targetRole, targetUnitId } = options || {};
+    if (!title) return { ok: false };
+
+    // A. Hiển thị Desktop Local Notification trước (nếu tab đang mở)
+    window.WebPushManager.showLocalNativeNotification(title, message, url);
+
+    // B. Kiểm tra cấu hình OneSignal trong state.settings
+    const appId = (state.settings && state.settings.onesignal_app_id) ? state.settings.onesignal_app_id.trim() : '';
+    const restApiKey = (state.settings && state.settings.onesignal_rest_api_key) ? state.settings.onesignal_rest_api_key.trim() : '';
+
+    if (!appId || !restApiKey) {
+      return { ok: false, reason: 'Chưa cấu hình OneSignal App ID & REST API Key' };
+    }
+
+    // C. Gửi qua Google Apps Script Web App (Server-to-Server, bảo mật, không bị CORS)
+    const gdriveUrl = typeof getGoogleDriveScriptUrl === 'function' ? getGoogleDriveScriptUrl() : '';
+    if (gdriveUrl && gdriveUrl.startsWith('http')) {
+      try {
+        fetch(gdriveUrl, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'send_push_notification',
+            appId: appId,
+            restApiKey: restApiKey,
+            title: title,
+            message: message,
+            url: url || './',
+            targetRole: targetRole || null,
+            targetUnitId: targetUnitId !== undefined ? targetUnitId : null
+          })
+        }).catch(() => {});
+      } catch (errGas) {
+        console.warn('[WebPush] Lỗi gửi qua GAS:', errGas);
+      }
+    }
+
+    // D. Gửi trực tiếp qua OneSignal REST API
+    try {
+      const payload = {
+        app_id: appId,
+        headings: { en: title, vi: title },
+        contents: { en: message, vi: message },
+        web_url: url || './',
+        chrome_web_icon: 'https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/icon-192.png',
+        chrome_web_badge: 'https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/favicon.png'
+      };
+
+      if (targetRole) {
+        payload.filters = [{ field: 'tag', key: 'role', relation: '=', value: targetRole }];
+      } else if (targetUnitId !== undefined && targetUnitId !== null) {
+        payload.filters = [{ field: 'tag', key: 'unit_id', relation: '=', value: String(targetUnitId) }];
+      } else {
+        payload.included_segments = ['Subscribed Users'];
+      }
+
+      fetch('https://onesignal.com/api/v1/notifications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Authorization': 'Basic ' + restApiKey
+        },
+        body: JSON.stringify(payload)
+      }).catch(() => {});
+    } catch (eDirect) {}
+
+    return { ok: true };
+  },
+
+  // 7. Gửi thử nghiệm Push Notification
+  testPush: async function() {
+    showToast('Đang gửi thử nghiệm thông báo đẩy đến tất cả thiết bị đã bật chuông...', 'info');
+    await window.WebPushManager.sendPushNotification({
+      title: '🔔 [Thử Nghiệm] Hệ Thống Tiêu Chí Đoàn',
+      message: 'Xin chào! Thông báo nổi trên màn hình Desktop & Điện thoại của bạn đang hoạt động cực kỳ hoàn hảo.',
+      url: './'
+    });
+    showToast('🎉 Đã phát tín hiệu thông báo đẩy! Hãy thử khóa màn hình điện thoại hoặc thu nhỏ web để xem thông báo nổi.', 'success');
+  },
+
+  // 8. Hiển thị modal quản lý thông báo
+  showStatusModal: function() {
+    const isGranted = window.WebPushManager.isPermissionGranted();
+    const modalRoot = document.getElementById('modal-root');
+    if (!modalRoot) return;
+    modalRoot.innerHTML = `
+      <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+        <div class="modal-box" style="max-width:540px;">
+          <div class="modal-header" style="background:linear-gradient(135deg, #0284c7 0%, #0052cc 100%); color:#fff;">
+            <span>🔔 Trạng Thái Thông Báo Nổi (Desktop & Điện Thoại)</span>
+            <button class="btn btn-sm btn-outline" onclick="closeModal()" style="color:#fff; border-color:rgba(255,255,255,0.4);">✕</button>
+          </div>
+          <div class="modal-body" style="padding:16px;">
+            <div style="background:${isGranted ? '#f0fdf4' : '#fffbeb'}; border:1px solid ${isGranted ? '#bbf7d0' : '#fde68a'}; border-radius:8px; padding:12px; margin-bottom:14px;">
+              <div style="display:flex; align-items:center; gap:8px; font-weight:700; color:${isGranted ? '#166534' : '#92400e'};">
+                <span style="font-size:20px;">${isGranted ? '✅' : '⚠️'}</span>
+                <span>${isGranted ? 'Thiết bị này ĐÃ ĐƯỢC CẤP QUYỀN nhận thông báo!' : 'Thiết bị này CHƯA BẬT quyền thông báo'}</span>
+              </div>
+              <div style="font-size:12px; color:#475569; margin-top:4px;">
+                ${isGranted
+                  ? 'Khi có văn bản mới, tiêu chí mới, bài nộp hoặc tin nhắn chat, hệ thống sẽ đánh thức màn hình Desktop và rung chuông điện thoại ngay cả khi bạn tắt trình duyệt web.'
+                  : 'Vui lòng bấm nút <b>"Bật Thông Báo Ngay"</b> bên dưới để thiết bị nhận được tin tức tức thì.'}
+              </div>
+            </div>
+
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;">
+              ${!isGranted ? `
+                <button class="btn btn-primary" onclick="WebPushManager.requestPermission(); closeModal();" style="flex:1;">
+                  🔔 Bật Thông Báo Ngay Trên Máy Này
+                </button>
+              ` : `
+                <button class="btn btn-success" onclick="WebPushManager.testPush()" style="flex:1;">
+                  🚀 Gửi Thử Thông Báo Đẩy (Test Push)
+                </button>
+              `}
+            </div>
+
+            ${state.user && state.user.role === 'admin' ? `
+              <div style="border-top:1px dashed #cbd5e1; padding-top:12px; margin-top:10px; font-size:12px; color:#64748b;">
+                👑 <b>Quản trị viên:</b> Bạn có thể cấu hình OneSignal App ID & REST API Key trong mục <b>Cài đặt hệ thống (nút Ngày tháng trên Header)</b> để toàn bộ 40 cơ sở Đoàn đều nhận được thông báo khi tắt web.
+              </div>
+            ` : ''}
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline" onclick="closeModal()">Đóng</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+};
+
+function renderPushNotificationHeaderButton() {
+  const isGranted = typeof Notification !== 'undefined' && Notification.permission === 'granted';
+  if (isGranted) {
+    return `
+      <button class="btn btn-sm" onclick="WebPushManager.showStatusModal()" title="Thông báo nổi Desktop & Điện thoại đang BẬT. Bấm để kiểm tra hoặc xem chi tiết." style="background: rgba(34, 197, 94, 0.2); color: #86efac; border: 1px solid rgba(74, 222, 128, 0.5); font-size: 11px; padding: 3px 7px; height: 27px; display: inline-flex; align-items: center; gap: 3px; font-weight: 700;">
+        <span style="font-size: 12px;">🔔</span>
+        <span>Chuông nổi: Bật</span>
+      </button>
+    `;
+  } else {
+    return `
+      <button class="btn btn-sm" onclick="WebPushManager.requestPermission()" title="Bấm để bật thông báo nổi trên màn hình Desktop & Màn hình khóa khi tắt web!" style="background: #f97316; color: #ffffff; border: 1.5px solid #ffedd5; font-size: 11px; padding: 3px 8px; height: 27px; display: inline-flex; align-items: center; gap: 4px; font-weight: 800; box-shadow: 0 2px 6px rgba(249, 115, 22, 0.4); cursor: pointer; border-radius: 5px;">
+        <span style="font-size: 12px;">🔔</span>
+        <span>Bật Chuông Nổi</span>
+      </button>
+    `;
+  }
+}
+
 window.showDesktopNotification = function(title, body) {
   try {
     if (typeof Notification === 'undefined') return;
@@ -7404,6 +7696,8 @@ function renderHeader() {
       <div class="header-actions" style="display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; flex-shrink: 0; overflow: visible; background: transparent; border: none; padding: 0;">
 
         <!-- CHUÔNG THÔNG BÁO CHO ADMIN & CÁC ĐƠN VỊ -->
+        ${renderPushNotificationHeaderButton()}
+
         <div class="notification-bell-container" id="notif-bell-container" style="position: relative; flex-shrink: 0; z-index: 999999 !important;">
           <button class="btn btn-sm notification-bell-btn" onclick="toggleNotificationPanel(event)" style="font-size:11px; padding:3px 7px; height:27px;">
             🔔 <span style="font-weight:700;">Thông báo</span>
@@ -10764,6 +11058,14 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
 
     renderApp();
 
+    if (window.WebPushManager) {
+      window.WebPushManager.sendPushNotification({
+        title: `📤 ${targetUnit.unit_name || 'Cơ sở Đoàn'} vừa nộp hồ sơ/minh chứng`,
+        message: `Đã nộp minh chứng tiêu chí ${crit.col_label || ''}: "${crit.title || ''}"`,
+        targetRole: 'admin',
+        url: './'
+      });
+    }
     showToast(statusMsg, onTimeFlag ? 'success' : 'warning');
 
   } else {
@@ -14493,6 +14795,14 @@ window.saveNewCriterion = async function () {
 
     renderApp();
 
+        if (window.WebPushManager) {
+      window.WebPushManager.sendPushNotification({
+        title: '📋 Tiêu Chí / Báo Cáo Mới',
+        message: `Ban Thường vụ đã ban hành tiêu chí/báo cáo mới: "${newCriterionObj.col_label} - ${newCriterionObj.title}"`,
+        targetRole: 'unit',
+        url: './'
+      });
+    }
     showToast('🎉 Đã thêm tiêu chí mới và đồng bộ Online thành công!', 'success');
 
   } else {
@@ -14591,7 +14901,41 @@ window.openDateSettingsModal = function () {
 
 
 
-          <div class="form-group" style="margin-top:16px; border-top:1px dashed #cbd5e1; padding-top:12px;">
+                    <div class="form-group" style="margin-top:16px; border-top:1px dashed #cbd5e1; padding-top:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <label style="font-weight:700; color:#0369a1; display:flex; align-items:center; gap:6px; margin:0;">
+                <span>🔔</span>
+                <span>Cấu Hình Web Push Notification (Thông Báo Khi Tắt Web/Màn Hình Khóa):</span>
+              </label>
+              <button type="button" class="btn btn-sm btn-outline" onclick="WebPushManager.testPush()" style="font-size:11px; padding:2px 8px; font-weight:700; color:#0284c7; border-color:#0284c7;">
+                🔔 Gửi Thử Chuông Nổi (Test)
+              </button>
+            </div>
+            
+            <div style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:10px 12px; margin-bottom:10px; font-size:11.5px; color:#0369a1; line-height:1.5;">
+              💡 <b>Giải pháp Phương án 2 (Web Push qua OneSignal - Miễn phí 100% trọn đời):</b><br/>
+              Giúp Windows Desktop hiển thị thông báo góc màn hình và Điện thoại rung chuông báo ngay cả khi <b>đã đóng trình duyệt, tắt hẳn tab hoặc điện thoại đang khóa màn hình nhét túi</b>.
+            </div>
+
+            <div style="margin-bottom:8px;">
+              <label style="font-size:12px; font-weight:600; color:#334155;">OneSignal App ID:</label>
+              <input type="text" id="set-onesignal-app-id" value="${escapeHtml(state.settings.onesignal_app_id || '')}" placeholder="VD: 12345678-abcd-1234-ef00-123456789abc" style="font-size:12px; font-family:monospace; width:100%; padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; background:#fff; color:#0f172a;" />
+            </div>
+
+            <div style="margin-bottom:8px;">
+              <label style="font-size:12px; font-weight:600; color:#334155;">OneSignal REST API Key:</label>
+              <input type="password" id="set-onesignal-rest-key" value="${escapeHtml(state.settings.onesignal_rest_api_key || '')}" placeholder="VD: os_v2_app_..." style="font-size:12px; font-family:monospace; width:100%; padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; background:#fff; color:#0f172a;" />
+            </div>
+
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:8px 10px; font-size:11px; color:#64748b; line-height:1.45;">
+              📖 <b>Hướng dẫn 3 bước lấy mã miễn phí trong 2 phút:</b><br/>
+              1. Truy cập <a href="https://onesignal.com" target="_blank" style="color:#0284c7; font-weight:700; text-decoration:underline;">onesignal.com</a> & đăng ký miễn phí bằng Google.<br/>
+              2. Chọn <b>New App/Website</b> &rarr; chọn <b>Web Push</b> &rarr; Điền Site URL: <code style="color:#0f172a; background:#e2e8f0; padding:1px 4px; border-radius:3px;">https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/</code><br/>
+              3. Vào mục <b>Settings &rarr; Keys & IDs</b>, sao chép <b>App ID</b> và <b>REST API Key</b> dán vào 2 ô trên & bấm Lưu Cấu Hình.
+            </div>
+          </div>
+
+<div class="form-group" style="margin-top:16px; border-top:1px dashed #cbd5e1; padding-top:12px;">
 
             <label style="font-weight:700; color:#1e3a8a; display:block; margin-bottom:6px;">📁 Đường Dẫn Tự Động Lưu File Lên Google Drive (Apps Script Web App):</label>
 
@@ -14626,42 +14970,32 @@ window.openDateSettingsModal = function () {
 
 
 window.saveDateSettings = async function () {
-
   const strict = document.getElementById('set-strict-mode').value;
-
   const useCustom = document.getElementById('set-use-custom').value;
-
   const customDate = document.getElementById('set-custom-date').value;
-
   const gdriveUrl = document.getElementById('set-gdrive-url') ? document.getElementById('set-gdrive-url').value.trim() : '';
+  const onesignalAppId = document.getElementById('set-onesignal-app-id') ? document.getElementById('set-onesignal-app-id').value.trim() : '';
+  const onesignalRestKey = document.getElementById('set-onesignal-rest-key') ? document.getElementById('set-onesignal-rest-key').value.trim() : '';
 
   const res = await mutateCloudDB((db) => {
-
     db.settings = db.settings || {};
-
     db.settings.strict_deadline = strict;
-
     db.settings.use_custom_date = useCustom;
-
     db.settings.custom_date = customDate;
-
     db.settings.gdrive_script_url = gdriveUrl;
-
-  }, 'Update date settings');
+    db.settings.onesignal_app_id = onesignalAppId;
+    db.settings.onesignal_rest_api_key = onesignalRestKey;
+  }, 'Update date and webpush settings');
 
   if (res.ok) {
-
+    if (window.WebPushManager && onesignalAppId) {
+      window.WebPushManager.init();
+    }
     closeModal();
-
     renderApp();
-
-    showToast('Đã cập nhật cấu hình ngày xét hạn nộp Online!', 'success');
-
+    showToast('Đã cập nhật cấu hình hệ thống & Web Push Notification Online!', 'success');
   }
-
 };
-
-
 
 /* =========================================================================
 
@@ -17763,9 +18097,14 @@ window.uploadAdminDocument = async function () {
       await new Promise(r => setTimeout(r, 400));
 
       hideUploadProgressModal();
-
-
-
+      if (window.WebPushManager) {
+        window.WebPushManager.sendPushNotification({
+          title: '📜 Văn Bản Mới Từ Ban Thường Vụ',
+          message: `Ban Thường vụ đã ban hành văn bản mới: "${title}"`,
+          targetRole: 'unit',
+          url: './'
+        });
+      }
       // Reset form
 
       if (titleInput) titleInput.value = '';
@@ -18968,6 +19307,14 @@ window.approveUnitSubmission = async function(unitId, critId, scoreVal) {
 
     if (window.playNotificationChime) window.playNotificationChime();
 
+        if (window.WebPushManager) {
+      window.WebPushManager.sendPushNotification({
+        title: '✅ Minh chứng đã được phê duyệt',
+        message: `Ban Thường vụ đã duyệt & chấm +${finalScore} điểm tiêu chí ${crit ? crit.col_label : ''}`,
+        targetUnitId: unitId,
+        url: './'
+      });
+    }
     showToast(`🎉 Đã duyệt và xác nhận chấm +${finalScore} điểm thành công cho ${unit ? unit.unit_name : 'đơn vị'}!`, 'success');
 
     renderApp();
@@ -19184,6 +19531,14 @@ window.confirmRejectUnitSubmission = async function(unitId, critId) {
 
     closeModal();
 
+    if (window.WebPushManager) {
+      window.WebPushManager.sendPushNotification({
+        title: '⚠️ Yêu cầu bổ sung minh chứng',
+        message: `Tiêu chí ${crit ? crit.col_label : ''}: ${reason || 'Chưa đạt yêu cầu, vui lòng nộp bổ sung'}`,
+        targetUnitId: unitId,
+        url: './'
+      });
+    }
     showToast(`Đã từ chối bài nộp của ${unit ? unit.unit_name : 'đơn vị'} và gửi thông báo thành công!`, 'success');
 
     renderApp();
@@ -19336,6 +19691,14 @@ window.duplicateCriterion = async function (critId) {
 
   if (res.ok) {
 
+        if (window.WebPushManager) {
+      window.WebPushManager.sendPushNotification({
+        title: '📋 Tiêu Chí / Báo Cáo Được Nhân Đôi',
+        message: `Đã ban hành tiêu chí/báo cáo: "${newCrit.col_label} - ${newCrit.title}"`,
+        targetRole: 'unit',
+        url: './'
+      });
+    }
     showToast(`🎉 Đã nhân đôi tiêu chí thành công: "${dupTitle}"!`, 'success');
 
     renderApp();
@@ -21223,6 +21586,32 @@ window.sendChatMessage = async function() {
 
   }, `Chat msg in ${roomKey}`);
   broadcastLocalSyncSignal();
+
+    if (res.ok) {
+    if (window.WebPushManager) {
+      const isPrivate = state.chatTab === 'private';
+      const partnerId = isPrivate ? Number(state.chatPrivatePartnerId !== undefined ? state.chatPrivatePartnerId : (isAdmin ? state.chatPrivateUnitId : 0) || 0) : null;
+      let targetRole = null;
+      let targetUnitId = null;
+      let pushTitle = `💬 [Trao Đổi Đoàn] ${senderName}`;
+      if (isPrivate) {
+        if (isAdmin) {
+          targetUnitId = partnerId;
+          pushTitle = `💬 [Tin nhắn riêng] ${senderName}`;
+        } else {
+          targetRole = 'admin';
+          pushTitle = `💬 [Tin nhắn riêng] ${senderName}`;
+        }
+      }
+      window.WebPushManager.sendPushNotification({
+        title: pushTitle,
+        message: text.length > 80 ? text.substring(0, 80) + '...' : text,
+        targetRole: targetRole,
+        targetUnitId: targetUnitId,
+        url: './'
+      });
+    }
+  }
 
   if (!res.ok) {
 
