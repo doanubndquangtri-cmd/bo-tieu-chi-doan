@@ -3822,7 +3822,7 @@ function renderMiniDashboard() {
 
 function renderMasterTableTab() {
 
-  const isAdmin = state.user && state.user.role === 'admin';
+  const isAdmin = (state.user && state.user.role === 'admin') || Boolean(state.isAdminSession) || localStorage.getItem('doan2026_admin_authenticated') === '1';
 
   const filteredCriteria = getFilteredCriteria();
 
@@ -4110,11 +4110,11 @@ function renderMasterTableTab() {
 
                         </span>
 
-                        ${c.gdrive_folder_url ? `
+                        ${c.gdrive_folder_url && isAdmin ? `
 
                           <span style="margin-top:2px;">
 
-                            <a href="${escapeHtml(c.gdrive_folder_url)}" target="_blank" style="color:#15803d; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:2px;" title="Mở thư mục Google Drive tiếp nhận báo cáo của tiêu chí này">
+                            <a href="${escapeHtml(c.gdrive_folder_url)}" target="_blank" style="color:#15803d; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:2px;" title="Mở thư mục Google Drive tiếp nhận báo cáo của tiêu chí này (Chỉ Quản trị viên)">
 
                               📁 Drive ↗
 
@@ -4626,6 +4626,8 @@ window.handleLoadSampleScores = async function () {
 
 function renderUnitSubmitTab() {
 
+  const isAdmin = (state.user && state.user.role === 'admin') || Boolean(state.isAdminSession) || localStorage.getItem('doan2026_admin_authenticated') === '1';
+
   const unit = state.user;
 
   const rankings = getRankings();
@@ -4716,7 +4718,7 @@ function renderUnitSubmitTab() {
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
   if (isMobile && state.mobileUnitSubmitViewMode !== 'table') {
-    return renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rankings, monthButtons, monthFilter);
+    return renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rankings, monthButtons, monthFilter, isAdmin);
   }
 
   return `
@@ -4928,11 +4930,11 @@ function renderUnitSubmitTab() {
 
                     </div>
 
-                    ${c.gdrive_folder_url ? `
+                    ${c.gdrive_folder_url && isAdmin ? `
 
                       <div style="margin-top:4px;">
 
-                        <a href="${escapeHtml(c.gdrive_folder_url)}" target="_blank" style="font-size:11px; font-weight:700; color:#15803d; text-decoration:none; display:inline-flex; align-items:center; gap:4px; background:#dcfce7; padding:2px 8px; border-radius:4px; border:1px solid #86efac;" title="Thư mục Google Drive tiếp nhận báo cáo của tiêu chí này">
+                        <a href="${escapeHtml(c.gdrive_folder_url)}" target="_blank" style="font-size:11px; font-weight:700; color:#15803d; text-decoration:none; display:inline-flex; align-items:center; gap:4px; background:#dcfce7; padding:2px 8px; border-radius:4px; border:1px solid #86efac;" title="Thư mục Google Drive tiếp nhận báo cáo của tiêu chí này (Chỉ hiển thị cho Quản trị viên)">
 
                           📁 Thư mục Google Drive tiếp nhận ↗
 
@@ -5114,7 +5116,8 @@ window.setMobileUnitSubmitViewMode = function (mode) {
 
 };
 
-function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rankings, monthButtons, monthFilter) {
+function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rankings, monthButtons, monthFilter, isAdmin = null) {
+  const isAdminUser = isAdmin !== null ? isAdmin : ((state.user && state.user.role === 'admin') || Boolean(state.isAdminSession) || localStorage.getItem('doan2026_admin_authenticated') === '1');
   return `
     <div class="mobile-view-toggle-bar">
       <button class="mobile-toggle-btn active" onclick="setMobileUnitSubmitViewMode('cards')">
@@ -5231,9 +5234,9 @@ function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rank
               </div>
             </div>
 
-            ${c.gdrive_folder_url ? `
+            ${c.gdrive_folder_url && isAdminUser ? `
               <div>
-                <a href="${escapeHtml(c.gdrive_folder_url)}" target="_blank" style="font-size:11.5px; font-weight:700; color:#15803d; text-decoration:none; display:inline-flex; align-items:center; gap:4px; background:#dcfce7; padding:4px 9px; border-radius:6px; border:1px solid #86efac;">
+                <a href="${escapeHtml(c.gdrive_folder_url)}" target="_blank" style="font-size:11.5px; font-weight:700; color:#15803d; text-decoration:none; display:inline-flex; align-items:center; gap:4px; background:#dcfce7; padding:4px 9px; border-radius:6px; border:1px solid #86efac;" title="Thư mục Google Drive tiếp nhận báo cáo của tiêu chí này (Chỉ hiển thị cho Quản trị viên)">
                   📁 Thư mục Google Drive tiếp nhận ↗
                 </a>
               </div>
@@ -5303,7 +5306,7 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
 
 
 
-  const isAdmin = state.user && state.user.role === 'admin';
+  const isAdmin = (state.user && state.user.role === 'admin') || Boolean(state.isAdminSession) || localStorage.getItem('doan2026_admin_authenticated') === '1';
 
   const isAdminScore = Number(crit.is_report) === 2;
 
@@ -5405,11 +5408,11 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
 
             </div>
 
-            ${crit.gdrive_folder_url ? `
+            ${crit.gdrive_folder_url && isAdmin ? `
 
               <div style="margin-top:6px; margin-bottom:4px;">
 
-                <a href="${escapeHtml(crit.gdrive_folder_url)}" target="_blank" style="font-size:12px; font-weight:700; color:#15803d; text-decoration:none; display:inline-flex; align-items:center; gap:4px; background:#dcfce7; padding:3px 10px; border-radius:4px; border:1px solid #86efac;" title="Mở thư mục tiếp nhận hồ sơ báo cáo của tiêu chí này trên Google Drive">
+                <a href="${escapeHtml(crit.gdrive_folder_url)}" target="_blank" style="font-size:12px; font-weight:700; color:#15803d; text-decoration:none; display:inline-flex; align-items:center; gap:4px; background:#dcfce7; padding:3px 10px; border-radius:4px; border:1px solid #86efac;" title="Mở thư mục tiếp nhận hồ sơ báo cáo của tiêu chí này trên Google Drive (Chỉ Quản trị viên)">
 
                   📁 Thư mục Google Drive tiếp nhận báo cáo của tiêu chí này ↗
 
@@ -5421,7 +5424,7 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
 
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:6px 12px; font-size:12.5px; margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1;">
 
-              <div>Quy định điểm: <b>${escapeHtml(crit.points_text.replace(/\n/g, ' - '))}</b></div>
+              <div>Quy định điểm: <b>${escapeHtml((crit.points_text || (crit.max_score ? crit.max_score + ' điểm' : '') || '').replace(/\n/g, ' - '))}</b></div>
 
               <div>Ngày bắt đầu nộp: <b style="color:#059669;">${formatDateVN(crit.start_date || '2026-01-01')}</b></div>
 
