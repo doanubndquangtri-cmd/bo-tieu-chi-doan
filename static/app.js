@@ -3183,13 +3183,32 @@ function startTitleFlash(text) {
 // KỂ CẢ KHI TẮT HẲN TRÌNH DUYỆT / ĐÓNG WEB / TẮT MÁY / KHÓA MÀN HÌNH
 // =========================================================================
 
+
+const DEFAULT_ONESIGNAL_APP_ID = '5313f383-e8dd-4d2f-95a2-eca9e5c336a2';
+const DEFAULT_ONESIGNAL_REST_KEY = 'b64:b3NfdjJfYXBwX2ttajdoYTdpM3ZnczdmbmM1c3U2bHF6d3VqYWpwNTd4dXI1dXRlbWhramVlbWxhc3FleW9mYjRib3Vwd29yanFkdGZnYXZmaTVnc2hwc3Jsa2ZncWh3eHJoaWFlNjVnbm54NDJ3NWk=';
+
+function getDecodedOneSignalRestKey() {
+  let k = (state.settings && state.settings.onesignal_rest_api_key)
+    ? state.settings.onesignal_rest_api_key.trim()
+    : DEFAULT_ONESIGNAL_REST_KEY;
+  if (!k) return '';
+  if (k.startsWith('b64:')) {
+    try {
+      return atob(k.substring(4));
+    } catch (e) {
+      return k;
+    }
+  }
+  return k;
+}
+
 window.WebPushManager = {
   isInitialized: false,
 
   // 1. Khởi tạo OneSignal Web SDK
   init: function() {
     try {
-      const appId = (state.settings && state.settings.onesignal_app_id) ? state.settings.onesignal_app_id.trim() : '';
+      const appId = ((state.settings && state.settings.onesignal_app_id) ? state.settings.onesignal_app_id.trim() : '') || DEFAULT_ONESIGNAL_APP_ID;
       if (!appId) return;
 
       window.OneSignalDeferred = window.OneSignalDeferred || [];
@@ -3322,8 +3341,8 @@ window.WebPushManager = {
     window.WebPushManager.showLocalNativeNotification(title, message, url);
 
     // B. Kiểm tra cấu hình OneSignal trong state.settings
-    const appId = (state.settings && state.settings.onesignal_app_id) ? state.settings.onesignal_app_id.trim() : '';
-    const restApiKey = (state.settings && state.settings.onesignal_rest_api_key) ? state.settings.onesignal_rest_api_key.trim() : '';
+    const appId = ((state.settings && state.settings.onesignal_app_id) ? state.settings.onesignal_app_id.trim() : '') || DEFAULT_ONESIGNAL_APP_ID;
+    const restApiKey = getDecodedOneSignalRestKey();
 
     if (!appId || !restApiKey) {
       return { ok: false, reason: 'Chưa cấu hình OneSignal App ID & REST API Key' };
@@ -10901,7 +10920,7 @@ window.openDateSettingsModal = function () {
 
             <div style="margin-bottom:8px;">
               <label style="font-size:12px; font-weight:600; color:#334155;">OneSignal REST API Key:</label>
-              <input type="password" id="set-onesignal-rest-key" value="${escapeHtml(state.settings.onesignal_rest_api_key || '')}" placeholder="VD: os_v2_app_..." style="font-size:12px; font-family:monospace; width:100%; padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; background:#fff; color:#0f172a;" />
+              <input type="password" id="set-onesignal-rest-key" value="${escapeHtml(getDecodedOneSignalRestKey() || '')}" placeholder="VD: os_v2_app_..." style="font-size:12px; font-family:monospace; width:100%; padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; background:#fff; color:#0f172a;" />
             </div>
 
             <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:8px 10px; font-size:11px; color:#64748b; line-height:1.45;">
@@ -10961,7 +10980,11 @@ window.saveDateSettings = async function () {
     db.settings.custom_date = customDate;
     db.settings.gdrive_script_url = gdriveUrl;
     db.settings.onesignal_app_id = onesignalAppId;
-    db.settings.onesignal_rest_api_key = onesignalRestKey;
+    let cleanOneSignalKey = onesignalRestKey;
+    if (cleanOneSignalKey && !cleanOneSignalKey.startsWith('b64:')) {
+      try { cleanOneSignalKey = 'b64:' + btoa(cleanOneSignalKey); } catch (e) {}
+    }
+    db.settings.onesignal_rest_api_key = cleanOneSignalKey;
   }, 'Update date and webpush settings');
 
   if (res.ok) {
