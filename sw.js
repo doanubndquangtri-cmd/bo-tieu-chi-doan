@@ -1,5 +1,5 @@
 // Service Worker Tiêu Chí Đoàn - Tự động xóa sạch Cache khi có phiên bản mới
-const SW_VERSION = '1792146930';
+const SW_VERSION = '1792150203';
 const CACHE_NAME = 'tieuchidoan-v' + SW_VERSION;
 const ASSETS_TO_CACHE = [
   './logo_doan.png',
@@ -109,7 +109,8 @@ self.addEventListener('push', (event) => {
     vibrate: [200, 100, 200],
     tag: data.tag || 'tieuchidoan-push-' + Date.now(),
     renotify: true,
-    data: { url: targetUrl }
+    number: badgeCount,
+    data: { url: targetUrl, badgeCount: badgeCount }
   };
 
   event.waitUntil(
