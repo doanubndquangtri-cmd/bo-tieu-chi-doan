@@ -1,5 +1,12 @@
 // Service Worker Tiêu Chí Đoàn - Tự động xóa sạch Cache khi có phiên bản mới
-const SW_VERSION = '1792152422';
+// Tích hợp OneSignal Push Worker v16 trực tiếp để đồng bộ nhận thông báo đẩy 24/7 kể cả khi tắt web/app
+try {
+  importScripts("https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js");
+} catch (e) {
+  console.warn('[SW] Could not import OneSignalSDK.sw.js:', e);
+}
+
+const SW_VERSION = '1792153901';
 const CACHE_NAME = 'tieuchidoan-v' + SW_VERSION;
 const ASSETS_TO_CACHE = [
   './logo_doan.png',
@@ -88,12 +95,14 @@ self.addEventListener('push', (event) => {
       data = { title: 'Bộ Tiêu Chí Đoàn', message: event.data.text() };
     }
   }
-  const title = data.title || data.heading || 'Bộ Tiêu Chí Đoàn Cấp Cơ Sở';
-  const body = data.body || data.message || 'Bạn có thông báo mới từ hệ thống!';
-  const targetUrl = (data.data && data.data.url) || data.web_url || './';
-  const badgeCount = Number(data.badgeCount || (data.custom_data && data.custom_data.badgeCount) || data.badge || 1);
 
   // CẬP NHẬT SỐ ĐẾM BADGE LÊN BIỂU TƯỢNG APP NGOÀI MÀN HÌNH ĐIỆN THOẠI (ANDROID & IPHONE)
+  let badgeCount = 1;
+  if (data.badgeCount) badgeCount = Number(data.badgeCount);
+  else if (data.custom && data.custom.a && data.custom.a.badgeCount) badgeCount = Number(data.custom.a.badgeCount);
+  else if (data.data && data.data.badgeCount) badgeCount = Number(data.data.badgeCount);
+  else if (data.badge) badgeCount = Number(data.badge);
+
   if (self.navigator && 'setAppBadge' in self.navigator) {
     if (badgeCount > 0) {
       self.navigator.setAppBadge(badgeCount).catch(() => {});
@@ -102,20 +111,29 @@ self.addEventListener('push', (event) => {
     }
   }
 
-  const options = {
-    body: body,
-    icon: './icon-192.png',
-    badge: './favicon.png',
-    vibrate: [200, 100, 200],
-    tag: data.tag || 'tieuchidoan-push-' + Date.now(),
-    renotify: true,
-    number: badgeCount,
-    data: { url: targetUrl, badgeCount: badgeCount }
-  };
+  // Nếu push này là từ OneSignal (có custom.i), OneSignalSDK.sw.js đã tự xử lý hiển thị banner.
+  // Tránh hiển thị trùng lặp 2 thông báo cùng lúc.
+  const isOneSignal = Boolean(data.custom && data.custom.i);
+  if (!isOneSignal) {
+    const title = data.title || data.heading || 'Bộ Tiêu Chí Đoàn Cấp Cơ Sở';
+    const body = data.body || data.message || 'Bạn có thông báo mới từ hệ thống!';
+    const targetUrl = (data.data && data.data.url) || data.web_url || './';
 
-  event.waitUntil(
-    self.registration.showNotification(title, options)
-  );
+    const options = {
+      body: body,
+      icon: './icon-192.png',
+      badge: './favicon.png',
+      vibrate: [200, 100, 200],
+      tag: data.tag || 'tieuchidoan-push-' + Date.now(),
+      renotify: true,
+      number: badgeCount,
+      data: { url: targetUrl, badgeCount: badgeCount }
+    };
+
+    event.waitUntil(
+      self.registration.showNotification(title, options)
+    );
+  }
 });
 
 // XỬ LÝ KHI NGƯỜI DÙNG BẤM VÀO THÔNG BÁO NỔI
@@ -136,4 +154,3 @@ self.addEventListener('notificationclick', (event) => {
     })
   );
 });
-
