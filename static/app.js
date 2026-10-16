@@ -1469,115 +1469,75 @@ async function uploadFileToCloud(fileDataB64, origName, unitId, critId, onProgre
 
 
 
-async function mutateCloudDB(mutatorFn, commitMsg = 'Update data') {
+let _cloudDBQueue = Promise.resolve();
 
-  state.isSyncing = true;
+function mutateCloudDB(mutatorFn, commitMsg = 'Update data') {
+  const task = async () => {
+    state.isSyncing = true;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      try {
+        const { sha, db } = await fetchCloudDB();
+        if (!Array.isArray(db.written_reports)) db.written_reports = state.writtenReports || [];
+        const result = await mutatorFn(db);
+        if (state.user) {
+          const myId = state.user.role === 'admin' ? 0 : state.user.id;
+          db.online_presence = db.online_presence || {};
+          db.online_presence[myId] = Date.now();
+        }
+        db.updated_at = nowISO();
+        db.version = (db.version || 1) + 1;
 
-  for (let attempt = 0; attempt < 4; attempt++) {
+        const contentB64 = utf8ToBase64(JSON.stringify(db));
+        const putUrl = `https://api.github.com/repos/${CLOUD_OWNER}/${CLOUD_REPO}/contents/cloud_db.json`;
+        const res = await fetch(putUrl, {
+          method: 'PUT',
+          headers: {
+            Authorization: `token ${_getCloudToken()}`,
+            Accept: 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: commitMsg,
+            content: contentB64,
+            sha: sha,
+            branch: CLOUD_BRANCH,
+          }),
+        });
 
-    try {
+        if (res.status === 409 && attempt < 5) {
+          // Xung đột đồng thời -> đợi giãn cách và thử lại với SHA mới nhất
+          await new Promise((r) => setTimeout(r, 350 * (attempt + 1)));
+          continue;
+        }
 
-      const { sha, db } = await fetchCloudDB();
+        if (!res.ok) {
+          throw new Error(`Cloud PUT HTTP ${res.status}`);
+        }
 
-      if (!Array.isArray(db.written_reports)) db.written_reports = state.writtenReports || [];
-
-      const result = await mutatorFn(db);
-
-      if (state.user) {
-        const myId = state.user.role === 'admin' ? 0 : state.user.id;
-        db.online_presence = db.online_presence || {};
-        db.online_presence[myId] = Date.now();
-      }
-
-      db.updated_at = nowISO();
-
-      db.version = (db.version || 1) + 1;
-
-
-
-      const contentB64 = utf8ToBase64(JSON.stringify(db));
-
-      const putUrl = `https://api.github.com/repos/${CLOUD_OWNER}/${CLOUD_REPO}/contents/cloud_db.json`;
-
-      const res = await fetch(putUrl, {
-
-        method: 'PUT',
-
-        headers: {
-
-          Authorization: `token ${_getCloudToken()}`,
-
-          Accept: 'application/vnd.github.v3+json',
-
-          'Content-Type': 'application/json',
-
-        },
-
-        body: JSON.stringify({
-
-          message: commitMsg,
-
-          content: contentB64,
-
-          sha: sha,
-
-          branch: CLOUD_BRANCH,
-
-        }),
-
-      });
-
-
-
-      if (res.status === 409 && attempt < 3) {
-
-        // Concurrent edit conflict -> retry immediately with fresh SHA
-
-        await new Promise((r) => setTimeout(r, 300));
-
-        continue;
-
-      }
-
-      if (!res.ok) {
-
-        throw new Error(`Cloud PUT HTTP ${res.status}`);
-
-      }
-
-      const putMeta = await res.json();
-
-      state.cloudSha = putMeta.content.sha;
-
-      state.cloudOnline = true;
-
-      state.lastSyncTime = new Date().toLocaleTimeString('vi-VN');
-
-      ingestCloudDB(db);
-
-      state.isSyncing = false;
-
-      return { ok: true, result, db };
-
-    } catch (err) {
-
-      if (attempt === 3) {
-
+        const putMeta = await res.json();
+        state.cloudSha = putMeta.content.sha;
+        state.cloudOnline = true;
+        state.lastSyncTime = new Date().toLocaleTimeString('vi-VN');
+        ingestCloudDB(db);
         state.isSyncing = false;
-
-        return { ok: false, error: err.message };
-
+        return { ok: true, result, db };
+      } catch (err) {
+        if (attempt === 5) {
+          state.isSyncing = false;
+          return { ok: false, error: err.message };
+        }
+        await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
       }
-
     }
+    state.isSyncing = false;
+    return { ok: false, error: 'Max retries exceeded' };
+  };
 
-  }
-
-  state.isSyncing = false;
-
-  return { ok: false, error: 'Không thể đồng bộ đám mây' };
-
+  const chained = _cloudDBQueue.then(task, task);
+  _cloudDBQueue = chained.catch(() => {});
+  return chained;
 }
+
 
 
 
@@ -3268,8 +3228,17 @@ window.WebPushManager = {
           // Kích hoạt nhận Push ngay nếu quyền đã cấp
           try {
             if (OneSignal.User && OneSignal.User.PushSubscription) {
-              if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-                await OneSignal.User.PushSubscription.optIn();
+              if (typeof Notification !== 'undefined') {
+                if (Notification.permission === 'granted') {
+                  await OneSignal.User.PushSubscription.optIn().catch(() => {});
+                  console.log('[WebPush] OptIn hoàn tất. ID:', OneSignal.User.PushSubscription.id);
+                } else if (Notification.permission === 'default') {
+                  setTimeout(() => {
+                    if (window.WebPushManager && window.WebPushManager.requestPermission) {
+                      window.WebPushManager.requestPermission();
+                    }
+                  }, 2000);
+                }
               }
               if (OneSignal.User.PushSubscription.addEventListener) {
                 OneSignal.User.PushSubscription.addEventListener('change', function(evt) {
@@ -3290,7 +3259,13 @@ window.WebPushManager = {
 
           // Lắng nghe sự kiện thay đổi quyền
           if (OneSignal.Notifications && OneSignal.Notifications.addEventListener) {
-            OneSignal.Notifications.addEventListener('permissionChange', function() {
+            OneSignal.Notifications.addEventListener('permissionChange', function(permission) {
+              if (permission && OneSignal.User && OneSignal.User.PushSubscription) {
+                OneSignal.User.PushSubscription.optIn().catch(() => {});
+              }
+              if (state.user && window.WebPushManager) {
+                window.WebPushManager.syncUser(state.user);
+              }
               if (typeof renderApp === 'function') renderApp();
             });
           }
@@ -17762,22 +17737,21 @@ window.sendChatMessage = async function() {
     }, 400);
   }
 
-  // 4. LƯU CLOUD DB CHẠY NỀN KHÔNG KHÓA GIAO DIỆN
-  const res = await mutateCloudDB(db => {
+  // 4. LƯU CLOUD DB CHẠY NỀN QUA HÀNG ĐỢI TUẦN TỰ (KHÔNG KHÓA GIAO DIỆN)
+  mutateCloudDB(db => {
     db.chat_messages = db.chat_messages || [];
     db.chat_messages.push(newMsg);
     if (db.chat_messages.length > 2000) {
       db.chat_messages = db.chat_messages.slice(-2000);
     }
-  }, `Chat msg in ${roomKey}`);
-  broadcastLocalSyncSignal();
-
-  if (!res.ok) {
-
-    showToast('Lỗi khi gửi tin nhắn lên máy chủ!', 'error');
-
-  }
-
+  }, `Chat msg in ${roomKey}`).then(res => {
+    broadcastLocalSyncSignal();
+    if (!res.ok) {
+      console.warn('[Chat] Lỗi lưu tin nhắn đám mây:', res.error);
+    }
+  }).catch(err => {
+    console.warn('[Chat] Lỗi ngoại lệ lưu tin nhắn:', err);
+  });
 };
 
 
@@ -24271,7 +24245,15 @@ window.initRealtimeLiveBridge = function() {
     };
 
     _liveEventSource.onerror = function() {
-      // Tự động kết nối lại
+      try {
+        if (_liveEventSource) {
+          _liveEventSource.close();
+          _liveEventSource = null;
+        }
+      } catch (e) {}
+      setTimeout(() => {
+        if (window.initRealtimeLiveBridge) window.initRealtimeLiveBridge();
+      }, 3000);
     };
   } catch (e) {}
 
@@ -24312,7 +24294,30 @@ function handleIncomingRealtimeChat(msg) {
       updateSystemAppBadge(getTotalBadgeCount());
     }
     renderApp();
+
+    // Bắn thông báo nổi màn hình ngay lập tức nếu tab đang chạy nền
+    if (document.hidden && window.WebPushManager && window.WebPushManager.showLocalNativeNotification) {
+      const sName = msg.sender_name || 'Đồng chí';
+      window.WebPushManager.showLocalNativeNotification(`💬 Tin nhắn mới từ ${sName}`, msg.text || '', './');
+    }
   }
 
   if (window.playNotificationChime) window.playNotificationChime();
+}
+
+// Tự động kết nối lại khi người dùng mở lại điện thoại / chuyển tab
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'visible') {
+    if (!_liveEventSource && window.initRealtimeLiveBridge) {
+      window.initRealtimeLiveBridge();
+    }
+    if (typeof window.syncFromCloudNow === 'function') {
+      window.syncFromCloudNow(true);
+    }
+  }
+});
+
+// KHỞI ĐỘNG NGAY TỨC THÌ LIVE BRIDGE THỜI GIAN THỰC (0.05 GIÂY) TRÊN MỌI THIẾT BỊ
+if (window.initRealtimeLiveBridge) {
+  window.initRealtimeLiveBridge();
 }
