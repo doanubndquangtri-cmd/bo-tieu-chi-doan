@@ -2396,6 +2396,23 @@ async function initApp() {
 
 
 
+
+function renderNotificationPermissionAlertBanner() {
+  if (typeof Notification === 'undefined') return '';
+  if (Notification.permission === 'granted') return '';
+  return `
+    <div class="notif-permission-banner" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: #ffffff; padding: 7px 14px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 700; box-shadow: 0 2px 6px rgba(0,0,0,0.15); border-bottom: 2px solid #c2410c; z-index: 99998; position: relative;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 16px;">🔔</span>
+        <span>Ứng dụng này chưa được cấp quyền thông báo & số đỏ trên màn hình điện thoại!</span>
+      </div>
+      <button type="button" class="btn btn-sm" onclick="WebPushManager.requestPermission()" style="background: #ffffff; color: #ea580c; font-weight: 800; border: none; padding: 4px 12px; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+        👉 BẬT NGAY
+      </button>
+    </div>
+  `;
+}
+
 function renderApp() {
 
   const appEl = document.getElementById('app');
@@ -2419,6 +2436,7 @@ function renderApp() {
   appEl.innerHTML = `
 
     ${renderHeader()}
+    ${renderNotificationPermissionAlertBanner()}
 
     ${isViewingAsUnit ? `
 
@@ -3284,6 +3302,10 @@ window.WebPushManager = {
       if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
         showToast('🎉 Đã bật thành công thông báo nổi! Thiết bị sẽ nhận được tin ngay cả khi tắt web.', 'success');
         if (window.playNotificationChime) window.playNotificationChime();
+        if (typeof navigator !== 'undefined' && 'setAppBadge' in navigator) {
+          const bCount = (typeof getTotalBadgeCount === 'function' ? getTotalBadgeCount() : 1) || 1;
+          navigator.setAppBadge(bCount).catch(() => {});
+        }
         window.WebPushManager.showLocalNativeNotification(
           '🔔 Thông Báo Đoàn Hoạt Động Chuẩn Xác',
           'Thiết bị này đã sẵn sàng nhận thông báo mới từ Ban Thường vụ và các cơ sở Đoàn!'
