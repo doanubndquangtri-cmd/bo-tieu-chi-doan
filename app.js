@@ -10979,145 +10979,79 @@ window.saveNewCriterion = async function () {
   // Khởi tạo thư mục trên Google Drive ngay lập tức nếu có Script
 
   const gdriveUrl = getGoogleDriveScriptUrl();
-
   if (gdriveUrl) {
-
     try {
-
-      showToast('Đang tự động khởi tạo thư mục trên Google Drive...', 'info');
-
+      const controller = new AbortController();
+      const tId = setTimeout(() => controller.abort(), 3500);
       const createRes = await fetch(gdriveUrl, {
-
         method: 'POST',
-
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-
         body: JSON.stringify({
-
           action: 'create_criterion_folder',
-
           folderName: title,
-
           monthLabel: mLabel,
-
           title: title
-
-        })
-
+        }),
+        signal: controller.signal
       });
-
+      clearTimeout(tId);
       const createJson = await createRes.json();
-
       if (createJson && createJson.folderUrl) {
-
         gdriveFolderUrl = createJson.folderUrl;
-
-        showToast('Đã tạo thành công thư mục Google Drive tiếp nhận!', 'success');
-
       }
-
     } catch (e) {
-
       console.warn('Auto create drive folder notice:', e);
-
     }
-
   }
-
-
 
   showToast('Đang tạo và lưu tiêu chí mới...', 'info');
 
-
-
+  let savedCriterion = null;
   const res = await mutateCloudDB((db) => {
-
     db.criteria = Array.isArray(db.criteria) ? db.criteria : [];
-
     db.month_labels = db.month_labels || {};
 
-
-
     if (monthVal === '__NEW_CUSTOM__' && customGroupName) {
-
       const keys = Object.keys(db.month_labels).map(k => Number(k)).filter(n => !isNaN(n));
-
       const nextKey = Math.max(16, ...(keys.length > 0 ? keys : [16])) + 1;
-
       mGroup = nextKey;
-
       mLabel = customGroupName;
-
       db.month_labels[String(nextKey)] = customGroupName;
-
     } else {
-
       mGroup = Number(monthVal);
-
       mLabel = db.month_labels[String(mGroup)] || defaultMonthLabels[String(mGroup)] || `Kỳ hạn ${mGroup}`;
-
     }
 
-
-
     const maxId = db.criteria.reduce((m, c) => Math.max(m, c.id || 0), 0);
-
     const newId = maxId + 1;
 
-
-
     const newCriterionObj = {
-
       id: newId,
-
       col_number: db.criteria.length + 1,
-
       col_label: `Cột ${db.criteria.length + 1}`,
-
       title: title,
-
       points_text: pointsText,
-
       month_group: mGroup,
-
       month_label: mLabel,
-
       start_date: startDate,
-
       deadline: deadline,
-
       score_type: 'fixed',
-
       default_score: maxS,
-
       min_score: 0,
-
       max_score: maxS,
-
       unit_step_score: maxS,
-
       unit_step_label: 'hoạt động',
-
       allow_unit_submit: 1,
-
       is_report: isReport,
-
       gdrive_folder_name: gdriveFolderName,
-
       gdrive_folder_url: gdriveFolderUrl || (state.settings && state.settings.gdrive_root_folder_url) || '',
-
       lock_override: 0,
-
     };
 
-
-
     db.criteria.push(newCriterionObj);
-
-
-
-    // AUTOMATIC CHRONOLOGICAL SORTING BY DEADLINE:
     sortCriteriaChronologically(db.criteria);
+
+    savedCriterion = { ...newCriterionObj };
 
     db.notifications = db.notifications || [];
     db.notifications.unshift({
@@ -11139,39 +11073,30 @@ window.saveNewCriterion = async function () {
 
   }, `Create criterion ${title}`);
 
-
-
   if (res.ok) {
-
     closeModal();
-
-    if (window.broadcastLiveEvent) {
-      window.broadcastLiveEvent('NEW_CRITERIA', { col_label: newCriterionObj.col_label, title: newCriterionObj.title });
-    }
-    if (window.WebPushManager) {
-      window.WebPushManager.sendPushNotification({
-        title: '📋 Tiêu Chí / Báo Cáo Mới Được Ban Hành',
-        message: `Ban Thường vụ đã ban hành: "${newCriterionObj.col_label} - ${newCriterionObj.title}"`,
-        targetRole: null,
-        url: './'
-      });
+    if (savedCriterion) {
+      if (window.broadcastLiveEvent) {
+        window.broadcastLiveEvent('NEW_CRITERIA', { col_label: savedCriterion.col_label, title: savedCriterion.title });
+      }
+      if (window.WebPushManager) {
+        window.WebPushManager.sendPushNotification({
+          title: '📋 Tiêu Chí / Báo Cáo Mới Được Ban Hành',
+          message: `Ban Thường vụ đã ban hành: "${savedCriterion.col_label} - ${savedCriterion.title}"`,
+          targetRole: null,
+          url: './'
+        });
+      }
     }
     showToast('🎉 Đã thêm tiêu chí mới và đồng bộ Online thành công!', 'success');
-
+    renderApp();
   } else {
-
     showToast('Lỗi khi lưu tiêu chí lên Đám mây: ' + (res.error ? res.error.message : ''), 'error');
-
     if (btn) {
-
       btn.disabled = false;
-
       btn.textContent = '➕ Thêm Tiêu Chí Online';
-
     }
-
   }
-
 };
 
 
@@ -15997,39 +15922,26 @@ window.duplicateCriterion = async function (critId) {
 
 
 
+  let duplicatedCrit = null;
   const res = await mutateCloudDB(db => {
-
     db.criteria = db.criteria || [];
-
     const maxId = db.criteria.reduce((max, x) => Math.max(max, x.id || 0), 0);
-
     const newId = maxId + 1;
-
     const newColNumber = db.criteria.length + 1;
 
-
-
     const newCrit = {
-
       ...c,
-
       id: newId,
-
       col_number: newColNumber,
-
       col_label: `Cột ${newColNumber}`,
-
       title: dupTitle,
-
       gdrive_folder_name: dupTitle,
-
       gdrive_folder_url: gdriveFolderUrl || c.gdrive_folder_url || '',
-
     };
-
     db.criteria.push(newCrit);
-
     sortCriteriaChronologically(db.criteria);
+
+    duplicatedCrit = { ...newCrit };
 
     db.notifications = db.notifications || [];
     db.notifications.unshift({
@@ -16048,20 +15960,16 @@ window.duplicateCriterion = async function (critId) {
       created_at: nowISO()
     });
     if (db.notifications.length > 200) db.notifications.length = 200;
-
   }, `Duplicate criterion ${c.id}`);
 
-
-
   if (res.ok) {
-
-    if (window.broadcastLiveEvent) {
-      window.broadcastLiveEvent('NEW_CRITERIA', { col_label: newCrit.col_label, title: newCrit.title });
+    if (window.broadcastLiveEvent && duplicatedCrit) {
+      window.broadcastLiveEvent('NEW_CRITERIA', { col_label: duplicatedCrit.col_label, title: duplicatedCrit.title });
     }
-    if (window.WebPushManager) {
+    if (window.WebPushManager && duplicatedCrit) {
       window.WebPushManager.sendPushNotification({
         title: '📋 Tiêu Chí / Báo Cáo Được Ban Hành Bổ Sung',
-        message: `Đã ban hành: "${newCrit.col_label} - ${newCrit.title}"`,
+        message: `Đã ban hành: "${duplicatedCrit.col_label} - ${duplicatedCrit.title}"`,
         targetRole: null,
         url: './'
       });
