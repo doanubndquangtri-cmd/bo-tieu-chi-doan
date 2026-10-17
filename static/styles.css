@@ -2035,6 +2035,10 @@ thead th.sticky-col-total {
   background: rgba(255, 255, 255, 0.35);
 }
 
+.chat-mobile-back-btn {
+  display: none !important;
+}
+
 .chat-close-btn-main {
   background: #ef4444 !important;
   border: 1px solid #dc2626 !important;
@@ -4029,7 +4033,11 @@ body.dark-mode #tts-result-box {
   }
 
   .chat-header-actions .btn-chat-clear {
-    display: none !important;
+    display: inline-flex !important;
+  }
+
+  .chat-mobile-back-btn {
+    display: inline-flex !important;
   }
 
   .chat-header .chat-maximize-btn {
@@ -4045,7 +4053,7 @@ body.dark-mode #tts-result-box {
   }
 
   .chat-close-btn-main {
-    padding: 5px 12px !important;
+    padding: 4px 10px !important;
     font-size: 12px !important;
     font-weight: 800 !important;
     box-shadow: 0 2px 5px rgba(0,0,0,0.3) !important;
@@ -4060,28 +4068,28 @@ body.dark-mode #tts-result-box {
   }
 
   .chat-tabs-bar {
-    display: flex !important;
-    flex-wrap: nowrap !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
     width: 100% !important;
     box-sizing: border-box !important;
-    padding: 5px 4px !important;
-    gap: 4px !important;
+    padding: 4px 5px !important;
+    gap: 3px !important;
     background: #f1f5f9 !important;
-    border-bottom: 1px solid #e2e8f0 !important;
-    overflow-x: hidden !important;
+    border-bottom: 1px solid #cbd5e1 !important;
+    overflow: hidden !important;
     flex-shrink: 0 !important;
   }
 
   .chat-tab-btn {
-    flex: 1 1 25% !important;
+    width: 100% !important;
     min-width: 0 !important;
-    padding: 7px 2px !important;
+    padding: 6px 1px !important;
     font-size: 11px !important;
     font-weight: 700 !important;
     text-align: center !important;
     white-space: nowrap !important;
     border-radius: 6px !important;
-    display: inline-flex !important;
+    display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     gap: 2px !important;
@@ -4089,6 +4097,7 @@ body.dark-mode #tts-result-box {
     background: #ffffff !important;
     color: #334155 !important;
     box-sizing: border-box !important;
+    height: 32px !important;
   }
 
   .chat-tab-btn.active {
