@@ -6868,7 +6868,12 @@ async function performLogin(username, password) {
     };
 
     state.user = adminUser;
-    if (window.WebPushManager) window.WebPushManager.syncUser(adminUser);
+    if (window.WebPushManager) {
+      window.WebPushManager.syncUser(adminUser);
+      if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
+        window.WebPushManager.requestPermission();
+      }
+    }
 
     state.isAdminSession = true;
 
@@ -6997,7 +7002,12 @@ async function performLogin(username, password) {
 function loginAsUnit(unitObj) {
 
   state.user = unitObj;
-  if (window.WebPushManager) window.WebPushManager.syncUser(unitObj);
+  if (window.WebPushManager) {
+    window.WebPushManager.syncUser(unitObj);
+    if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
+      window.WebPushManager.requestPermission();
+    }
+  }
 
   state.isAdminSession = false;
 
@@ -7323,6 +7333,19 @@ window.WebPushManager = {
           // Đồng bộ user tags nếu đã đăng nhập
           if (state.user) {
             window.WebPushManager.syncUser(state.user);
+          }
+
+          // TỰ ĐỘNG KÍCH HOẠT QUYỀN THÔNG BÁO KHI NGƯỜI DÙNG CHẠM/CLICK VÀO MÀN HÌNH LẦN ĐẦU
+          if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+            const autoPromptOnGesture = () => {
+              window.removeEventListener('click', autoPromptOnGesture);
+              window.removeEventListener('touchend', autoPromptOnGesture);
+              if (window.WebPushManager && window.WebPushManager.requestPermission) {
+                window.WebPushManager.requestPermission();
+              }
+            };
+            window.addEventListener('click', autoPromptOnGesture, { once: true });
+            window.addEventListener('touchend', autoPromptOnGesture, { once: true });
           }
 
           // Lắng nghe sự kiện thay đổi quyền
@@ -7809,17 +7832,14 @@ window.WebPushManager = {
 function renderPushNotificationHeaderButton() {
   const isGranted = typeof Notification !== 'undefined' && Notification.permission === 'granted';
   if (isGranted) {
-    return `
-      <button class="btn btn-sm" onclick="WebPushManager.showStatusModal()" title="Thông báo nổi Desktop & Điện thoại đang BẬT. Bấm để kiểm tra hoặc xem chi tiết." style="background: rgba(34, 197, 94, 0.2); color: #86efac; border: 1px solid rgba(74, 222, 128, 0.5); font-size: 11px; padding: 3px 7px; height: 27px; display: inline-flex; align-items: center; gap: 3px; font-weight: 700;">
-        <span style="font-size: 12px;">🔔</span>
-        <span>Chuông nổi: Bật</span>
-      </button>
-    `;
+    // Đã được cấp quyền và tự động kích hoạt hoàn toàn trong nền -> Ẩn hoàn toàn nút này
+    return '';
   } else {
+    // Thiết bị mới chưa cấp quyền -> Hiện nút bật chuông nổi để người dùng bấm 1 chạm cấp quyền
     return `
       <button class="btn btn-sm" onclick="WebPushManager.requestPermission()" title="Bấm để bật thông báo nổi trên màn hình Desktop & Màn hình khóa khi tắt web!" style="background: #f97316; color: #ffffff; border: 1.5px solid #ffedd5; font-size: 11px; padding: 3px 8px; height: 27px; display: inline-flex; align-items: center; gap: 4px; font-weight: 800; box-shadow: 0 2px 6px rgba(249, 115, 22, 0.4); cursor: pointer; border-radius: 5px;">
         <span style="font-size: 12px;">🔔</span>
-        <span>Bật Chuông Nổi</span>
+        <span>Bật Thông Báo</span>
       </button>
     `;
   }
