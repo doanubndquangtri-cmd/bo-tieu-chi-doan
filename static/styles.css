@@ -508,17 +508,26 @@ textarea:focus {
   z-index: 60 !important;
 }
 
-.master-table tr.row-banner th.sticky-col-unit,
-.master-table tr.row-banner th.banner-unit-cell {
-  background: #003d99 !important;
-  color: #ffffff !important;
-  left: 42px !important;
-  top: 0 !important;
-  z-index: 60 !important;
-  width: 370px !important;
-  min-width: 370px !important;
-  max-width: 370px !important;
-  white-space: nowrap !important;
+@media (min-width: 769px) {
+  .master-table tr.row-banner th.sticky-col-unit,
+  .master-table tr.row-banner th.banner-unit-cell {
+    background: #003d99 !important;
+    color: #ffffff !important;
+    left: 42px !important;
+    top: 0 !important;
+    z-index: 60 !important;
+    width: 370px !important;
+    min-width: 370px !important;
+    max-width: 370px !important;
+    white-space: nowrap !important;
+  }
+}
+@media (max-width: 768px) {
+  .master-table tr.row-banner th.banner-unit-cell {
+    width: 145px !important;
+    min-width: 145px !important;
+    max-width: 145px !important;
+  }
 }
 
 /* Row 2: Criterion Names */
@@ -553,7 +562,7 @@ textarea:focus {
   z-index: 25;
 }
 
-/* Sticky Left Columns: STT, ĐƠN VỊ, TỔNG ĐIỂM / ĐÃ ĐẠT (CỐ ĐỊNH 2 CHIỀU FREEZE PANES) */
+@media (min-width: 769px) {\n/* Sticky Left Columns: STT, ĐƠN VỊ, TỔNG ĐIỂM / ĐÃ ĐẠT (CỐ ĐỊNH 2 CHIỀU FREEZE PANES) */
 .master-table .sticky-col-stt,
 .sticky-col-stt {
   position: sticky !important;
@@ -654,7 +663,7 @@ thead th.sticky-col-total {
 .master-table tr.row-cols th.sticky-col-total {
   top: 178px;
   z-index: 50 !important;
-}
+}\n}
 
 .master-table tbody tr:hover td {
   background-color: #f0f9ff;
@@ -1121,17 +1130,65 @@ thead th.sticky-col-total {
     font-size: 11px !important;
   }
 
-  /* Smooth swipeable spreadsheet wrapper */
+  /* 1. FILTER BAR RESTRUCTURED FOR MOBILE - NO CUTOFFS */
+  .filter-bar {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    padding: 8px 10px !important;
+    overflow-x: visible !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .filter-month-container {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 6px !important;
+    width: 100% !important;
+  }
+  .month-pills {
+    display: flex !important;
+    gap: 5px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+    padding: 2px 0 4px 0 !important;
+    scrollbar-width: thin !important;
+  }
+  .month-pill {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+  }
+  .filter-actions-row {
+    display: flex !important;
+    gap: 6px !important;
+    width: 100% !important;
+    align-items: center !important;
+    margin-top: 4px !important;
+  }
+
+  /* 2. UNIFIED SMOOTH SPREADSHEET TABLE ON MOBILE */
   .spreadsheet-wrapper {
-    max-height: 60vh !important;
+    max-height: 62vh !important;
     overflow-x: auto !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
     touch-action: pan-x pan-y !important;
-    border-radius: 6px;
+    border-radius: 6px !important;
+    border: 1.5px solid #cbd5e1 !important;
   }
 
-  /* CRITICAL MOBILE FIX: In table view on mobile, make ALL columns static so the entire table scrolls as one smooth, clean unit without any floating/drifting/overlapping columns */
+  .master-table {
+    table-layout: fixed !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+  }
+
+  /* Reset all horizontal sticky offsets on mobile so all columns scroll in 100% perfect lockstep */
+  .master-table th,
+  .master-table td,
   .master-table .sticky-col-stt,
   .master-table .sticky-col-unit,
   .master-table .sticky-col-total,
@@ -1141,8 +1198,26 @@ thead th.sticky-col-total {
   .master-table thead th {
     position: static !important;
     left: auto !important;
-    top: auto !important;
     box-shadow: none !important;
+  }
+
+  /* Header rows stay sticky vertically when scrolling down through the 41 units */
+  .master-table thead tr.row-banner th {
+    position: sticky !important;
+    top: 0px !important;
+    z-index: 30 !important;
+    background: #003d99 !important;
+    color: #ffffff !important;
+  }
+  .master-table thead tr.row-titles th {
+    position: sticky !important;
+    top: 32px !important;
+    z-index: 30 !important;
+  }
+  .master-table thead tr.row-cols th {
+    position: sticky !important;
+    top: 135px !important;
+    z-index: 30 !important;
   }
 
   .master-table .sticky-col-stt {
@@ -1154,52 +1229,47 @@ thead th.sticky-col-total {
     text-align: center !important;
     background: #f1f5f9 !important;
     color: #1e293b !important;
+    box-sizing: border-box !important;
   }
 
   .master-table .sticky-col-unit {
-    width: 150px !important;
-    min-width: 150px !important;
-    max-width: 150px !important;
-    font-size: 11.5px !important;
-    padding: 6px 8px !important;
-    line-height: 1.3 !important;
-    white-space: normal !important;
-    word-break: break-word !important;
-    background: #f8fafc !important;
+    width: 145px !important;
+    min-width: 145px !important;
+    max-width: 145px !important;
+    font-size: 11px !important;
+    padding: 6px 6px !important;
+    line-height: 1.25 !important;
+    background: #ffffff !important;
     color: #0f172a !important;
     font-weight: 600 !important;
+    border-right: 2px solid #93c5fd !important;
+    box-sizing: border-box !important;
+  }
+  .master-table .sticky-col-unit div {
+    width: 100% !important;
+    max-width: 133px !important;
   }
 
   .master-table .sticky-col-total {
-    width: 75px !important;
-    min-width: 75px !important;
-    max-width: 75px !important;
-    font-size: 12px !important;
+    width: 65px !important;
+    min-width: 65px !important;
+    max-width: 65px !important;
+    font-size: 11.5px !important;
     padding: 6px 4px !important;
     text-align: center !important;
-    background: #f1f5f9 !important;
+    background: #fffbeb !important;
+    border-right: 1px solid #cbd5e1 !important;
+    box-sizing: border-box !important;
   }
 
   /* Criteria columns size on mobile */
-  .master-table tr.row-banner th {
-    font-size: 12px !important;
-    padding: 6px 4px !important;
-  }
-  .master-table tr.row-titles th {
-    font-size: 10.5px !important;
+  .master-table thead tr.row-titles th:not(.sticky-col-stt):not(.sticky-col-unit):not(.sticky-col-total),
+  .master-table thead tr.row-cols th:not(.sticky-col-stt):not(.sticky-col-unit):not(.sticky-col-total),
+  .master-table tbody td:not(.sticky-col-stt):not(.sticky-col-unit):not(.sticky-col-total) {
+    width: 80px !important;
     min-width: 80px !important;
-    max-width: 110px !important;
-    padding: 4px 3px !important;
-    line-height: 1.2 !important;
-    white-space: normal !important;
-  }
-  .master-table tr.row-points th {
-    font-size: 9.5px !important;
-    padding: 2px 3px !important;
-  }
-  .master-table tr.row-cols th {
-    font-size: 10px !important;
-    padding: 2px 3px !important;
+    max-width: 80px !important;
+    box-sizing: border-box !important;
   }
 
   .master-table th,
@@ -2933,47 +3003,49 @@ html, body {
 }
 
 /* Sticky column enhancements */
-.sticky-col-stt {
-  position: sticky !important;
-  left: 0 !important;
-  width: 42px !important;
-  min-width: 42px !important;
-  max-width: 42px !important;
-  z-index: 18 !important;
-  background: #ffffff !important;
-}
-.sticky-col-unit {
-  position: sticky !important;
-  left: 42px !important;
-  width: 290px !important;
-  min-width: 290px !important;
-  max-width: 290px !important;
-  z-index: 18 !important;
-  background: #ffffff !important;
-}
-.sticky-col-total {
-  position: sticky !important;
-  left: 332px !important;
-  width: 80px !important;
-  min-width: 80px !important;
-  max-width: 80px !important;
-  z-index: 18 !important;
-  background: #fff9db !important;
-  box-shadow: 3px 0 6px rgba(0, 0, 0, 0.12) !important;
-  border-right: 2px solid #0052cc !important;
-}
+@media (min-width: 769px) {
+  .sticky-col-stt {
+    position: sticky !important;
+    left: 0 !important;
+    width: 42px !important;
+    min-width: 42px !important;
+    max-width: 42px !important;
+    z-index: 18 !important;
+    background: #ffffff !important;
+  }
+  .sticky-col-unit {
+    position: sticky !important;
+    left: 42px !important;
+    width: 290px !important;
+    min-width: 290px !important;
+    max-width: 290px !important;
+    z-index: 18 !important;
+    background: #ffffff !important;
+  }
+  .sticky-col-total {
+    position: sticky !important;
+    left: 332px !important;
+    width: 80px !important;
+    min-width: 80px !important;
+    max-width: 80px !important;
+    z-index: 18 !important;
+    background: #fff9db !important;
+    box-shadow: 3px 0 6px rgba(0, 0, 0, 0.12) !important;
+    border-right: 2px solid #0052cc !important;
+  }
 
-thead .sticky-col-stt {
-  left: 0 !important;
-  z-index: 55 !important;
-}
-thead .sticky-col-unit {
-  left: 42px !important;
-  z-index: 55 !important;
-}
-thead .sticky-col-total {
-  left: 332px !important;
-  z-index: 55 !important;
+  thead .sticky-col-stt {
+    left: 0 !important;
+    z-index: 55 !important;
+  }
+  thead .sticky-col-unit {
+    left: 42px !important;
+    z-index: 55 !important;
+  }
+  thead .sticky-col-total {
+    left: 332px !important;
+    z-index: 55 !important;
+  }
 }
 
 /* =========================================================================
@@ -3430,36 +3502,38 @@ body.dark-mode .notification-item:hover {
 }
 
 /* Ô giao nhau giữa thead và 3 cột đầu đặt z-index: 55 để luôn nổi lên trên cùng */
-.master-table thead th.sticky-col-stt,
-thead th.sticky-col-stt {
-  position: sticky !important;
-  left: 0 !important;
-  top: 0 !important;
-  z-index: 55 !important;
-  background: #f1f5f9 !important;
-  box-sizing: border-box !important;
-}
+@media (min-width: 769px) {
+  .master-table thead th.sticky-col-stt,
+  thead th.sticky-col-stt {
+    position: sticky !important;
+    left: 0 !important;
+    top: 0 !important;
+    z-index: 55 !important;
+    background: #f1f5f9 !important;
+    box-sizing: border-box !important;
+  }
 
-.master-table thead th.sticky-col-unit,
-thead th.sticky-col-unit {
-  position: sticky !important;
-  left: 42px !important;
-  top: 0 !important;
-  z-index: 55 !important;
-  background: #f1f5f9 !important;
-  box-sizing: border-box !important;
-}
+  .master-table thead th.sticky-col-unit,
+  thead th.sticky-col-unit {
+    position: sticky !important;
+    left: 42px !important;
+    top: 0 !important;
+    z-index: 55 !important;
+    background: #f1f5f9 !important;
+    box-sizing: border-box !important;
+  }
 
-.master-table thead th.sticky-col-total,
-thead th.sticky-col-total {
-  position: sticky !important;
-  left: 332px !important;
-  top: 0 !important;
-  z-index: 55 !important;
-  background: #fef3c7 !important;
-  box-shadow: 3px 0 6px rgba(0, 0, 0, 0.12) !important;
-  border-right: 2px solid #0052cc !important;
-  box-sizing: border-box !important;
+  .master-table thead th.sticky-col-total,
+  thead th.sticky-col-total {
+    position: sticky !important;
+    left: 332px !important;
+    top: 0 !important;
+    z-index: 55 !important;
+    background: #fef3c7 !important;
+    box-shadow: 3px 0 6px rgba(0, 0, 0, 0.12) !important;
+    border-right: 2px solid #0052cc !important;
+    box-sizing: border-box !important;
+  }
 }
 
 /* THANH CUỘN NGANG VÀ DỌC TO RÕ (HORIZONTAL & VERTICAL SCROLLBARS) CHO CÁC BẢNG MA TRẬN */
