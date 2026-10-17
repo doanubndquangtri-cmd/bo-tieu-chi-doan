@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Hệ Thống Quản Lý & Tổng Hợp Bộ Tiêu Chí Đoàn Cấp Cơ Sở</title>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
@@ -52,7 +52,7 @@ body {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
   position: sticky;
   top: 0;
-  z-index: 99999 !important;
+  z-index: 1000 !important;
   flex-wrap: wrap;
 }
 
@@ -876,29 +876,34 @@ thead th.sticky-col-total {
 }
 
 /* Modal */
+#modal-root {
+  position: relative;
+  z-index: 9999999 !important;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.55);
+  background: rgba(15, 23, 42, 0.7) !important;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10000;
+  z-index: 9999999 !important;
   padding: 16px;
+  backdrop-filter: blur(2px);
 }
 
 .modal-box {
   background: #fff;
   position: relative;
-  z-index: 10001;
-  position: relative;
-  z-index: 10001;
+  z-index: 10000000 !important;
   width: 100%;
-  max-width: 580px;
+  max-width: 640px;
   border-radius: 10px;
-  box-shadow: 0 20px 35px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 20px 35px rgba(0, 0, 0, 0.35);
   overflow: hidden;
   max-height: 90vh;
+  max-height: 90dvh;
   display: flex;
   flex-direction: column;
 }
@@ -3793,21 +3798,39 @@ body.dark-mode #tts-result-box {
 
   /* MODAL NỘP BÁO CÁO / XEM CHI TIẾT VỪA VẶN MÀN HÌNH MOBILE */
   .modal-backdrop {
-    padding: 8px !important;
-    align-items: center !important;
+    padding: 6px !important;
+    align-items: flex-start !important;
+    padding-top: calc(8px + env(safe-area-inset-top, 0px)) !important;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+    z-index: 9999999 !important;
+    background: rgba(15, 23, 42, 0.75) !important;
   }
   .modal-box {
     width: 100% !important;
     max-width: 100% !important;
-    max-height: 92vh !important;
-    max-height: 92dvh !important;
+    max-height: calc(100dvh - 16px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
     border-radius: 10px !important;
     margin: 0 auto !important;
+    z-index: 10000000 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+  }
+  .modal-header {
+    padding: 10px 14px !important;
+    flex-shrink: 0 !important;
   }
   .modal-body {
     padding: 12px 14px !important;
     -webkit-overflow-scrolling: touch !important;
     touch-action: pan-y !important;
+    overflow-y: auto !important;
+    flex: 1 1 auto !important;
+  }
+  .modal-footer {
+    flex-shrink: 0 !important;
+    padding: 10px 14px !important;
   }
 
   /* CHẾ ĐỘ THẺ NỘP BÁO CÁO CỰC KỲ DỄ THAO TÁC TRÊN ĐIỆN THOẠI */
@@ -3965,9 +3988,10 @@ body.dark-mode #tts-result-box {
     left: 0 !important;
     right: 0 !important;
     bottom: 0 !important;
+    width: 100% !important;
     width: 100vw !important;
-    min-width: 100vw !important;
-    max-width: 100vw !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
     height: 100% !important;
     height: 100dvh !important;
     min-height: 100% !important;
@@ -3983,6 +4007,8 @@ body.dark-mode #tts-result-box {
     overflow: hidden !important;
     margin: 0 !important;
     transform: none !important;
+    background: #ffffff !important;
+    box-sizing: border-box !important;
   }
 
   .chat-resize-handle {
@@ -3992,6 +4018,7 @@ body.dark-mode #tts-result-box {
 
   .chat-header {
     padding: 8px 10px !important;
+    padding-top: calc(8px + env(safe-area-inset-top, 0px)) !important;
     border-radius: 0 !important;
     cursor: default !important;
     touch-action: auto !important;
@@ -4002,6 +4029,7 @@ body.dark-mode #tts-result-box {
     width: 100% !important;
     box-sizing: border-box !important;
     gap: 6px !important;
+    background: linear-gradient(90deg, #003d99 0%, #0052cc 100%) !important;
   }
 
   .chat-header-left {
@@ -4154,12 +4182,27 @@ body.dark-mode #tts-result-box {
   .chat-input-row {
     flex-shrink: 0 !important;
     padding: 8px 10px !important;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
     background: #ffffff !important;
     border-top: 1px solid #e2e8f0 !important;
   }
 
-  .chat-input-field {
-    font-size: 14px !important;
+  /* CHỐNG PHÓNG TO (ANTI-ZOOM) TRÊN IPHONE / IOS KHI CHẠM VÀO Ô GÕ VĂN BẢN & TÌM KIẾM */
+  .chat-input-field,
+  .chat-search-bar input,
+  #chat-input-field,
+  #chat-search-input,
+  .chat-search-input,
+  .chat-input-row input,
+  .chat-floating-window input,
+  .chat-floating-window textarea,
+  .chat-floating-window select,
+  .modal-box input,
+  .modal-box textarea,
+  .modal-box select {
+    font-size: 16px !important;
+    -webkit-text-size-adjust: 100% !important;
+    text-size-adjust: 100% !important;
   }
 }
 
@@ -4167,7 +4210,7 @@ body.dark-mode #tts-result-box {
 </head>
 <body>
   <div id="app"></div>
-  <div id="modal-root"></div>
+  <div id="modal-root" style="position:relative; z-index:9999999 !important;"></div>
   <div id="toast-root" class="toast-container"></div>
   <script>
 
@@ -8184,7 +8227,7 @@ function renderHeader() {
 
   return `
 
-    <header class="app-header" style="background: linear-gradient(135deg, #003380 0%, #0052cc 100%); color: #fff; padding: 4px 12px; min-height: 46px; display: flex; justify-content: space-between; align-items: center; flex-wrap: nowrap; gap: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: sticky; top: 0; z-index: 99999 !important;">
+    <header class="app-header" style="background: linear-gradient(135deg, #003380 0%, #0052cc 100%); color: #fff; padding: 4px 12px; min-height: 46px; display: flex; justify-content: space-between; align-items: center; flex-wrap: nowrap; gap: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: sticky; top: 0; z-index: 1000 !important;">
 
       <!-- BÊN TRÁI: LOGO VÀ TIÊU ĐỀ HỆ THỐNG -->
 
@@ -12193,20 +12236,13 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
 
       <div class="modal-box" style="max-width: 640px;">
 
-        <div class="modal-header" style="background: linear-gradient(135deg, #003380 0%, #0052cc 100%); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center;">
-
-          <span style="font-weight: 800; font-size: 15px; display: flex; align-items: center; gap: 6px;">
-
-            <span>📎</span> Chi Tiết Báo Cáo & Minh Chứng (${escapeHtml(crit.col_label)})
-
+        <div class="modal-header" style="background: linear-gradient(135deg, #003380 0%, #0052cc 100%); color: #fff; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; flex-shrink: 0; border-top-left-radius: 10px; border-top-right-radius: 10px; gap: 8px;">
+          <span style="font-weight: 800; font-size: 14px; display: flex; align-items: center; gap: 6px; color: #fff; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            <span>📎</span> <span style="overflow:hidden; text-overflow:ellipsis;">Chi Tiết Báo Cáo (${escapeHtml(crit.col_label)})</span>
           </span>
-
-          <button type="button" onclick="closeModal()" style="background: rgba(255,255,255,0.2); border: 1.5px solid rgba(255,255,255,0.6); color: #ffffff !important; font-size: 13px; font-weight: 800; border-radius: 6px; padding: 4px 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Đóng cửa sổ">
-
+          <button type="button" onclick="closeModal()" style="background: #ef4444 !important; border: 1.5px solid #dc2626 !important; color: #ffffff !important; font-size: 13px; font-weight: 800; border-radius: 6px; padding: 5px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.3); height: 32px;" title="Đóng cửa sổ">
             ✕ Đóng
-
           </button>
-
         </div>
 
         <div class="modal-body" style="padding: 18px 20px;">
@@ -12618,7 +12654,16 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
 
         </div>
 
-
+        <div class="modal-footer" style="padding: 10px 14px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; gap: 8px; border-bottom-left-radius: 10px; border-bottom-right-radius: 10px;">
+          <button type="button" class="btn btn-outline" onclick="closeModal()" style="font-weight: 700; padding: 7px 16px; color: #475569; border: 1.5px solid #cbd5e1; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; background: #fff; cursor: pointer;">
+            ✕ Đóng lại
+          </button>
+          ${isAdmin ? `
+            <button type="button" class="btn btn-success" onclick="saveAdminSubmissionDetail(${unit.id}, ${crit.id})" style="font-weight: 800; padding: 7px 16px; background: #16a34a; border: 1.5px solid #15803d; color: #fff; border-radius: 6px; box-shadow: 0 2px 4px rgba(22,163,74,0.3); cursor: pointer;">
+              💾 Lưu Điểm & Chi Tiết
+            </button>
+          ` : ''}
+        </div>
 
       </div>
 
@@ -22351,7 +22396,7 @@ function renderFloatingChatWidget() {
       }">
 
         <!-- HEADER KHUNG CHAT (DRAGGABLE & DBLCLICK MAXIMIZE) -->
-        <div class="chat-header" id="chat-drag-header" ondblclick="toggleMaximizeChatWidget()" style="background:linear-gradient(90deg, #003d99 0%, #0052cc 100%); color:#fff; padding:6px 10px; display:flex; align-items:center; justify-content:space-between; width:100%; box-sizing:border-box; flex-shrink:0; gap:4px;" title="Bấm giữ và kéo rê để di chuyển ô chat, hoặc nhấp đúp để phóng to / thu nhỏ">
+        <div class="chat-header" id="chat-drag-header" ondblclick="toggleMaximizeChatWidget()" style="background:linear-gradient(90deg, #003d99 0%, #0052cc 100%); color:#fff; padding:6px 10px; padding-top:calc(6px + env(safe-area-inset-top, 0px)); display:flex; align-items:center; justify-content:space-between; width:100%; box-sizing:border-box; flex-shrink:0; gap:4px;" title="Bấm giữ và kéo rê để di chuyển ô chat, hoặc nhấp đúp để phóng to / thu nhỏ">
           <div class="chat-header-left" style="min-width:0; flex:1 1 auto; overflow:hidden; display:flex; align-items:center; gap:6px;">
             <button type="button" class="chat-mobile-back-btn" onclick="toggleChatWidget()" style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.5); color:#fff; font-weight:800; font-size:14px; width:28px; height:28px; border-radius:50%; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;" title="Quay lại giao diện chính">←</button>
             <div style="min-width:0; overflow:hidden;">
@@ -22408,36 +22453,21 @@ function renderFloatingChatWidget() {
           </button>
         </div>
 
-
-
         ${(state.chatTab === 'tts' || state.chatTab === 'qr') ? '' : `
-
           <!-- THANH TÌM KIẾM TIN NHẮN & TỆP TIN TRONG PHÒNG CHAT (Ảnh 1 & 2) -->
-
           <div class="chat-search-bar">
-
             <span style="font-size:13px; color:#64748b;">🔍</span>
-
             <input
-
               type="text"
-
               id="chat-search-input"
-
+              class="chat-search-input"
               value="${escapeHtml(state.chatSearchQuery || '')}"
-
               placeholder="Tìm kiếm tin nhắn, văn bản, tệp đính kèm, người gửi..."
-
               oninput="onChatSearchInput(this.value)"
-
-              style="flex:1; border:1px solid #cbd5e1; border-radius:6px; padding:5px 9px; font-size:12px; outline:none; background:#fff;"
-
+              style="flex:1; border:1px solid #cbd5e1; border-radius:6px; padding:6px 10px; font-size:14px; outline:none; background:#fff;"
             />
-
             <button type="button" id="chat-search-clear-btn" onclick="clearChatSearch()" style="background:none; border:none; color:#64748b; cursor:pointer; font-weight:800; font-size:14px; padding:0 4px; display:${state.chatSearchQuery ? 'inline-block' : 'none'};" title="Xóa tìm kiếm">✕</button>
-
           </div>
-
         `}
 
 
@@ -22684,7 +22714,7 @@ function renderFloatingChatWidget() {
 
         ${(state.chatTab === 'tts' || state.chatTab === 'qr') ? '' : `
 
-          <div class="chat-input-row" style="position:relative; gap:6px;">
+          <div class="chat-input-row" style="position:relative; gap:6px; padding-bottom:calc(8px + env(safe-area-inset-bottom, 0px));">
 
             <input
 
