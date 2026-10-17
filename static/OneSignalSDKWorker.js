@@ -6,13 +6,11 @@ try {
   console.warn('[OneSignalWorker] Could not import OneSignalSDK.sw.js:', e);
 }
 
-// ĐẢM BẢO MỌI THÔNG BÁO PUSH ĐỀU CÓ TAG DUY NHẤT (XẾP CHỒNG), RUNG MẠNH VÀ HIỆN BANNER NỔI
+// ĐẢM BẢO MỌI THÔNG BÁO PUSH ĐỀU RUNG MẠNH, BẬT MÀN HÌNH KHÓA VÀ HIỆN BANNER NỔI
 if (typeof self !== 'undefined' && self.registration) {
   const _origShowNotification = self.registration.showNotification.bind(self.registration);
   self.registration.showNotification = function(title, options) {
     options = options || {};
-    // Bắt buộc gán tag ngẫu nhiên duy nhất để các tin nhắn gửi liên tục KHÔNG BỊ ĐÈ MẤT NHAU TRÊN ANDROID
-    options.tag = 'tieuchidoan_msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
     options.vibrate = options.vibrate || [500, 200, 500, 200, 500];
     options.renotify = true;
     options.requireInteraction = true;
@@ -26,7 +24,7 @@ if (typeof self !== 'undefined' && self.registration) {
   };
 }
 
-const SW_VERSION = '1792199610';
+const SW_VERSION = '1792200284';
 const CACHE_NAME = 'tieuchidoan-v' + SW_VERSION;
 const ASSETS_TO_CACHE = [
   './logo_doan.png',
