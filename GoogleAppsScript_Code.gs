@@ -302,7 +302,7 @@ function doPost(e) {
       }
 
       var bCount = Number(data.badgeCount || 1);
-      var bType = data.badgeType || "SetTo";
+      var bType = data.badgeType || "Increase";
       var fullUrl = (data.url && String(data.url).indexOf("http") === 0)
         ? data.url
         : "https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/";
@@ -313,6 +313,7 @@ function doPost(e) {
         web_url: fullUrl,
         priority: 10,
         android_visibility: 1,
+        android_accent_color: "0052CC",
         ttl: 259200,
         chrome_web_icon: "https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/icon-192.png",
         chrome_web_badge: "https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/favicon.png",
