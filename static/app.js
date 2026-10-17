@@ -3554,7 +3554,7 @@ window.WebPushManager = {
     }
 
     const bCount = (typeof getTotalBadgeCount === 'function' ? getTotalBadgeCount() : 1) || 1;
-    const bType = (options && options.badgeType) ? options.badgeType : 'SetTo';
+    const bType = (options && options.badgeType) ? options.badgeType : 'Increase';
     const siteBaseUrl = (typeof window !== 'undefined' && window.location && window.location.origin)
       ? (window.location.origin + window.location.pathname)
       : 'https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/';
@@ -3567,6 +3567,7 @@ window.WebPushManager = {
       web_url: fullTargetUrl,
       priority: 10,
       android_visibility: 1,
+      android_accent_color: '0052CC',
       ttl: 259200,
       chrome_web_icon: 'https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/icon-192.png',
       chrome_web_badge: 'https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/favicon.png',
@@ -11144,9 +11145,10 @@ window.saveNewCriterion = async function () {
 
     closeModal();
 
-    renderApp();
-
-        if (window.WebPushManager) {
+    if (window.broadcastLiveEvent) {
+      window.broadcastLiveEvent('NEW_CRITERIA', { col_label: newCriterionObj.col_label, title: newCriterionObj.title });
+    }
+    if (window.WebPushManager) {
       window.WebPushManager.sendPushNotification({
         title: '📋 Tiêu Chí / Báo Cáo Mới Được Ban Hành',
         message: `Ban Thường vụ đã ban hành: "${newCriterionObj.col_label} - ${newCriterionObj.title}"`,
@@ -14452,6 +14454,9 @@ window.uploadAdminDocument = async function () {
       await new Promise(r => setTimeout(r, 400));
 
       hideUploadProgressModal();
+      if (window.broadcastLiveEvent) {
+        window.broadcastLiveEvent('ADMIN_DOC', { title: title });
+      }
       if (window.WebPushManager) {
         window.WebPushManager.sendPushNotification({
           title: '📜 Văn Bản Mới Từ Ban Thường Vụ',
@@ -15660,9 +15665,10 @@ window.approveUnitSubmission = async function(unitId, critId, scoreVal) {
 
     if (window.triggerConfetti) window.triggerConfetti();
 
-    if (window.playNotificationChime) window.playNotificationChime();
-
-        if (window.WebPushManager) {
+    if (window.broadcastLiveEvent) {
+      window.broadcastLiveEvent('PROOF_APPROVED', { unit_id: unitId, criterion_id: critId, score: finalScore });
+    }
+    if (window.WebPushManager) {
       window.WebPushManager.sendPushNotification({
         title: '✅ Minh chứng đã được phê duyệt',
         message: `Ban Thường vụ đã duyệt & chấm +${finalScore} điểm tiêu chí ${crit ? crit.col_label : ''}`,
@@ -15886,6 +15892,9 @@ window.confirmRejectUnitSubmission = async function(unitId, critId) {
 
     closeModal();
 
+    if (window.broadcastLiveEvent) {
+      window.broadcastLiveEvent('PROOF_REJECTED', { unit_id: unitId, criterion_id: critId, reason: reason });
+    }
     if (window.WebPushManager) {
       window.WebPushManager.sendPushNotification({
         title: '⚠️ Yêu cầu bổ sung minh chứng',
@@ -16046,7 +16055,10 @@ window.duplicateCriterion = async function (critId) {
 
   if (res.ok) {
 
-        if (window.WebPushManager) {
+    if (window.broadcastLiveEvent) {
+      window.broadcastLiveEvent('NEW_CRITERIA', { col_label: newCrit.col_label, title: newCrit.title });
+    }
+    if (window.WebPushManager) {
       window.WebPushManager.sendPushNotification({
         title: '📋 Tiêu Chí / Báo Cáo Được Ban Hành Bổ Sung',
         message: `Đã ban hành: "${newCrit.col_label} - ${newCrit.title}"`,
@@ -16443,6 +16455,18 @@ window.toggleMaximizeChatWidget = function() {
 };
 
 
+
+window.openTtsStudio = function() {
+  state.chatOpen = true;
+  state.chatTab = 'tts';
+  renderApp();
+};
+
+window.openQrGenerator = function() {
+  state.chatOpen = true;
+  state.chatTab = 'qr';
+  renderApp();
+};
 
 window.switchChatTab = function(tab) {
 
@@ -18274,87 +18298,48 @@ function renderFloatingChatWidget() {
       }">
 
         <!-- HEADER KHUNG CHAT (DRAGGABLE & DBLCLICK MAXIMIZE) -->
-
         <div class="chat-header" id="chat-drag-header" ondblclick="toggleMaximizeChatWidget()" title="Bấm giữ và kéo rê để di chuyển ô chat, hoặc nhấp đúp để phóng to / thu nhỏ">
-
-          <div>
-
+          <div class="chat-header-left">
             <div class="chat-header-title">
-
-              <span>💬</span> Trao Đổi Đoàn UBND Tỉnh & Cơ Sở
-
+              <span>💬</span> <span class="chat-title-text">Trao Đổi Đoàn UBND Tỉnh</span>
             </div>
-
             <div class="chat-header-user" title="Đang đăng nhập: ${escapeHtml(myName)}">
-
-              👤 ${escapeHtml(myName)} <span style="font-size:10px; opacity:0.8; margin-left:4px;">(✥ Kéo di chuyển / ⤡ Kéo dãn)</span>
-
+              👤 ${escapeHtml(myName)} <span class="chat-drag-hint" style="font-size:10px; opacity:0.8; margin-left:4px;">(✥ Kéo di chuyển / ⤡ Kéo dãn)</span>
             </div>
-
           </div>
-
-          <div style="display:flex; align-items:center; gap:6px;">
-
-            <button class="btn btn-sm" onclick="syncFromCloudNow(false)" style="background:rgba(255,255,255,0.22); border:1px solid rgba(255,255,255,0.5); color:#fff; font-size:11px; font-weight:700; padding:2px 8px; border-radius:5px; cursor:pointer;" title="Tải lại tin nhắn mới nhất từ máy chủ">
-              🔄 Tải lại
+          <div class="chat-header-actions">
+            <button class="btn btn-sm btn-chat-action" onclick="syncFromCloudNow(false)" style="background:rgba(255,255,255,0.22); border:1px solid rgba(255,255,255,0.5); color:#fff; font-size:11px; font-weight:700; padding:3px 7px; border-radius:5px; cursor:pointer;" title="Tải lại tin nhắn mới nhất từ máy chủ">
+              <span class="btn-text-full">🔄 Tải lại</span><span class="btn-text-mobile">🔄</span>
             </button>
-
-            <button class="btn btn-sm" onclick="markAllChatAsRead()" style="background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.4); color:#fff; font-size:11px; font-weight:700; padding:2px 8px; border-radius:5px; cursor:pointer;" title="Đánh dấu tất cả tin nhắn trong hệ thống là đã đọc">
-              ✓ Đã đọc hết
+            <button class="btn btn-sm btn-chat-action" onclick="markAllChatAsRead()" style="background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.4); color:#fff; font-size:11px; font-weight:700; padding:3px 7px; border-radius:5px; cursor:pointer;" title="Đánh dấu tất cả tin nhắn trong hệ thống là đã đọc">
+              <span class="btn-text-full">✓ Đã đọc</span><span class="btn-text-mobile">✓</span>
             </button>
-
-            <button class="btn btn-sm" onclick="openClearChatOptionsModal()" style="background:rgba(239,68,68,0.25); border:1px solid rgba(239,68,68,0.5); color:#fff; font-size:11px; font-weight:700; padding:2px 7px;" title="Xóa lịch sử trao đổi">
-
-              🗑️ Xóa lịch sử
-
+            <button class="btn btn-sm btn-chat-action btn-chat-clear" onclick="openClearChatOptionsModal()" style="background:rgba(239,68,68,0.25); border:1px solid rgba(239,68,68,0.5); color:#fff; font-size:11px; font-weight:700; padding:3px 7px; border-radius:5px;" title="Xóa lịch sử trao đổi">
+              <span class="btn-text-full">🗑️ Xóa</span><span class="btn-text-mobile">🗑️</span>
             </button>
-
             <button class="chat-maximize-btn" onclick="toggleMaximizeChatWidget()" title="${state.chatMaximized ? 'Thu nhỏ về kích thước ban đầu (nhỏ nhất)' : 'Phóng to toàn màn hình'}">
-
               ${state.chatMaximized ? '❐' : '⛶'}
-
             </button>
-
-            <button class="chat-close-btn" onclick="toggleChatWidget()" title="Đóng ô trao đổi">✕</button>
-
+            <button class="chat-close-btn-main" onclick="toggleChatWidget()" title="Đóng ô trao đổi để trở về màn hình chính">✕ Đóng</button>
           </div>
-
         </div>
 
-
-
-        <!-- THANH CHUYỂN TAB: CHAT CHUNG, CHAT RIÊNG TƯ & GIỌNG NÓI AI -->
-
+        <!-- THANH CHUYỂN TAB: CHAT CHUNG, CHAT RIÊNG TƯ, GIỌNG NÓI AI & TẠO QR -->
         <div class="chat-tabs-bar">
-
-          <button class="chat-tab-btn ${state.chatTab === 'public' ? 'active' : ''}" onclick="switchChatTab('public')">
-
-            🌐 Chat Chung Toàn Khối
-
-            ${unreadPublic > 0 ? `<span class="chat-badge" style="margin-left:4px;">${unreadPublic}</span>` : ''}
-
+          <button class="chat-tab-btn ${state.chatTab === 'public' ? 'active' : ''}" onclick="switchChatTab('public')" title="Kênh trao đổi chung toàn Khối">
+            🌐 <span class="tab-label-full">Toàn Khối</span><span class="tab-label-short">Toàn khối</span>
+            ${unreadPublic > 0 ? `<span class="chat-badge">${unreadPublic}</span>` : ''}
           </button>
-
-          <button class="chat-tab-btn ${state.chatTab === 'private' ? 'active' : ''}" onclick="switchChatTab('private')">
-
-            🔒 Chat Riêng Tư (1 - 1)
-
-            ${unreadPrivate > 0 ? `<span class="chat-badge" style="margin-left:4px;">${unreadPrivate}</span>` : ''}
-
+          <button class="chat-tab-btn ${state.chatTab === 'private' ? 'active' : ''}" onclick="switchChatTab('private')" title="Kênh trao đổi riêng tư 1 - 1">
+            🔒 <span class="tab-label-full">Riêng Tư</span><span class="tab-label-short">Riêng tư</span>
+            ${unreadPrivate > 0 ? `<span class="chat-badge">${unreadPrivate}</span>` : ''}
           </button>
-
           <button class="chat-tab-btn tts-tab ${state.chatTab === 'tts' ? 'active' : ''}" onclick="switchChatTab('tts')" title="Tạo Giọng Nói AI & Tải Về (AI Text-to-Speech Studio)">
-
-            🎙️ Giọng Nói AI
-
+            🎙️ <span class="tab-label-full">Giọng Nói AI</span><span class="tab-label-short">Giọng nói</span>
           </button>
-
           <button class="chat-tab-btn qr-tab ${state.chatTab === 'qr' ? 'active' : ''}" onclick="switchChatTab('qr')" title="Tiện ích tạo mã QR có Logo Đoàn bằng link & Tải về, Chia sẻ">
-
-            📱 Tạo Mã QR
-
+            📱 <span class="tab-label-full">Tạo Mã QR</span><span class="tab-label-short">Mã QR</span>
           </button>
-
         </div>
 
 
@@ -24537,10 +24522,32 @@ window.initRealtimeLiveBridge = function() {
 
         if (evt.type === 'CHAT_MSG' && evt.payload) {
           handleIncomingRealtimeChat(evt.payload);
-        } else if (evt.type === 'REPORT_SUBMITTED' || evt.type === 'NEW_CRITERIA' || evt.type === 'ADMIN_DOC') {
+        } else if (evt.type === 'REPORT_SUBMITTED' || evt.type === 'NEW_CRITERIA' || evt.type === 'ADMIN_DOC' || evt.type === 'PROOF_APPROVED' || evt.type === 'PROOF_REJECTED') {
           if (window.playNotificationChime) window.playNotificationChime();
           if (typeof window.syncFromCloudNow === 'function') {
-            window.syncFromCloudNow(true);
+            window.syncFromCloudNow(true).then(() => {
+              if (document.hidden && window.WebPushManager && window.WebPushManager.showLocalNativeNotification) {
+                let title = '🔔 Thông Báo Mới Từ Hệ Thống';
+                let body = 'Có cập nhật mới trong Bộ Tiêu Chí Đoàn';
+                if (evt.type === 'REPORT_SUBMITTED') {
+                  title = '📤 Cơ sở vừa nộp hồ sơ/minh chứng';
+                  body = 'Đã nộp minh chứng tiêu chí mới';
+                } else if (evt.type === 'NEW_CRITERIA') {
+                  title = '📋 Tiêu Chí / Báo Cáo Mới';
+                  body = (evt.payload && evt.payload.title) ? `Ban hành: ${evt.payload.title}` : 'Ban Thường vụ đã ban hành tiêu chí mới';
+                } else if (evt.type === 'ADMIN_DOC') {
+                  title = '📜 Văn Bản Mới Từ Ban Thường Vụ';
+                  body = (evt.payload && evt.payload.title) ? `Văn bản: ${evt.payload.title}` : 'Có văn bản mới được ban hành';
+                } else if (evt.type === 'PROOF_APPROVED') {
+                  title = '✅ Minh chứng đã được phê duyệt';
+                  body = 'Ban Thường vụ đã duyệt & chấm điểm minh chứng';
+                } else if (evt.type === 'PROOF_REJECTED') {
+                  title = '⚠️ Yêu cầu bổ sung minh chứng';
+                  body = (evt.payload && evt.payload.reason) ? evt.payload.reason : 'Minh chứng chưa đạt yêu cầu';
+                }
+                window.WebPushManager.showLocalNativeNotification(title, body, './');
+              }
+            });
           }
         }
       } catch (eParse) {}
@@ -24566,7 +24573,7 @@ window.initRealtimeLiveBridge = function() {
       bcListen.onmessage = function(e) {
         if (e.data && e.data.type === 'CHAT_MSG' && e.data.data) {
           handleIncomingRealtimeChat(e.data.data);
-        } else if (e.data && e.data.type === 'REPORT_SUBMITTED') {
+        } else if (e.data && (e.data.type === 'REPORT_SUBMITTED' || e.data.type === 'NEW_CRITERIA' || e.data.type === 'ADMIN_DOC' || e.data.type === 'PROOF_APPROVED' || e.data.type === 'PROOF_REJECTED')) {
           if (typeof window.syncFromCloudNow === 'function') window.syncFromCloudNow(true);
         }
       };
