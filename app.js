@@ -18298,47 +18298,60 @@ function renderFloatingChatWidget() {
       }">
 
         <!-- HEADER KHUNG CHAT (DRAGGABLE & DBLCLICK MAXIMIZE) -->
-        <div class="chat-header" id="chat-drag-header" ondblclick="toggleMaximizeChatWidget()" title="Bấm giữ và kéo rê để di chuyển ô chat, hoặc nhấp đúp để phóng to / thu nhỏ">
-          <div class="chat-header-left">
-            <div class="chat-header-title">
-              <span>💬</span> <span class="chat-title-text">Trao Đổi Đoàn UBND Tỉnh</span>
-            </div>
-            <div class="chat-header-user" title="Đang đăng nhập: ${escapeHtml(myName)}">
-              👤 ${escapeHtml(myName)} <span class="chat-drag-hint" style="font-size:10px; opacity:0.8; margin-left:4px;">(✥ Kéo di chuyển / ⤡ Kéo dãn)</span>
+        <div class="chat-header" id="chat-drag-header" ondblclick="toggleMaximizeChatWidget()" style="background:linear-gradient(90deg, #003d99 0%, #0052cc 100%); color:#fff; padding:6px 10px; display:flex; align-items:center; justify-content:space-between; width:100%; box-sizing:border-box; flex-shrink:0; gap:4px;" title="Bấm giữ và kéo rê để di chuyển ô chat, hoặc nhấp đúp để phóng to / thu nhỏ">
+          <div class="chat-header-left" style="min-width:0; flex:1 1 auto; overflow:hidden; display:flex; align-items:center; gap:6px;">
+            <button type="button" class="chat-mobile-back-btn" onclick="toggleChatWidget()" style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.5); color:#fff; font-weight:800; font-size:14px; width:28px; height:28px; border-radius:50%; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;" title="Quay lại giao diện chính">←</button>
+            <div style="min-width:0; overflow:hidden;">
+              <div class="chat-header-title" style="font-weight:800; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:flex; align-items:center; gap:4px; color:#fff;">
+                <span>💬</span> <span class="chat-title-text">Trao Đổi Đoàn</span>
+              </div>
+              <div class="chat-header-user" style="font-size:10px; color:#bfdbfe; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="Đang đăng nhập: ${escapeHtml(myName)}">
+                👤 ${escapeHtml(myName)}
+              </div>
             </div>
           </div>
-          <div class="chat-header-actions">
-            <button class="btn btn-sm btn-chat-action" onclick="syncFromCloudNow(false)" style="background:rgba(255,255,255,0.22); border:1px solid rgba(255,255,255,0.5); color:#fff; font-size:11px; font-weight:700; padding:3px 7px; border-radius:5px; cursor:pointer;" title="Tải lại tin nhắn mới nhất từ máy chủ">
-              <span class="btn-text-full">🔄 Tải lại</span><span class="btn-text-mobile">🔄</span>
+          <div class="chat-header-actions" style="display:flex; align-items:center; gap:3px; flex-shrink:0;">
+            <button type="button" class="btn btn-sm btn-chat-action" onclick="syncFromCloudNow(false)" style="background:rgba(255,255,255,0.22); border:1px solid rgba(255,255,255,0.45); color:#fff; font-size:11px; font-weight:700; padding:3px 6px; border-radius:5px; cursor:pointer; height:28px; display:inline-flex; align-items:center; justify-content:center;" title="Tải lại tin nhắn mới nhất từ máy chủ">
+              <span>🔄</span><span class="btn-text-full" style="margin-left:2px;"> Tải lại</span>
             </button>
-            <button class="btn btn-sm btn-chat-action" onclick="markAllChatAsRead()" style="background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.4); color:#fff; font-size:11px; font-weight:700; padding:3px 7px; border-radius:5px; cursor:pointer;" title="Đánh dấu tất cả tin nhắn trong hệ thống là đã đọc">
-              <span class="btn-text-full">✓ Đã đọc</span><span class="btn-text-mobile">✓</span>
+            <button type="button" class="btn btn-sm btn-chat-action" onclick="markAllChatAsRead()" style="background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.4); color:#fff; font-size:11px; font-weight:700; padding:3px 6px; border-radius:5px; cursor:pointer; height:28px; display:inline-flex; align-items:center; justify-content:center;" title="Đánh dấu tất cả tin nhắn trong hệ thống là đã đọc">
+              <span>✓</span><span class="btn-text-full" style="margin-left:2px;"> Đã đọc</span>
             </button>
-            <button class="btn btn-sm btn-chat-action btn-chat-clear" onclick="openClearChatOptionsModal()" style="background:rgba(239,68,68,0.25); border:1px solid rgba(239,68,68,0.5); color:#fff; font-size:11px; font-weight:700; padding:3px 7px; border-radius:5px;" title="Xóa lịch sử trao đổi">
-              <span class="btn-text-full">🗑️ Xóa</span><span class="btn-text-mobile">🗑️</span>
+            <button type="button" class="btn btn-sm btn-chat-action btn-chat-clear" onclick="openClearChatOptionsModal()" style="background:rgba(239,68,68,0.25); border:1px solid rgba(239,68,68,0.5); color:#fff; font-size:11px; font-weight:700; padding:3px 6px; border-radius:5px; cursor:pointer; height:28px; display:inline-flex; align-items:center; justify-content:center;" title="Xóa lịch sử trao đổi">
+              <span>🗑️</span><span class="btn-text-full" style="margin-left:2px;"> Xóa</span>
             </button>
-            <button class="chat-maximize-btn" onclick="toggleMaximizeChatWidget()" title="${state.chatMaximized ? 'Thu nhỏ về kích thước ban đầu (nhỏ nhất)' : 'Phóng to toàn màn hình'}">
+            <button type="button" class="chat-maximize-btn" onclick="toggleMaximizeChatWidget()" style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:28px; height:28px; border-radius:5px; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center;" title="${state.chatMaximized ? 'Thu nhỏ về kích thước ban đầu' : 'Phóng to toàn màn hình'}">
               ${state.chatMaximized ? '❐' : '⛶'}
             </button>
-            <button class="chat-close-btn-main" onclick="toggleChatWidget()" title="Đóng ô trao đổi để trở về màn hình chính">✕ Đóng</button>
+            <button type="button" class="chat-close-btn-main" onclick="toggleChatWidget()" style="background:#ef4444 !important; border:1.5px solid #dc2626 !important; color:#ffffff !important; font-weight:800 !important; font-size:12px !important; padding:4px 10px !important; border-radius:6px !important; cursor:pointer !important; display:inline-flex !important; align-items:center !important; gap:2px !important; box-shadow:0 2px 4px rgba(0,0,0,0.3) !important; flex-shrink:0 !important; height:28px !important; white-space:nowrap !important;" title="Thoát khỏi ô chat (Trở về giao diện chính)">
+              ✕ Thoát
+            </button>
           </div>
         </div>
 
-        <!-- THANH CHUYỂN TAB: CHAT CHUNG, CHAT RIÊNG TƯ, GIỌNG NÓI AI & TẠO QR -->
-        <div class="chat-tabs-bar">
-          <button class="chat-tab-btn ${state.chatTab === 'public' ? 'active' : ''}" onclick="switchChatTab('public')" title="Kênh trao đổi chung toàn Khối">
-            🌐 <span class="tab-label-full">Toàn Khối</span><span class="tab-label-short">Toàn khối</span>
-            ${unreadPublic > 0 ? `<span class="chat-badge">${unreadPublic}</span>` : ''}
+        <!-- THANH CHUYỂN TAB: CHAT CHUNG, CHAT RIÊNG TƯ, GIỌNG NÓI AI & TẠO QR (CHIA ĐỀU 4 CỘT) -->
+        <div class="chat-tabs-bar" style="display:grid; grid-template-columns:repeat(4, 1fr); gap:3px; padding:4px 5px; background:#f1f5f9; border-bottom:1px solid #cbd5e1; width:100%; box-sizing:border-box; flex-shrink:0;">
+          <button type="button" class="chat-tab-btn ${state.chatTab === 'public' ? 'active' : ''}" onclick="switchChatTab('public')" style="width:100%; min-width:0; padding:6px 1px; font-size:11px; font-weight:700; text-align:center; white-space:nowrap; border-radius:6px; display:flex; align-items:center; justify-content:center; gap:2px; border:1px solid ${state.chatTab === 'public' ? '#0052cc' : '#cbd5e1'}; background:${state.chatTab === 'public' ? '#0052cc' : '#ffffff'}; color:${state.chatTab === 'public' ? '#ffffff' : '#334155'}; cursor:pointer; box-sizing:border-box; height:32px;" title="Kênh trao đổi chung toàn Khối">
+            <span>🌐</span>
+            <span class="tab-label-full">Toàn Khối</span>
+            <span class="tab-label-short">Toàn khối</span>
+            ${unreadPublic > 0 ? `<span class="chat-badge" style="background:#ef4444; color:#fff; font-size:9px; font-weight:800; padding:0 4px; border-radius:8px; margin-left:1px;">${unreadPublic}</span>` : ''}
           </button>
-          <button class="chat-tab-btn ${state.chatTab === 'private' ? 'active' : ''}" onclick="switchChatTab('private')" title="Kênh trao đổi riêng tư 1 - 1">
-            🔒 <span class="tab-label-full">Riêng Tư</span><span class="tab-label-short">Riêng tư</span>
-            ${unreadPrivate > 0 ? `<span class="chat-badge">${unreadPrivate}</span>` : ''}
+          <button type="button" class="chat-tab-btn ${state.chatTab === 'private' ? 'active' : ''}" onclick="switchChatTab('private')" style="width:100%; min-width:0; padding:6px 1px; font-size:11px; font-weight:700; text-align:center; white-space:nowrap; border-radius:6px; display:flex; align-items:center; justify-content:center; gap:2px; border:1px solid ${state.chatTab === 'private' ? '#0052cc' : '#cbd5e1'}; background:${state.chatTab === 'private' ? '#0052cc' : '#ffffff'}; color:${state.chatTab === 'private' ? '#ffffff' : '#334155'}; cursor:pointer; box-sizing:border-box; height:32px;" title="Kênh trao đổi riêng tư 1 - 1">
+            <span>🔒</span>
+            <span class="tab-label-full">Riêng Tư</span>
+            <span class="tab-label-short">Riêng tư</span>
+            ${unreadPrivate > 0 ? `<span class="chat-badge" style="background:#ef4444; color:#fff; font-size:9px; font-weight:800; padding:0 4px; border-radius:8px; margin-left:1px;">${unreadPrivate}</span>` : ''}
           </button>
-          <button class="chat-tab-btn tts-tab ${state.chatTab === 'tts' ? 'active' : ''}" onclick="switchChatTab('tts')" title="Tạo Giọng Nói AI & Tải Về (AI Text-to-Speech Studio)">
-            🎙️ <span class="tab-label-full">Giọng Nói AI</span><span class="tab-label-short">Giọng nói</span>
+          <button type="button" class="chat-tab-btn tts-tab ${state.chatTab === 'tts' ? 'active' : ''}" onclick="switchChatTab('tts')" style="width:100%; min-width:0; padding:6px 1px; font-size:11px; font-weight:700; text-align:center; white-space:nowrap; border-radius:6px; display:flex; align-items:center; justify-content:center; gap:2px; border:1px solid ${state.chatTab === 'tts' ? '#0284c7' : '#cbd5e1'}; background:${state.chatTab === 'tts' ? '#0284c7' : '#ffffff'}; color:${state.chatTab === 'tts' ? '#ffffff' : '#0369a1'}; cursor:pointer; box-sizing:border-box; height:32px;" title="Tạo Giọng Nói AI & Tải Về (AI Text-to-Speech Studio)">
+            <span>🎙️</span>
+            <span class="tab-label-full">Giọng Nói AI</span>
+            <span class="tab-label-short">Giọng nói</span>
           </button>
-          <button class="chat-tab-btn qr-tab ${state.chatTab === 'qr' ? 'active' : ''}" onclick="switchChatTab('qr')" title="Tiện ích tạo mã QR có Logo Đoàn bằng link & Tải về, Chia sẻ">
-            📱 <span class="tab-label-full">Tạo Mã QR</span><span class="tab-label-short">Mã QR</span>
+          <button type="button" class="chat-tab-btn qr-tab ${state.chatTab === 'qr' ? 'active' : ''}" onclick="switchChatTab('qr')" style="width:100%; min-width:0; padding:6px 1px; font-size:11px; font-weight:700; text-align:center; white-space:nowrap; border-radius:6px; display:flex; align-items:center; justify-content:center; gap:2px; border:1px solid ${state.chatTab === 'qr' ? '#059669' : '#cbd5e1'}; background:${state.chatTab === 'qr' ? '#059669' : '#ffffff'}; color:${state.chatTab === 'qr' ? '#ffffff' : '#047857'}; cursor:pointer; box-sizing:border-box; height:32px;" title="Tiện ích tạo mã QR có Logo Đoàn bằng link & Tải về, Chia sẻ">
+            <span>📱</span>
+            <span class="tab-label-full">Tạo Mã QR</span>
+            <span class="tab-label-short">Mã QR</span>
           </button>
         </div>
 
@@ -18382,24 +18395,7 @@ function renderFloatingChatWidget() {
 
           isAdmin ? `
 
-            <div class="chat-private-unit-bar">
-
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-
-                <label style="font-size:11.5px; font-weight:700; color:#334155;">
-
-                  Chọn cơ sở Đoàn để trao đổi riêng tư (${(state.units || []).length} đơn vị):
-
-                </label>
-
-                <button class="btn btn-sm" onclick="openClearChatOptionsModal()" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-size:10.5px; font-weight:700; padding:2px 7px; cursor:pointer;" title="Tùy chọn xóa / làm mới lịch sử chat">
-
-                  🗑️ Xóa lịch sử
-
-                </button>
-
-              </div>
-
+            <div class="chat-private-unit-bar" style="background:#f0f9ff; border-left:3px solid #0052cc; padding:5px 8px; border-bottom:1px solid #bae6fd; flex-shrink:0;">
               ${(() => {
                 const allUnits = state.units || [];
                 const onlineUnits = allUnits.filter(u => isUnitOnline(u.id));
@@ -18407,22 +18403,24 @@ function renderFloatingChatWidget() {
                 const isSelectedOnline = partnerId > 0 ? isUnitOnline(partnerId) : false;
 
                 return `
-                  <!-- THANH TRẠNG THÁI TRUY CẬP TRANG WEB -->
-                  <div style="display:flex; align-items:center; justify-content:space-between; background:#ffffff; border:1.5px solid #cbd5e1; border-radius:6px; padding:4px 8px; margin-bottom:6px; font-size:11px;">
-                    <span style="font-weight:700; color:#334155; display:flex; align-items:center; gap:4px;">
-                      👥 Trạng thái truy cập web:
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px; gap:4px;">
+                    <span style="font-size:11px; font-weight:700; color:#1e40af; display:flex; align-items:center; gap:3px;">
+                      <span>🔒</span> Chat riêng (${allUnits.length} đ/vị):
                     </span>
-                    <div style="display:flex; align-items:center; gap:6px;">
-                      <span style="color:#15803d; font-weight:700; background:#dcfce7; border:1px solid #86efac; padding:1px 6px; border-radius:10px;">
-                        🟢 ${onlineUnits.length} Đang Online
+                    <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+                      <span style="font-size:10px; font-weight:700; background:#dcfce7; color:#15803d; border:1px solid #86efac; padding:1px 5px; border-radius:10px;">
+                        🟢 ${onlineUnits.length} Online
                       </span>
-                      <span style="color:#64748b; font-weight:600; background:#f1f5f9; border:1px solid #e2e8f0; padding:1px 6px; border-radius:10px;">
-                        ⚪ ${offlineUnits.length} Offline
+                      <span style="font-size:10px; font-weight:600; background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0; padding:1px 5px; border-radius:10px;">
+                        ⚪ ${offlineUnits.length} Off
                       </span>
+                      <button type="button" class="btn btn-sm" onclick="openClearChatOptionsModal()" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-size:10px; font-weight:700; padding:1px 5px; border-radius:4px; cursor:pointer;" title="Xóa lịch sử trao đổi">
+                        🗑️ Xóa
+                      </button>
                     </div>
                   </div>
 
-                  <select class="chat-unit-select" onchange="switchPrivateChatPartner(this.value)">
+                  <select class="chat-unit-select" onchange="switchPrivateChatPartner(this.value)" style="width:100%; font-size:11.5px; padding:3px 6px; border:1.5px solid #0052cc; border-radius:6px; background:#fff; font-weight:600; height:28px;">
                     <option value="0">-- Bấm để chọn cơ sở Đoàn (🟢 ${onlineUnits.length} Online • ⚪ ${offlineUnits.length} Offline) --</option>
                     ${onlineUnits.length > 0 ? `
                       <optgroup label="🟢 CÁC ĐƠN VỊ ĐANG ONLINE TRÊN WEB (${onlineUnits.length})">
@@ -18441,41 +18439,20 @@ function renderFloatingChatWidget() {
                   </select>
 
                   ${partnerId > 0 ? `
-                    <div style="font-size:11.5px; color:#0284c7; font-weight:700; margin-top:5px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px;">
-                      <div style="display:flex; align-items:center; gap:5px;">
-                        <span>🔒</span>
-                        <span>Đang kết nối riêng: <b>${escapeHtml(selectedPartnerName)}</b></span>
-                      </div>
-                      <span style="font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:12px; background:${isSelectedOnline ? '#dcfce7; color:#15803d; border:1px solid #86efac;' : '#f1f5f9; color:#64748b; border:1px solid #cbd5e1;'}">
-                        ${isSelectedOnline ? '🟢 Đang Online trên Web' : '⚪ Hiện không Online'}
+                    <div style="font-size:10.5px; color:#0284c7; font-weight:700; margin-top:3px; display:flex; align-items:center; justify-content:space-between; flex-wrap:nowrap; overflow:hidden;">
+                      <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">🔒 Đang kết nối: <b>${escapeHtml(selectedPartnerName)}</b></span>
+                      <span style="font-size:9.5px; font-weight:700; padding:1px 5px; border-radius:10px; flex-shrink:0; margin-left:4px; background:${isSelectedOnline ? '#dcfce7; color:#15803d; border:1px solid #86efac;' : '#f1f5f9; color:#64748b; border:1px solid #cbd5e1;'}">
+                        ${isSelectedOnline ? '🟢 Online' : '⚪ Offline'}
                       </span>
                     </div>
                   ` : ''}
                 `;
               })()}
-
             </div>
 
           ` : `
 
-            <div class="chat-private-unit-bar" style="background:#f0f9ff; border-left:4px solid #0284c7; padding:8px 12px;">
-
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-
-                <label style="font-size:11.5px; font-weight:700; color:#0369a1;">
-
-                  Chọn đối tượng để trao đổi riêng tư (1 - 1):
-
-                </label>
-
-                <button class="btn btn-sm" onclick="openClearChatOptionsModal()" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-size:10.5px; font-weight:700; padding:2px 7px; cursor:pointer;" title="Tùy chọn xóa / làm mới lịch sử chat">
-
-                  🗑️ Xóa lịch sử
-
-                </button>
-
-              </div>
-
+            <div class="chat-private-unit-bar" style="background:#f0f9ff; border-left:3px solid #0284c7; padding:5px 8px; border-bottom:1px solid #bae6fd; flex-shrink:0;">
               ${(() => {
                 const isAdminOnline = isUnitOnline(0);
                 const otherUnits = (state.units || []).filter(u => u.id !== myId);
@@ -18484,22 +18461,24 @@ function renderFloatingChatWidget() {
                 const isSelectedOnline = partnerId === 0 ? isAdminOnline : isUnitOnline(partnerId);
 
                 return `
-                  <!-- THANH TRẠNG THÁI TRUY CẬP TRANG WEB CHO ĐƠN VỊ -->
-                  <div style="display:flex; align-items:center; justify-content:space-between; background:#ffffff; border:1.5px solid #bfdbfe; border-radius:6px; padding:4px 8px; margin-bottom:6px; font-size:11px;">
-                    <span style="font-weight:700; color:#0369a1; display:flex; align-items:center; gap:4px;">
-                      👥 Trạng thái truy cập web:
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3px; gap:4px;">
+                    <span style="font-size:11px; font-weight:700; color:#0369a1; display:flex; align-items:center; gap:3px;">
+                      <span>🔒</span> Chat riêng (1 - 1):
                     </span>
-                    <div style="display:flex; align-items:center; gap:6px;">
-                      <span style="color:#15803d; font-weight:700; background:#dcfce7; border:1px solid #86efac; padding:1px 6px; border-radius:10px;">
-                        🟢 ${otherOnline.length + (isAdminOnline ? 1 : 0)} Đang Online
+                    <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
+                      <span style="font-size:10px; font-weight:700; background:#dcfce7; color:#15803d; border:1px solid #86efac; padding:1px 5px; border-radius:10px;">
+                        🟢 ${otherOnline.length + (isAdminOnline ? 1 : 0)} Online
                       </span>
-                      <span style="color:#64748b; font-weight:600; background:#f1f5f9; border:1px solid #e2e8f0; padding:1px 6px; border-radius:10px;">
-                        ⚪ ${otherOffline.length + (!isAdminOnline ? 1 : 0)} Offline
+                      <span style="font-size:10px; font-weight:600; background:#f1f5f9; color:#64748b; border:1px solid #e2e8f0; padding:1px 5px; border-radius:10px;">
+                        ⚪ ${otherOffline.length + (!isAdminOnline ? 1 : 0)} Off
                       </span>
+                      <button type="button" class="btn btn-sm" onclick="openClearChatOptionsModal()" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-size:10px; font-weight:700; padding:1px 5px; border-radius:4px; cursor:pointer;" title="Xóa lịch sử trao đổi">
+                        🗑️ Xóa
+                      </button>
                     </div>
                   </div>
 
-                  <select class="chat-unit-select" onchange="switchPrivateChatPartner(this.value)" style="border-color:#0284c7;">
+                  <select class="chat-unit-select" onchange="switchPrivateChatPartner(this.value)" style="width:100%; font-size:11.5px; padding:3px 6px; border:1.5px solid #0284c7; border-radius:6px; background:#fff; font-weight:600; height:28px;">
                     ${(() => {
                       const unreadAdmin = getUnreadCountForChatRoom(getPrivateRoomKey(myId, 0));
                       return `<option value="0" ${partnerId === 0 ? 'selected' : ''}>${isAdminOnline ? '🟢' : '⚪'} 👑 Ban Thường vụ Đoàn UBND Tỉnh ${isAdminOnline ? '(Đang Online)' : '(Offline)'}${unreadAdmin > 0 ? ` • 🔴 ${unreadAdmin} tin mới` : ''}</option>`;
@@ -18520,18 +18499,14 @@ function renderFloatingChatWidget() {
                     </optgroup>
                   </select>
 
-                  <div style="font-size:11.5px; color:#0284c7; font-weight:700; margin-top:5px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px;">
-                    <div style="display:flex; align-items:center; gap:5px;">
-                      <span>🔒</span>
-                      <span>Đang trao đổi riêng với: <b>${escapeHtml(selectedPartnerName)}</b></span>
-                    </div>
-                    <span style="font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:12px; background:${isSelectedOnline ? '#dcfce7; color:#15803d; border:1px solid #86efac;' : '#f1f5f9; color:#64748b; border:1px solid #cbd5e1;'}">
-                      ${isSelectedOnline ? '🟢 Đang Online trên Web' : '⚪ Hiện không Online'}
+                  <div style="font-size:10.5px; color:#0284c7; font-weight:700; margin-top:3px; display:flex; align-items:center; justify-content:space-between; flex-wrap:nowrap; overflow:hidden;">
+                    <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">🔒 Đang chat: <b>${escapeHtml(selectedPartnerName)}</b></span>
+                    <span style="font-size:9.5px; font-weight:700; padding:1px 5px; border-radius:10px; flex-shrink:0; margin-left:4px; background:${isSelectedOnline ? '#dcfce7; color:#15803d; border:1px solid #86efac;' : '#f1f5f9; color:#64748b; border:1px solid #cbd5e1;'}">
+                      ${isSelectedOnline ? '🟢 Online' : '⚪ Offline'}
                     </span>
                   </div>
                 `;
               })()}
-
             </div>
 
           `
