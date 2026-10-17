@@ -19,11 +19,14 @@ if (typeof self !== 'undefined' && self.registration) {
     options.silent = false;
     if (!options.badge) options.badge = './favicon.png';
     if (!options.icon) options.icon = './icon-192.png';
+    if (self.navigator && 'setAppBadge' in self.navigator) {
+      self.navigator.setAppBadge(1).catch(() => {});
+    }
     return _origShowNotification(title, options);
   };
 }
 
-const SW_VERSION = '1792197661';
+const SW_VERSION = '1792199610';
 const CACHE_NAME = 'tieuchidoan-v' + SW_VERSION;
 const ASSETS_TO_CACHE = [
   './logo_doan.png',
@@ -128,6 +131,16 @@ self.addEventListener('push', (event) => {
         }
       }).catch(() => {})
     );
+  }
+
+  // Cập nhật huy hiệu App Badge khi có thông báo đẩy gửi tới
+  if (self.navigator && 'setAppBadge' in self.navigator) {
+    let bCount = 1;
+    try {
+      const customData = (data.custom && data.custom.a) || data.data || {};
+      if (customData.badgeCount) bCount = Number(customData.badgeCount) || 1;
+    } catch (e) {}
+    self.navigator.setAppBadge(bCount).catch(() => {});
   }
 
   // Nếu push này là từ OneSignal (có custom.i), OneSignalSDK.sw.js đã tự xử lý hiển thị banner.
