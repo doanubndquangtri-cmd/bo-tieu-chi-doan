@@ -4012,7 +4012,7 @@ function renderHeader() {
 
   return `
 
-    <header class="app-header" style="background: linear-gradient(135deg, #003380 0%, #0052cc 100%); color: #fff; padding: 4px 12px; min-height: 46px; display: flex; justify-content: space-between; align-items: center; flex-wrap: nowrap; gap: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: sticky; top: 0; z-index: 99999 !important;">
+    <header class="app-header" style="background: linear-gradient(135deg, #003380 0%, #0052cc 100%); color: #fff; padding: 4px 12px; min-height: 46px; display: flex; justify-content: space-between; align-items: center; flex-wrap: nowrap; gap: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: sticky; top: 0; z-index: 1000 !important;">
 
       <!-- BÊN TRÁI: LOGO VÀ TIÊU ĐỀ HỆ THỐNG -->
 
@@ -8021,20 +8021,13 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
 
       <div class="modal-box" style="max-width: 640px;">
 
-        <div class="modal-header" style="background: linear-gradient(135deg, #003380 0%, #0052cc 100%); color: #fff; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center;">
-
-          <span style="font-weight: 800; font-size: 15px; display: flex; align-items: center; gap: 6px;">
-
-            <span>📎</span> Chi Tiết Báo Cáo & Minh Chứng (${escapeHtml(crit.col_label)})
-
+        <div class="modal-header" style="background: linear-gradient(135deg, #003380 0%, #0052cc 100%); color: #fff; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; flex-shrink: 0; border-top-left-radius: 10px; border-top-right-radius: 10px; gap: 8px;">
+          <span style="font-weight: 800; font-size: 14px; display: flex; align-items: center; gap: 6px; color: #fff; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            <span>📎</span> <span style="overflow:hidden; text-overflow:ellipsis;">Chi Tiết Báo Cáo (${escapeHtml(crit.col_label)})</span>
           </span>
-
-          <button type="button" onclick="closeModal()" style="background: rgba(255,255,255,0.2); border: 1.5px solid rgba(255,255,255,0.6); color: #ffffff !important; font-size: 13px; font-weight: 800; border-radius: 6px; padding: 4px 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;" title="Đóng cửa sổ">
-
+          <button type="button" onclick="closeModal()" style="background: #ef4444 !important; border: 1.5px solid #dc2626 !important; color: #ffffff !important; font-size: 13px; font-weight: 800; border-radius: 6px; padding: 5px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.3); height: 32px;" title="Đóng cửa sổ">
             ✕ Đóng
-
           </button>
-
         </div>
 
         <div class="modal-body" style="padding: 18px 20px;">
@@ -8446,7 +8439,16 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
 
         </div>
 
-
+        <div class="modal-footer" style="padding: 10px 14px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; gap: 8px; border-bottom-left-radius: 10px; border-bottom-right-radius: 10px;">
+          <button type="button" class="btn btn-outline" onclick="closeModal()" style="font-weight: 700; padding: 7px 16px; color: #475569; border: 1.5px solid #cbd5e1; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; background: #fff; cursor: pointer;">
+            ✕ Đóng lại
+          </button>
+          ${isAdmin ? `
+            <button type="button" class="btn btn-success" onclick="saveAdminSubmissionDetail(${unit.id}, ${crit.id})" style="font-weight: 800; padding: 7px 16px; background: #16a34a; border: 1.5px solid #15803d; color: #fff; border-radius: 6px; box-shadow: 0 2px 4px rgba(22,163,74,0.3); cursor: pointer;">
+              💾 Lưu Điểm & Chi Tiết
+            </button>
+          ` : ''}
+        </div>
 
       </div>
 
@@ -18179,7 +18181,7 @@ function renderFloatingChatWidget() {
       }">
 
         <!-- HEADER KHUNG CHAT (DRAGGABLE & DBLCLICK MAXIMIZE) -->
-        <div class="chat-header" id="chat-drag-header" ondblclick="toggleMaximizeChatWidget()" style="background:linear-gradient(90deg, #003d99 0%, #0052cc 100%); color:#fff; padding:6px 10px; display:flex; align-items:center; justify-content:space-between; width:100%; box-sizing:border-box; flex-shrink:0; gap:4px;" title="Bấm giữ và kéo rê để di chuyển ô chat, hoặc nhấp đúp để phóng to / thu nhỏ">
+        <div class="chat-header" id="chat-drag-header" ondblclick="toggleMaximizeChatWidget()" style="background:linear-gradient(90deg, #003d99 0%, #0052cc 100%); color:#fff; padding:6px 10px; padding-top:calc(6px + env(safe-area-inset-top, 0px)); display:flex; align-items:center; justify-content:space-between; width:100%; box-sizing:border-box; flex-shrink:0; gap:4px;" title="Bấm giữ và kéo rê để di chuyển ô chat, hoặc nhấp đúp để phóng to / thu nhỏ">
           <div class="chat-header-left" style="min-width:0; flex:1 1 auto; overflow:hidden; display:flex; align-items:center; gap:6px;">
             <button type="button" class="chat-mobile-back-btn" onclick="toggleChatWidget()" style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.5); color:#fff; font-weight:800; font-size:14px; width:28px; height:28px; border-radius:50%; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;" title="Quay lại giao diện chính">←</button>
             <div style="min-width:0; overflow:hidden;">
@@ -18236,36 +18238,21 @@ function renderFloatingChatWidget() {
           </button>
         </div>
 
-
-
         ${(state.chatTab === 'tts' || state.chatTab === 'qr') ? '' : `
-
           <!-- THANH TÌM KIẾM TIN NHẮN & TỆP TIN TRONG PHÒNG CHAT (Ảnh 1 & 2) -->
-
           <div class="chat-search-bar">
-
             <span style="font-size:13px; color:#64748b;">🔍</span>
-
             <input
-
               type="text"
-
               id="chat-search-input"
-
+              class="chat-search-input"
               value="${escapeHtml(state.chatSearchQuery || '')}"
-
               placeholder="Tìm kiếm tin nhắn, văn bản, tệp đính kèm, người gửi..."
-
               oninput="onChatSearchInput(this.value)"
-
-              style="flex:1; border:1px solid #cbd5e1; border-radius:6px; padding:5px 9px; font-size:12px; outline:none; background:#fff;"
-
+              style="flex:1; border:1px solid #cbd5e1; border-radius:6px; padding:6px 10px; font-size:14px; outline:none; background:#fff;"
             />
-
             <button type="button" id="chat-search-clear-btn" onclick="clearChatSearch()" style="background:none; border:none; color:#64748b; cursor:pointer; font-weight:800; font-size:14px; padding:0 4px; display:${state.chatSearchQuery ? 'inline-block' : 'none'};" title="Xóa tìm kiếm">✕</button>
-
           </div>
-
         `}
 
 
@@ -18512,7 +18499,7 @@ function renderFloatingChatWidget() {
 
         ${(state.chatTab === 'tts' || state.chatTab === 'qr') ? '' : `
 
-          <div class="chat-input-row" style="position:relative; gap:6px;">
+          <div class="chat-input-row" style="position:relative; gap:6px; padding-bottom:calc(8px + env(safe-area-inset-bottom, 0px));">
 
             <input
 
