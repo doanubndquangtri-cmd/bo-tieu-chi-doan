@@ -7295,6 +7295,10 @@ window.handleLogout = function () {
 
   state.isAdminSession = false;
 
+  state.aiChatSelectedUnitId = null;
+
+  state.aiChatHistory = [];
+
   localStorage.removeItem('doan2026_user');
 
   localStorage.removeItem('doan2026_admin_authenticated');
@@ -7322,6 +7326,9 @@ window.switchAccountQuick = function (val) {
   if (!val) return;
 
 
+
+  state.aiChatSelectedUnitId = null;
+  state.aiChatHistory = [];
 
   if (val === 'admin') {
 
@@ -20175,6 +20182,66 @@ function getChatUserStorageKey() {
   return 'unit_' + (state.user.id !== undefined ? state.user.id : 0);
 }
 
+// BỘ ĐỊNH DANH & LƯU TRỮ HỎI ĐÁP AI RIÊNG BIỆT CHO TỪNG ĐƠN VỊ (UNIT-ISOLATED AI CHAT)
+function getActiveAiChatStorageKey() {
+  if (!state.user) return 'guest';
+  if (state.user.role === 'admin') {
+    if (state.aiChatSelectedUnitId && state.aiChatSelectedUnitId !== 'admin') {
+      return 'unit_' + state.aiChatSelectedUnitId;
+    }
+    return 'admin';
+  }
+  return 'unit_' + (state.user.id !== undefined ? state.user.id : 0);
+}
+
+function getActiveAiChatDisplayName() {
+  if (!state.user) return 'Khách vãng lai (Chưa đăng nhập)';
+  if (state.user.role === 'admin') {
+    if (state.aiChatSelectedUnitId && state.aiChatSelectedUnitId !== 'admin') {
+      const u = (state.units || []).find(x => String(x.id) === String(state.aiChatSelectedUnitId));
+      return u ? (u.unit_name || u.name) : `Đơn vị #${state.aiChatSelectedUnitId}`;
+    }
+    return 'Ban Thường vụ Đoàn (Quản trị viên)';
+  }
+  return state.user.unit_name || state.user.name || `Đơn vị #${state.user.id}`;
+}
+
+function getAiChatHistoryForActiveUser() {
+  try {
+    const key = getActiveAiChatStorageKey();
+    const raw = localStorage.getItem('doan2026_ai_chat_' + key);
+    if (!raw) return [];
+    const list = JSON.parse(raw);
+    return Array.isArray(list) ? list : [];
+  } catch (e) {
+    console.warn('Lỗi đọc lịch sử chat AI:', e);
+    return [];
+  }
+}
+
+function saveAiChatHistoryForActiveUser(history) {
+  try {
+    const key = getActiveAiChatStorageKey();
+    const cleanList = Array.isArray(history) ? history.slice(-200) : [];
+    localStorage.setItem('doan2026_ai_chat_' + key, JSON.stringify(cleanList));
+  } catch (e) {
+    console.warn('Lỗi lưu lịch sử chat AI:', e);
+  }
+}
+
+function clearAiChatHistoryForActiveUser() {
+  try {
+    const key = getActiveAiChatStorageKey();
+    localStorage.removeItem('doan2026_ai_chat_' + key);
+  } catch (e) {}
+}
+
+window.switchAdminAiChatUnit = function(unitId) {
+  state.aiChatSelectedUnitId = unitId;
+  state.aiChatHistory = getAiChatHistoryForActiveUser();
+  renderApp();
+};
+
 function getChatLastReadTime(roomKey) {
   try {
     const userKey = getChatUserStorageKey();
@@ -20488,11 +20555,19 @@ window.clearAiChatHistory = function() {
 
   if (typeof closeModal === 'function') closeModal();
 
+  const unitName = typeof getActiveAiChatDisplayName === 'function' ? getActiveAiChatDisplayName() : '';
+
+  if (typeof clearAiChatHistoryForActiveUser === 'function') {
+
+    clearAiChatHistoryForActiveUser();
+
+  }
+
   state.aiChatHistory = [];
 
   state.lastGeminiInteractionId = null;
 
-  showToast('Đã làm mới phiên hỏi đáp Trợ lý AI Đoàn!', 'success');
+  showToast(`Đã làm mới phiên hỏi đáp AI của ${unitName || 'đơn vị'}!`, 'success');
 
   renderApp();
 
@@ -20835,6 +20910,8 @@ window.openClearChatOptionsModal = function() {
 
   if (state.chatTab === 'ai') {
 
+    const activeUnitName = typeof getActiveAiChatDisplayName === 'function' ? getActiveAiChatDisplayName() : 'Đơn vị';
+
     modalRoot.innerHTML = `
 
       <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
@@ -20857,11 +20934,17 @@ window.openClearChatOptionsModal = function() {
 
           <div class="modal-body" style="padding:18px 20px; background:#fff;">
 
-            <p style="font-size:13px; color:#334155; margin-bottom:14px; line-height:1.5;">
+            <p style="font-size:13px; color:#334155; margin-bottom:12px; line-height:1.5;">
 
-              Đồng chí có muốn xóa toàn bộ lịch sử hỏi đáp với <b>Trợ lý AI Đoàn Khối (Google Gemini 3.8 Flash)</b> và bắt đầu một phiên hội thoại mới không?
+              Đồng chí có muốn xóa toàn bộ lịch sử hỏi đáp riêng tư của <b>${escapeHtml(activeUnitName)}</b> với <b>Trợ lý AI Đoàn Khối (Google Gemini 3.8 Flash)</b> và bắt đầu một phiên hội thoại mới không?
 
             </p>
+
+            <div style="font-size:11.5px; color:#64748b; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:8px 10px; margin-bottom:14px;">
+
+              🔒 <i>Lưu ý: Chỉ làm mới lịch sử hỏi đáp của đơn vị này. Lịch sử của các đơn vị khác được lưu riêng biệt và bảo lưu nguyên vẹn tuyệt đối.</i>
+
+            </div>
 
             <div style="display:flex; justify-content:flex-end; gap:8px;">
 
@@ -23310,11 +23393,17 @@ window.renderAiMarkdown = function(text) {
 
 window.renderAiChatTabContent = function() {
 
+  state.aiChatHistory = typeof getAiChatHistoryForActiveUser === 'function' ? getAiChatHistoryForActiveUser() : (state.aiChatHistory || []);
+
   const history = state.aiChatHistory || [];
 
   const currentKey = window.getEffectiveGeminiApiKey ? window.getEffectiveGeminiApiKey() : '';
 
   const isCustomKey = Boolean(typeof localStorage !== 'undefined' && localStorage.getItem('gemini_api_key'));
+
+  const activeUnitName = typeof getActiveAiChatDisplayName === 'function' ? getActiveAiChatDisplayName() : 'Đơn vị';
+
+  const isAdmin = state.user && state.user.role === 'admin';
 
 
 
@@ -23347,6 +23436,21 @@ window.renderAiChatTabContent = function() {
         </div>
 
       </div>
+          <div style="font-size:10.5px; color:#4338ca; font-weight:700; margin-top:3px; display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
+            <span style="background:#e0e7ff; color:#3730a3; padding:2px 8px; border-radius:12px; font-weight:700; display:inline-flex; align-items:center; gap:4px; font-size:10px;">
+              <span>🔒</span> Lưu riêng: <b>${escapeHtml(activeUnitName)}</b>
+            </span>
+            ${isAdmin ? `
+              <span style="color:#64748b; font-size:10px;">(Admin xem/chat đơn vị:</span>
+              <select onchange="switchAdminAiChatUnit(this.value)" style="font-size:10.5px; padding:2px 4px; border:1px solid #c4b5fd; border-radius:5px; background:#fff; color:#4c1d95; font-weight:600; cursor:pointer; max-width:170px;">
+                <option value="admin" ${(!state.aiChatSelectedUnitId || state.aiChatSelectedUnitId === 'admin') ? 'selected' : ''}>-- Quản trị viên (Admin) --</option>
+                ${(state.units || []).filter(u => u.role === 'unit' && Number(u.is_active) === 1).map(u => `
+                  <option value="${u.id}" ${String(state.aiChatSelectedUnitId) === String(u.id) ? 'selected' : ''}>${escapeHtml(u.unit_name || u.name)}</option>
+                `).join('')}
+              </select>
+              <span style="color:#64748b; font-size:10px;">)</span>
+            ` : ''}
+          </div>
 
       <div style="display:flex; align-items:center; gap:4px; flex-shrink:0;">
 
@@ -23568,6 +23672,8 @@ window.openClearAiChatModal = function() {
 
   if (!modalRoot) return;
 
+  const activeUnitName = typeof getActiveAiChatDisplayName === 'function' ? getActiveAiChatDisplayName() : 'Đơn vị';
+
   modalRoot.innerHTML = `
 
     <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
@@ -23588,11 +23694,17 @@ window.openClearAiChatModal = function() {
 
         <div class="modal-body" style="padding:16px 18px; background:#fff;">
 
-          <p style="font-size:13px; color:#334155; margin-bottom:14px; line-height:1.5;">
+          <p style="font-size:13px; color:#334155; margin-bottom:12px; line-height:1.5;">
 
-            Đồng chí có muốn xóa lịch sử hỏi đáp hiện tại với <b>Trợ lý AI Đoàn Khối</b> để bắt đầu một phiên hội thoại mới không?
+            Đồng chí có muốn xóa toàn bộ lịch sử hỏi đáp riêng tư của <b>${escapeHtml(activeUnitName)}</b> để bắt đầu một phiên hội thoại mới không?
 
           </p>
+
+          <div style="font-size:11.5px; color:#64748b; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:8px 10px; margin-bottom:14px;">
+
+            🔒 <i>Lưu ý: Chỉ làm mới lịch sử hỏi đáp của đơn vị này. Lịch sử của các đơn vị khác được lưu riêng và bảo lưu nguyên vẹn tuyệt đối.</i>
+
+          </div>
 
           <div style="display:flex; justify-content:flex-end; gap:8px;">
 
@@ -23845,6 +23957,15 @@ function buildAiLiveSystemContext(promptText) {
     }
   }
   if (!matchedUnit) {
+    if (pLower.includes('chúng tôi') || pLower.includes('đơn vị tôi') || pLower.includes('chi đoàn tôi') || pLower.includes('cơ sở tôi') || pLower.includes('đoàn mình') || pLower.includes('chi đoàn mình') || pLower.includes('đơn vị mình')) {
+      const activeKey = typeof getActiveAiChatStorageKey === 'function' ? getActiveAiChatStorageKey() : '';
+      if (activeKey.startsWith('unit_')) {
+        const uId = Number(activeKey.replace('unit_', ''));
+        matchedUnit = rankedUnits.find(u => u.id === uId);
+      }
+    }
+  }
+  if (!matchedUnit) {
     if (pLower.includes('xổ số') || pLower.includes('xo so') || pLower.includes('xskt')) {
       matchedUnit = rankedUnits.find(u => u.name.toLowerCase().includes('xskt') || u.name.toLowerCase().includes('xổ số'));
     } else if (pLower.includes('hải quan')) {
@@ -23897,7 +24018,8 @@ function buildAiLiveSystemContext(promptText) {
 `;
   }
 
-  const currentUserStr = state.user ? (state.user.unit_name || state.user.name || 'Người dùng') : 'Khách xem';
+  const activeUnitDisplayName = typeof getActiveAiChatDisplayName === 'function' ? getActiveAiChatDisplayName() : '';
+  const currentUserStr = activeUnitDisplayName || (state.user ? (state.user.unit_name || state.user.name || 'Người dùng') : 'Khách xem');
   const currentLeader = rankedUnits[0] ? `${rankedUnits[0].name} (${rankedUnits[0].total} điểm)` : 'Chưa cập nhật';
 
   return `BẠN LÀ TRỢ LÝ AI ĐOÀN KHỐI (TÍCH HỢP TRỰC TIẾP TRÍ TUỆ NHÂN TẠO GOOGLE GEMINI VÀO HỆ THỐNG).
@@ -23947,23 +24069,18 @@ window.askAiAssistant = async function(promptText) {
 
   const cleanPrompt = promptText.trim();
 
-  state.aiChatHistory = state.aiChatHistory || [];
+  state.aiChatHistory = typeof getAiChatHistoryForActiveUser === 'function' ? getAiChatHistoryForActiveUser() : (state.aiChatHistory || []);
 
-
-
-  // 1. Lưu tin nhắn người dùng vào lịch sử chat
-
+  // 1. Lưu tin nhắn người dùng vào lịch sử chat riêng của đơn vị
   const userMsg = {
-
     sender: 'user',
-
     text: cleanPrompt,
-
     time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-
   };
-
   state.aiChatHistory.push(userMsg);
+  if (typeof saveAiChatHistoryForActiveUser === 'function') {
+    saveAiChatHistoryForActiveUser(state.aiChatHistory);
+  }
 
 
 
@@ -24008,7 +24125,9 @@ window.askAiAssistant = async function(promptText) {
       };
 
       state.aiChatHistory.push(noKeyMsg);
-
+      if (typeof saveAiChatHistoryForActiveUser === 'function') {
+        saveAiChatHistoryForActiveUser(state.aiChatHistory);
+      }
       renderApp();
 
       setTimeout(scrollChatToBottom, 60);
@@ -24396,7 +24515,9 @@ window.askAiAssistant = async function(promptText) {
     };
 
     state.aiChatHistory.push(aiMsg);
-
+    if (typeof saveAiChatHistoryForActiveUser === 'function') {
+      saveAiChatHistoryForActiveUser(state.aiChatHistory);
+    }
     if (window.playNotificationChime) window.playNotificationChime();
 
     renderApp();
@@ -24440,7 +24561,9 @@ window.askAiAssistant = async function(promptText) {
     };
 
     state.aiChatHistory.push(errorMsg);
-
+    if (typeof saveAiChatHistoryForActiveUser === 'function') {
+      saveAiChatHistoryForActiveUser(state.aiChatHistory);
+    }
     renderApp();
 
     setTimeout(() => {
