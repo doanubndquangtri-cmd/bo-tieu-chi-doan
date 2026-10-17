@@ -4097,11 +4097,11 @@ body.dark-mode #tts-result-box {
 
   .chat-tabs-bar {
     display: grid !important;
-    grid-template-columns: repeat(4, 1fr) !important;
+    grid-template-columns: repeat(5, 1fr) !important;
     width: 100% !important;
     box-sizing: border-box !important;
-    padding: 4px 5px !important;
-    gap: 3px !important;
+    padding: 4px 3px !important;
+    gap: 2px !important;
     background: #f1f5f9 !important;
     border-bottom: 1px solid #cbd5e1 !important;
     overflow: hidden !important;
@@ -4132,6 +4132,12 @@ body.dark-mode #tts-result-box {
     background: #0052cc !important;
     color: #ffffff !important;
     border-color: #0052cc !important;
+  }
+
+  .chat-tab-btn.ai-tab.active {
+    background: #7c3aed !important;
+    color: #ffffff !important;
+    border-color: #7c3aed !important;
   }
 
   .chat-tab-btn.tts-tab.active {
