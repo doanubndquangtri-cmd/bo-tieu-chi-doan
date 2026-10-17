@@ -3541,6 +3541,7 @@ window.WebPushManager = {
   sendPushNotification: async function(options) {
     const { title, message, url, targetRole, targetUnitId } = options || {};
     if (!title) return { ok: false };
+    let currentSubId = null;
 
     // TUYỆT ĐỐI KHÔNG GỌI showLocalNativeNotification Ở ĐÂY!
     // Vì đây là máy của người gửi, người gửi không bao giờ được tự nhận thông báo của chính mình!
@@ -3581,7 +3582,6 @@ window.WebPushManager = {
     // Chỉ loại trừ thiết bị người gửi trong thông báo chung toàn khối (public)
     // Đối với tin nhắn riêng 1-1, bộ lọc tag role: admin và unit_id đã hoàn toàn tách biệt
     if (!targetRole && (targetUnitId === undefined || targetUnitId === null)) {
-      let currentSubId = null;
       try {
         if (window.OneSignal && window.OneSignal.User && window.OneSignal.User.PushSubscription) {
           currentSubId = window.OneSignal.User.PushSubscription.id;
@@ -3598,9 +3598,11 @@ window.WebPushManager = {
 
     // Phân luồng đối tượng nhận chính xác:
     if (targetRole === 'admin' || targetUnitId === 0 || targetUnitId === '0') {
-      // Tin gửi cho Admin: Chỉ các thiết bị mang vai trò Admin nhận
+      // Tin gửi cho Admin: Nhận nếu role = admin HOẶC unit_id = 0
       payload.filters = [
-        { field: 'tag', key: 'role', relation: '=', value: 'admin' }
+        { field: 'tag', key: 'role', relation: '=', value: 'admin' },
+        { operator: 'OR' },
+        { field: 'tag', key: 'unit_id', relation: '=', value: '0' }
       ];
     } else if (targetUnitId !== undefined && targetUnitId !== null && Number(targetUnitId) > 0) {
       // Tin gửi cho Cơ sở Đoàn cụ thể (ví dụ Đơn vị 4):
@@ -6906,16 +6908,12 @@ function readFileAsDataURL(file) {
 
 
 window.submitUnitCriterion = async function (unitId, criterionId) {
-
   const crit = state.criteria.find(c => c.id === criterionId);
-
   if (!crit) {
-
     showToast('Không tìm thấy tiêu chí!', 'error');
-
     return;
-
   }
+  const targetUnit = (state.units || []).find(u => u.id === unitId) || (state.user && state.user.id === unitId ? state.user : { id: unitId, unit_name: `Đơn vị #${unitId}` });
 
   const effDate = state.settings.effective_date || todayISO();
 
@@ -7342,84 +7340,59 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
 
 
     // Tự động tạo thông báo chuông (Notification Bell) cho Admin
-
-    const targetUnit = (state.units || []).find(u => u.id === unitId) || {};
-
     db.notifications = db.notifications || [];
-
     db.notifications.unshift({
-
       id: 'notif_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-
       unit_id: unitId,
-
       unit_name: targetUnit.unit_name || `Đơn vị #${unitId}`,
-
       criterion_id: criterionId,
-
       criterion_title: crit.title,
-
       col_label: crit.col_label,
-
       files: savedFilesList,
-
       file_name: savedFileName,
-
       file_path: savedFileUrl,
-
       evidence_link: evidenceLink,
-
       report_content: reportContent,
-
       self_score: calcScore,
-
       submitted_at: ts,
-
       read: false,
-
       read_by_unit: true,
-
       created_at: nowISO()
-
     });
-
     if (db.notifications.length > 200) db.notifications.length = 200;
-
   }, `Unit ${unitId} submit C${criterionId}`);
 
-
-
   if (res.ok) {
-
     updateUploadProgress({
-
       percent: 100,
-
       statusText: 'Đã hoàn tất lưu hồ sơ!',
-
       isDone: true
-
     });
 
     await new Promise(r => setTimeout(r, 400));
-
     hideUploadProgressModal();
-
     closeModal();
 
     if (window.broadcastLiveEvent) {
-      window.broadcastLiveEvent('REPORT_SUBMITTED', { unit_id: unitId, criterion_id: criterionId });
+      window.broadcastLiveEvent('REPORT_SUBMITTED', {
+        unit_id: unitId,
+        criterion_id: criterionId,
+        unit_name: targetUnit.unit_name,
+        col_label: crit.col_label,
+        title: crit.title
+      });
     }
     if (window.WebPushManager) {
       window.WebPushManager.sendPushNotification({
         title: `📤 ${targetUnit.unit_name || 'Cơ sở Đoàn'} vừa nộp hồ sơ/minh chứng`,
         message: `Đã nộp minh chứng tiêu chí ${crit.col_label || ''}: "${crit.title || ''}"`,
         targetRole: 'admin',
+        targetUnitId: 0,
         url: './'
       });
     }
     showToast(statusMsg, onTimeFlag ? 'success' : 'warning');
-
+    renderApp();
   } else {
 
     hideUploadProgressModal();
@@ -24413,8 +24386,10 @@ window.initRealtimeLiveBridge = function() {
                 let title = '🔔 Thông Báo Mới Từ Hệ Thống';
                 let body = 'Có cập nhật mới trong Bộ Tiêu Chí Đoàn';
                 if (evt.type === 'REPORT_SUBMITTED') {
-                  title = '📤 Cơ sở vừa nộp hồ sơ/minh chứng';
-                  body = 'Đã nộp minh chứng tiêu chí mới';
+                  const uName = (evt.payload && evt.payload.unit_name) ? evt.payload.unit_name : 'Cơ sở Đoàn';
+                  const cTitle = (evt.payload && evt.payload.col_label) ? `${evt.payload.col_label}: "${evt.payload.title || ''}"` : 'tiêu chí mới';
+                  title = `📤 ${uName} vừa nộp hồ sơ/minh chứng`;
+                  body = `Đã nộp minh chứng: ${cTitle}`;
                 } else if (evt.type === 'NEW_CRITERIA') {
                   title = '📋 Tiêu Chí / Báo Cáo Mới';
                   body = (evt.payload && evt.payload.title) ? `Ban hành: ${evt.payload.title}` : 'Ban Thường vụ đã ban hành tiêu chí mới';
