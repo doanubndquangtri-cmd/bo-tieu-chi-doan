@@ -1,17 +1,13 @@
 // OneSignal Service Worker v16 - Tiêu Chí Đoàn Cấp Cơ Sở
 // Tự động nhận Web Push Notification kể cả khi tắt trình duyệt / tắt máy / màn hình khóa
-try {
-  importScripts("https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js");
-} catch (e) {
-  console.warn('[OneSignalWorker] Could not import OneSignalSDK.sw.js:', e);
-}
 
-// ĐẢM BẢO MỌI THÔNG BÁO PUSH ĐỀU CÓ TAG DUY NHẤT (KHÔNG ĐÈ NHAU), RUNG MẠNH, VÀ TÍNH ĐÚNG SỐ BADGE TRÊN LOGO APP
+// 1. HOOK showNotification NGAY ĐẦU TIÊN TRƯỚC KHI IMPORT BẤT KỲ SDK NÀO
+// Đảm bảo mọi thông báo push đều có Tag duy nhất (không đè mất nhau), rung mạnh và tính đúng số Badge
 if (typeof self !== 'undefined' && self.registration) {
   const _origShowNotification = self.registration.showNotification.bind(self.registration);
   self.registration.showNotification = async function(title, options) {
     options = options || {};
-    // Bắt buộc gán tag duy nhất để các tin nhắn gửi liên tục KHÔNG BỊ ĐÈ MẤT NHAU
+    // Bắt buộc gán tag duy nhất để các tin nhắn gửi liên tục KHÔNG BỊ ĐÈ MẤT NHAU TRÊN ANDROID / DESKTOP
     options.tag = 'tieuchidoan_msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
     options.vibrate = options.vibrate || [500, 200, 500, 200, 500];
     options.renotify = true;
@@ -20,7 +16,7 @@ if (typeof self !== 'undefined' && self.registration) {
     if (!options.badge) options.badge = './favicon.png';
     if (!options.icon) options.icon = './icon-192.png';
 
-    // Đếm chính xác số lượng thông báo đang có trong khay để hiển thị đúng số badge (1, 2, 3, 4...)
+    // Đếm chính xác số lượng thông báo đang hiện diện trong khay hệ thống để đặt Badge (1, 2, 3, 4...)
     try {
       if (self.registration.getNotifications) {
         const notifs = await self.registration.getNotifications();
@@ -35,7 +31,13 @@ if (typeof self !== 'undefined' && self.registration) {
   };
 }
 
-const SW_VERSION = '1792194435';
+try {
+  importScripts("https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js");
+} catch (e) {
+  console.warn('[OneSignalWorker] Could not import OneSignalSDK.sw.js:', e);
+}
+
+const SW_VERSION = '1792195500';
 const CACHE_NAME = 'tieuchidoan-v' + SW_VERSION;
 const ASSETS_TO_CACHE = [
   './logo_doan.png',
@@ -107,7 +109,7 @@ self.addEventListener('message', (event) => {
         self.navigator.clearAppBadge().catch(() => {});
       }
     }
-    // Nếu count === 0 (người dùng đã vào đọc hết tin), tự động đóng sạch các thông báo trong khay
+    // Nếu count === 0 (người dùng đã vào đọc hết tin / mở ô chat), tự động xóa sạch các thông báo trong khay
     if (count === 0 && self.registration && self.registration.getNotifications) {
       self.registration.getNotifications().then(notifs => {
         notifs.forEach(n => n.close());
@@ -131,23 +133,20 @@ self.addEventListener('push', (event) => {
     }
   }
 
-  // CẬP NHẬT SỐ ĐẾM BADGE LÊN BIỂU TƯỢNG APP NGOÀI MÀN HÌNH ĐIỆN THOẠI (ANDROID & IPHONE)
-  let badgeCount = 1;
-  if (data.badgeCount) badgeCount = Number(data.badgeCount);
-  else if (data.custom && data.custom.a && data.custom.a.badgeCount) badgeCount = Number(data.custom.a.badgeCount);
-  else if (data.data && data.data.badgeCount) badgeCount = Number(data.data.badgeCount);
-  else if (data.badge) badgeCount = Number(data.badge);
-
   // Bọc toàn bộ tác vụ Async vào waitUntil để đảm bảo Service Worker không bị tắt trước khi đặt Badge
   const asyncPushWork = async () => {
-    // 1. Cập nhật App Badge tức thì trên icon app ngoài màn hình
+    // 1. Đếm số lượng thông báo đang hiện diện trong khay hệ thống để đặt Badge chính xác (1, 2, 3...)
+    let currentBadge = 1;
+    try {
+      if (self.registration && self.registration.getNotifications) {
+        const notifs = await self.registration.getNotifications();
+        currentBadge = notifs.length + 1;
+      }
+    } catch (e) {}
+
     if (self.navigator && 'setAppBadge' in self.navigator) {
       try {
-        if (badgeCount > 0) {
-          await self.navigator.setAppBadge(badgeCount);
-        } else {
-          await self.navigator.clearAppBadge();
-        }
+        await self.navigator.setAppBadge(currentBadge);
       } catch (e) {}
     }
 
@@ -156,7 +155,7 @@ self.addEventListener('push', (event) => {
       try {
         const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
         for (let client of clientList) {
-          client.postMessage({ type: 'PUSH_RECEIVED', data: data, badgeCount: badgeCount });
+          client.postMessage({ type: 'PUSH_RECEIVED', data: data, badgeCount: currentBadge });
         }
       } catch (e) {}
     }
@@ -177,10 +176,9 @@ self.addEventListener('push', (event) => {
       icon: './icon-192.png',
       badge: './favicon.png',
       vibrate: [200, 100, 200],
-      tag: data.tag || 'tieuchidoan-push-' + Date.now(),
+      tag: 'tieuchidoan_push_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
       renotify: true,
-      number: badgeCount,
-      data: { url: targetUrl, badgeCount: badgeCount }
+      data: { url: targetUrl }
     };
 
     event.waitUntil(
