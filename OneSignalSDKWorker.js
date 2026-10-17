@@ -10,21 +10,41 @@ try {
 if (typeof self !== 'undefined' && self.registration) {
   const _origShowNotification = self.registration.showNotification.bind(self.registration);
   self.registration.showNotification = function(title, options) {
-    options = options || {};
-    options.vibrate = options.vibrate || [500, 200, 500, 200, 500];
-    options.renotify = true;
-    options.requireInteraction = true;
-    options.silent = false;
-    if (!options.badge) options.badge = './favicon.png';
-    if (!options.icon) options.icon = './icon-192.png';
-    if (self.navigator && 'setAppBadge' in self.navigator) {
-      self.navigator.setAppBadge(1).catch(() => {});
+    try {
+      options = options || {};
+      if (!options.tag) {
+        options.tag = 'tieuchidoan_msg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+      }
+      options.renotify = true;
+      options.silent = false;
+      if (!options.vibrate) {
+        options.vibrate = [300, 150, 300, 150, 300];
+      }
+      if (!options.badge) options.badge = './favicon.png';
+      if (!options.icon) options.icon = './icon-192.png';
+
+      // Cập nhật App Badge theo số lượng thông báo thực tế đang có trong khay
+      if (self.navigator && 'setAppBadge' in self.navigator) {
+        if (self.registration && self.registration.getNotifications) {
+          self.registration.getNotifications().then(notifs => {
+            const count = (notifs ? notifs.length : 0) + 1;
+            self.navigator.setAppBadge(count).catch(() => {});
+          }).catch(() => {
+            self.navigator.setAppBadge(1).catch(() => {});
+          });
+        } else {
+          self.navigator.setAppBadge(1).catch(() => {});
+        }
+      }
+      return _origShowNotification(title, options);
+    } catch (err) {
+      console.warn('[OneSignalWorker] showNotification wrapper error:', err);
+      return _origShowNotification(title, options || {});
     }
-    return _origShowNotification(title, options);
   };
 }
 
-const SW_VERSION = '1792201859';
+const SW_VERSION = '1792203788';
 const CACHE_NAME = 'tieuchidoan-v' + SW_VERSION;
 const ASSETS_TO_CACHE = [
   './logo_doan.png',
@@ -169,6 +189,20 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const targetUrl = (event.notification.data && event.notification.data.url) || './';
+
+  // Cập nhật lại số lượng huy hiệu App Badge sau khi đóng bớt thông báo
+  if (self.navigator && 'setAppBadge' in self.navigator) {
+    if (self.registration && self.registration.getNotifications) {
+      self.registration.getNotifications().then(notifs => {
+        const remaining = notifs ? notifs.length : 0;
+        if (remaining > 0) {
+          self.navigator.setAppBadge(remaining).catch(() => {});
+        } else {
+          self.navigator.clearAppBadge().catch(() => {});
+        }
+      }).catch(() => {});
+    }
+  }
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
