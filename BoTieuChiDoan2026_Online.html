@@ -23705,9 +23705,24 @@ const DEFAULT_GEMINI_API_KEY = _DEFAULT_KEY_BYTES.map(c => String.fromCharCode(c
 
 
 
+// TỰ ĐỘNG DỌN DẸP KEY CŨ / HẾT HẠN TRÊN TRÌNH DUYỆT (ĐẶC BIỆT LÀ TRÊN MOBILE)
+(function cleanupLegacyGeminiKeys() {
+  try {
+    const k = (typeof localStorage !== 'undefined' ? localStorage.getItem('gemini_api_key') : '') || '';
+    if (k && (k.includes('62abZA.') || k.includes('K_G6mg') || k.length < 30 || k.length > 80)) {
+      localStorage.removeItem('gemini_api_key');
+    }
+  } catch (e) {}
+})();
+
 window.getEffectiveGeminiApiKey = function() {
 
   const stored = (typeof localStorage !== 'undefined' ? (localStorage.getItem('gemini_api_key') || '') : '').trim();
+
+  if (stored && (stored.includes('62abZA.') || stored.includes('K_G6mg') || stored.length < 30 || stored.length > 80)) {
+    try { localStorage.removeItem('gemini_api_key'); } catch(e) {}
+    return DEFAULT_GEMINI_API_KEY;
+  }
 
   return stored || DEFAULT_GEMINI_API_KEY;
 
@@ -23767,7 +23782,7 @@ window.openGeminiApiKeyModal = function() {
 
               value="${escapeHtml(currentKey)}"
 
-              placeholder="AQ.Ab8... hoặc AIzaSy..."
+              placeholder="Nhập mã API Key Google Studio..."
 
               style="width:100%; box-sizing:border-box; padding:9px 12px; font-size:13px; font-family:monospace; border:1.5px solid #cbd5e1; border-radius:6px; outline:none;"
 
@@ -23779,11 +23794,11 @@ window.openGeminiApiKeyModal = function() {
 
             💡 <b>Ghi chú dành cho đơn vị Đoàn:</b><br/>
 
-            - Mặc định: Đã cấu hình sẵn Key Google AI Studio (<code>AQ.Ab8RN6...fVQ</code>) dùng ngay.<br/>
+            - Mặc định: Đã cấu hình sẵn Key Google AI Studio dùng ngay.<br/>
 
             - Đồng chí có thể thay thế bằng Key của đơn vị mình rồi bấm <b>"Lưu Cấu Hình"</b>.<br/>
 
-            - Nếu bấm <b>"Khôi phục Key Mặc Định"</b>, hệ thống sẽ tự trả về Key mặc định cố định.
+            - Nếu bấm <b>"Khôi phục Key Mặc Định"</b>, hệ thống sẽ tự trả về Key mặc định cố định của hệ thống.
 
           </div>
 
@@ -23913,11 +23928,11 @@ window.askAiAssistant = async function(promptText) {
 
 
 
-  // Lấy API Key từ localStorage hoặc từ biến GEMINI_API_KEY
+  // Lấy API Key từ getEffectiveGeminiApiKey (tự động loại bỏ key cũ không hợp lệ)
 
-  const storedKey = (typeof localStorage !== 'undefined' ? (localStorage.getItem('gemini_api_key') || '') : '').trim();
+  let apiKey = (window.getEffectiveGeminiApiKey ? window.getEffectiveGeminiApiKey() : DEFAULT_GEMINI_API_KEY).trim();
 
-  const apiKey = (storedKey || GEMINI_API_KEY || '').trim();
+  if (!apiKey || apiKey.includes('API_KEY')) apiKey = DEFAULT_GEMINI_API_KEY;
 
 
 
@@ -24103,11 +24118,94 @@ window.askAiAssistant = async function(promptText) {
 
           const errData = await r.json();
 
-          lastErrDetail = errData?.error?.message || `HTTP ${r.status}`;
+          lastErrDetail = errData?.error?.message || (Array.isArray(errData) && errData[0]?.error?.message) || `HTTP ${r.status}`;
 
         } catch(e) {
 
           lastErrDetail = `HTTP ${r.status}`;
+
+        }
+
+        // TỰ ĐỘNG KHÔI PHỤC KHI KEY LƯU TRÊN THIẾT BỊ (ĐẶC BIỆT LÀ ĐIỆN THOẠI) BỊ SAI / HẾT HẠN
+        if (apiKey !== DEFAULT_GEMINI_API_KEY && (r.status === 400 || r.status === 401 || (lastErrDetail && lastErrDetail.toLowerCase().includes('api key')))) {
+
+          console.warn('API Key lưu trên máy không hợp lệ, tự động phục hồi về Key chuẩn hệ thống:', lastErrDetail);
+
+          try { localStorage.removeItem('gemini_api_key'); } catch(e) {}
+
+          apiKey = DEFAULT_GEMINI_API_KEY;
+
+          try {
+
+            const retryUrl = `https://generativelanguage.googleapis.com/v1beta/interactions?key=${encodeURIComponent(apiKey)}`;
+
+            const retryCtrl = new AbortController();
+
+            const retryTid = setTimeout(() => retryCtrl.abort(), 40000);
+
+            const retryR = await fetch(retryUrl, {
+
+              method: 'POST',
+
+              headers: {
+
+                'Content-Type': 'application/json',
+
+                'x-goog-api-key': apiKey
+
+              },
+
+              body: JSON.stringify(payload),
+
+              signal: retryCtrl.signal
+
+            });
+
+            clearTimeout(retryTid);
+
+            if (retryR.ok) {
+
+              const retryData = await retryR.json();
+
+              if (retryData.output_text && typeof retryData.output_text === 'string') {
+
+                aiReplyText = retryData.output_text.trim();
+
+              } else if (retryData.interaction && retryData.interaction.output_text) {
+
+                aiReplyText = String(retryData.interaction.output_text).trim();
+
+              } else if (Array.isArray(retryData.steps)) {
+
+                const parts = [];
+
+                for (const step of retryData.steps) {
+
+                  if (step.type === 'model_output' && Array.isArray(step.content)) {
+
+                    for (const c of step.content) {
+
+                      if (c.type === 'text' && c.text) parts.push(c.text);
+
+                      else if (typeof c === 'string') parts.push(c);
+
+                    }
+
+                  } else if (step.text && typeof step.text === 'string') {
+
+                    parts.push(step.text);
+
+                  }
+
+                }
+
+                if (parts.length > 0) aiReplyText = parts.join('\n\n').trim();
+
+              }
+
+            }
+
+          } catch(eRetry) {}
 
         }
 
@@ -24131,15 +24229,15 @@ window.askAiAssistant = async function(promptText) {
 
     // =========================================================================
 
-    // B. PHƯƠNG THỨC DỰ PHÒNG (FALLBACK): generateContent với gemini-3.8-flash, gemini-2.0-flash, gemini-1.5-flash
-
-    // (TUYỆT ĐỐI KHÔNG DÙNG gemini-2.5-flash vì Google đã thông báo ngưng hỗ trợ người dùng mới)
+    // B. PHƯƠNG THỨC DỰ PHÒNG (FALLBACK): generateContent với gemini-flash-latest, gemini-3.8-flash, gemini-3.7-flash, gemini-3.5-flash
 
     // =========================================================================
 
     if (!aiReplyText) {
 
-      const fallbackModels = ['gemini-3.8-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+      const effectiveKey = apiKey || DEFAULT_GEMINI_API_KEY;
+
+      const fallbackModels = ['gemini-flash-latest', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.5-flash'];
 
       for (const fModel of fallbackModels) {
 
@@ -24149,7 +24247,7 @@ window.askAiAssistant = async function(promptText) {
 
           const timeoutId = setTimeout(() => controller.abort(), 35000);
 
-          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${fModel}:generateContent?key=${encodeURIComponent(apiKey)}`;
+          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${fModel}:generateContent?key=${encodeURIComponent(effectiveKey)}`;
 
 
 
