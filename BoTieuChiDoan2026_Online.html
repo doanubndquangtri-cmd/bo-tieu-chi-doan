@@ -517,17 +517,26 @@ textarea:focus {
   z-index: 60 !important;
 }
 
-.master-table tr.row-banner th.sticky-col-unit,
-.master-table tr.row-banner th.banner-unit-cell {
-  background: #003d99 !important;
-  color: #ffffff !important;
-  left: 42px !important;
-  top: 0 !important;
-  z-index: 60 !important;
-  width: 370px !important;
-  min-width: 370px !important;
-  max-width: 370px !important;
-  white-space: nowrap !important;
+@media (min-width: 769px) {
+  .master-table tr.row-banner th.sticky-col-unit,
+  .master-table tr.row-banner th.banner-unit-cell {
+    background: #003d99 !important;
+    color: #ffffff !important;
+    left: 42px !important;
+    top: 0 !important;
+    z-index: 60 !important;
+    width: 370px !important;
+    min-width: 370px !important;
+    max-width: 370px !important;
+    white-space: nowrap !important;
+  }
+}
+@media (max-width: 768px) {
+  .master-table tr.row-banner th.banner-unit-cell {
+    width: 145px !important;
+    min-width: 145px !important;
+    max-width: 145px !important;
+  }
 }
 
 /* Row 2: Criterion Names */
@@ -562,7 +571,7 @@ textarea:focus {
   z-index: 25;
 }
 
-/* Sticky Left Columns: STT, ĐƠN VỊ, TỔNG ĐIỂM / ĐÃ ĐẠT (CỐ ĐỊNH 2 CHIỀU FREEZE PANES) */
+@media (min-width: 769px) {\n/* Sticky Left Columns: STT, ĐƠN VỊ, TỔNG ĐIỂM / ĐÃ ĐẠT (CỐ ĐỊNH 2 CHIỀU FREEZE PANES) */
 .master-table .sticky-col-stt,
 .sticky-col-stt {
   position: sticky !important;
@@ -663,7 +672,7 @@ thead th.sticky-col-total {
 .master-table tr.row-cols th.sticky-col-total {
   top: 178px;
   z-index: 50 !important;
-}
+}\n}
 
 .master-table tbody tr:hover td {
   background-color: #f0f9ff;
@@ -1130,17 +1139,65 @@ thead th.sticky-col-total {
     font-size: 11px !important;
   }
 
-  /* Smooth swipeable spreadsheet wrapper */
+  /* 1. FILTER BAR RESTRUCTURED FOR MOBILE - NO CUTOFFS */
+  .filter-bar {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+    padding: 8px 10px !important;
+    overflow-x: visible !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+  .filter-month-container {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 6px !important;
+    width: 100% !important;
+  }
+  .month-pills {
+    display: flex !important;
+    gap: 5px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    width: 100% !important;
+    padding: 2px 0 4px 0 !important;
+    scrollbar-width: thin !important;
+  }
+  .month-pill {
+    flex-shrink: 0 !important;
+    white-space: nowrap !important;
+  }
+  .filter-actions-row {
+    display: flex !important;
+    gap: 6px !important;
+    width: 100% !important;
+    align-items: center !important;
+    margin-top: 4px !important;
+  }
+
+  /* 2. UNIFIED SMOOTH SPREADSHEET TABLE ON MOBILE */
   .spreadsheet-wrapper {
-    max-height: 60vh !important;
+    max-height: 62vh !important;
     overflow-x: auto !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch !important;
     touch-action: pan-x pan-y !important;
-    border-radius: 6px;
+    border-radius: 6px !important;
+    border: 1.5px solid #cbd5e1 !important;
   }
 
-  /* CRITICAL MOBILE FIX: In table view on mobile, make ALL columns static so the entire table scrolls as one smooth, clean unit without any floating/drifting/overlapping columns */
+  .master-table {
+    table-layout: fixed !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+  }
+
+  /* Reset all horizontal sticky offsets on mobile so all columns scroll in 100% perfect lockstep */
+  .master-table th,
+  .master-table td,
   .master-table .sticky-col-stt,
   .master-table .sticky-col-unit,
   .master-table .sticky-col-total,
@@ -1150,8 +1207,26 @@ thead th.sticky-col-total {
   .master-table thead th {
     position: static !important;
     left: auto !important;
-    top: auto !important;
     box-shadow: none !important;
+  }
+
+  /* Header rows stay sticky vertically when scrolling down through the 41 units */
+  .master-table thead tr.row-banner th {
+    position: sticky !important;
+    top: 0px !important;
+    z-index: 30 !important;
+    background: #003d99 !important;
+    color: #ffffff !important;
+  }
+  .master-table thead tr.row-titles th {
+    position: sticky !important;
+    top: 32px !important;
+    z-index: 30 !important;
+  }
+  .master-table thead tr.row-cols th {
+    position: sticky !important;
+    top: 135px !important;
+    z-index: 30 !important;
   }
 
   .master-table .sticky-col-stt {
@@ -1163,52 +1238,47 @@ thead th.sticky-col-total {
     text-align: center !important;
     background: #f1f5f9 !important;
     color: #1e293b !important;
+    box-sizing: border-box !important;
   }
 
   .master-table .sticky-col-unit {
-    width: 150px !important;
-    min-width: 150px !important;
-    max-width: 150px !important;
-    font-size: 11.5px !important;
-    padding: 6px 8px !important;
-    line-height: 1.3 !important;
-    white-space: normal !important;
-    word-break: break-word !important;
-    background: #f8fafc !important;
+    width: 145px !important;
+    min-width: 145px !important;
+    max-width: 145px !important;
+    font-size: 11px !important;
+    padding: 6px 6px !important;
+    line-height: 1.25 !important;
+    background: #ffffff !important;
     color: #0f172a !important;
     font-weight: 600 !important;
+    border-right: 2px solid #93c5fd !important;
+    box-sizing: border-box !important;
+  }
+  .master-table .sticky-col-unit div {
+    width: 100% !important;
+    max-width: 133px !important;
   }
 
   .master-table .sticky-col-total {
-    width: 75px !important;
-    min-width: 75px !important;
-    max-width: 75px !important;
-    font-size: 12px !important;
+    width: 65px !important;
+    min-width: 65px !important;
+    max-width: 65px !important;
+    font-size: 11.5px !important;
     padding: 6px 4px !important;
     text-align: center !important;
-    background: #f1f5f9 !important;
+    background: #fffbeb !important;
+    border-right: 1px solid #cbd5e1 !important;
+    box-sizing: border-box !important;
   }
 
   /* Criteria columns size on mobile */
-  .master-table tr.row-banner th {
-    font-size: 12px !important;
-    padding: 6px 4px !important;
-  }
-  .master-table tr.row-titles th {
-    font-size: 10.5px !important;
+  .master-table thead tr.row-titles th:not(.sticky-col-stt):not(.sticky-col-unit):not(.sticky-col-total),
+  .master-table thead tr.row-cols th:not(.sticky-col-stt):not(.sticky-col-unit):not(.sticky-col-total),
+  .master-table tbody td:not(.sticky-col-stt):not(.sticky-col-unit):not(.sticky-col-total) {
+    width: 80px !important;
     min-width: 80px !important;
-    max-width: 110px !important;
-    padding: 4px 3px !important;
-    line-height: 1.2 !important;
-    white-space: normal !important;
-  }
-  .master-table tr.row-points th {
-    font-size: 9.5px !important;
-    padding: 2px 3px !important;
-  }
-  .master-table tr.row-cols th {
-    font-size: 10px !important;
-    padding: 2px 3px !important;
+    max-width: 80px !important;
+    box-sizing: border-box !important;
   }
 
   .master-table th,
@@ -2942,47 +3012,49 @@ html, body {
 }
 
 /* Sticky column enhancements */
-.sticky-col-stt {
-  position: sticky !important;
-  left: 0 !important;
-  width: 42px !important;
-  min-width: 42px !important;
-  max-width: 42px !important;
-  z-index: 18 !important;
-  background: #ffffff !important;
-}
-.sticky-col-unit {
-  position: sticky !important;
-  left: 42px !important;
-  width: 290px !important;
-  min-width: 290px !important;
-  max-width: 290px !important;
-  z-index: 18 !important;
-  background: #ffffff !important;
-}
-.sticky-col-total {
-  position: sticky !important;
-  left: 332px !important;
-  width: 80px !important;
-  min-width: 80px !important;
-  max-width: 80px !important;
-  z-index: 18 !important;
-  background: #fff9db !important;
-  box-shadow: 3px 0 6px rgba(0, 0, 0, 0.12) !important;
-  border-right: 2px solid #0052cc !important;
-}
+@media (min-width: 769px) {
+  .sticky-col-stt {
+    position: sticky !important;
+    left: 0 !important;
+    width: 42px !important;
+    min-width: 42px !important;
+    max-width: 42px !important;
+    z-index: 18 !important;
+    background: #ffffff !important;
+  }
+  .sticky-col-unit {
+    position: sticky !important;
+    left: 42px !important;
+    width: 290px !important;
+    min-width: 290px !important;
+    max-width: 290px !important;
+    z-index: 18 !important;
+    background: #ffffff !important;
+  }
+  .sticky-col-total {
+    position: sticky !important;
+    left: 332px !important;
+    width: 80px !important;
+    min-width: 80px !important;
+    max-width: 80px !important;
+    z-index: 18 !important;
+    background: #fff9db !important;
+    box-shadow: 3px 0 6px rgba(0, 0, 0, 0.12) !important;
+    border-right: 2px solid #0052cc !important;
+  }
 
-thead .sticky-col-stt {
-  left: 0 !important;
-  z-index: 55 !important;
-}
-thead .sticky-col-unit {
-  left: 42px !important;
-  z-index: 55 !important;
-}
-thead .sticky-col-total {
-  left: 332px !important;
-  z-index: 55 !important;
+  thead .sticky-col-stt {
+    left: 0 !important;
+    z-index: 55 !important;
+  }
+  thead .sticky-col-unit {
+    left: 42px !important;
+    z-index: 55 !important;
+  }
+  thead .sticky-col-total {
+    left: 332px !important;
+    z-index: 55 !important;
+  }
 }
 
 /* =========================================================================
@@ -3439,36 +3511,38 @@ body.dark-mode .notification-item:hover {
 }
 
 /* Ô giao nhau giữa thead và 3 cột đầu đặt z-index: 55 để luôn nổi lên trên cùng */
-.master-table thead th.sticky-col-stt,
-thead th.sticky-col-stt {
-  position: sticky !important;
-  left: 0 !important;
-  top: 0 !important;
-  z-index: 55 !important;
-  background: #f1f5f9 !important;
-  box-sizing: border-box !important;
-}
+@media (min-width: 769px) {
+  .master-table thead th.sticky-col-stt,
+  thead th.sticky-col-stt {
+    position: sticky !important;
+    left: 0 !important;
+    top: 0 !important;
+    z-index: 55 !important;
+    background: #f1f5f9 !important;
+    box-sizing: border-box !important;
+  }
 
-.master-table thead th.sticky-col-unit,
-thead th.sticky-col-unit {
-  position: sticky !important;
-  left: 42px !important;
-  top: 0 !important;
-  z-index: 55 !important;
-  background: #f1f5f9 !important;
-  box-sizing: border-box !important;
-}
+  .master-table thead th.sticky-col-unit,
+  thead th.sticky-col-unit {
+    position: sticky !important;
+    left: 42px !important;
+    top: 0 !important;
+    z-index: 55 !important;
+    background: #f1f5f9 !important;
+    box-sizing: border-box !important;
+  }
 
-.master-table thead th.sticky-col-total,
-thead th.sticky-col-total {
-  position: sticky !important;
-  left: 332px !important;
-  top: 0 !important;
-  z-index: 55 !important;
-  background: #fef3c7 !important;
-  box-shadow: 3px 0 6px rgba(0, 0, 0, 0.12) !important;
-  border-right: 2px solid #0052cc !important;
-  box-sizing: border-box !important;
+  .master-table thead th.sticky-col-total,
+  thead th.sticky-col-total {
+    position: sticky !important;
+    left: 332px !important;
+    top: 0 !important;
+    z-index: 55 !important;
+    background: #fef3c7 !important;
+    box-shadow: 3px 0 6px rgba(0, 0, 0, 0.12) !important;
+    border-right: 2px solid #0052cc !important;
+    box-sizing: border-box !important;
+  }
 }
 
 /* THANH CUỘN NGANG VÀ DỌC TO RÕ (HORIZONTAL & VERTICAL SCROLLBARS) CHO CÁC BẢNG MA TRẬN */
@@ -8969,428 +9043,226 @@ function renderMiniDashboard() {
 
 
 function renderMasterTableTab() {
-
   const isAdmin = (state.user && state.user.role === 'admin') || Boolean(state.isAdminSession) || localStorage.getItem('doan2026_admin_authenticated') === '1';
-
   const filteredCriteria = getFilteredCriteria();
-
   const filteredUnits = getFilteredUnits();
 
-
-
-    // Build dynamic month pills including all 12 months and any custom groups created by Admin
-
+  // Build dynamic month pills including all 12 months and any custom groups created by Admin
   const monthPills = [
-
     { val: 0, label: `Tất cả (${state.criteria.length} cột)` },
-
   ];
 
-
-
-  // Standard 12 months (Tháng 1 đến Tháng 12)
-
   for (let m = 1; m <= 12; m++) {
-
     const count = state.criteria.filter(c => Number(c.month_group) === m).length;
-
     monthPills.push({ val: m, label: `Tháng ${m}${count > 0 ? ` (${count})` : ''}` });
-
   }
-
-
-
-  // Thường xuyên & Cuối năm
 
   const countTx = state.criteria.filter(c => Number(c.month_group) === 13).length;
-
   monthPills.push({ val: 13, label: `Thường xuyên & Cuối năm${countTx > 0 ? ` (${countTx})` : ''}` });
 
-
-
-  // Custom groups & Activity months (strictly > 13 and deduplicated)
-
   const seenLabels = new Set(['Thường xuyên & Cuối năm']);
-
   if (state.monthLabels) {
-
     Object.entries(state.monthLabels).forEach(([k, v]) => {
-
       const numKey = Number(k);
-
       if (numKey > 13 && !seenLabels.has(v)) {
-
         seenLabels.add(v);
-
         const cnt = state.criteria.filter(c => Number(c.month_group) === numKey).length;
-
         monthPills.push({ val: numKey, label: `${v}${cnt > 0 ? ` (${cnt})` : ''}` });
-
       }
-
     });
-
   }
-
-
 
   const headerTitle = state.settings.header_title || 'BỘ TIÊU CHÍ ĐOÀN CẤP CƠ SỞ';
-
-
-
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
 
-
-
   if (isMobile && state.mobileViewMode === 'cards') {
-
     return renderMasterMobileCardsView(filteredUnits, filteredCriteria, isAdmin, monthPills, headerTitle);
-
   }
 
-
-
   return `
-
     ${isMobile ? `
-
       <div class="mobile-view-toggle-bar">
-
-        <button class="mobile-toggle-btn active" onclick="setMobileViewMode('cards')">
-
+        <button class="mobile-toggle-btn" onclick="setMobileViewMode('cards')">
           📱 Chế Độ Thẻ (Siêu Rõ)
-
         </button>
-
-        <button class="mobile-toggle-btn" onclick="setMobileViewMode('table')">
-
+        <button class="mobile-toggle-btn active" onclick="setMobileViewMode('table')">
           📊 Chế Độ Bảng Kẻ Ô
-
         </button>
-
       </div>
-
       <div class="table-scroll-controls">
-
-        <button class="btn-scroll-step" onclick="scrollTableHorizontally('master-spreadsheet-wrapper', -250)">◀ Cuộn Sang Trái</button>
-
-        <button class="btn-scroll-step" onclick="scrollTableHorizontally('master-spreadsheet-wrapper', 250)">Cuộn Sang Phải ▶</button>
-
+        <button class="btn-scroll-step" onclick="scrollTableHorizontally('master-spreadsheet-wrapper', -260)">◀ Cuộn Sang Trái</button>
+        <button class="btn-scroll-step" onclick="scrollTableHorizontally('master-spreadsheet-wrapper', 260)">Cuộn Sang Phải ▶</button>
       </div>
-
     ` : ''}
 
-
-
-      <div class="filter-bar">
-
-        <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
-
+    <div class="filter-bar ${isMobile ? 'mobile-filter-bar' : ''}">
+      <div class="filter-month-container" style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; ${isMobile ? 'width: 100%; flex-direction: column; align-items: stretch; gap: 6px;' : ''}">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
           <span style="font-size: 12px; font-weight: 800; color: #0284c7; white-space: nowrap; display: flex; align-items: center; gap: 4px; flex-shrink: 0;">
-
             📅 Kỳ / Tháng:
-
           </span>
-
-          <div class="month-pills">
-
-            ${monthPills
-
-              .map(
-
-                (p) => `
-
-              <button class="month-pill ${Number(state.monthFilter) === p.val ? 'active' : ''}" onclick="setMonthFilter(${p.val})">
-
-                ${p.label}
-
-              </button>
-
-            `
-
-              )
-
-              .join('')}
-
-          </div>
-
+          ${isMobile ? `
+            <select id="mobile-month-select" class="mobile-month-select" onchange="setMonthFilter(Number(this.value))" style="flex:1; max-width: 230px; height: 32px; font-size: 12.5px; font-weight: 700; border-radius: 6px; border: 1.5px solid #0284c7; background: #f0f9ff; color: #0369a1; padding: 2px 6px;">
+              ${monthPills.map(p => `
+                <option value="${p.val}" ${Number(state.monthFilter) === p.val ? 'selected' : ''}>${p.label}</option>
+              `).join('')}
+            </select>
+          ` : ''}
         </div>
+        <div class="month-pills" id="main-month-pills" style="${isMobile ? 'width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 2px 0 4px 0;' : ''}">
+          ${monthPills
+            .map(
+              (p) => `
+            <button class="month-pill ${Number(state.monthFilter) === p.val ? 'active' : ''}" onclick="setMonthFilter(${p.val})">
+              ${p.label}
+            </button>
+          `
+            )
+            .join('')}
+        </div>
+      </div>
 
-        <div style="display: flex; gap: 8px; align-items: center; flex-shrink: 0; flex-wrap: nowrap;">
-
-          <div style="position: relative; display: flex; align-items: center;">
-
-            <input
-
-              type="text"
-
-              id="unit-search-input"
-
-              placeholder="🔍 Tìm tên đơn vị..."
-
-              value="${escapeHtml(state.searchQuery || '')}"
-
-              oninput="onSearchUnitInput(this.value)"
-
-              style="width: 210px; height: 32px; font-size: 12px; font-weight: 600; padding: 4px 26px 4px 10px; border: 1.5px solid #cbd5e1; border-radius: 6px; outline: none; background: #fff;"
-
-            />
-
-            ${state.searchQuery ? `
-
-              <button onclick="onSearchUnitInput(''); const inp = document.getElementById('unit-search-input'); if(inp) inp.value=''; renderApp();" style="position: absolute; right: 6px; background: none; border: none; color: #94a3b8; font-size: 13px; font-weight: 800; cursor: pointer; padding: 0 4px;" title="Xóa tìm kiếm">✕</button>
-
-            ` : ''}
-
-          </div>
-
-          <select onchange="onSortByChange(this.value)" style="height: 32px; font-size: 12px; font-weight: 700; padding: 4px 10px; border: 1.5px solid #cbd5e1; border-radius: 6px; background: #fff; color: #0f172a; outline: none; cursor: pointer;">
-
-            <option value="score_desc" ${state.sortBy === 'score_desc' ? 'selected' : ''}>🏆 Xếp hạng Tổng điểm (Cao → Thấp)</option>
-
-            <option value="order" ${state.sortBy === 'order' ? 'selected' : ''}>Thứ tự đơn vị (1 → ${state.units.length})</option>
-
-          </select>
-
+      <div class="filter-actions-row" style="display: flex; gap: 8px; align-items: center; flex-shrink: 0; ${isMobile ? 'width: 100%; margin-top: 4px;' : 'flex-wrap: nowrap;'}">
+        <div style="position: relative; display: flex; align-items: center; ${isMobile ? 'flex: 1 1 50%; min-width: 0;' : ''}">
+          <input
+            type="text"
+            id="unit-search-input"
+            placeholder="🔍 Tìm tên đơn vị..."
+            value="${escapeHtml(state.searchQuery || '')}"
+            oninput="onSearchUnitInput(this.value)"
+            style="${isMobile ? 'width: 100%;' : 'width: 210px;'} height: 34px; font-size: 13px; font-weight: 600; padding: 4px 26px 4px 10px; border: 1.5px solid #cbd5e1; border-radius: 6px; outline: none; background: #fff;"
+          />
+          ${state.searchQuery ? `
+            <button onclick="onSearchUnitInput(''); const inp = document.getElementById('unit-search-input'); if(inp) inp.value=''; renderApp();" style="position: absolute; right: 6px; background: none; border: none; color: #94a3b8; font-size: 13px; font-weight: 800; cursor: pointer; padding: 0 4px;" title="Xóa tìm kiếm">✕</button>
+          ` : ''}
+        </div>
+        <select onchange="onSortByChange(this.value)" style="${isMobile ? 'flex: 1 1 50%; min-width: 0;' : ''} height: 34px; font-size: 12px; font-weight: 700; padding: 4px 10px; border: 1.5px solid #cbd5e1; border-radius: 6px; background: #fff; color: #0f172a; outline: none; cursor: pointer;">
+          <option value="score_desc" ${state.sortBy === 'score_desc' ? 'selected' : ''}>🏆 Xếp hạng (Cao → Thấp)</option>
+          <option value="order" ${state.sortBy === 'order' ? 'selected' : ''}>Thứ tự đơn vị (1 → ${state.units.length})</option>
+        </select>
+        ${!isMobile ? `
           <button class="btn btn-sm btn-outline" onclick="scrollTableHorizontally('master-spreadsheet-wrapper', -280)" style="height:32px; font-size:11.5px; font-weight:700; color:#0052cc; background:#fff; border:1.5px solid #0052cc;" title="Cuộn bảng sang trái">◀ Cuộn Trái</button>
-
           <button class="btn btn-sm btn-outline" onclick="scrollTableHorizontally('master-spreadsheet-wrapper', 280)" style="height:32px; font-size:11.5px; font-weight:700; color:#0052cc; background:#fff; border:1.5px solid #0052cc;" title="Cuộn bảng sang phải">Cuộn Phải ▶</button>
-
-        </div>
-
+        ` : ''}
       </div>
-
-
-
-      <div class="mobile-scroll-hint">👉 Vuốt ngón tay sang trái / phải để xem 131 cột điểm tiêu chí 👈</div>
-
-      <div class="spreadsheet-wrapper" id="master-spreadsheet-wrapper" style="flex:1 1 auto; height:calc(100vh - 128px) !important; min-height:520px !important; max-height:none !important; margin-bottom:2px !important;">
-
-        <table class="master-table">
-
-          <thead>
-
-            <tr class="row-banner">
-
-              <th class="sticky-col-stt" style="position:sticky; left:0; top:0; z-index:60; width:42px; min-width:42px; max-width:42px;">#</th>
-
-              <th class="sticky-col-unit banner-unit-cell" colspan="2" style="background:#003d99 !important; color:#ffffff !important; font-weight:800 !important; width:370px !important; min-width:370px !important; max-width:370px !important; position:sticky; left:42px; top:0; z-index:60 !important;">${escapeHtml(headerTitle)}</th>
-
-              <th colspan="${Math.max(1, filteredCriteria.length)}">
-
-                ${
-
-                  isAdmin
-
-                    ? '💡 Admin có thể nhập/sửa điểm trực tiếp vào từng ô bên dưới (Nhấn Enter hoặc click ra ngoài để tự động lưu lên Đám mây Online). Click biểu tượng 📎 để xem báo cáo đơn vị nộp.'
-
-                    : '💡 Bảng tổng hợp tự động cập nhật điểm Online ngay khi đơn vị nộp báo cáo / kê khai đúng ngày hạn chót.'
-
-                }
-
-              </th>
-
-            </tr>
-
-
-
-            <tr class="row-titles">
-
-              <th class="sticky-col-stt" style="position:sticky; left:0; top:38px; z-index:55; background:#dbeafe; width:42px; min-width:42px; max-width:42px; text-align:center;">STT</th>
-
-              <th class="sticky-col-unit" style="position:sticky; left:42px; top:38px; z-index:55; background:#dbeafe; width:290px; min-width:290px; max-width:290px; text-align:left;">ĐƠN VỊ</th>
-
-              <th class="sticky-col-total" style="position:sticky; left:332px; top:38px; z-index:55; background:#fff9db; width:80px; min-width:80px; max-width:80px; text-align:center; box-shadow:3px 0 6px rgba(0,0,0,0.12); border-right:2px solid #0052cc;">TỔNG ĐIỂM</th>
-
-              ${filteredCriteria.length === 0 ? `
-
-                <th style="min-width:320px; font-weight:700; color:#334155; background:#e2e8f0; text-align:center; padding:18px; font-size:13px;">
-
-                  📋 CHƯA CÓ TIÊU CHÍ NÀO TRONG BẢNG<br/>
-
-                  <span style="font-weight:400; font-size:11.5px; color:#64748b;">(Quản trị viên vui lòng vào tab <b>"Quản lý Tiêu chí"</b> để tạo mới các tiêu chí, kỳ hạn nộp và thư mục Drive)</span>
-
-                </th>
-
-              ` : filteredCriteria
-
-                .map((c) => {
-
-                  const open = isCriterionOpen(c);
-
-                  return `
-
-                  <th title="${escapeHtml(c.title)}&#10;Bắt đầu mở: ${formatDateVN(c.start_date || '2026-01-01')}&#10;Hạn chót: ${formatDateVN(c.deadline)}">
-
-                    <div style="display:flex; flex-direction:column; justify-content:space-between; height:100%; gap:3px;">
-
-                      <div style="font-size:10px; font-weight:800; color:#0284c7; text-transform:uppercase; letter-spacing:0.3px;">
-
-                        📅 ${escapeHtml(c.month_label)}
-
-                      </div>
-
-                      <div style="overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; font-weight:600; line-height:1.35;">
-
-                        ${escapeHtml(c.title)}
-
-                      </div>
-
-                      <div style="display:flex; flex-direction:column; gap:1px; margin-top:2px; font-size:10px; background:rgba(255,255,255,0.7); padding:2px 4px; border-radius:3px;">
-
-                        ${c.points_text ? `<span style="color:#b45309; font-weight:700;">⭐ ${escapeHtml(c.points_text)}</span>` : ''}
-
-                        <span style="color:#059669; font-weight:700;">🟢 Mở: ${formatShortDateVN(c.start_date || '2026-01-01')}</span>
-
-                        <span style="color:${open ? '#15803d' : '#b45309'}; font-weight:700;">
-
-                          ⏰ Hạn: ${formatShortDateVN(c.deadline)}
-
-                          ${
-
-                            isAdmin
-
-                              ? `<span style="cursor:pointer; margin-left:4px; color:#0052cc; text-decoration:underline;" onclick="openBatchFillModal(${c.id})" title="Chấm nhanh cột này">⚡Chấm</span>`
-
-                              : ''
-
-                          }
-
-                        </span>
-
-                        ${c.gdrive_folder_url && isAdmin ? `
-
-                          <span style="margin-top:2px;">
-
-                            <a href="${escapeHtml(c.gdrive_folder_url)}" target="_blank" style="color:#15803d; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:2px;" title="Mở thư mục Google Drive tiếp nhận báo cáo của tiêu chí này (Chỉ Quản trị viên)">
-
-                              📁 Drive ↗
-
-                            </a>
-
-                          </span>
-
-                        ` : ''}
-
-                      </div>
-
-                    </div>
-
-                  </th>
-
-                `;
-
-                })
-
-                .join('')}
-
-            </tr>
-
-
-
-            <tr class="row-cols">
-
-              <th class="sticky-col-stt"></th>
-
-              <th class="sticky-col-unit">Cột 1</th>
-
-              <th class="sticky-col-total">Cột 2</th>
-
-              ${filteredCriteria.length === 0 ? '<th>Chưa có cột</th>' : filteredCriteria.map((c) => `<th>${escapeHtml(c.col_label)}</th>`).join('')}
-
-            </tr>
-
-          </thead>
-
-
-
-          <tbody>
-
-            ${(() => {
-
-              const maxPossibleScore = getCriteriaFilteredMaxScore();
-
-              return filteredUnits
-
-                .map((u, rIdx) => {
-
-                  const total = getUnitFilteredTotalScore(u.id);
-
-                  const isCurrentUnit = !isAdmin && state.user && state.user.id === u.id;
-
-                  const pct = Math.min(100, Math.max(0, Math.round((Number(total || 0) / Math.max(1, maxPossibleScore)) * 100)));
-
-
-
-                return `
-
-                <tr class="${isCurrentUnit ? 'highlight-unit' : ''}" data-unit-row="${u.id}">
-
-                  <td class="sticky-col-stt" style="position:sticky; left:0; z-index:18; background:#ffffff; width:42px; min-width:42px; max-width:42px; text-align:center; font-weight:700;">${rIdx + 1}</td>
-
-                  <td class="sticky-col-unit" style="position:sticky; left:42px; z-index:18; background:#ffffff; width:290px; min-width:290px; max-width:290px; text-align:left;" title="${escapeHtml(u.unit_name)} (TK: ${escapeHtml(u.username)})">
-
-                    <div style="width:270px; max-width:270px; display:flex; align-items:center; justify-content:space-between; gap:4px;">
-
-                      <span style="white-space:normal; line-height:1.35; font-weight:600; color:#0f172a; word-break:break-word;">
-
-                        ${escapeHtml(u.unit_name)}
-
-                      </span>
-
-                      ${isCurrentUnit ? '<span class="badge badge-info" style="flex-shrink:0;">Đơn vị bạn</span>' : ''}
-
-                    </div>
-
-                  </td>
-
-                  <td class="sticky-col-total" id="total-cell-${u.id}" style="position:sticky; left:332px; z-index:18; background:#fff9db; width:80px; min-width:80px; max-width:80px; text-align:center; box-shadow:3px 0 6px rgba(0,0,0,0.12); border-right:2px solid #0052cc;">
-
-                    <div class="score-progress-wrapper">
-
-                      <div class="score-progress-text">
-
-                        <span>${formatScore(total)}</span>
-
-                        <span class="score-progress-pct">${pct}%</span>
-
-                      </div>
-
-                      <div class="score-progress-bar-bg" title="Tiến độ tích lũy: ${pct}% (Tổng: ${formatScore(total)}/${maxPossibleScore} điểm)">
-
-                        <div class="score-progress-bar-fill" style="width: ${pct}%;"></div>
-
-                      </div>
-
-                    </div>
-
-                  </td>
-
-                  ${filteredCriteria.length === 0 ? '<td style="color:#94a3b8; font-style:italic; text-align:center;">—</td>' : filteredCriteria.map((c) => renderMasterScoreCell(u, c, isAdmin)).join('')}
-
-                </tr>
-
-              `;
-
-              })
-
-              .join('');
-
-            })()}
-
-          </tbody>
-
-        </table>
-
-      </div>
-
     </div>
 
+    <div class="mobile-scroll-hint">👉 Vuốt ngón tay sang trái / phải để xem 131 cột điểm tiêu chí 👈</div>
+    <div class="spreadsheet-wrapper" id="master-spreadsheet-wrapper" style="flex:1 1 auto; height:calc(100vh - 128px) !important; min-height:520px !important; max-height:none !important; margin-bottom:2px !important;">
+      <table class="master-table">
+        <thead>
+          <tr class="row-banner">
+            <th class="sticky-col-stt" style="${isMobile ? 'width:36px; min-width:36px; max-width:36px;' : 'width:42px; min-width:42px; max-width:42px; position:sticky; left:0;'} top:0; z-index:60; background:#003d99 !important; color:#fff !important; text-align:center;">#</th>
+            <th class="sticky-col-unit banner-unit-cell" ${isMobile ? '' : 'colspan="2"'} style="background:#003d99 !important; color:#ffffff !important; font-weight:800 !important; ${isMobile ? 'width:145px; min-width:145px; max-width:145px;' : 'width:370px; min-width:370px; max-width:370px; position:sticky; left:42px;'} top:0; z-index:60 !important; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(headerTitle)}</th>
+            ${isMobile ? `
+              <th class="sticky-col-total" style="width:65px; min-width:65px; max-width:65px; background:#003d99 !important; color:#fde047 !important; text-align:center; padding:5px 2px; font-size:10px; top:0; z-index:60;">ĐIỂM</th>
+            ` : ''}
+            <th colspan="${Math.max(1, filteredCriteria.length)}">
+              ${
+                isAdmin
+                  ? '💡 Admin có thể nhập/sửa điểm trực tiếp vào từng ô bên dưới (Nhấn Enter hoặc click ra ngoài để tự động lưu lên Đám mây Online). Click biểu tượng 📎 để xem báo cáo đơn vị nộp.'
+                  : '💡 Bảng tổng hợp tự động cập nhật điểm Online ngay khi đơn vị nộp báo cáo / kê khai đúng ngày hạn chót.'
+              }
+            </th>
+          </tr>
+
+          <tr class="row-titles">
+            <th class="sticky-col-stt" style="${isMobile ? 'width:36px; min-width:36px; max-width:36px;' : 'width:42px; min-width:42px; max-width:42px; position:sticky; left:0;'} top:38px; z-index:55; background:#dbeafe; text-align:center;">STT</th>
+            <th class="sticky-col-unit" style="${isMobile ? 'width:145px; min-width:145px; max-width:145px; border-right:2px solid #93c5fd;' : 'width:290px; min-width:290px; max-width:290px; position:sticky; left:42px;'} top:38px; z-index:55; background:#dbeafe; text-align:left;">ĐƠN VỊ</th>
+            <th class="sticky-col-total" style="${isMobile ? 'width:65px; min-width:65px; max-width:65px;' : 'width:80px; min-width:80px; max-width:80px; position:sticky; left:332px;'} top:38px; z-index:55; background:#fff9db; text-align:center; box-shadow:${isMobile ? 'none' : '3px 0 6px rgba(0,0,0,0.12)'}; border-right:${isMobile ? '1px solid #cbd5e1' : '2px solid #0052cc'};">TỔNG ĐIỂM</th>
+            ${filteredCriteria.length === 0 ? `
+              <th style="min-width:320px; font-weight:700; color:#334155; background:#e2e8f0; text-align:center; padding:18px; font-size:13px;">
+                📋 CHƯA CÓ TIÊU CHÍ NÀO TRONG BẢNG<br/>
+                <span style="font-weight:400; font-size:11.5px; color:#64748b;">(Quản trị viên vui lòng vào tab <b>"Quản lý Tiêu chí"</b> để tạo mới các tiêu chí, kỳ hạn nộp và thư mục Drive)</span>
+              </th>
+            ` : filteredCriteria
+              .map((c) => {
+                const open = isCriterionOpen(c);
+                return `
+                <th style="${isMobile ? 'width:80px; min-width:80px; max-width:80px; box-sizing:border-box;' : ''}" title="${escapeHtml(c.title)}&#10;Bắt đầu mở: ${formatDateVN(c.start_date || '2026-01-01')}&#10;Hạn chót: ${formatDateVN(c.deadline)}">
+                  <div style="display:flex; flex-direction:column; justify-content:space-between; height:100%; gap:3px;">
+                    <div style="font-size:10px; font-weight:800; color:#0284c7; text-transform:uppercase; letter-spacing:0.3px;">
+                      📅 ${escapeHtml(c.month_label)}
+                    </div>
+                    <div style="overflow:hidden; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; font-weight:600; line-height:1.35;">
+                      ${escapeHtml(c.title)}
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:1px; margin-top:2px; font-size:10px; background:rgba(255,255,255,0.7); padding:2px 4px; border-radius:3px;">
+                      ${c.points_text ? `<span style="color:#b45309; font-weight:700;">⭐ ${escapeHtml(c.points_text)}</span>` : ''}
+                      <span style="color:#059669; font-weight:700;">🟢 Mở: ${formatShortDateVN(c.start_date || '2026-01-01')}</span>
+                      <span style="color:${open ? '#15803d' : '#b45309'}; font-weight:700;">
+                        ⏰ Hạn: ${formatShortDateVN(c.deadline)}
+                        ${
+                          isAdmin
+                            ? `<span style="cursor:pointer; margin-left:4px; color:#0052cc; text-decoration:underline;" onclick="openBatchFillModal(${c.id})" title="Chấm nhanh cột này">⚡Chấm</span>`
+                            : ''
+                        }
+                      </span>
+                      ${c.gdrive_folder_url && isAdmin ? `
+                        <span style="margin-top:2px;">
+                          <a href="${escapeHtml(c.gdrive_folder_url)}" target="_blank" style="color:#15803d; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:2px;" title="Mở thư mục Google Drive tiếp nhận báo cáo của tiêu chí này (Chỉ Quản trị viên)">
+                            📁 Drive ↗
+                          </a>
+                        </span>
+                      ` : ''}
+                    </div>
+                  </div>
+                </th>
+              `;
+              })
+              .join('')}
+          </tr>
+
+          <tr class="row-cols">
+            <th class="sticky-col-stt" style="${isMobile ? 'width:36px; min-width:36px; max-width:36px;' : ''}">#</th>
+            <th class="sticky-col-unit" style="${isMobile ? 'width:145px; min-width:145px; max-width:145px; border-right:2px solid #93c5fd;' : ''}">Cột 1</th>
+            <th class="sticky-col-total" style="${isMobile ? 'width:65px; min-width:65px; max-width:65px;' : ''}">Cột 2</th>
+            ${filteredCriteria.length === 0 ? '<th>Chưa có cột</th>' : filteredCriteria.map((c) => `<th style="${isMobile ? 'width:80px; min-width:80px; max-width:80px;' : ''}">${escapeHtml(c.col_label)}</th>`).join('')}
+          </tr>
+        </thead>
+
+        <tbody>
+          ${(() => {
+            const maxPossibleScore = getCriteriaFilteredMaxScore();
+            return filteredUnits
+              .map((u, rIdx) => {
+                const total = getUnitFilteredTotalScore(u.id);
+                const isCurrentUnit = !isAdmin && state.user && state.user.id === u.id;
+                const pct = Math.min(100, Math.max(0, Math.round((Number(total || 0) / Math.max(1, maxPossibleScore)) * 100)));
+
+              return `
+              <tr class="${isCurrentUnit ? 'highlight-unit' : ''}" data-unit-row="${u.id}">
+                <td class="sticky-col-stt" style="${isMobile ? 'width:36px; min-width:36px; max-width:36px;' : 'position:sticky; left:0; width:42px; min-width:42px; max-width:42px;'} z-index:18; background:#ffffff; text-align:center; font-weight:700;">${rIdx + 1}</td>
+                <td class="sticky-col-unit" style="${isMobile ? 'width:145px; min-width:145px; max-width:145px; border-right:2px solid #93c5fd;' : 'position:sticky; left:42px; width:290px; min-width:290px; max-width:290px;'} z-index:18; background:#ffffff; text-align:left;" title="${escapeHtml(u.unit_name)} (TK: ${escapeHtml(u.username)})">
+                  <div style="${isMobile ? 'width:100%; max-width:133px;' : 'width:270px; max-width:270px;'} display:flex; align-items:center; justify-content:space-between; gap:4px;">
+                    <span style="white-space:normal; line-height:1.25; font-weight:600; color:#0f172a; word-break:break-word; ${isMobile ? 'display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; font-size:11px;' : ''}">
+                      ${escapeHtml(u.unit_name)}
+                    </span>
+                    ${isCurrentUnit ? '<span class="badge badge-info" style="flex-shrink:0;">Đơn vị bạn</span>' : ''}
+                  </div>
+                </td>
+                <td class="sticky-col-total" id="total-cell-${u.id}" style="${isMobile ? 'width:65px; min-width:65px; max-width:65px; box-shadow:none; border-right:1px solid #cbd5e1;' : 'position:sticky; left:332px; width:80px; min-width:80px; max-width:80px; box-shadow:3px 0 6px rgba(0,0,0,0.12); border-right:2px solid #0052cc;'} z-index:18; background:#fff9db; text-align:center;">
+                  <div class="score-progress-wrapper">
+                    <div class="score-progress-text">
+                      <span style="${isMobile ? 'font-size:11.5px;' : ''}">${formatScore(total)}</span>
+                      <span class="score-progress-pct" style="${isMobile ? 'font-size:10px;' : ''}">${pct}%</span>
+                    </div>
+                    <div class="score-progress-bar-bg" title="Tiến độ tích lũy: ${pct}% (Tổng: ${formatScore(total)}/${maxPossibleScore} điểm)">
+                      <div class="score-progress-bar-fill" style="width: ${pct}%;"></div>
+                    </div>
+                  </div>
+                </td>
+                ${filteredCriteria.length === 0 ? '<td style="color:#94a3b8; font-style:italic; text-align:center;">—</td>' : filteredCriteria.map((c) => renderMasterScoreCell(u, c, isAdmin)).join('')}
+              </tr>
+            `;
+            })
+            .join('');
+          })()}
+        </tbody>
+      </table>
+    </div>
   `;
-
 }
-
-
 
 function renderMasterScoreCell(unit, crit, isAdmin) {
 
@@ -9499,11 +9371,16 @@ function renderMasterScoreCell(unit, crit, isAdmin) {
 
 
 window.setMonthFilter = function (val) {
-
   state.monthFilter = val;
-
   renderApp();
-
+  setTimeout(() => {
+    const sel = document.getElementById('mobile-month-select');
+    if (sel) sel.value = String(val);
+    const activePill = document.querySelector('#main-month-pills .month-pill.active');
+    if (activePill) {
+      activePill.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+  }, 50);
 };
 
 
