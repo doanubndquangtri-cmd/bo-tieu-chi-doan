@@ -3354,7 +3354,6 @@ window.WebPushManager = {
       OneSignalDeferred.push(async function(OneSignal) {
         try {
           const isAdmin = user.role === 'admin' || Number(user.id) === 0;
-          // OneSignal chặn số "0" làm external_id nên dùng "admin" và "unit_X"
           const uExtId = isAdmin ? 'admin' : ('unit_' + user.id);
           const uRole = isAdmin ? 'admin' : 'unit';
           const uUnitId = isAdmin ? '0' : String(user.id);
@@ -3362,18 +3361,20 @@ window.WebPushManager = {
             ? 'Ban Thường vụ Đoàn UBND Tỉnh'
             : (user.unit_name || user.name || ('Đoàn Cơ Sở ' + user.id));
 
-          // Đăng nhập định danh với OneSignal (đảm bảo chuyển đổi sạch sẽ giữa các tài khoản)
-          const lastExtId = localStorage.getItem('onesignal_ext_id');
-          if (lastExtId && lastExtId !== uExtId) {
-            if (typeof OneSignal.logout === 'function') {
-              try { await OneSignal.logout(); } catch (e) {}
+          // 1. Luôn kích hoạt subscription hợp lệ (Opt In) nếu permission đã cấp
+          if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+            if (OneSignal.User && OneSignal.User.PushSubscription) {
+              await OneSignal.User.PushSubscription.optIn().catch(() => {});
             }
           }
+
+          // 2. Định danh người dùng (login)
           if (typeof OneSignal.login === 'function') {
             try { await OneSignal.login(uExtId); } catch (e) {}
           }
           localStorage.setItem('onesignal_ext_id', uExtId);
 
+          // 3. Gán thẻ nhận diện vai trò
           if (OneSignal.User) {
             if (OneSignal.User.PushSubscription && OneSignal.User.PushSubscription.id) {
               try {
