@@ -6433,15 +6433,24 @@ async function initApp() {
 
 function renderNotificationPermissionAlertBanner() {
   if (typeof Notification === 'undefined') return '';
-  if (Notification.permission === 'granted') return '';
+  const isGranted = Notification.permission === 'granted';
+  let isSubscribed = false;
+  try {
+    if (window.OneSignal && window.OneSignal.User && window.OneSignal.User.PushSubscription) {
+      isSubscribed = Boolean(window.OneSignal.User.PushSubscription.optedIn && window.OneSignal.User.PushSubscription.id);
+    }
+  } catch (e) {}
+
+  if (isGranted && isSubscribed) return '';
+
   return `
     <div class="notif-permission-banner" style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); color: #ffffff; padding: 7px 14px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 700; box-shadow: 0 2px 6px rgba(0,0,0,0.15); border-bottom: 2px solid #c2410c; z-index: 99998; position: relative;">
       <div style="display: flex; align-items: center; gap: 8px;">
         <span style="font-size: 16px;">🔔</span>
-        <span>Ứng dụng này chưa được cấp quyền thông báo & số đỏ trên màn hình điện thoại!</span>
+        <span>${isGranted ? 'Chưa kích hoạt kênh chuông thông báo nổi trên thiết bị này!' : 'Ứng dụng này chưa được cấp quyền thông báo & số đỏ trên màn hình điện thoại!'}</span>
       </div>
       <button type="button" class="btn btn-sm" onclick="WebPushManager.requestPermission()" style="background: #ffffff; color: #ea580c; font-weight: 800; border: none; padding: 4px 12px; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-        👉 BẬT NGAY
+        👉 ${isGranted ? 'KÍCH HOẠT NGAY' : 'BẬT NGAY'}
       </button>
     </div>
   `;
@@ -7275,72 +7284,6 @@ function getDecodedOneSignalRestKey() {
 window.WebPushManager = {
   isInitialized: false,
 
-  // 0. Sửa chữa và làm mới kênh FCM cho thiết bị Android nếu bị kẹt token cũ
-  repairAndroidSubscription: async function(OneSignal) {
-    if (!/Android/i.test(navigator.userAgent)) return;
-    try {
-      console.log('[WebPush] 📱 Thiết bị Android: Đang kiểm tra & kích hoạt kênh Push...');
-      const REPAIR_KEY = 'android_push_fcm_v2026_ok';
-      let currentSubId = (OneSignal && OneSignal.User && OneSignal.User.PushSubscription) 
-        ? OneSignal.User.PushSubscription.id 
-        : null;
-
-      // Nếu chưa có Sub ID hoặc chưa được làm mới lần này
-      if (!currentSubId || !localStorage.getItem(REPAIR_KEY)) {
-        console.log('[WebPush] 🔄 Bắt đầu chu trình làm mới FCM token cho Android...');
-        localStorage.removeItem('onesignal_sub_id');
-
-        // 1. Unsubscribe native ServiceWorker pushManager để buộc Chrome xóa FCM token cũ
-        if ('serviceWorker' in navigator) {
-          try {
-            const reg = await navigator.serviceWorker.ready;
-            if (reg && reg.pushManager) {
-              const oldSub = await reg.pushManager.getSubscription();
-              if (oldSub) {
-                await oldSub.unsubscribe().catch(() => {});
-                console.log('[WebPush] ✅ Đã giải phóng token FCM cũ của Chrome');
-              }
-            }
-          } catch (e1) {
-            console.warn('[WebPush] Lỗi unregister push:', e1);
-          }
-        }
-
-        // 2. Khởi tạo lại PushSubscription trên OneSignal
-        if (OneSignal && OneSignal.User && OneSignal.User.PushSubscription) {
-          try {
-            await OneSignal.User.PushSubscription.optOut().catch(() => {});
-            await new Promise(r => setTimeout(r, 400));
-            await OneSignal.User.PushSubscription.optIn().catch(() => {});
-          } catch (e2) {
-            console.warn('[WebPush] Lỗi OneSignal optIn:', e2);
-          }
-        }
-
-        // 3. Chờ nhận Sub ID mới từ OneSignal (tối đa 4 giây)
-        for (let i = 0; i < 8; i++) {
-          await new Promise(r => setTimeout(r, 500));
-          if (OneSignal && OneSignal.User && OneSignal.User.PushSubscription && OneSignal.User.PushSubscription.id) {
-            currentSubId = OneSignal.User.PushSubscription.id;
-            break;
-          }
-        }
-
-        if (currentSubId) {
-          console.log('[WebPush] 🎉 Đã cấp mới thành công Player ID cho Android:', currentSubId);
-          localStorage.setItem('onesignal_sub_id', currentSubId);
-          localStorage.setItem(REPAIR_KEY, '1');
-        }
-      }
-
-      if (state.user && window.WebPushManager) {
-        window.WebPushManager.syncUser(state.user);
-      }
-    } catch (e) {
-      console.warn('[WebPush] repairAndroidSubscription error:', e);
-    }
-  },
-
   // 1. Khởi tạo OneSignal Web SDK
   init: function() {
     try {
@@ -7369,37 +7312,25 @@ window.WebPushManager = {
           window.WebPushManager.isInitialized = true;
           console.log('[WebPush] OneSignal init thành công! Scope:', dir);
 
-          // Nếu là thiết bị Android -> Tự động kiểm tra và phục hồi Push FCM nếu token cũ bị hỏng
-          if (/Android/i.test(navigator.userAgent) && window.WebPushManager && window.WebPushManager.repairAndroidSubscription) {
-            await window.WebPushManager.repairAndroidSubscription(OneSignal);
-          } else {
-            // Kích hoạt nhận Push ngay nếu quyền đã cấp (dành cho iOS/Desktop)
-            try {
-              if (OneSignal.User && OneSignal.User.PushSubscription) {
-                if (typeof Notification !== 'undefined') {
-                  if (Notification.permission === 'granted') {
-                    await OneSignal.User.PushSubscription.optIn().catch(() => {});
-                    console.log('[WebPush] OptIn hoàn tất. ID:', OneSignal.User.PushSubscription.id);
-                  } else if (Notification.permission === 'default') {
-                    setTimeout(() => {
-                      if (window.WebPushManager && window.WebPushManager.requestPermission) {
-                        window.WebPushManager.requestPermission();
-                      }
-                    }, 2000);
-                  }
+          // Tự động kích hoạt nhận Push nếu quyền đã cấp
+          try {
+            if (OneSignal.User && OneSignal.User.PushSubscription) {
+              if (typeof Notification !== 'undefined') {
+                if (Notification.permission === 'granted') {
+                  await OneSignal.User.PushSubscription.optIn().catch(() => {});
+                  console.log('[WebPush] OptIn hoàn tất. ID:', OneSignal.User.PushSubscription.id);
                 }
               }
-            } catch (optErr) {
-              console.warn('[WebPush] OptIn error:', optErr);
-            }
-          }
-
-          if (OneSignal.User && OneSignal.User.PushSubscription && OneSignal.User.PushSubscription.addEventListener) {
-            OneSignal.User.PushSubscription.addEventListener('change', function(evt) {
-              if (evt && evt.current && evt.current.optedIn && state.user && window.WebPushManager) {
-                window.WebPushManager.syncUser(state.user);
+              if (OneSignal.User.PushSubscription.addEventListener) {
+                OneSignal.User.PushSubscription.addEventListener('change', function(evt) {
+                  if (evt && evt.current && evt.current.optedIn && state.user && window.WebPushManager) {
+                    window.WebPushManager.syncUser(state.user);
+                  }
+                });
               }
-            });
+            }
+          } catch (optErr) {
+            console.warn('[WebPush] OptIn error:', optErr);
           }
 
           // Đồng bộ user tags nếu đã đăng nhập
@@ -7407,18 +7338,23 @@ window.WebPushManager = {
             window.WebPushManager.syncUser(state.user);
           }
 
-          // TỰ ĐỘNG KÍCH HOẠT QUYỀN THÔNG BÁO KHI NGƯỜI DÙNG CHẠM/CLICK VÀO MÀN HÌNH LẦN ĐẦU
-          if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-            const autoPromptOnGesture = () => {
-              window.removeEventListener('click', autoPromptOnGesture);
-              window.removeEventListener('touchend', autoPromptOnGesture);
-              if (window.WebPushManager && window.WebPushManager.requestPermission) {
-                window.WebPushManager.requestPermission();
+          // Kích hoạt nhận Push trên tương tác người dùng (đặc biệt quan trọng cho Android)
+          const autoOptInOnGesture = async () => {
+            try {
+              if (window.OneSignal && OneSignal.User && OneSignal.User.PushSubscription) {
+                if (!OneSignal.User.PushSubscription.optedIn || !OneSignal.User.PushSubscription.id) {
+                  if (typeof Notification !== 'undefined' && Notification.permission !== 'denied') {
+                    await OneSignal.User.PushSubscription.optIn().catch(() => {});
+                    if (state.user && window.WebPushManager) {
+                      window.WebPushManager.syncUser(state.user);
+                    }
+                  }
+                }
               }
-            };
-            window.addEventListener('click', autoPromptOnGesture, { once: true });
-            window.addEventListener('touchend', autoPromptOnGesture, { once: true });
-          }
+            } catch (e) {}
+          };
+          window.addEventListener('click', autoOptInOnGesture, { passive: true });
+          window.addEventListener('touchend', autoOptInOnGesture, { passive: true });
 
           // Lắng nghe sự kiện thay đổi quyền
           if (OneSignal.Notifications && OneSignal.Notifications.addEventListener) {
@@ -7478,19 +7414,8 @@ window.WebPushManager = {
 
           // 3. Gán thẻ nhận diện vai trò
           if (OneSignal.User) {
-            let subId = (OneSignal.User.PushSubscription && OneSignal.User.PushSubscription.id) || localStorage.getItem('onesignal_sub_id');
-            if (!subId) {
-              for (let t = 0; t < 6; t++) {
-                await new Promise(r => setTimeout(r, 400));
-                subId = (OneSignal.User.PushSubscription && OneSignal.User.PushSubscription.id);
-                if (subId) {
-                  try { localStorage.setItem('onesignal_sub_id', subId); } catch (e) {}
-                  break;
-                }
-              }
-            }
-            if (subId) {
-              try { localStorage.setItem('onesignal_sub_id', subId); } catch (e) {}
+            if (OneSignal.User.PushSubscription && OneSignal.User.PushSubscription.id) {
+              try { localStorage.setItem('onesignal_sub_id', OneSignal.User.PushSubscription.id); } catch (e) {}
             }
 
             if (typeof OneSignal.User.addTags === 'function') {
@@ -7501,39 +7426,6 @@ window.WebPushManager = {
               }
             }
 
-            // 4. ĐỒNG BỘ TRỰC TIẾP LÊN MÁY CHỦ ONESIGNAL QUA REST API:
-            // Đảm bảo máy chủ cập nhật Tag 100% không bị trễ hay kẹt cache trên Android
-            if (subId) {
-              const appId = ((state.settings && state.settings.onesignal_app_id) ? state.settings.onesignal_app_id.trim() : '') || DEFAULT_ONESIGNAL_APP_ID;
-              const restApiKey = getDecodedOneSignalRestKey();
-              if (appId && restApiKey) {
-                fetch('https://onesignal.com/api/v1/players/' + subId, {
-                  method: 'PUT',
-                  headers: {
-                    'Content-Type': 'application/json; charset=utf-8',
-                    'Authorization': 'Key ' + restApiKey
-                  },
-                  body: JSON.stringify({
-                    app_id: appId,
-                    notification_types: 1,
-                    tags: tagData,
-                    external_user_id: uExtId
-                  })
-                }).then(async res => {
-                  if (!res.ok) {
-                    const err = await res.json().catch(() => ({}));
-                    if (err && err.errors && String(err.errors).includes('No player')) {
-                      console.warn('[WebPush] Player ID cũ không tồn tại trên server, xóa cache...');
-                      localStorage.removeItem('onesignal_sub_id');
-                      localStorage.removeItem('android_push_fcm_v2026_ok');
-                      if (/Android/i.test(navigator.userAgent) && window.WebPushManager && window.WebPushManager.repairAndroidSubscription) {
-                        window.WebPushManager.repairAndroidSubscription(OneSignal);
-                      }
-                    }
-                  }
-                }).catch(() => {});
-              }
-            }
             console.log('[WebPush] ✅ Đã định danh chính xác thiết bị:', uExtId, tagData);
             if (forceFeedback && typeof showToast === 'function') {
               showToast(`✅ Đã định danh thiết bị: <b>${escapeHtml(uName)}</b> (${isAdmin ? 'Admin' : 'Cơ sở ID ' + uUnitId})`, 'success');
@@ -7592,12 +7484,7 @@ window.WebPushManager = {
           const bCount = (typeof getTotalBadgeCount === 'function' ? getTotalBadgeCount() : 1) || 1;
           navigator.setAppBadge(bCount).catch(() => {});
         }
-        if (/Android/i.test(navigator.userAgent) && window.WebPushManager && window.WebPushManager.repairAndroidSubscription) {
-          window.OneSignalDeferred = window.OneSignalDeferred || [];
-          OneSignalDeferred.push(function(OneSignal) {
-            window.WebPushManager.repairAndroidSubscription(OneSignal);
-          });
-        } else if (state.user && window.WebPushManager) {
+        if (state.user && window.WebPushManager) {
           window.WebPushManager.syncUser(state.user);
         }
         window.WebPushManager.showLocalNativeNotification(
@@ -7807,28 +7694,19 @@ window.WebPushManager = {
       window.OneSignalDeferred = window.OneSignalDeferred || [];
       OneSignalDeferred.push(async function(OneSignal) {
         try {
-          if (/Android/i.test(navigator.userAgent)) {
-            localStorage.removeItem('android_push_fcm_v2026_ok');
-            localStorage.removeItem('onesignal_sub_id');
-            if (window.WebPushManager && window.WebPushManager.repairAndroidSubscription) {
-              await window.WebPushManager.repairAndroidSubscription(OneSignal);
+          if (OneSignal.Notifications && OneSignal.Notifications.requestPermission) {
+            await OneSignal.Notifications.requestPermission();
+          }
+          if (OneSignal.User && OneSignal.User.PushSubscription) {
+            await OneSignal.User.PushSubscription.optIn();
+            const subId = OneSignal.User.PushSubscription.id;
+            if (subId) {
+              showToast(`✅ Đã kết nối Push thành công! ID: ${subId.substring(0, 8)}...`, 'success');
+            } else {
+              showToast('✅ Đã kích hoạt nhận thông báo đẩy khi tắt web/tắt màn hình!', 'success');
             }
-            showToast('✅ Đã thiết lập và cấp mới thành công kênh Push cho Android!', 'success');
-          } else {
-            if (OneSignal.Notifications && OneSignal.Notifications.requestPermission) {
-              await OneSignal.Notifications.requestPermission();
-            }
-            if (OneSignal.User && OneSignal.User.PushSubscription) {
-              await OneSignal.User.PushSubscription.optIn();
-              const subId = OneSignal.User.PushSubscription.id;
-              if (subId) {
-                showToast(`✅ Đã kết nối Push thành công! ID: ${subId.substring(0, 8)}...`, 'success');
-              } else {
-                showToast('✅ Đã kích hoạt nhận thông báo đẩy khi tắt web/tắt màn hình!', 'success');
-              }
-              if (state.user && window.WebPushManager) {
-                window.WebPushManager.syncUser(state.user);
-              }
+            if (state.user && window.WebPushManager) {
+              window.WebPushManager.syncUser(state.user);
             }
           }
         } catch (subErr) {
@@ -7960,18 +7838,25 @@ window.WebPushManager = {
 
 function renderPushNotificationHeaderButton() {
   const isGranted = typeof Notification !== 'undefined' && Notification.permission === 'granted';
-  if (isGranted) {
-    // Đã được cấp quyền và tự động kích hoạt hoàn toàn trong nền -> Ẩn hoàn toàn nút này
+  let isSubscribed = false;
+  try {
+    if (window.OneSignal && window.OneSignal.User && window.OneSignal.User.PushSubscription) {
+      isSubscribed = Boolean(window.OneSignal.User.PushSubscription.optedIn && window.OneSignal.User.PushSubscription.id);
+    }
+  } catch (e) {}
+
+  if (isGranted && isSubscribed) {
+    // Đã được cấp quyền và có kênh Push hoạt động -> Ẩn hoàn toàn nút này
     return '';
-  } else {
-    // Thiết bị mới chưa cấp quyền -> Hiện nút bật chuông nổi để người dùng bấm 1 chạm cấp quyền
-    return `
-      <button class="btn btn-sm" onclick="WebPushManager.requestPermission()" title="Bấm để bật thông báo nổi trên màn hình Desktop & Màn hình khóa khi tắt web!" style="background: #f97316; color: #ffffff; border: 1.5px solid #ffedd5; font-size: 11px; padding: 3px 8px; height: 27px; display: inline-flex; align-items: center; gap: 4px; font-weight: 800; box-shadow: 0 2px 6px rgba(249, 115, 22, 0.4); cursor: pointer; border-radius: 5px;">
-        <span style="font-size: 12px;">🔔</span>
-        <span>Bật Thông Báo</span>
-      </button>
-    `;
   }
+
+  // Thiết bị chưa kích hoạt hoặc chưa cấp quyền -> Hiện nút để người dùng bấm 1 chạm kích hoạt
+  return `
+    <button class="btn btn-sm" onclick="WebPushManager.requestPermission()" title="Bấm để kích hoạt thông báo nổi trên điện thoại!" style="background: #f97316; color: #ffffff; border: 1.5px solid #ffedd5; font-size: 11px; padding: 3px 8px; height: 27px; display: inline-flex; align-items: center; gap: 4px; font-weight: 800; box-shadow: 0 2px 6px rgba(249, 115, 22, 0.4); cursor: pointer; border-radius: 5px;">
+      <span style="font-size: 12px;">🔔</span>
+      <span>${isGranted ? 'Kích Hoạt Chuông' : 'Bật Thông Báo'}</span>
+    </button>
+  `;
 }
 
 window.showDesktopNotification = function(title, body) {
