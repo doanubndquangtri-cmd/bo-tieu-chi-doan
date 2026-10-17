@@ -3259,6 +3259,7 @@ window.WebPushManager = {
         try {
           await OneSignal.init({
             appId: appId,
+            serviceWorkerOverrideForTypical: true,
             path: dir,
             serviceWorkerPath: 'OneSignalSDKWorker.js',
             serviceWorkerParam: { scope: dir },
