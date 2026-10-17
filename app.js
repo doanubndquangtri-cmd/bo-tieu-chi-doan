@@ -3374,28 +3374,48 @@ window.WebPushManager = {
           }
           localStorage.setItem('onesignal_ext_id', uExtId);
 
+          const tagData = {
+            role: uRole,
+            unit_id: uUnitId,
+            user_id: uUnitId,
+            unit_name: uName
+          };
+
           // 3. Gán thẻ nhận diện vai trò
           if (OneSignal.User) {
-            if (OneSignal.User.PushSubscription && OneSignal.User.PushSubscription.id) {
-              try {
-                localStorage.setItem('onesignal_sub_id', OneSignal.User.PushSubscription.id);
-              } catch (e) {}
+            let subId = (OneSignal.User.PushSubscription && OneSignal.User.PushSubscription.id) || localStorage.getItem('onesignal_sub_id');
+            if (subId) {
+              try { localStorage.setItem('onesignal_sub_id', subId); } catch (e) {}
             }
 
-            const tagData = {
-              role: uRole,
-              unit_id: uUnitId,
-              user_id: uUnitId,
-              unit_name: uName
-            };
-
             if (typeof OneSignal.User.addTags === 'function') {
-              await OneSignal.User.addTags(tagData);
+              await OneSignal.User.addTags(tagData).catch(() => {});
             } else if (typeof OneSignal.User.addTag === 'function') {
-              await OneSignal.User.addTag('role', uRole);
-              await OneSignal.User.addTag('unit_id', uUnitId);
-              await OneSignal.User.addTag('user_id', uUnitId);
-              await OneSignal.User.addTag('unit_name', uName);
+              for (let k in tagData) {
+                await OneSignal.User.addTag(k, tagData[k]).catch(() => {});
+              }
+            }
+
+            // 4. ĐỒNG BỘ TRỰC TIẾP LÊN MÁY CHỦ ONESIGNAL QUA REST API:
+            // Đảm bảo máy chủ cập nhật Tag 100% không bị trễ hay kẹt cache trên Android
+            if (subId) {
+              const appId = ((state.settings && state.settings.onesignal_app_id) ? state.settings.onesignal_app_id.trim() : '') || DEFAULT_ONESIGNAL_APP_ID;
+              const restApiKey = getDecodedOneSignalRestKey();
+              if (appId && restApiKey) {
+                fetch('https://onesignal.com/api/v1/players/' + subId, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json; charset=utf-8',
+                    'Authorization': 'Key ' + restApiKey
+                  },
+                  body: JSON.stringify({
+                    app_id: appId,
+                    notification_types: 1,
+                    tags: tagData,
+                    external_user_id: uExtId
+                  })
+                }).catch(() => {});
+              }
             }
             console.log('[WebPush] ✅ Đã định danh chính xác thiết bị:', uExtId, tagData);
             if (forceFeedback && typeof showToast === 'function') {
