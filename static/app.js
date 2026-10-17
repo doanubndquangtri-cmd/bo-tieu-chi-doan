@@ -18745,8 +18745,8 @@ window.generateAiAssistantResponse = function(promptText) {
 
   const unitName = unit ? unit.unit_name : 'Chi đoàn cơ sở';
 
-  // Câu hỏi 0: Tra cứu thứ hạng, điểm số, bảng xếp hạng hoặc phân loại đánh giá thi đua
-  if (p.includes('thứ mấy') || p.includes('đứng thứ') || p.includes('xếp hạng') || p.includes('bảng xếp hạng') || p.includes('xổ số') || p.includes('xskt') || p.includes('phân loại') || p.includes('đánh giá thi đua')) {
+  // Câu hỏi 0: Tra cứu thứ hạng, điểm số, bảng xếp hạng, top dẫn đầu hoặc phân loại đánh giá thi đua
+  if (p.includes('thứ mấy') || p.includes('đứng thứ') || p.includes('xếp hạng') || p.includes('bảng xếp hạng') || p.includes('thứ hạng') || p.includes('top') || p.includes('dẫn đầu') || p.includes('đầu bảng') || p.includes('cao nhất') || p.includes('thấp nhất') || p.includes('xổ số') || p.includes('xskt') || p.includes('phân loại') || p.includes('đánh giá thi đua') || p.includes('thi đua') || p.includes('điểm số') || p.includes('bảng điểm') || p.includes('cơ sở nào') || p.includes('đơn vị nào')) {
     const allUnits = (state.units || []).filter(u => u.role === 'unit' && Number(u.is_active) === 1);
     const rankedUnits = allUnits.map(u => ({
       id: u.id,
@@ -18775,8 +18775,14 @@ window.generateAiAssistantResponse = function(promptText) {
         `\n💡 *Phân loại đánh giá:* Đơn vị đang nằm trong ${rank <= 8 ? '**Nhóm Hoàn thành Xuất sắc nhiệm vụ** (Top đầu)' : (rank <= 25 ? '**Nhóm Hoàn thành Tốt nhiệm vụ**' : '**Nhóm cần tích cực hoàn thiện minh chứng**')}.`;
     }
 
-    const top5 = rankedUnits.slice(0, 5).map((u, i) => `${i + 1}. **${u.name}**: ${u.total} điểm`).join('\n');
-    return `🏆 **BẢNG XẾP HẠNG THI ĐUA HIỆN TẠI (TOP 5 DẪN ĐẦU):**\n\n${top5}\n\n*(Toàn hệ thống hiện có ${rankedUnits.length} cơ sở Đoàn. Đồng chí có thể hỏi trực tiếp tên bất kỳ Chi đoàn nào để tôi kiểm tra ngay!)*`;
+    // Nếu hỏi về Top N (ví dụ: "Top 5 đơn vị dẫn đầu gồm những cơ sở nào?")
+    let topN = 5;
+    const topMatch = p.match(/top\s*(\d+)/i);
+    if (topMatch && topMatch[1]) {
+      topN = Math.min(Math.max(Number(topMatch[1]), 1), rankedUnits.length);
+    }
+    const topList = rankedUnits.slice(0, topN).map((u, i) => `${i + 1}. **${u.name}**: **${u.total} điểm**`).join('\n');
+    return `🏆 **TOP ${topN} ĐƠN VỊ DẪN ĐẦU BẢNG XẾP HẠNG THI ĐUA HIỆN TẠI:**\n\n${topList}\n\n💡 *Ghi chú:* Toàn hệ thống hiện có **${rankedUnits.length} cơ sở Đoàn**. Đồng chí có thể hỏi cụ thể tên bất kỳ Chi đoàn nào để tôi kiểm tra điểm số và thứ hạng chi tiết ngay nhé!`;
   }
 
   // Câu hỏi 1: Minh chứng còn thiếu
@@ -19785,7 +19791,7 @@ window.askAiAssistant = async function(promptText) {
 
       const payload = {
 
-        model: 'gemini-3.8-flash',
+        model: 'gemini-3.7-flash',
 
         input: fullInput
 
@@ -19964,7 +19970,7 @@ window.askAiAssistant = async function(promptText) {
 
         if (r.status === 429) {
 
-          throw new Error('Hạn mức API miễn phí tạm thời đạt giới hạn (429 Too Many Requests). Đồng chí vui lòng đợi 5-10 giây rồi hỏi lại.');
+          console.warn('Interactions API 429, tự động chuyển tiếp sang phương thức generateContent...');
 
         }
 
@@ -19972,7 +19978,7 @@ window.askAiAssistant = async function(promptText) {
 
     } catch (errInt) {
 
-      if (errInt.message && errInt.message.includes('429')) throw errInt;
+      console.warn('Interactions method failed, chuyển sang generateContent:', errInt.message);
 
       lastErrDetail = errInt.message || lastErrDetail;
 
@@ -19982,7 +19988,7 @@ window.askAiAssistant = async function(promptText) {
 
     // =========================================================================
 
-    // B. PHƯƠNG THỨC DỰ PHÒNG (FALLBACK): generateContent với gemini-flash-latest, gemini-3.8-flash, gemini-3.7-flash, gemini-3.5-flash
+    // B. PHƯƠNG THỨC DỰ PHÒNG (FALLBACK): generateContent với gemini-3.7-flash, gemini-3.5-flash, gemini-flash-lite-latest, gemini-3.8-flash
 
     // =========================================================================
 
@@ -19990,7 +19996,7 @@ window.askAiAssistant = async function(promptText) {
 
       const effectiveKey = apiKey || DEFAULT_GEMINI_API_KEY;
 
-      const fallbackModels = ['gemini-flash-latest', 'gemini-3.8-flash', 'gemini-3.7-flash', 'gemini-3.5-flash'];
+      const fallbackModels = ['gemini-3.7-flash', 'gemini-3.5-flash', 'gemini-flash-lite-latest', 'gemini-3.8-flash', 'gemini-flash-latest'];
 
       for (const fModel of fallbackModels) {
 
