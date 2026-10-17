@@ -23040,7 +23040,39 @@ window.generateAiAssistantResponse = function(promptText) {
 
   const unitName = unit ? unit.unit_name : 'Chi đoàn cơ sở';
 
+  // Câu hỏi 0: Tra cứu thứ hạng, điểm số, bảng xếp hạng hoặc phân loại đánh giá thi đua
+  if (p.includes('thứ mấy') || p.includes('đứng thứ') || p.includes('xếp hạng') || p.includes('bảng xếp hạng') || p.includes('xổ số') || p.includes('xskt') || p.includes('phân loại') || p.includes('đánh giá thi đua')) {
+    const allUnits = (state.units || []).filter(u => u.role === 'unit' && Number(u.is_active) === 1);
+    const rankedUnits = allUnits.map(u => ({
+      id: u.id,
+      name: u.unit_name,
+      total: typeof getUnitTotalScore === 'function' ? getUnitTotalScore(u.id) : 0
+    })).sort((a, b) => b.total - a.total);
 
+    let target = null;
+    if (p.includes('xổ số') || p.includes('xo so') || p.includes('xskt')) {
+      target = rankedUnits.find(u => u.name.toLowerCase().includes('xskt') || u.name.toLowerCase().includes('xổ số'));
+    } else {
+      for (const u of rankedUnits) {
+        if (p.includes(u.name.toLowerCase())) { target = u; break; }
+      }
+    }
+
+    if (target) {
+      const rank = rankedUnits.findIndex(r => r.id === target.id) + 1;
+      const prev = rank > 1 ? rankedUnits[rank - 2] : null;
+      return `📊 **TRA CỨU THỨ HẠNG THỜI GIAN THỰC TỪ HỆ THỐNG:**\n\n` +
+        `Căn cứ dữ liệu chấm điểm cập nhật trên hệ thống Bộ Tiêu chí Đoàn 2026:\n` +
+        `- **Đơn vị:** ${target.name}\n` +
+        `- **Thứ hạng hiện tại:** Đứng **thứ ${rank}** trên tổng số **${rankedUnits.length} cơ sở Đoàn**.\n` +
+        `- **Tổng điểm đạt được:** **${target.total} điểm**.\n` +
+        `${prev ? `- Khoảng cách với đơn vị xếp ngay trên (${prev.name} - ${prev.total}đ) là **${Math.round((prev.total - target.total)*100)/100} điểm**.\n` : `- Đơn vị đang dẫn đầu toàn hệ thống!\n`}` +
+        `\n💡 *Phân loại đánh giá:* Đơn vị đang nằm trong ${rank <= 8 ? '**Nhóm Hoàn thành Xuất sắc nhiệm vụ** (Top đầu)' : (rank <= 25 ? '**Nhóm Hoàn thành Tốt nhiệm vụ**' : '**Nhóm cần tích cực hoàn thiện minh chứng**')}.`;
+    }
+
+    const top5 = rankedUnits.slice(0, 5).map((u, i) => `${i + 1}. **${u.name}**: ${u.total} điểm`).join('\n');
+    return `🏆 **BẢNG XẾP HẠNG THI ĐUA HIỆN TẠI (TOP 5 DẪN ĐẦU):**\n\n${top5}\n\n*(Toàn hệ thống hiện có ${rankedUnits.length} cơ sở Đoàn. Đồng chí có thể hỏi trực tiếp tên bất kỳ Chi đoàn nào để tôi kiểm tra ngay!)*`;
+  }
 
   // Câu hỏi 1: Minh chứng còn thiếu
 
@@ -23342,7 +23374,7 @@ window.renderAiChatTabContent = function() {
 
         <div style="font-size:12px; color:#6b7280; line-height:1.45; max-width:440px; margin:0 auto 14px auto;">
 
-          Được tích hợp trí tuệ nhân tạo <b>Google AI Studio (Gemini 3.8 Flash)</b>. Tôi có thể hỗ trợ đồng chí soạn thảo kế hoạch công tác Đoàn, giải đáp quy chế chấm điểm, rà soát minh chứng và gợi ý các hoạt động phong trào thanh niên sáng tạo!
+          Được tích hợp trí tuệ nhân tạo <b>Google AI Studio (Gemini 3.8 Flash)</b> kết nối trực tiếp với <b>cơ sở dữ liệu thời gian thực</b> của hệ thống. Tôi có thể đọc Bảng xếp hạng, tra cứu điểm số của 40 cơ sở Đoàn, rà soát minh chứng và hỗ trợ phân loại đánh giá thi đua chuẩn xác!
 
         </div>
 
@@ -23352,9 +23384,15 @@ window.renderAiChatTabContent = function() {
 
         <div style="display:flex; flex-direction:column; gap:6px; text-align:left;">
 
-          <div class="ai-prompt-pill" onclick="sendAiQuickPrompt('Soạn giúp tôi dự thảo Kế hoạch sinh hoạt Chi đoàn tháng 10 chủ đề Chuyển đổi số thanh niên')" style="background:#f5f3ff; border:1px solid #ddd6fe; border-radius:8px; padding:8px 10px; font-size:12px; color:#4c1d95; cursor:pointer; font-weight:600; display:flex; align-items:center; gap:6px;">
+          <div class="ai-prompt-pill" onclick="sendAiQuickPrompt('Chi đoàn xổ số đang đứng thứ mấy trong bộ tiêu chí này')" style="background:#f5f3ff; border:1px solid #c4b5fd; border-radius:8px; padding:8px 10px; font-size:12px; color:#4c1d95; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:6px;">
 
-            <span>✍️</span> <span>Soạn dự thảo Kế hoạch sinh hoạt Chi đoàn tháng 10 chủ đề Chuyển đổi số</span>
+            <span>📊</span> <span>Chi đoàn Xổ số đang đứng thứ mấy trong Bảng xếp hạng?</span>
+
+          </div>
+
+          <div class="ai-prompt-pill" onclick="sendAiQuickPrompt('Nhờ AI phân loại đánh giá thi đua hiện tại của 40 cơ sở Đoàn theo các nhóm Xuất sắc, Tốt, Hoàn thành')" style="background:#f5f3ff; border:1px solid #c4b5fd; border-radius:8px; padding:8px 10px; font-size:12px; color:#4c1d95; cursor:pointer; font-weight:700; display:flex; align-items:center; gap:6px;">
+
+            <span>🏆</span> <span>Phân loại đánh giá thi đua của các cơ sở Đoàn hiện tại</span>
 
           </div>
 
@@ -23364,15 +23402,15 @@ window.renderAiChatTabContent = function() {
 
           </div>
 
-          <div class="ai-prompt-pill" onclick="sendAiQuickPrompt('Gợi ý cho tôi 4 ý tưởng hoạt động tình nguyện Ngày Chủ Nhật Xanh 2026 thiết thực và tiết kiệm')" style="background:#f5f3ff; border:1px solid #ddd6fe; border-radius:8px; padding:8px 10px; font-size:12px; color:#4c1d95; cursor:pointer; font-weight:600; display:flex; align-items:center; gap:6px;">
+          <div class="ai-prompt-pill" onclick="sendAiQuickPrompt('Soạn giúp tôi dự thảo Kế hoạch sinh hoạt Chi đoàn tháng 10 chủ đề Chuyển đổi số thanh niên')" style="background:#f5f3ff; border:1px solid #ddd6fe; border-radius:8px; padding:8px 10px; font-size:12px; color:#4c1d95; cursor:pointer; font-weight:600; display:flex; align-items:center; gap:6px;">
 
-            <span>🌱</span> <span>Gợi ý 4 ý tưởng hoạt động Ngày Chủ Nhật Xanh sáng tạo, thiết thực</span>
+            <span>✍️</span> <span>Soạn dự thảo Kế hoạch sinh hoạt Chi đoàn tháng 10 chủ đề Chuyển đổi số</span>
 
           </div>
 
-          <div class="ai-prompt-pill" onclick="sendAiQuickPrompt('Hướng dẫn cách chuẩn bị hồ sơ minh chứng đạt điểm tối đa cho tiêu chí sinh hoạt Chi đoàn')" style="background:#f5f3ff; border:1px solid #ddd6fe; border-radius:8px; padding:8px 10px; font-size:12px; color:#4c1d95; cursor:pointer; font-weight:600; display:flex; align-items:center; gap:6px;">
+          <div class="ai-prompt-pill" onclick="sendAiQuickPrompt('Gợi ý cho tôi 4 ý tưởng hoạt động tình nguyện Ngày Chủ Nhật Xanh 2026 thiết thực và tiết kiệm')" style="background:#f5f3ff; border:1px solid #ddd6fe; border-radius:8px; padding:8px 10px; font-size:12px; color:#4c1d95; cursor:pointer; font-weight:600; display:flex; align-items:center; gap:6px;">
 
-            <span>📎</span> <span>Hướng dẫn chuẩn bị hồ sơ minh chứng tiêu chí đạt điểm tối đa</span>
+            <span>🌱</span> <span>Gợi ý 4 ý tưởng hoạt động Ngày Chủ Nhật Xanh sáng tạo, thiết thực</span>
 
           </div>
 
@@ -23757,9 +23795,141 @@ window.clearGeminiApiKey = function() {
 
 };
 
+// =========================================================================
+// BỘ TRÍ TUỆ NHÂN TẠO ĐỌC & TÌM KIẾM DỮ LIỆU THỜI GIAN THỰC (LIVE CONTEXT INJECTOR)
+// CẤP QUYỀN TOÀN DIỆN CHO AI GEMINI TRUY VẤN BẢNG ĐIỂM, BẢNG XẾP HẠNG & PHÂN LOẠI THI ĐUA
+// =========================================================================
+function buildAiLiveSystemContext(promptText) {
+  const effDate = (state.settings && state.settings.effective_date) ? state.settings.effective_date : todayISO();
+  const allUnits = (state.units || []).filter(u => u.role === 'unit' && Number(u.is_active) === 1);
+  const totalCriteria = (state.criteria || []).length || 44;
 
+  // 1. Tính toán Bảng xếp hạng thi đua thời gian thực của 40 cơ sở Đoàn
+  const rankedUnits = allUnits.map(u => {
+    const totalScore = typeof getUnitTotalScore === 'function' ? getUnitTotalScore(u.id) : 0;
+    return {
+      id: u.id,
+      name: u.unit_name,
+      total: totalScore
+    };
+  }).sort((a, b) => b.total - a.total);
 
-// 3. XỬ LÝ HỎI ĐÁP VỚI TRỢ LÝ AI (KẾT NỐI GOOGLE GEMINI 1.5 FLASH TRỰC TUYẾN THẬT)
+  // 2. Định dạng danh sách xếp hạng có chú thích từ viết tắt phổ biến
+  const leaderboardLines = rankedUnits.map((u, idx) => {
+    let alias = '';
+    const low = u.name.toLowerCase();
+    if (low.includes('xskt')) alias = ' [Chi đoàn Xổ số kiến thiết]';
+    else if (low.includes('qlkt cttl')) alias = ' [Thủy lợi Quảng Trị]';
+    else if (low.includes('ktcttl')) alias = ' [Thủy lợi Quảng Bình]';
+    else if (low.includes('bql khu kinh tế')) alias = ' [Ban Quản lý Khu kinh tế]';
+    else if (low.includes('việt trung')) alias = ' [Cao su Việt Trung]';
+    else if (low.includes('bql dự án đầu tư xây dựng ctdd')) alias = ' [BQL Dự án Dân dụng]';
+    else if (low.includes('ban quản lý dự án đầu tư xây dựng ctgt')) alias = ' [BQL Dự án Giao thông]';
+    return `${idx + 1}. ${u.name}${alias}: ${u.total} điểm (Mã #${u.id})`;
+  });
+
+  // 3. Trích xuất thông tin chuyên sâu nếu câu hỏi nhắc đến đơn vị cụ thể
+  const pLower = (promptText || '').toLowerCase();
+  let matchedUnit = null;
+
+  for (const u of rankedUnits) {
+    if (pLower.includes(u.name.toLowerCase())) {
+      matchedUnit = u;
+      break;
+    }
+  }
+  if (!matchedUnit) {
+    if (pLower.includes('xổ số') || pLower.includes('xo so') || pLower.includes('xskt')) {
+      matchedUnit = rankedUnits.find(u => u.name.toLowerCase().includes('xskt') || u.name.toLowerCase().includes('xổ số'));
+    } else if (pLower.includes('hải quan')) {
+      matchedUnit = rankedUnits.find(u => u.name.toLowerCase().includes('hải quan'));
+    } else if (pLower.includes('thanh tra')) {
+      matchedUnit = rankedUnits.find(u => u.name.toLowerCase().includes('thanh tra'));
+    } else if (pLower.includes('tư pháp')) {
+      matchedUnit = rankedUnits.find(u => u.name.toLowerCase().includes('tư pháp'));
+    } else if (pLower.includes('việt trung')) {
+      matchedUnit = rankedUnits.find(u => u.name.toLowerCase().includes('việt trung'));
+    } else if (pLower.includes('nước sạch')) {
+      matchedUnit = rankedUnits.find(u => u.name.toLowerCase().includes('nước sạch'));
+    } else if (pLower.includes('xây dựng')) {
+      matchedUnit = rankedUnits.find(u => u.name.toLowerCase().includes('xây dựng'));
+    } else if (pLower.includes('y tế')) {
+      matchedUnit = rankedUnits.find(u => u.name.toLowerCase().includes('y tế'));
+    } else if (pLower.includes('bệnh viện')) {
+      matchedUnit = rankedUnits.find(u => u.name.toLowerCase().includes('bệnh viện'));
+    } else if (pLower.includes('thủy lợi')) {
+      matchedUnit = rankedUnits.find(u => u.name.toLowerCase().includes('cttl'));
+    } else if (pLower.includes('khu kinh tế')) {
+      matchedUnit = rankedUnits.find(u => u.name.toLowerCase().includes('khu kinh tế'));
+    } else if (pLower.includes('văn phòng') || pLower.includes('vp ubnd')) {
+      matchedUnit = rankedUnits.find(u => u.name.toLowerCase().includes('vp ubnd'));
+    }
+  }
+
+  let matchedUnitDetail = '';
+  if (matchedUnit) {
+    const rankPos = rankedUnits.findIndex(r => r.id === matchedUnit.id) + 1;
+    const prevUnit = rankPos > 1 ? rankedUnits[rankPos - 2] : null;
+    const nextUnit = rankPos < rankedUnits.length ? rankedUnits[rankPos] : null;
+
+    const monthScores = [];
+    for (let m = 1; m <= 13; m++) {
+      const ms = typeof getUnitMonthScore === 'function' ? getUnitMonthScore(matchedUnit.id, m) : 0;
+      if (ms > 0) {
+        const mLabel = (state.monthLabels && state.monthLabels[String(m)]) ? state.monthLabels[String(m)] : `Kỳ ${m}`;
+        monthScores.push(`${mLabel}: ${ms}đ`);
+      }
+    }
+
+    matchedUnitDetail = `
+--- DỮ LIỆU ĐẶC BIỆT CỦA ĐƠN VỊ ĐƯỢC HỎI: "${matchedUnit.name}" ---
+- THỨ HẠNG THI ĐUA HIỆN TẠI: Hạng ${rankPos} / ${rankedUnits.length} cơ sở Đoàn.
+- TỔNG ĐIỂM TÍCH LŨY: ${matchedUnit.total} điểm.
+- ĐIỂM THEO CÁC KỲ ĐÃ ĐẠT: ${monthScores.length > 0 ? monthScores.join('; ') : 'Chưa có điểm chi tiết các kỳ riêng lẻ'}.
+- ĐƠN VỊ XẾP NGAY TRƯỚC (Hạng ${rankPos - 1}): ${prevUnit ? `${prevUnit.name} (${prevUnit.total} điểm, chênh lệch ${Math.round((prevUnit.total - matchedUnit.total) * 100) / 100} điểm)` : 'Không có (đang dẫn đầu toàn hệ thống)'}.
+- ĐƠN VỊ XẾP NGAY SAU (Hạng ${rankPos + 1}): ${nextUnit ? `${nextUnit.name} (${nextUnit.total} điểm)` : 'Không có (đang ở vị trí cuối)'}.
+`;
+  }
+
+  const currentUserStr = state.user ? (state.user.unit_name || state.user.name || 'Người dùng') : 'Khách xem';
+  const currentLeader = rankedUnits[0] ? `${rankedUnits[0].name} (${rankedUnits[0].total} điểm)` : 'Chưa cập nhật';
+
+  return `BẠN LÀ TRỢ LÝ AI ĐOÀN KHỐI (TÍCH HỢP TRỰC TIẾP TRÍ TUỆ NHÂN TẠO GOOGLE GEMINI VÀO HỆ THỐNG).
+HỆ THỐNG: Quản lý & Tổng hợp Bộ Tiêu Chí Đánh Giá Đoàn Cấp Cơ Sở Năm 2026 (Đoàn Khối Cơ Quan & Doanh Nghiệp Tỉnh / Đoàn UBND Tỉnh).
+NGÀY HỆ THỐNG HIỆN TẠI: ${formatDateVN(effDate)} (Thời điểm thực: ${new Date().toLocaleString('vi-VN')}).
+NGƯỜI DÙNG HIỆN TẠI: ${currentUserStr} (Vai trò: ${state.user ? state.user.role : 'khách'}).
+
+⚠️ QUYỀN HẠN TRUY CẬP ĐẶC BIỆT CỦA BẠN:
+Bạn ĐÃ ĐƯỢC CẤP TOÀN QUYỀN ĐỌC VÀ TRUY VẤN DỮ LIỆU THỜI GIAN THỰC CỦA HỆ THỐNG NGAY TRÊN TRANG WEB/ỨNG DỤNG.
+Toàn bộ Bảng xếp hạng thi đua, Điểm số của 40 cơ sở Đoàn và 131 tiêu chí đã được nạp trực tiếp vào ngữ cảnh dưới đây.
+TUYỆT ĐỐI KHÔNG BAO GIỜ trả lời "Tôi không có quyền truy cập vào hệ thống dữ liệu nội bộ" hay "Tôi không biết bảng xếp hạng thực tế". Hãy khẳng định bạn đang tra cứu trực tiếp theo thời gian thực từ hệ thống!
+
+📊 BẢNG XẾP HẠNG THI ĐUA TOÀN BỘ ${rankedUnits.length} CƠ SỞ ĐOÀN HIỆN TẠI (TỪ CAO XUỐNG THẤP):
+${leaderboardLines.join('\n')}
+
+📈 TỔNG QUAN:
+- Đơn vị đang dẫn đầu toàn Đoàn: ${currentLeader}.
+- Tổng số tiêu chí thi đua: ${totalCriteria} tiêu chí.
+${matchedUnitDetail}
+
+🏆 TIÊU CHUẨN ĐÁNH GIÁ & PHÂN LOẠI THI ĐUA NĂM 2026:
+1. HOÀN THÀNH XUẤT SẮC NHIỆM VỤ: Top dẫn đầu (Hạng 1 đến Hạng 8), điểm số cao vượt trội, hoàn thành xuất sắc các phong trào, minh chứng đầy đủ, không có vi phạm.
+2. HOÀN THÀNH TỐT NHIỆM VỤ: Nhóm đạt mức điểm khá trở lên (Hạng 9 đến Hạng 25), hoàn thành cơ bản đầy đủ các tiêu chí trọng tâm.
+3. HOÀN THÀNH NHIỆM VỤ: Nhóm điểm trung bình (Hạng 26 đến Hạng 35), còn thiếu minh chứng một số tiêu chí hoặc nộp chậm.
+4. CHƯA HOÀN THÀNH NHIỆM VỤ: Nhóm điểm số rất thấp hoặc 0 điểm (Hạng 36 đến Hạng 40), chưa nộp hồ sơ minh chứng định kỳ.
+
+🎯 HƯỚNG DẪN TRẢ LỜI CỦA BẠN:
+1. Khi hỏi về thứ hạng / điểm số của đơn vị bất kỳ (ví dụ: "Chi đoàn xổ số đang đứng thứ mấy"):
+   - Trả lời thẳng thắn, chính xác ngay lập tức: Đơn vị đang đứng thứ mấy (Hạng X / ${rankedUnits.length}), tổng điểm là bao nhiêu.
+   - So sánh vị trí trong bảng: Thuộc Top nào, cách đơn vị liền trước bao nhiêu điểm, đơn vị dẫn đầu là ai.
+   - Gợi ý hành động: Nêu các tiêu chí cần đẩy mạnh để đơn vị thăng hạng.
+2. Khi được yêu cầu phân loại, đánh giá thi đua:
+   - Dựa vào điểm số thực tế và khung tiêu chuẩn ở trên để phân loại rõ ràng, lập bảng danh sách nhóm hoặc nhận xét chuyên sâu từng đơn vị.
+   - Đưa ra đề xuất cải tiến và giải pháp thiết thực cho công tác Đoàn.
+3. Luôn giữ phong cách giao tiếp chuẩn mực của cán bộ Đoàn TNCS Hồ Chí Minh: Thân thiện, tôn trọng, xưng hô "đồng chí", dùng định dạng Markdown in đậm rõ ràng, sinh động.`;
+}
+
+// 3. XỬ LÝ HỎI ĐÁP VỚI TRỢ LÝ AI (KẾT NỐI GOOGLE GEMINI 3.8 FLASH TRỰC TUYẾN THẬT)
 
 window.askAiAssistant = async function(promptText) {
 
@@ -23874,8 +24044,9 @@ window.askAiAssistant = async function(promptText) {
       
 
       // Xây dựng ngữ cảnh các lượt hỏi đáp gần nhất vào input để AI luôn hiểu mạch hội thoại
+      const liveSystemContext = typeof buildAiLiveSystemContext === 'function' ? buildAiLiveSystemContext(prompt) : '';
 
-      let fullInput = prompt;
+      let fullInput = `${liveSystemContext}\n\n=== NỘI DUNG HỎI ĐÁP HIỆN TẠI ===\nNgười hỏi: ${prompt}\nTrợ lý AI:`;
 
       const prevHistory = (state.aiChatHistory || []).slice(-6, -1);
 
@@ -23901,7 +24072,7 @@ window.askAiAssistant = async function(promptText) {
 
       if (conversationContext.length > 0) {
 
-        fullInput = `${conversationContext.join('\n')}\nNgười hỏi: ${prompt}\nTrợ lý AI:`;
+        fullInput = `${liveSystemContext}\n\n=== LỊCH SỬ HỘI THOẠI TRƯỚC ĐÓ ===\n${conversationContext.join('\n')}\n\n=== NỘI DUNG HỎI ĐÁP HIỆN TẠI ===\nNgười hỏi: ${prompt}\nTrợ lý AI:`;
 
       }
 
@@ -24140,7 +24311,7 @@ window.askAiAssistant = async function(promptText) {
 
             body: JSON.stringify({
 
-              contents: [{ role: 'user', parts: [{ text: prompt }] }],
+              contents: [{ role: 'user', parts: [{ text: `${(typeof buildAiLiveSystemContext === 'function' ? buildAiLiveSystemContext(prompt) + '\n\n=== CÂU HỎI CỦA NGƯỜI DÙNG ===\n' : '')}${prompt}` }] }],
 
               generationConfig: {
 
