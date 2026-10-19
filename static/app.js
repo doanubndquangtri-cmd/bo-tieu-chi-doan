@@ -353,67 +353,61 @@ window.openFileInlinePreviewModal = function(fileUrl, fileName) {
   
 
   // Xử lý link Google Drive sang chế độ nhúng xem trước (preview)
-
   let embedUrl = fileUrl;
-
   const driveMatch = fileUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || fileUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  const fileId = driveMatch ? driveMatch[1] : '';
 
-  if (driveMatch && driveMatch[1]) {
-
-    embedUrl = `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
-
+  if (fileId) {
+    embedUrl = `https://drive.google.com/file/d/${fileId}/preview`;
   } else if (/\.(doc|docx|xls|xlsx|ppt|pptx)$/i.test(fileName)) {
-
     embedUrl = `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`;
-
   }
 
-
-
   const isImg = /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i.test(fileName);
-
   const isVideo = /\.(mp4|mov|webm|avi|mkv)$/i.test(fileName);
 
-
-
   let contentHtml = '';
-
   if (isImg) {
+    if (fileId) {
+      const cdnUrl = `https://lh3.googleusercontent.com/d/${fileId}=w1600`;
+      const thumbUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1600`;
+      const ucUrl = `https://drive.google.com/uc?export=view&id=${fileId}`;
+      const iframePreview = `https://drive.google.com/file/d/${fileId}/preview`;
 
-    contentHtml = `
-
-      <div style="width:100%; height:72vh; display:flex; align-items:center; justify-content:center; background:#0f172a; border-radius:6px; overflow:hidden;">
-
-        <img src="${escapeHtml(fileUrl)}" alt="${escapeHtml(fileName)}" style="max-width:100%; max-height:100%; object-fit:contain;" />
-
-      </div>
-
-    `;
-
+      contentHtml = `
+        <div id="inline-img-preview-box" style="width:100%; height:75vh; display:flex; align-items:center; justify-content:center; background:#0f172a; border-radius:6px; overflow:auto; padding:10px; position:relative;">
+          <img src="${cdnUrl}" alt="${escapeHtml(fileName)}"
+            onerror="if(!this.dataset.step){this.dataset.step='1'; this.src='${thumbUrl}';}else if(this.dataset.step==='1'){this.dataset.step='2'; this.src='${ucUrl}';}else{const p=document.getElementById('inline-img-preview-box'); if(p) p.innerHTML='<iframe src=\\'${iframePreview}\\' style=\\'width:100%; height:100%; border:none; border-radius:6px;\\' allow=\\'autoplay\\'></iframe>';}"
+            style="max-width:100%; max-height:100%; object-fit:contain; border-radius:4px; box-shadow:0 4px 14px rgba(0,0,0,0.4);" />
+        </div>
+      `;
+    } else {
+      contentHtml = `
+        <div style="width:100%; height:75vh; display:flex; align-items:center; justify-content:center; background:#0f172a; border-radius:6px; overflow:auto; padding:10px;">
+          <img src="${escapeHtml(fileUrl)}" alt="${escapeHtml(fileName)}" style="max-width:100%; max-height:100%; object-fit:contain; border-radius:4px;" />
+        </div>
+      `;
+    }
   } else if (isVideo) {
-
-    contentHtml = `
-
-      <div style="width:100%; height:72vh; display:flex; align-items:center; justify-content:center; background:#000; border-radius:6px; overflow:hidden;">
-
-        <video src="${escapeHtml(fileUrl)}" controls autoplay style="max-width:100%; max-height:100%;"></video>
-
-      </div>
-
-    `;
-
+    if (fileId) {
+      contentHtml = `
+        <div style="position:relative; width:100%; height:75vh; background:#000; border-radius:6px; overflow:hidden;">
+          <iframe src="https://drive.google.com/file/d/${fileId}/preview" style="width:100%; height:100%; border:none;" allow="autoplay"></iframe>
+        </div>
+      `;
+    } else {
+      contentHtml = `
+        <div style="width:100%; height:75vh; display:flex; align-items:center; justify-content:center; background:#000; border-radius:6px; overflow:hidden;">
+          <video src="${escapeHtml(fileUrl)}" controls autoplay style="max-width:100%; max-height:100%;"></video>
+        </div>
+      `;
+    }
   } else {
-
     contentHtml = `
-
       <div style="position:relative; width:100%; height:75vh; background:#f8fafc; border-radius:6px; overflow:hidden;">
-
         <iframe src="${escapeHtml(embedUrl)}" style="width:100%; height:100%; border:none;" allow="autoplay" loading="lazy"></iframe>
-
       </div>
-
     `;
-
   }
 
 
@@ -15415,8 +15409,9 @@ function renderNotificationDropdown() {
   }
 
   return `
+    <div class="notification-backdrop" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(15,23,42,0.65); z-index:999990; backdrop-filter:blur(2px);" onclick="state.notificationsOpen = false; renderApp();"></div>
     <div class="notification-dropdown" onclick="event.stopPropagation()">
-      <div class="notification-header">
+      <div class="notification-header" style="flex-shrink:0;">
         <div style="display:flex; align-items:center; gap:8px;">
           <span style="font-size:16px;">🔔</span>
           <span style="font-weight:800; font-size:13.5px; letter-spacing:0.3px;">THÔNG BÁO HỆ THỐNG</span>
@@ -15424,14 +15419,14 @@ function renderNotificationDropdown() {
         </div>
         <div style="display:flex; align-items:center; gap:6px;">
           ${unreadCount > 0 ? `
-            <button type="button" onclick="markAllNotificationsRead()" style="background:rgba(255,255,255,0.22); border:1px solid rgba(255,255,255,0.5); color:#fff; font-size:11px; font-weight:700; cursor:pointer; padding:3px 8px; border-radius:4px; display:inline-flex; align-items:center; gap:3px;" title="Đánh dấu tất cả thông báo là đã đọc">
-              ✓✓ Đã đọc hết
+            <button type="button" onclick="markAllNotificationsRead()" style="background:rgba(255,255,255,0.22); border:1px solid rgba(255,255,255,0.5); color:#fff; font-size:11px; font-weight:700; cursor:pointer; padding:4px 8px; border-radius:5px; display:inline-flex; align-items:center; gap:3px;" title="Đánh dấu tất cả thông báo là đã đọc">
+              ✓✓ Đã đọc
             </button>
           ` : ''}
-          <button type="button" onclick="clearAllNotifications()" style="background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.3); color:#fff; font-size:11px; font-weight:700; cursor:pointer; padding:3px 7px; border-radius:4px;" title="Xóa toàn bộ thông báo">
+          <button type="button" onclick="clearAllNotifications()" style="background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.3); color:#fff; font-size:11px; font-weight:700; cursor:pointer; padding:4px 7px; border-radius:5px;" title="Xóa toàn bộ thông báo">
             🗑️ Dọn dẹp
           </button>
-          <button type="button" onclick="state.notificationsOpen = false; renderApp();" style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:26px; height:26px; border-radius:50%; font-size:14px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center;" title="Đóng bảng thông báo">✕</button>
+          <button type="button" onclick="state.notificationsOpen = false; renderApp();" style="background:rgba(255,255,255,0.25); border:1px solid rgba(255,255,255,0.5); color:#fff; font-size:12px; font-weight:800; cursor:pointer; padding:4px 9px; border-radius:6px; display:inline-flex; align-items:center; gap:3px;" title="Đóng bảng thông báo và quay lại màn hình chính">✕ Đóng</button>
         </div>
       </div>
 
@@ -15618,6 +15613,12 @@ function renderNotificationDropdown() {
             </div>
           `;
         }).join(''))}
+      </div>
+
+      <div class="notification-footer" style="padding:10px 14px; background:#ffffff; border-top:1px solid #cbd5e1; display:flex; justify-content:center; flex-shrink:0;">
+        <button type="button" class="btn" onclick="state.notificationsOpen = false; renderApp();" style="width:100%; max-width:320px; font-weight:800; font-size:13px; padding:9px 18px; border-radius:8px; background:#f8fafc; color:#1e293b; border:1.5px solid #cbd5e1; display:inline-flex; align-items:center; justify-content:center; gap:6px; box-shadow:0 1px 3px rgba(0,0,0,0.05); cursor:pointer;">
+          ⬅️ Đóng Lại & Quay Lại Bảng Chính
+        </button>
       </div>
     </div>
   `;
