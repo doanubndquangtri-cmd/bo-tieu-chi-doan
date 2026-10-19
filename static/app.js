@@ -8135,8 +8135,6 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
 
             </div>
 
-          </div>
-
 
 
           <!-- ADMIN PHÊ DUYỆT BÀI NỘP & XÁC NHẬN CHẤM ĐIỂM -->
