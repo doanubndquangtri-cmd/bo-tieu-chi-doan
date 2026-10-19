@@ -18117,7 +18117,7 @@ function renderAdminDocsTab() {
 
                       ${isAdmin ? `
 
-                        <button class="btn btn-sm btn-outline" onclick="renameAdminDocument('${d.id}')" style="padding:4px 8px; font-size:11.5px; display:inline-flex; align-items:center; color:#0284c7; border-color:#bae6fd;" title="Đổi tên văn bản (Tự động đổi tên trên Google Drive)">
+                        <button class="btn btn-sm btn-outline" onclick="openEditAdminDocModal('${d.id}')" style="padding:4px 8px; font-size:11.5px; display:inline-flex; align-items:center; color:#0284c7; border-color:#bae6fd;" title="Chỉnh sửa số/ký hiệu, ngày ban hành, loại và trích yếu văn bản">
 
                           ✏️
 
@@ -18902,85 +18902,224 @@ window.resetAllEvaluationData = async function() {
 
 
 
-window.renameAdminDocument = async function (docId) {
-
-  const doc = (state.admin_docs || []).find((d) => d.id === docId);
-
-  if (!doc) return;
-
-
-
-  const newTitle = prompt('Nhập tên / trích yếu mới của văn bản:', doc.title || '');
-
-  if (!newTitle || !newTitle.trim() || newTitle.trim() === doc.title) return;
-
-
-
-  const trimmedTitle = newTitle.trim();
-
-  showToast('Đang cập nhật tên văn bản...', 'info');
-
-
-
-  const gdriveUrl = getGoogleDriveScriptUrl();
-
-  if (gdriveUrl && doc.file_url) {
-
-    try {
-
-      fetch(gdriveUrl, {
-
-        method: 'POST',
-
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-
-        body: JSON.stringify({
-
-          action: 'rename_file',
-
-          fileUrl: doc.file_url,
-
-          newName: trimmedTitle
-
-        })
-
-      }).then(r => r.json()).catch(e => console.warn('Rename file on drive notice:', e));
-
-    } catch (e) {}
-
+// HỘP THOẠI CHỈNH SỬA TOÀN DIỆN THÔNG TIN VĂN BẢN (SỐ/KÝ HIỆU, NGÀY BAN HÀNH, LOẠI, TRÍCH YẾU)
+window.openEditAdminDocModal = function (docId) {
+  const doc = (state.admin_docs || []).find((d) => String(d.id) === String(docId));
+  if (!doc) {
+    showToast('Không tìm thấy thông tin văn bản cần chỉnh sửa!', 'error');
+    return;
   }
 
+  const modalRoot = document.getElementById('modal-root');
+  if (!modalRoot) return;
 
+  const docNumber = doc.doc_number || '';
+  const docDate = doc.doc_date || todayISO();
+  const docType = doc.doc_type || 'Hướng dẫn';
+  const title = doc.title || '';
+  const fileName = doc.file_name || 'Tệp văn bản';
+  const fileUrl = doc.file_url || ADMIN_DOCS_GDRIVE_URL;
 
-  const res = await mutateCloudDB((db) => {
+  const docTypes = [
+    'Hướng dẫn',
+    'Kế hoạch',
+    'Báo cáo',
+    'Thông báo',
+    'Quyết định',
+    'Công văn',
+    'Tài liệu khác'
+  ];
 
-    const d = (db.admin_docs || []).find((x) => x.id === docId);
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+      <div class="modal-box" style="max-width:540px; width:95%; border-radius:12px; overflow:hidden; box-shadow:0 20px 45px rgba(0,0,0,0.3); background:#fff; animation:modalPopIn 0.2s ease-out;">
+        
+        <div class="modal-header" style="background:linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color:#fff; padding:14px 18px; display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-weight:800; font-size:15px; display:flex; align-items:center; gap:8px;">
+            <span>✏️</span>
+            <span>Chỉnh Sửa Thông Tin Văn Bản</span>
+          </div>
+          <button type="button" onclick="closeModal()" style="background:transparent; border:none; color:#fff; font-size:18px; font-weight:800; cursor:pointer; padding:2px 6px; line-height:1;">✕</button>
+        </div>
 
-    if (d) {
+        <div class="modal-body" style="padding:18px 20px; background:#fff; max-height:calc(85vh - 120px); overflow-y:auto;">
+          
+          <!-- Thông tin tệp đính kèm gốc -->
+          <div style="margin-bottom:14px; background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px;">
+            <div style="min-width:0; display:flex; align-items:center; gap:8px;">
+              <span style="font-size:20px;">📄</span>
+              <div style="min-width:0;">
+                <div style="font-size:11px; color:#0369a1; font-weight:700;">TỆP ĐÍNH KÈM HIỆN TẠI</div>
+                <div style="font-size:12.5px; font-weight:700; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(fileName)}">
+                  ${escapeHtml(fileName)}
+                </div>
+              </div>
+            </div>
+            ${fileUrl ? `
+              <a href="${escapeHtml(fileUrl)}" target="_blank" style="flex-shrink:0; font-size:11.5px; font-weight:700; color:#0284c7; text-decoration:none; background:#fff; border:1px solid #bae6fd; border-radius:6px; padding:4px 8px; display:inline-flex; align-items:center; gap:3px;">
+                👁️ Xem tệp
+              </a>
+            ` : ''}
+          </div>
 
-      d.title = trimmedTitle;
+          <!-- Các trường chỉnh sửa -->
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            
+            <div style="display:flex; gap:12px; flex-wrap:wrap;">
+              <!-- Số / Ký hiệu văn bản -->
+              <div style="flex:1 1 200px;">
+                <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:4px;">
+                  Số / Ký hiệu văn bản:
+                </label>
+                <input 
+                  type="text" 
+                  id="edit-doc-number" 
+                  value="${escapeHtml(docNumber)}" 
+                  placeholder="VD: 15-HD/ĐTN, 117-QĐ/ĐTN..." 
+                  style="width:100%; padding:8px 10px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:6px; outline:none; box-sizing:border-box; font-weight:700; color:#0369a1;"
+                />
+              </div>
 
-    }
+              <!-- Ngày ban hành -->
+              <div style="flex:1 1 150px;">
+                <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:4px;">
+                  Ngày ban hành:
+                </label>
+                <input 
+                  type="date" 
+                  id="edit-doc-date" 
+                  value="${escapeHtml(docDate)}" 
+                  style="width:100%; padding:8px 10px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:6px; outline:none; box-sizing:border-box; font-weight:600; color:#334155;"
+                />
+              </div>
+            </div>
 
-  }, 'Admin rename document ' + docId);
+            <!-- Loại văn bản -->
+            <div>
+              <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:4px;">
+                Loại văn bản:
+              </label>
+              <select 
+                id="edit-doc-type" 
+                style="width:100%; padding:8px 10px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:6px; outline:none; box-sizing:border-box; background:#fff; font-weight:600; color:#334155; cursor:pointer;"
+              >
+                ${docTypes.map(t => `<option value="${t}" ${t === docType ? 'selected' : ''}>${t}</option>`).join('')}
+              </select>
+            </div>
 
+            <!-- Trích yếu / Tên nội dung văn bản -->
+            <div>
+              <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:4px;">
+                Trích yếu / Nội dung văn bản (*):
+              </label>
+              <textarea 
+                id="edit-doc-title" 
+                rows="3" 
+                placeholder="Nhập trích yếu hoặc tên nội dung văn bản..." 
+                style="width:100%; padding:8px 10px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:6px; outline:none; box-sizing:border-box; font-weight:500; line-height:1.45; resize:vertical;"
+              >${escapeHtml(title)}</textarea>
+            </div>
 
+          </div>
 
-  if (res.ok) {
+          <div style="margin-top:18px; padding-top:12px; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:8px;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal()" style="font-weight:600; padding:7px 16px;">
+              Hủy bỏ
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="saveEditAdminDoc('${escapeHtml(String(doc.id))}')" style="background:#0284c7; border-color:#0369a1; font-weight:700; padding:7px 18px; display:inline-flex; align-items:center; gap:5px;">
+              💾 Lưu Thay Đổi
+            </button>
+          </div>
 
-    showToast('Đã đổi tên văn bản và đồng bộ lên Google Drive!', 'success');
+        </div>
 
-    renderApp();
+      </div>
+    </div>
+  `;
 
-  } else {
-
-    showToast('Lỗi khi cập nhật tên văn bản!', 'error');
-
-  }
-
+  // Tự động focus vào ô Số/Ký hiệu để người dùng nhập/bổ sung ngay
+  setTimeout(() => {
+    const numInput = document.getElementById('edit-doc-number');
+    if (numInput) numInput.focus();
+  }, 100);
 };
 
+// LƯU CẬP NHẬT THÔNG TIN VĂN BẢN VÀ ĐỒNG BỘ
+window.saveEditAdminDoc = async function (docId) {
+  const numInput = document.getElementById('edit-doc-number');
+  const dateInput = document.getElementById('edit-doc-date');
+  const typeSelect = document.getElementById('edit-doc-type');
+  const titleInput = document.getElementById('edit-doc-title');
 
+  if (!titleInput || !titleInput.value.trim()) {
+    showToast('Vui lòng nhập trích yếu / nội dung văn bản!', 'warning');
+    if (titleInput) titleInput.focus();
+    return;
+  }
+
+  const newNumber = numInput ? numInput.value.trim() : '';
+  const newDate = dateInput ? dateInput.value.trim() : todayISO();
+  const newType = typeSelect ? typeSelect.value.trim() : 'Hướng dẫn';
+  const newTitle = titleInput.value.trim();
+
+  const doc = (state.admin_docs || []).find((d) => String(d.id) === String(docId));
+  if (!doc) {
+    showToast('Không tìm thấy văn bản cần cập nhật!', 'error');
+    return;
+  }
+
+  showToast('Đang lưu thay đổi thông tin văn bản...', 'info');
+
+  if (typeof closeModal === 'function') closeModal();
+
+  // Đổi tên trên Google Drive nếu tiêu đề thay đổi
+  const titleChanged = newTitle !== doc.title;
+  const gdriveUrl = getGoogleDriveScriptUrl();
+  if (titleChanged && gdriveUrl && doc.file_url) {
+    try {
+      fetch(gdriveUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'rename_file',
+          fileUrl: doc.file_url,
+          newName: newTitle
+        })
+      }).then(r => r.json()).catch(e => console.warn('Rename file on drive notice:', e));
+    } catch (e) {}
+  }
+
+  const res = await mutateCloudDB((db) => {
+    const d = (db.admin_docs || []).find((x) => String(x.id) === String(docId));
+    if (d) {
+      d.doc_number = newNumber;
+      d.doc_date = newDate;
+      d.doc_type = newType;
+      d.title = newTitle;
+    }
+  }, `Admin edit document ${docId}: ${newNumber} - ${newTitle}`);
+
+  if (res.ok) {
+    // Cập nhật ngay vào state để hiển thị tức thì
+    if (state.admin_docs) {
+      const curDoc = state.admin_docs.find(x => String(x.id) === String(docId));
+      if (curDoc) {
+        curDoc.doc_number = newNumber;
+        curDoc.doc_date = newDate;
+        curDoc.doc_type = newType;
+        curDoc.title = newTitle;
+      }
+    }
+    showToast('Đã cập nhật thông tin văn bản thành công!', 'success');
+    renderApp();
+  } else {
+    showToast('Lỗi khi cập nhật văn bản lên máy chủ!', 'error');
+  }
+};
+
+window.renameAdminDocument = function (docId) {
+  openEditAdminDocModal(docId);
+};
 
 /* =========================================================================
 
