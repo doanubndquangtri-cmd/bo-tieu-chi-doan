@@ -6435,7 +6435,7 @@ function getUnitFilteredTotalScore(unitId) {
   let sum = 0;
   for (const c of crits) {
     const sc = getScoreObj(unitId, c.id);
-    if (sc && sc.score !== null && sc.score !== undefined && sc.score !== '' && sc.approval_status !== 'pending') {
+    if (sc && sc.score !== null && sc.score !== undefined && sc.score !== '' && !isNaN(Number(sc.score))) {
       sum += Number(sc.score);
     }
   }
@@ -6491,7 +6491,7 @@ function getUnitTotalScore(unitId) {
 
     const sc = getScoreObj(unitId, c.id);
 
-    if (sc && sc.score !== null && sc.score !== undefined && sc.score !== '' && sc.approval_status !== 'pending') {
+    if (sc && sc.score !== null && sc.score !== undefined && sc.score !== '' && !isNaN(Number(sc.score))) {
 
       sum += Number(sc.score);
 
@@ -6515,7 +6515,7 @@ function getUnitMonthScore(unitId, monthGroup) {
 
       const sc = getScoreObj(unitId, c.id);
 
-      if (sc && sc.score !== null && sc.score !== undefined && sc.score !== '' && sc.approval_status !== 'pending') {
+      if (sc && sc.score !== null && sc.score !== undefined && sc.score !== '' && !isNaN(Number(sc.score))) {
 
         sum += Number(sc.score);
 
@@ -9483,151 +9483,103 @@ window.onSortByChange = function (val) {
 
 
 window.onAdminInlineScoreChange = async function (inputEl) {
-
   const unitId = Number(inputEl.getAttribute('data-unit'));
-
   const critId = Number(inputEl.getAttribute('data-crit'));
-
   const rawVal = inputEl.value.trim().replace(',', '.');
 
-
-
   if (rawVal !== '' && isNaN(Number(rawVal))) {
-
     showToast('Vui lòng nhập số hợp lệ (VD: 5, 10, -5, 9.2) hoặc để trống!', 'error');
-
     const prev = getScoreObj(unitId, critId);
-
     inputEl.value = prev && prev.score !== null ? formatScore(prev.score) : '';
-
     return;
-
   }
-
-
 
   const numVal = rawVal === '' ? null : Math.round(Number(rawVal) * 100) / 100;
 
-
+  // Cập nhật ngay lập tức vào bộ nhớ cục bộ để phản hồi trực quan (Zero-Latency)
+  const mapKey = unitId + '_' + critId;
+  if (!state.scoresMap[mapKey]) {
+    state.scoresMap[mapKey] = {
+      unit_id: unitId,
+      criterion_id: critId,
+      score: numVal,
+      approval_status: numVal !== null ? 'approved' : 'rejected'
+    };
+  } else {
+    state.scoresMap[mapKey].score = numVal;
+    state.scoresMap[mapKey].approval_status = numVal !== null ? 'approved' : 'rejected';
+  }
+  inputEl.value = numVal !== null ? formatScore(numVal) : '';
+  inputEl.classList.remove('neg-score', 'pos-score');
+  if (numVal !== null) {
+    inputEl.classList.add(numVal < 0 ? 'neg-score' : 'pos-score');
+  }
+  updateUnitTotalCellDOM(unitId);
 
   const res = await mutateCloudDB((db) => {
-
     db.scores = db.scores || [];
-
     const idx = db.scores.findIndex((s) => s.unit_id === unitId && s.criterion_id === critId);
-
     if (idx >= 0) {
-
       db.scores[idx].score = numVal;
-
+      db.scores[idx].approval_status = numVal !== null ? 'approved' : 'rejected';
       db.scores[idx].updated_by = 'admin';
-
       db.scores[idx].submitted_at = nowISO();
-
+      if (db.notifications && Array.isArray(db.notifications)) {
+        db.notifications.forEach(n => {
+          if (Number(n.unit_id) === Number(unitId) && Number(n.criterion_id) === Number(critId)) {
+            n.read = true;
+            n.approval_status = numVal !== null ? 'approved' : 'rejected';
+          }
+        });
+      }
     } else if (numVal !== null) {
-
       db.scores.push({
-
         unit_id: unitId,
-
         criterion_id: critId,
-
         score: numVal,
-
         quantity: 1,
-
         self_score: numVal,
-
+        approval_status: 'approved',
         report_content: '',
-
         evidence_link: '',
-
         file_name: '',
-
         file_path: '',
-
         submitted_at: nowISO(),
-
         submitted_date: todayISO(),
-
         is_on_time: 1,
-
         updated_by: 'admin',
-
         admin_note: '',
-
       });
-
     }
-
-  }, `Admin score U${unitId} C${critId}`);
-
-
+  }, 'Admin score U' + unitId + ' C' + critId);
 
   if (res.ok) {
-
-    inputEl.value = numVal !== null ? formatScore(numVal) : '';
-
-    inputEl.classList.remove('neg-score', 'pos-score');
-
-    if (numVal !== null) {
-
-      inputEl.classList.add(numVal < 0 ? 'neg-score' : 'pos-score');
-
-    }
-
-    // Cập nhật lại xếp hạng tự động nếu đang sắp xếp theo điểm
-
-    if (state.sortBy !== 'order') {
-
-      setTimeout(() => renderApp(), 400);
-
-    }
-
-
-
     // Immediately update evidence-dot on the cell
-
-    const cellTd = document.getElementById(`cell-${unitId}-${critId}`);
-
+    const cellTd = document.getElementById('cell-' + unitId + '-' + critId);
     if (cellTd) {
-
       const existingDot = cellTd.querySelector('.evidence-dot');
-
       if (numVal !== null && !existingDot) {
-
         const dotSpan = document.createElement('span');
-
         dotSpan.className = 'evidence-dot ontime';
-
         dotSpan.onclick = () => openSubmissionDetailModal(unitId, critId);
-
         dotSpan.title = 'Xem chi tiết báo cáo, lý do cho điểm & minh chứng đính kèm';
-
         dotSpan.innerHTML = '📎';
-
         cellTd.prepend(dotSpan);
-
       } else if (numVal === null && existingDot) {
-
         const sc = getScoreObj(unitId, critId);
-
         const hasContent = sc && (sc.report_content || sc.evidence_link || sc.file_path);
-
         if (!hasContent) existingDot.remove();
-
       }
-
     }
-
-
 
     updateUnitTotalCellDOM(unitId);
-
+    if (state.sortBy !== 'order') {
+      setTimeout(() => renderApp(), 400);
+    }
     showToast('🟢 Đã cập nhật điểm thành công!', 'success');
-
+  } else {
+    showToast('Lỗi khi đồng bộ điểm lên đám mây!', 'error');
   }
-
 };
 
 
@@ -12214,7 +12166,7 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
             <div style="margin-top:6px; display:flex; align-items:center; gap:8px;">
               <b>Trạng thái:</b>
               ${
-                (sc && sc.score !== null && sc.score !== '' && Number(sc.score) > 0 && sc.approval_status !== 'pending')
+                (sc && sc.score !== null && sc.score !== '' && !isNaN(Number(sc.score)))
                   ? `<span class="badge badge-success" style="font-weight:700;">✅ Đã duyệt (+${formatScore(sc.score)} điểm)</span>`
                   : (sc && (sc.approval_status === 'pending' || (sc.score === null && ((sc.files && sc.files.length > 0) || sc.file_path || sc.report_content || sc.evidence_link))))
                   ? '<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;">⏳ Chờ Admin duyệt</span>'
@@ -12868,18 +12820,16 @@ window.saveAdminSubmissionDetail = async function (unitId, critId) {
     const idx = db.scores.findIndex((s) => s.unit_id === unitId && s.criterion_id === critId);
 
     if (idx >= 0) {
-
-      if (newScore !== null) {
-        db.scores[idx].score = newScore;
-        db.scores[idx].approval_status = 'approved';
-        db.notifications = db.notifications || [];
-        db.notifications.forEach(notif => {
-          if (Number(notif.unit_id) === Number(unitId) && Number(notif.criterion_id) === Number(critId)) {
-            notif.read = true;
-            notif.approval_status = 'approved';
-          }
-        });
-      }
+      db.scores[idx].score = newScore;
+      db.scores[idx].approval_status = newScore !== null ? 'approved' : 'rejected';
+      db.scores[idx].updated_by = 'admin';
+      db.notifications = db.notifications || [];
+      db.notifications.forEach(notif => {
+        if (Number(notif.unit_id) === Number(unitId) && Number(notif.criterion_id) === Number(critId)) {
+          notif.read = true;
+          notif.approval_status = newScore !== null ? 'approved' : 'rejected';
+        }
+      });
 
       db.scores[idx].report_content = newContent;
 
@@ -12921,6 +12871,7 @@ window.saveAdminSubmissionDetail = async function (unitId, critId) {
         unit_id: unitId,
         criterion_id: critId,
         score: newScore !== null ? newScore : 0,
+        approval_status: newScore !== null ? 'approved' : 'rejected',
         quantity: 1,
         self_score: newScore,
         report_content: newContent,
@@ -13100,25 +13051,17 @@ window.executeBatchFillColumn = async function (criterionId) {
       const idx = db.scores.findIndex((s) => s.unit_id === uId && s.criterion_id === criterionId);
 
       if (idx >= 0) {
-
         db.scores[idx].score = numVal;
-
+        db.scores[idx].approval_status = numVal !== null ? 'approved' : 'rejected';
         db.scores[idx].updated_by = 'admin';
-
       } else if (numVal !== null) {
-
         db.scores.push({
-
           unit_id: uId,
-
           criterion_id: criterionId,
-
           score: numVal,
-
+          approval_status: 'approved',
           updated_by: 'admin',
-
           submitted_at: nowISO(),
-
         });
 
       }
@@ -13225,7 +13168,7 @@ function renderReportsMatrixTableComponent(targetCriteria, allCriteria, reportCr
               let doneCount = 0;
               const cells = targetCriteria.map(c => {
                 const sc = getScoreObj(u.id, c.id);
-                const hasScore = sc && sc.score !== null && sc.score !== '' && Number(sc.score) > 0 && sc.approval_status !== 'pending';
+                const hasScore = sc && sc.score !== null && sc.score !== '' && !isNaN(Number(sc.score));
                 if (hasScore) doneCount++;
                 const isPending = sc && (sc.approval_status === 'pending' || (sc.score === null && ((sc.files && sc.files.length > 0) || sc.file_path || sc.report_content || sc.evidence_link)));
                 const hasDetail = sc && (hasScore || isPending || sc.report_content || sc.evidence_link || sc.file_path || (sc.files && sc.files.length > 0));
@@ -13363,7 +13306,7 @@ function renderAdminReportsTab() {
   activeUnits.forEach((u) => {
     targetCriteria.forEach((c) => {
       const sc = getScoreObj(u.id, c.id);
-      const hasScore = sc && sc.score !== null && sc.score !== '' && Number(sc.score) > 0 && sc.approval_status !== 'pending';
+      const hasScore = sc && sc.score !== null && sc.score !== '' && !isNaN(Number(sc.score));
       const isPending = sc && (sc.approval_status === 'pending' || (sc.score === null && ((sc.files && sc.files.length > 0) || sc.file_path || sc.report_content || sc.evidence_link)));
       if (hasScore) totalApprovedGlobal++;
       else if (isPending) totalPendingGlobal++;
@@ -13454,7 +13397,7 @@ function renderAdminReportsTab() {
 
               const allCrits = targetCriteria.map(c => {
                 const sc = getScoreObj(u.id, c.id);
-                const hasScore = sc && sc.score !== null && sc.score !== '' && Number(sc.score) > 0 && sc.approval_status !== 'pending';
+                const hasScore = sc && sc.score !== null && sc.score !== '' && !isNaN(Number(sc.score));
                 if (hasScore) doneCount++;
                 const isPending = sc && (sc.approval_status === 'pending' || (sc.score === null && ((sc.files && sc.files.length > 0) || sc.file_path || sc.report_content || sc.evidence_link)));
                 if (isPending) pendingCount++;
