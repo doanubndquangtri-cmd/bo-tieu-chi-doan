@@ -5607,7 +5607,10 @@ function renderUnitSubmitTab() {
 
                 const isActivity = !isReport && !isAdminScore && !isBlankContent;
 
-                const isPending = sc && (sc.approval_status === 'pending' || (sc.score === null && ((sc.files && sc.files.length > 0) || sc.file_path || sc.report_content || sc.evidence_link)));
+                const isRejected = sc && sc.approval_status === 'rejected';
+                const hasScoreVal = sc && sc.score !== null && sc.score !== undefined && sc.score !== '' && !isNaN(Number(sc.score)) && !isRejected;
+                const hasProof = sc && Boolean((sc.files && sc.files.length > 0) || sc.file_path || sc.report_content || sc.evidence_link);
+                const isPending = sc && !hasScoreVal && !isRejected && (sc.approval_status === 'pending' || hasProof);
 
 
 
@@ -5740,9 +5743,9 @@ function renderUnitSubmitTab() {
                         ? formatScore(scoreVal) + ' đ'
 
                         : isPending
-
                         ? `<span style="font-size:11.5px; color:#d97706; font-weight:700;">(+${formatScore(sc.self_score)}đ chờ duyệt)</span>`
-
+                        : isRejected
+                        ? `<span style="font-size:11.5px; color:#b91c1c; font-weight:700;">(🚫 Đã từ chối)</span>`
                         : '-'
 
                     }
@@ -5883,15 +5886,20 @@ function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rank
         const isAdminScore = Number(c.is_report) === 2;
         const isBlankContent = Number(c.is_report) === 3;
         const isActivity = !isReport && !isAdminScore && !isBlankContent;
-        const isPending = sc && (sc.approval_status === 'pending' || (sc.score === null && ((sc.files && sc.files.length > 0) || sc.file_path || sc.report_content || sc.evidence_link)));
+        const isRejected = sc && sc.approval_status === 'rejected';
+                const hasScoreVal = sc && sc.score !== null && sc.score !== undefined && sc.score !== '' && !isNaN(Number(sc.score)) && !isRejected;
+                const hasProof = sc && Boolean((sc.files && sc.files.length > 0) || sc.file_path || sc.report_content || sc.evidence_link);
+                const isPending = sc && !hasScoreVal && !isRejected && (sc.approval_status === 'pending' || hasProof);
 
         let scoreBadge = '';
         if (isBlankContent) {
           scoreBadge = `<span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;">-</span>`;
-        } else if (scoreVal !== null) {
+        } else if (scoreVal !== null && !isRejected) {
           scoreBadge = `<span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-size:12px; font-weight:800;">✅ ${formatScore(scoreVal)} đ</span>`;
         } else if (isPending) {
           scoreBadge = `<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-size:11.5px; font-weight:700;">⏳ Chờ duyệt (+${formatScore(sc.self_score)}đ)</span>`;
+        } else if (isRejected) {
+          scoreBadge = `<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-size:11.5px; font-weight:700;">🚫 Không duyệt</span>`;
         } else {
           scoreBadge = `<span class="badge" style="background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1; font-size:11.5px;">Chưa có điểm</span>`;
         }
@@ -8815,10 +8823,12 @@ function renderReportsMatrixTableComponent(targetCriteria, allCriteria, reportCr
               let doneCount = 0;
               const cells = targetCriteria.map(c => {
                 const sc = getScoreObj(u.id, c.id);
-                const hasScore = sc && sc.score !== null && sc.score !== '' && !isNaN(Number(sc.score));
+                const isRejected = sc && sc.approval_status === 'rejected';
+                const hasScore = sc && sc.score !== null && sc.score !== '' && !isNaN(Number(sc.score)) && !isRejected;
                 if (hasScore) doneCount++;
-                const isPending = sc && (sc.approval_status === 'pending' || (sc.score === null && ((sc.files && sc.files.length > 0) || sc.file_path || sc.report_content || sc.evidence_link)));
-                const hasDetail = sc && (hasScore || isPending || sc.report_content || sc.evidence_link || sc.file_path || (sc.files && sc.files.length > 0));
+                const hasProof = sc && Boolean((sc.files && sc.files.length > 0) || sc.file_path || sc.report_content || sc.evidence_link);
+                const isPending = sc && !hasScore && !isRejected && (sc.approval_status === 'pending' || hasProof);
+                const hasDetail = sc && (hasScore || isPending || isRejected || hasProof);
 
                 return `
                   <td style="text-align:center; ${hasDetail ? 'cursor:pointer;' : 'cursor:default;'}" ${hasDetail ? `onclick="openSubmissionDetailModal(${u.id}, ${c.id})" title="Bấm để xem chi tiết báo cáo & minh chứng đã nộp (Chỉ xem)"` : `title="Chưa nộp báo cáo hoặc minh chứng"`}>
@@ -8826,6 +8836,8 @@ function renderReportsMatrixTableComponent(targetCriteria, allCriteria, reportCr
                       ? `<span class="badge badge-success" title="Đã duyệt">+${formatScore(sc.score)}đ</span>`
                       : isPending
                       ? `<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;" title="Đã nộp minh chứng, chờ Admin duyệt">+${formatScore(sc.self_score || getCriterionTargetPoints(c))}đ ⏳</span>`
+                      : isRejected
+                      ? `<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:700;" title="Ban Thường vụ đã từ chối duyệt (Vui lòng nộp lại minh chứng)">🚫 Từ chối</span>`
                       : `<span style="color:#cbd5e1; font-weight:600;" title="Chưa nộp">—</span>`}
                   </td>
                 `;
@@ -8945,18 +8957,23 @@ function renderAdminReportsTab() {
   else if (state.reportTypeFilter === 'report') targetCriteria = reportCriteria;
   else if (state.reportTypeFilter === 'admin') targetCriteria = adminCriteria;
 
-  // Đếm tổng số lượng trên toàn bộ hệ thống theo từng trạng thái duyệt
+  // Đếm tổng số lượng trên toàn bộ hệ thống theo từng trạng thái duyệt chuẩn 100%
   let totalPendingGlobal = 0;
   let totalApprovedGlobal = 0;
+  let totalRejectedGlobal = 0;
   let totalUnsubmittedGlobal = 0;
 
   activeUnits.forEach((u) => {
     targetCriteria.forEach((c) => {
       const sc = getScoreObj(u.id, c.id);
-      const hasScore = sc && sc.score !== null && sc.score !== '' && !isNaN(Number(sc.score));
-      const isPending = sc && (sc.approval_status === 'pending' || (sc.score === null && ((sc.files && sc.files.length > 0) || sc.file_path || sc.report_content || sc.evidence_link)));
+      const isRejected = sc && sc.approval_status === 'rejected';
+      const hasScore = sc && sc.score !== null && sc.score !== '' && !isNaN(Number(sc.score)) && !isRejected;
+      const hasProof = sc && Boolean((sc.files && sc.files.length > 0) || sc.file_path || sc.report_content || sc.evidence_link);
+      const isPending = sc && !hasScore && !isRejected && (sc.approval_status === 'pending' || hasProof);
+
       if (hasScore) totalApprovedGlobal++;
       else if (isPending) totalPendingGlobal++;
+      else if (isRejected) totalRejectedGlobal++;
       else totalUnsubmittedGlobal++;
     });
   });
@@ -9029,27 +9046,35 @@ function renderAdminReportsTab() {
             <span>✅ Đã duyệt</span>
             <span style="background:${state.reportsStatusFilter === 'approved' ? '#fff' : '#16a34a'}; color:${state.reportsStatusFilter === 'approved' ? '#15803d' : '#fff'}; padding:1px 6px; border-radius:10px; font-size:10.5px; font-weight:800;">${totalApprovedGlobal}</span>
           </button>
-          <button type="button" class="btn ${state.reportsStatusFilter === 'unsubmitted' ? 'active' : ''}" onclick="setReportsStatusFilter('unsubmitted')" style="flex:1; min-width:95px; font-size:12px; font-weight:700; padding:8px 10px; border-radius:8px; border:1px solid ${state.reportsStatusFilter === 'unsubmitted' ? '#dc2626' : '#cbd5e1'}; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:4px; ${state.reportsStatusFilter === 'unsubmitted' ? 'background:#dc2626; color:#fff; box-shadow:0 2px 6px rgba(220,38,38,0.25);' : 'background:#fff; color:#64748b;'}">
+          <button type="button" class="btn ${state.reportsStatusFilter === 'rejected' ? 'active' : ''}" onclick="setReportsStatusFilter('rejected')" style="flex:1.1; min-width:105px; font-size:12px; font-weight:700; padding:8px 10px; border-radius:8px; border:1px solid ${state.reportsStatusFilter === 'rejected' ? '#dc2626' : '#fca5a5'}; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:4px; ${state.reportsStatusFilter === 'rejected' ? 'background:#dc2626; color:#fff; box-shadow:0 2px 6px rgba(220,38,38,0.25);' : 'background:#fff5f5; color:#b91c1c;'}">
+            <span>🚫 Từ chối</span>
+            <span style="background:${state.reportsStatusFilter === 'rejected' ? '#fff' : '#ef4444'}; color:${state.reportsStatusFilter === 'rejected' ? '#b91c1c' : '#fff'}; padding:1px 6px; border-radius:10px; font-size:10.5px; font-weight:800;">${totalRejectedGlobal}</span>
+          </button>
+          <button type="button" class="btn ${state.reportsStatusFilter === 'unsubmitted' ? 'active' : ''}" onclick="setReportsStatusFilter('unsubmitted')" style="flex:1; min-width:95px; font-size:12px; font-weight:700; padding:8px 10px; border-radius:8px; border:1px solid ${state.reportsStatusFilter === 'unsubmitted' ? '#64748b' : '#cbd5e1'}; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; gap:4px; ${state.reportsStatusFilter === 'unsubmitted' ? 'background:#64748b; color:#fff; box-shadow:0 2px 6px rgba(100,116,139,0.25);' : 'background:#fff; color:#64748b;'}">
             <span>❌ Chưa nộp</span>
           </button>
         </div>
 
         <div style="padding: 10px;">
           ${(() => {
-            // Xử lý dữ liệu từng đơn vị theo bộ lọc trạng thái
+            // Xử lý dữ liệu từng đơn vị theo bộ lọc trạng thái chuẩn 100%
             const processedUnits = activeUnits.map((u, idx) => {
               let doneCount = 0;
               let pendingCount = 0;
+              let rejectedCount = 0;
               let unsubmittedCount = 0;
 
               const allCrits = targetCriteria.map(c => {
                 const sc = getScoreObj(u.id, c.id);
-                const hasScore = sc && sc.score !== null && sc.score !== '' && !isNaN(Number(sc.score));
+                const isRejected = sc && sc.approval_status === 'rejected';
+                const hasScore = sc && sc.score !== null && sc.score !== '' && !isNaN(Number(sc.score)) && !isRejected;
                 if (hasScore) doneCount++;
-                const isPending = sc && (sc.approval_status === 'pending' || (sc.score === null && ((sc.files && sc.files.length > 0) || sc.file_path || sc.report_content || sc.evidence_link)));
+                const hasProof = sc && Boolean((sc.files && sc.files.length > 0) || sc.file_path || sc.report_content || sc.evidence_link);
+                const isPending = sc && !hasScore && !isRejected && (sc.approval_status === 'pending' || hasProof);
                 if (isPending) pendingCount++;
-                if (!hasScore && !isPending) unsubmittedCount++;
-                return { c, sc, hasScore, isPending };
+                if (isRejected) rejectedCount++;
+                if (!hasScore && !isPending && !isRejected) unsubmittedCount++;
+                return { c, sc, hasScore, isPending, isRejected };
               });
 
               let displayCritList = allCrits;
@@ -9057,20 +9082,24 @@ function renderAdminReportsTab() {
                 displayCritList = allCrits.filter(x => x.isPending);
               } else if (state.reportsStatusFilter === 'approved') {
                 displayCritList = allCrits.filter(x => x.hasScore);
+              } else if (state.reportsStatusFilter === 'rejected') {
+                displayCritList = allCrits.filter(x => x.isRejected);
               } else if (state.reportsStatusFilter === 'unsubmitted') {
-                displayCritList = allCrits.filter(x => !x.hasScore && !x.isPending);
+                displayCritList = allCrits.filter(x => !x.hasScore && !x.isPending && !x.isRejected);
               }
 
               const pct = targetCriteria.length > 0 ? Math.round((doneCount / targetCriteria.length) * 100) : 0;
-              return { u, idx, doneCount, pendingCount, unsubmittedCount, pct, displayCritList };
+              return { u, idx, doneCount, pendingCount, rejectedCount, unsubmittedCount, pct, displayCritList };
             });
 
-            // Khi người dùng chọn "Chờ duyệt": CHỈ HIỂN THỊ CÁC ĐƠN VỊ CÓ TIÊU CHÍ CHỜ DUYỆT!
+            // Khi người dùng chọn bộ lọc: CHỈ HIỂN THỊ CÁC ĐƠN VỊ CÓ TIÊU CHÍ PHÙ HỢP!
             let unitsToRender = processedUnits;
             if (state.reportsStatusFilter === 'pending') {
               unitsToRender = processedUnits.filter(item => item.pendingCount > 0);
             } else if (state.reportsStatusFilter === 'approved') {
               unitsToRender = processedUnits.filter(item => item.doneCount > 0);
+            } else if (state.reportsStatusFilter === 'rejected') {
+              unitsToRender = processedUnits.filter(item => item.rejectedCount > 0);
             } else if (state.reportsStatusFilter === 'unsubmitted') {
               unitsToRender = processedUnits.filter(item => item.unsubmittedCount > 0);
             }
@@ -9119,6 +9148,11 @@ function renderAdminReportsTab() {
                                 <span>⏳</span> ${pendingCount} chờ duyệt
                               </span>
                             ` : ''}
+                            ${rejectedCount > 0 ? `
+                              <span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:800; font-size:10.5px; padding:2px 7px; border-radius:12px; display:inline-flex; align-items:center; gap:3px;">
+                                <span>🚫</span> ${rejectedCount} từ chối
+                              </span>
+                            ` : ''}
                           </div>
                           <div class="mobile-card-title">${escapeHtml(u.unit_name)}</div>
                         </div>
@@ -9139,12 +9173,12 @@ function renderAdminReportsTab() {
                             <span>${state.reportsStatusFilter === 'pending' ? 'Các tiêu chí đang chờ duyệt (' + displayCritList.length + '):' : 'Chi tiết các tiêu chí (' + displayCritList.length + '):'}</span>
                             ${state.reportsStatusFilter === 'pending' ? `<span style="font-size:11px; color:#b45309; font-weight:700;">⏳ Cần chấm điểm</span>` : ''}
                           </div>
-                          ${displayCritList.map(({ c, sc, hasScore, isPending }) => `
-                            <div class="mobile-crit-item ${hasScore ? 'has-score' : ''} ${isPending ? 'is-pending' : ''}" style="${isPending ? 'border-left:4px solid #f59e0b; background:#fffdf5; border-top:1px solid #fef3c7; border-right:1px solid #fef3c7; border-bottom:1px solid #fef3c7;' : ''}">
+                                                    ${displayCritList.map(({ c, sc, hasScore, isPending, isRejected }) => `
+                            <div class="mobile-crit-item ${hasScore ? 'has-score' : ''} ${isPending ? 'is-pending' : ''} ${isRejected ? 'is-rejected' : ''}" style="${isPending ? 'border-left:4px solid #f59e0b; background:#fffdf5; border-top:1px solid #fef3c7; border-right:1px solid #fef3c7; border-bottom:1px solid #fef3c7;' : (isRejected ? 'border-left:4px solid #ef4444; background:#fef2f2; border-top:1px solid #fecaca; border-right:1px solid #fecaca; border-bottom:1px solid #fecaca;' : '')}">
                               <div class="mobile-crit-header">
                                 <div style="flex:1;">
-                                  <div style="font-size:10.5px; font-weight:700; color:${isPending ? '#b45309' : '#0284c7'}; text-transform:uppercase;">
-                                    ${isPending ? '⏳ ' : ''}${escapeHtml(c.col_label || '')} • ${escapeHtml(c.month_label || '')}
+                                  <div style="font-size:10.5px; font-weight:700; color:${isPending ? '#b45309' : (isRejected ? '#b91c1c' : '#0284c7')}; text-transform:uppercase;">
+                                    ${isPending ? '⏳ ' : (isRejected ? '🚫 ' : '')}${escapeHtml(c.col_label || '')} • ${escapeHtml(c.month_label || '')}
                                   </div>
                                   <div class="mobile-crit-title">${escapeHtml(c.title)}</div>
                                   <div style="font-size:10.5px; color:#64748b; margin-top:2px;">
@@ -9155,6 +9189,11 @@ function renderAdminReportsTab() {
                                       📎 <b>Minh chứng:</b> ${escapeHtml(sc.report_content || sc.file_name || sc.evidence_link || 'Đã đính kèm tệp')}
                                     </div>
                                   ` : ''}
+                                  ${isRejected && sc && sc.admin_note ? `
+                                    <div style="font-size:11.5px; color:#b91c1c; background:#fff5f5; padding:4px 8px; border-radius:5px; border:1px solid #fecaca; margin-top:5px; line-height:1.4;">
+                                      ⚠️ <b>Lý do từ chối:</b> ${escapeHtml(sc.admin_note)}
+                                    </div>
+                                  ` : ''}
                                 </div>
                                 <div style="text-align:right;">
                                   ${
@@ -9162,14 +9201,16 @@ function renderAdminReportsTab() {
                                       ? `<span class="badge badge-success">+${formatScore(sc.score)}đ</span>`
                                       : isPending
                                       ? `<span class="badge" style="background:#fef3c7; color:#b45309; border:1.5px solid #f59e0b; font-weight:800; font-size:11.5px; padding:3px 8px; border-radius:6px;">+${formatScore(sc.self_score || getCriterionTargetPoints(c))}đ ⏳</span>`
+                                      : isRejected
+                                      ? `<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:700;">🚫 Không duyệt</span>`
                                       : `<span class="badge badge-danger">Chưa nộp</span>`
                                   }
                                 </div>
                               </div>
-                              <div style="display:flex; justify-content:flex-end; gap:6px; margin-top:8px; padding-top:6px; border-top:1px dashed ${isPending ? '#fde68a' : '#e2e8f0'};">
-                                ${sc && (hasScore || isPending || sc.report_content || sc.evidence_link || sc.file_path || (sc.files && sc.files.length > 0)) ? `
-                                  <button class="btn btn-sm ${isPending ? 'btn-primary' : 'btn-outline'}" onclick="openSubmissionDetailModal(${u.id}, ${c.id})" style="font-size:11.5px; padding:4px 10px; font-weight:700; ${isPending ? 'background:#0284c7; color:#fff;' : ''}">
-                                    ${isPending ? '🔍 Xem & Duyệt Điểm' : '🔍 Xem Hồ Sơ'}
+                              <div style="display:flex; justify-content:flex-end; gap:6px; margin-top:8px; padding-top:6px; border-top:1px dashed ${isPending ? '#fde68a' : (isRejected ? '#fecaca' : '#e2e8f0')};">
+                                ${sc && (hasScore || isPending || isRejected || sc.report_content || sc.evidence_link || sc.file_path || (sc.files && sc.files.length > 0)) ? `
+                                  <button class="btn btn-sm ${isPending ? 'btn-primary' : 'btn-outline'}" onclick="openSubmissionDetailModal(${u.id}, ${c.id})" style="font-size:11.5px; font-weight:700; padding:4px 10px; display:inline-flex; align-items:center; gap:4px; ${isPending ? 'background:#d97706; border-color:#d97706;' : ''}">
+                                    ${isPending ? '🔍 Xem & Duyệt Điểm' : (isRejected ? '🔍 Xem Lý Do & Chi Tiết' : '🔍 Xem Hồ Sơ')}
                                   </button>
                                 ` : ''}
                               </div>
@@ -13594,6 +13635,66 @@ const ADMIN_DOCS_GDRIVE_URL = 'https://drive.google.com/drive/folders/1h7UI2N0jd
 
 
 
+
+window._adminDocChosenFiles = [];
+
+window.onAdminDocFilesChosen = function (fileList) {
+  if (!fileList || fileList.length === 0) return;
+  for (let i = 0; i < fileList.length; i++) {
+    const f = fileList[i];
+    if (!window._adminDocChosenFiles.some(existing => existing.name === f.name && existing.size === f.size)) {
+      window._adminDocChosenFiles.push(f);
+    }
+  }
+  renderAdminDocChosenFiles();
+  const inp = document.getElementById('admin-doc-file-input');
+  if (inp) inp.value = '';
+};
+
+window.removeAdminDocChosenFile = function (index) {
+  if (window._adminDocChosenFiles && window._adminDocChosenFiles[index]) {
+    window._adminDocChosenFiles.splice(index, 1);
+    renderAdminDocChosenFiles();
+  }
+};
+
+window.renderAdminDocChosenFiles = function () {
+  const container = document.getElementById('admin-doc-chosen-files-container');
+  if (!container) return;
+  const files = window._adminDocChosenFiles || [];
+  if (files.length === 0) {
+    container.innerHTML = `
+      <div style="font-size:12px; color:#94a3b8; font-style:italic; padding:6px 10px; background:#f8fafc; border-radius:6px; border:1px dashed #cbd5e1;">
+        Chưa có tệp nào được chọn. Vui lòng bấm nút <b>[➕ Thêm tệp văn bản]</b> ở trên để tải lên.
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <div style="font-size:12px; font-weight:700; color:#0f172a; margin-bottom:4px;">
+      Đã chọn <b>${files.length}</b> tệp văn bản:
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:6px;">
+      ${files.map((f, idx) => {
+        const sizeStr = f.size > 1024 * 1024 ? (f.size / (1024 * 1024)).toFixed(1) + ' MB' : Math.round(f.size / 1024) + ' KB';
+        const fInfo = getFileIconAndBadge(f.name);
+        return `
+          <div style="display:inline-flex; align-items:center; gap:6px; background:#f0f9ff; border:1px solid #bae6fd; padding:4px 9px; border-radius:6px; font-size:12px;">
+            <span style="font-size:14px;">${fInfo.icon}</span>
+            <span style="font-weight:700; color:#0369a1; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span>
+            <span style="font-size:11px; color:#64748b;">(${sizeStr})</span>
+            <button type="button" onclick="removeAdminDocChosenFile(${idx})" style="border:none; background:none; color:#ef4444; font-weight:700; cursor:pointer; padding:0 3px; font-size:13px; line-height:1;" title="Gỡ tệp này">✕</button>
+          </div>
+        `;
+      }).join('')}
+      <button type="button" class="btn btn-sm btn-outline" onclick="document.getElementById('admin-doc-file-input').click()" style="padding:3px 9px; font-size:11.5px; font-weight:700; color:#0284c7; border:1px dashed #0284c7; background:#fff; border-radius:6px; display:inline-flex; align-items:center; gap:4px; cursor:pointer;" title="Bấm để thêm văn bản hoặc phụ lục khác">
+        ➕ Thêm tệp khác
+      </button>
+    </div>
+  `;
+};
+
 function renderAdminDocsTab() {
 
   const isAdmin = state.user && state.user.role === 'admin';
@@ -13633,6 +13734,7 @@ function renderAdminDocsTab() {
   });
 
   const docs = uniqueDocs;
+  setTimeout(renderAdminDocChosenFiles, 50);
 
 
 
@@ -13712,20 +13814,27 @@ function renderAdminDocsTab() {
 
           </div>
 
-          <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-
-            <div style="flex:1; min-width:240px;">
-
-              <input type="file" id="admin-doc-file" style="font-size:13px;" />
-
+          <div style="margin-bottom:12px;">
+            <label style="font-size:12px; font-weight:700; color:#475569; display:block; margin-bottom:6px;">
+              Tệp văn bản đính kèm (*):
+            </label>
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
+              <input type="file" id="admin-doc-file-input" multiple style="display:none;" onchange="onAdminDocFilesChosen(this.files)" />
+              <button type="button" class="btn btn-outline" onclick="document.getElementById('admin-doc-file-input').click()" style="padding:7px 14px; font-size:12.5px; font-weight:700; color:#0284c7; border:1.5px dashed #0284c7; background:#f0f9ff; border-radius:6px; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" title="Bấm để chọn tệp văn bản từ máy tính (có thể chọn nhiều tệp)">
+                <span style="font-size:16px; font-weight:900;">➕</span> Thêm tệp văn bản
+              </button>
+              <span style="font-size:11.5px; color:#64748b;">(Hỗ trợ PDF, Word, Excel, Ảnh... Bấm <b>[+]</b> để thêm nhiều tệp / phụ lục cho văn bản)</span>
             </div>
+            <div id="admin-doc-chosen-files-container"></div>
+          </div>
 
-            <button class="btn btn-primary" id="btn-upload-admin-doc" onclick="uploadAdminDocument()" style="font-weight:700; padding:9px 18px; display:inline-flex; align-items:center; gap:6px;">
-
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; border-top:1px dashed #e2e8f0; padding-top:10px;">
+            <div style="font-size:11.5px; color:#64748b;">
+              💡 Tự động đồng bộ và lưu trữ vĩnh viễn trên Thư mục Google Drive của Ban Thường vụ.
+            </div>
+            <button class="btn btn-primary" id="btn-upload-admin-doc" onclick="uploadAdminDocument()" style="font-weight:700; padding:9px 20px; display:inline-flex; align-items:center; gap:6px; background:#0284c7; border-color:#0284c7;">
               🚀 Đăng Tải Lên Google Drive
-
             </button>
-
           </div>
 
         </div>
@@ -13840,19 +13949,27 @@ function renderAdminDocsTab() {
                   <td style="text-align:center;" class="doc-type-cell"><span class="badge badge-info">${escapeHtml(d.doc_type || 'Văn bản')}</span></td>
 
                   <td style="text-align:left; padding:8px 12px;">
-
-                    <a href="${escapeHtml(d.file_url || ADMIN_DOCS_GDRIVE_URL)}" target="_blank" style="font-weight:700; color:#0284c7; text-decoration:none; display:inline-flex; align-items:flex-start; gap:6px; line-height:1.4; word-break:break-word;">
-
-                      <span style="font-size:16px; flex-shrink:0;">${fileTypeInfo.icon}</span>
-
-                      <span title="${escapeHtml(d.file_name || 'Xem tệp')}">
-
-                        ${escapeHtml(d.file_name || 'Xem tệp')}
-
-                      </span>
-
-                    </a>
-
+                    ${(() => {
+                      const fileList = (d.files && Array.isArray(d.files) && d.files.length > 0)
+                        ? d.files
+                        : [{ name: d.file_name || 'Xem tệp', url: d.file_url || ADMIN_DOCS_GDRIVE_URL, download_url: d.download_url }];
+                      return fileList.map(f => {
+                        const fInfo = getFileIconAndBadge(f.name);
+                        const dlUrl = f.download_url || (f.url && f.url.includes('/file/d/') ? 'https://drive.google.com/uc?export=download&id=' + f.url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/)[1] : f.url);
+                        return `
+                          <div style="margin-bottom:4px; display:flex; align-items:center; justify-content:space-between; gap:6px; background:#f8fafc; padding:3px 8px; border-radius:5px; border:1px solid #e2e8f0;">
+                            <a href="${escapeHtml(f.url || ADMIN_DOCS_GDRIVE_URL)}" target="_blank" style="font-weight:700; color:#0284c7; text-decoration:none; display:inline-flex; align-items:center; gap:5px; line-height:1.3; word-break:break-word; max-width:260px;" title="Bấm để xem trực tuyến">
+                              <span style="font-size:14px; flex-shrink:0;">${fInfo.icon}</span>
+                              <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(f.name)}</span>
+                            </a>
+                            <div style="display:inline-flex; gap:4px; flex-shrink:0;">
+                              <a href="${escapeHtml(f.url || ADMIN_DOCS_GDRIVE_URL)}" target="_blank" style="padding:1px 5px; font-size:11px; color:#0284c7; text-decoration:none; font-weight:700;" title="Xem trực tuyến">👁️</a>
+                              <a href="${escapeHtml(dlUrl)}" target="_blank" download="${escapeHtml(f.name)}" style="padding:1px 5px; font-size:11px; color:#16a34a; text-decoration:none; font-weight:700;" title="Tải về máy">⬇️</a>
+                            </div>
+                          </div>
+                        `;
+                      }).join('');
+                    })()}
                   </td>
 
                   <td style="text-align:center; white-space:nowrap; padding:8px 10px;">
@@ -13914,261 +14031,139 @@ function renderAdminDocsTab() {
 
 
 window.uploadAdminDocument = async function () {
-
-  const fileInput = document.getElementById('admin-doc-file');
-
   const titleInput = document.getElementById('admin-doc-title');
-
   const numberInput = document.getElementById('admin-doc-number');
-
   const dateInput = document.getElementById('admin-doc-date');
-
   const typeInput = document.getElementById('admin-doc-type');
-
   const btn = document.getElementById('btn-upload-admin-doc');
 
-
-
   const title = (titleInput ? titleInput.value : '').trim();
-
   const docNumber = (numberInput ? numberInput.value : '').trim();
-
   const docDate = (dateInput ? dateInput.value : '') || todayISO();
-
   const docType = typeInput ? typeInput.value : 'Hướng dẫn';
 
-
-
   if (!title) {
-
     showToast('Vui lòng nhập trích yếu / tên nội dung văn bản!', 'error');
-
     if (titleInput) titleInput.focus();
-
     return;
-
   }
 
-
-
-  const file = fileInput && fileInput.files && fileInput.files[0];
-
-  if (!file) {
-
-    showToast('Vui lòng chọn tệp văn bản đính kèm!', 'error');
-
+  const files = window._adminDocChosenFiles || [];
+  if (files.length === 0) {
+    showToast('Vui lòng bấm nút [➕ Thêm tệp văn bản] để chọn ít nhất 1 tệp đính kèm!', 'error');
     return;
-
   }
-
-
-
-  // Kiểm tra trùng tên văn bản tải lên
-
-  const isDupDoc = (state.admin_docs || []).some(d => (d.file_name && d.file_name.toLowerCase() === file.name.toLowerCase()) || (d.title && d.title.trim().toLowerCase() === title.toLowerCase()));
-
-  if (isDupDoc) {
-
-    showToast(`⚠️ Văn bản hoặc tệp "${file.name}" đã tồn tại trên hệ thống! Vui lòng không tải lên tệp trùng tên.`, 'error');
-
-    return;
-
-  }
-
-
 
   if (btn) {
-
     btn.disabled = true;
-
     btn.textContent = '⏳ Đang tải lên Google Drive...';
-
   }
-
-  
 
   showUploadProgressModal('Đang Đăng Tải Văn Bản Lên Google Drive');
 
-  updateUploadProgress({
-
-    percent: 10,
-
-    fileName: file.name,
-
-    fileIndex: 'Tệp 1 / 1',
-
-    loaded: 0,
-
-    total: file.size,
-
-    statusText: 'Đang đọc và chuẩn bị dữ liệu...'
-
-  });
-
-
-
   try {
-
-    const b64 = await readFileAsDataURL(file);
-
+    const uploadedFileList = [];
     const gdriveUrl = getGoogleDriveScriptUrl();
 
-    let fileUrl = ADMIN_DOCS_GDRIVE_URL;
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const fileLabel = `Tệp ${i + 1} / ${files.length}`;
 
+      updateUploadProgress({
+        percent: Math.round((i / files.length) * 100) + 5,
+        fileName: file.name,
+        fileIndex: fileLabel,
+        loaded: 0,
+        total: file.size,
+        statusText: `Đang chuẩn bị tệp (${fileLabel})...`
+      });
 
+      const b64 = await readFileAsDataURL(file);
+      let fileUrl = ADMIN_DOCS_GDRIVE_URL;
 
-    if (gdriveUrl) {
-
-      try {
-
-        const payload = {
-
-          action: 'admin_upload_doc',
-
-          isAdminDoc: true,
-
-          fileName: file.name,
-
-          docTitle: title,
-
-          docNumber: docNumber,
-
-          fileData: b64,
-
-          folderId: '1bjnzwoNFB-YBmN9wvhuH_qQRNYITWEcS'
-
-        };
-
-        let json = null;
-
+      if (gdriveUrl) {
         try {
-
-          const resDoc = await fetch(gdriveUrl, {
-
-            method: 'POST',
-
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-
-            body: JSON.stringify(payload)
-
-          });
-
-          json = await resDoc.json();
-
-        } catch (fErr) {
-
-          json = await uploadWithXHR(gdriveUrl, payload, (pct, loaded, total) => {
-
-            const mapped = Math.round(10 + (pct * 0.85));
-
-            updateUploadProgress({
-
-              percent: mapped,
-
-              fileName: file.name,
-
-              fileIndex: 'Tệp 1 / 1',
-
-              loaded: loaded,
-
-              total: total,
-
-              statusText: `Đang truyền tệp lên Google Drive (${mapped}%)...`
-
+          const payload = {
+            action: 'admin_upload_doc',
+            isAdminDoc: true,
+            fileName: file.name,
+            docTitle: title,
+            docNumber: docNumber,
+            fileData: b64,
+            folderId: '1bjnzwoNFB-YBmN9wvhuH_qQRNYITWEcS'
+          };
+          let json = null;
+          try {
+            const resDoc = await fetch(gdriveUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify(payload)
             });
-
-          });
-
+            json = await resDoc.json();
+          } catch (fErr) {
+            json = await uploadWithXHR(gdriveUrl, payload, (pct, loaded, total) => {
+              const mapped = Math.round(((i + (pct / 100)) / files.length) * 90) + 5;
+              updateUploadProgress({
+                percent: mapped,
+                fileName: file.name,
+                fileIndex: fileLabel,
+                loaded: loaded,
+                total: total,
+                statusText: `Đang truyền tệp lên Google Drive (${fileLabel})...`
+              });
+            });
+          }
+          if (json && json.fileUrl) {
+            fileUrl = json.fileUrl;
+          }
+        } catch (e) {
+          console.warn('Google Drive direct upload notice:', e);
         }
-
-        if (json && json.fileUrl) {
-
-          fileUrl = json.fileUrl;
-
-        }
-
-        if (json && json.folderStatus === 'fallback_permission_needed') {
-
-          showToast('⚠️ File đã tải lên thành công! Tuy nhiên thư mục Google Drive chưa được mở quyền "Người chỉnh sửa" (Editor) nên tạm lưu ở Drive hệ thống.', 'warning');
-
-        }
-
-      } catch (e) {
-
-        console.warn('Google Drive direct upload notice:', e);
-
       }
 
+      let downloadUrl = '';
+      if (fileUrl && fileUrl.includes('/file/d/')) {
+        const m = fileUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+        if (m) downloadUrl = 'https://drive.google.com/uc?export=download&id=' + m[1];
+      }
+
+      uploadedFileList.push({
+        name: file.name,
+        url: fileUrl,
+        download_url: downloadUrl,
+        size: file.size
+      });
     }
-
-
 
     updateUploadProgress({
-
       percent: 98,
-
-      fileName: file.name,
-
-      fileIndex: 'Tệp 1 / 1',
-
-      loaded: file.size,
-
-      total: file.size,
-
+      fileName: files[0].name,
+      fileIndex: `Hoàn tất ${files.length} tệp`,
+      loaded: 100,
+      total: 100,
       statusText: 'Đang lưu vào cơ sở dữ liệu trực tuyến...'
-
     });
 
-
-
     const docId = 'doc_' + Date.now();
-
-    let downloadUrl = '';
-
-    if (fileUrl && fileUrl.includes('/file/d/')) {
-
-      const m = fileUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-
-      if (m) downloadUrl = 'https://drive.google.com/uc?export=download&id=' + m[1];
-
-    }
-
+    const primaryFile = uploadedFileList[0] || {};
     const newDoc = {
-
       id: docId,
-
       doc_number: docNumber,
-
       doc_date: docDate,
-
       doc_type: docType,
-
       title: title,
-
-      file_name: file.name,
-
-      file_url: fileUrl,
-
-      download_url: downloadUrl,
-
-      file_size: file.size,
-
-      uploaded_at: nowISO(),
-
+      file_name: files.length === 1 ? primaryFile.name : `${files.length} tệp đính kèm (${uploadedFileList.map(f => f.name).join(', ')})`,
+      file_url: primaryFile.url || ADMIN_DOCS_GDRIVE_URL,
+      download_url: primaryFile.download_url || '',
+      files: uploadedFileList,
+      created_at: nowISO(),
       uploaded_by: 'admin'
-
     };
 
-
-
     const resDb = await mutateCloudDB((db) => {
-
       db.admin_docs = db.admin_docs || [];
-
       db.admin_docs = db.admin_docs.filter(d => d.id !== docId);
-
       db.admin_docs.push(newDoc);
-
       db.notifications = db.notifications || [];
       db.notifications.unshift({
         id: 'notif_doc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
@@ -14178,43 +14173,31 @@ window.uploadAdminDocument = async function () {
         doc_title: title,
         content: `Ban Thường vụ đã ban hành văn bản mới: "${title}"`,
         doc_id: docId,
-        file_name: file.name,
-        file_url: fileUrl,
-        download_url: downloadUrl,
+        file_name: newDoc.file_name,
+        file_url: newDoc.file_url,
+        download_url: newDoc.download_url,
+        files: uploadedFileList,
         submitted_at: nowISO(),
         read: true,
         read_by_units: [],
         created_at: nowISO()
       });
       if (db.notifications.length > 200) db.notifications.length = 200;
-
     }, 'Admin upload document ' + title);
 
-
-
     if (resDb.ok) {
-
       updateUploadProgress({
-
         percent: 100,
-
-        fileName: file.name,
-
-        fileIndex: 'Tệp 1 / 1',
-
-        loaded: file.size,
-
-        total: file.size,
-
+        fileName: files[0].name,
+        fileIndex: `Hoàn tất ${files.length} tệp`,
+        loaded: 100,
+        total: 100,
         statusText: 'Đã hoàn tất đăng tải văn bản!',
-
         isDone: true
-
       });
-
       await new Promise(r => setTimeout(r, 400));
-
       hideUploadProgressModal();
+
       if (window.broadcastLiveEvent) {
         window.broadcastLiveEvent('ADMIN_DOC', { title: title });
       }
@@ -14226,132 +14209,72 @@ window.uploadAdminDocument = async function () {
           url: './'
         });
       }
-      // Reset form
 
+      // Reset form sạch sẽ để Admin có thể tiếp tục thêm văn bản khác ngay lập tức
       if (titleInput) titleInput.value = '';
-
       if (numberInput) numberInput.value = '';
+      window._adminDocChosenFiles = [];
+      renderAdminDocChosenFiles();
 
-      if (fileInput) fileInput.value = '';
-
-
-
-      showToast('Đã đăng tải văn bản thành công lên Hệ Thống Văn Bản Google Drive!', 'success');
-
-      
-
-      // Khử trùng lặp triệt để để đảm bảo hiển thị đúng 1 dòng duy nhất
-
-      if (Array.isArray(state.admin_docs)) {
-
-        const seenIds = new Set();
-
-        state.admin_docs = state.admin_docs.filter(d => {
-
-          if (!d || !d.id || seenIds.has(d.id)) return false;
-
-          seenIds.add(d.id);
-
-          return true;
-
-        });
-
-      }
-
+      showToast(`🎉 Đã đăng tải thành công văn bản và ${files.length} tệp đính kèm lên Google Drive! Bạn có thể tiếp tục thêm văn bản khác.`, 'success');
       renderApp();
-
     } else {
-
       hideUploadProgressModal();
-
       showToast('Lỗi khi lưu dữ liệu văn bản vào cơ sở dữ liệu!', 'error');
-
     }
-
   } catch (err) {
-
     hideUploadProgressModal();
-
     showToast('Lỗi tải văn bản: ' + err.message, 'error');
-
   } finally {
-
     hideUploadProgressModal();
-
     if (btn) {
-
       btn.disabled = false;
-
       btn.textContent = '🚀 Đăng Tải Lên Google Drive';
-
     }
-
   }
-
 };
-
-
 
 window.deleteAdminDocument = function (docId) {
-
   const doc = (state.admin_docs || []).find((d) => d.id === docId);
-
   if (!doc) return;
 
-
+  const fileUrls = [];
+  const fileNames = [];
+  if (doc.files && Array.isArray(doc.files) && doc.files.length > 0) {
+    doc.files.forEach(f => {
+      if (f.url) fileUrls.push(f.url);
+      if (f.name) fileNames.push(f.name);
+    });
+  } else {
+    if (doc.file_url) fileUrls.push(doc.file_url);
+    if (doc.file_name) fileNames.push(doc.file_name);
+  }
 
   promptDeleteWithDriveOption({
-
     title: 'Xóa Văn Bản Khỏi Hệ Thống',
-
     message: `Bạn có chắc chắn muốn xóa văn bản <b>"${escapeHtml(doc.title)}"</b> (Số: ${escapeHtml(doc.doc_number || 'Chưa rõ')})?`,
-
-    fileNames: doc.file_name ? [doc.file_name] : [],
-
+    fileNames: fileNames,
     onConfirm: async (deleteFromDrive) => {
-
       showToast('Đang thực hiện xóa văn bản...', 'info');
-
-      if (deleteFromDrive && doc.file_url) {
-
-        showToast('Đang đưa tệp vào Thùng rác Google Drive...', 'info');
-
-        await requestDeleteFilesFromDrive([doc.file_url]);
-
+      if (deleteFromDrive && fileUrls.length > 0) {
+        showToast(`Đang đưa ${fileUrls.length} tệp vào Thùng rác Google Drive...`, 'info');
+        await requestDeleteFilesFromDrive(fileUrls);
       }
-
-
 
       const res = await mutateCloudDB((db) => {
-
         db.admin_docs = (db.admin_docs || []).filter((d) => d.id !== docId);
-
       }, 'Admin delete document ' + docId);
 
-
-
       if (res.ok) {
-
         showToast(deleteFromDrive ? 'Đã xóa văn bản và dọn dẹp trên Google Drive!' : 'Đã xóa văn bản khỏi hệ thống!', 'success');
-
         state.admin_docs = (state.admin_docs || []).filter((d) => d.id !== docId);
-
         renderApp();
-
       } else {
-
         showToast('Lỗi khi xóa văn bản khỏi cơ sở dữ liệu!', 'error');
-
       }
-
     }
-
   });
-
 };
-
-
-
 window.deleteFilteredAdminDocs = function () {
 
   const typeSelect = document.getElementById('admin-doc-type-filter');
