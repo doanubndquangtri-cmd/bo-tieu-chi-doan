@@ -8862,6 +8862,76 @@ function renderReportsMatrixTableComponent(targetCriteria, allCriteria, reportCr
   `;
 }
 
+function renderReportsLogCardsComponent(filteredLogs, activeUnits) {
+  return `
+    <div class="panel" style="margin-bottom:12px; border-radius:10px; overflow:hidden; border:1px solid #cbd5e1;">
+      <div class="panel-header" style="padding:10px 14px; background:linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color:#fff; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div class="panel-title" style="font-size:13.5px; font-weight:800; color:#fff; display:flex; align-items:center; gap:6px;">
+          <span>🕒</span> BẢNG 2: NHẬT KÝ ĐƠN VỊ NỘP BÁO CÁO & MINH CHỨNG
+        </div>
+        <div style="font-size:11px; background:rgba(255,255,255,0.2); padding:3px 8px; border-radius:12px; font-weight:600;">
+          ${filteredLogs.length} lượt nộp
+        </div>
+      </div>
+
+      <div style="background:#f8fafc; border-bottom:1px solid #e2e8f0; padding:8px 10px; display:flex; align-items:center; gap:8px;">
+        <span style="font-size:12px; font-weight:700; color:#475569; white-space:nowrap;">Lọc cơ sở:</span>
+        <select onchange="state.logFilterUnit = this.value; renderApp();" style="flex:1; font-size:12px; padding:6px 10px; border:1px solid #cbd5e1; border-radius:6px; background:#fff;">
+          <option value="0">-- Tất cả các đơn vị --</option>
+          ${activeUnits.map(u => `<option value="${u.id}" ${Number(state.logFilterUnit) === u.id ? 'selected' : ''}>${escapeHtml(u.unit_name)}</option>`).join('')}
+        </select>
+      </div>
+
+      <div style="padding: 10px; display:flex; flex-direction:column; gap:8px;">
+        ${filteredLogs.length === 0 ? `
+          <div style="text-align:center; padding:32px 16px; background:#fff; border-radius:10px; color:#64748b; font-size:13px; border:1px dashed #cbd5e1;">
+            Chưa có lượt nộp báo cáo nào được ghi nhận.
+          </div>
+        ` : filteredLogs.map(l => {
+          const isRejected = l.is_rejected;
+          const isApproved = l.is_admin_approval || (l.awarded_score !== null && l.awarded_score !== undefined && Number(l.awarded_score) > 0);
+          const isPending = !isRejected && !isApproved;
+          return `
+            <div style="background:#fff; border-radius:8px; border:1px solid ${isRejected ? '#fca5a5' : (isPending ? '#fde68a' : '#cbd5e1')}; padding:10px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px; gap:6px;">
+                <div style="font-weight:700; font-size:13px; color:#0f172a; flex:1;">
+                  🏢 ${escapeHtml(l.unit_name)}
+                </div>
+                <div>
+                  ${(() => {
+                    if (isRejected) return '<span class="badge badge-danger">🚫 Từ chối</span>';
+                    if (isApproved) return '<span class="badge badge-success" style="font-weight:700;">✅ Đã duyệt +' + formatScore(l.awarded_score) + 'đ</span>';
+                    return '<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;">⏳ Chờ duyệt</span>';
+                  })()}
+                </div>
+              </div>
+
+              <div style="font-size:12px; color:#1e293b; margin-bottom:4px; font-weight:600;">
+                <span style="color:#0284c7;">${escapeHtml(l.col_label || '')}:</span> ${escapeHtml(l.criterion_title || '')}
+              </div>
+
+              <div style="font-size:11px; color:#64748b; margin-bottom:6px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:4px;">
+                <span>⏰ Nộp: <b>${escapeHtml(l.submitted_at || formatDateVN(l.submitted_date))}</b></span>
+                <span>Hạn: ${formatDateVN(l.deadline)}</span>
+              </div>
+
+              <div style="background:#f8fafc; border-radius:6px; padding:6px 8px; font-size:11.5px; border:1px solid #e2e8f0; margin-bottom:6px;">
+                ${renderSubmissionEvidenceAndFiles(l)}
+              </div>
+
+              <div style="display:flex; justify-content:flex-end; gap:6px;">
+                <button class="btn btn-sm ${isPending ? 'btn-primary' : 'btn-outline'}" onclick="openSubmissionDetailModal(${l.unit_id}, ${l.criterion_id})" style="font-size:11.5px; font-weight:700; padding:4px 10px; display:inline-flex; align-items:center; gap:4px; ${isPending ? 'background:#d97706; border-color:#d97706;' : ''}">
+                  ${isPending ? '🔍 Xem & Duyệt Điểm' : '🔍 Xem Chi Tiết'}
+                </button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
 function renderReportsLogTableComponent(filteredLogs, activeUnits) {
   return `
     <div class="panel reports-table-panel fullscreen-table-panel" style="display:flex; flex-direction:column; min-height:540px; flex:1 1 auto; margin-bottom:4px; border-radius:6px; border:1px solid #cbd5e1; overflow:hidden;">
@@ -9021,7 +9091,7 @@ function renderAdminReportsTab() {
       </div>
     ` : ''}
 
-    ${isMobile && state.mobileReportsViewMode === 'cards' ? `
+    ${isMobile && state.mobileReportsViewMode === 'cards' ? (subMode === 'log' ? renderReportsLogCardsComponent(filteredLogs, activeUnits) : `
       <!-- MOBILE CARD VIEW CHO BÁO CÁO -->
       <div class="panel" style="margin-bottom:12px; border-radius:10px; overflow:hidden; border:1px solid #cbd5e1;">
         <div class="panel-header" style="padding:10px 14px; background:linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color:#fff; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
@@ -9130,7 +9200,7 @@ function renderAdminReportsTab() {
                 <span style="color:#0284c7; font-weight:600;">💡 Chạm vào để xem chi tiết</span>
               </div>
               <div class="mobile-units-list">
-                ${unitsToRender.map(({ u, idx, doneCount, pendingCount, pct, displayCritList }) => {
+                ${unitsToRender.map(({ u, idx, doneCount, pendingCount, rejectedCount, unsubmittedCount, pct, displayCritList }) => {
                   // Khi đang ở chế độ chờ duyệt: Mặc định mở luôn để Admin thấy ngay các bài chờ duyệt
                   const isExpanded = (state.reportsStatusFilter === 'pending')
                     ? (state.mobileExpandedReportUnit === u.id || state.mobileExpandedReportUnit === null || state.mobileExpandedReportUnit === undefined)
@@ -9226,7 +9296,7 @@ function renderAdminReportsTab() {
           })()}
         </div>
       </div>
-    ` : `
+    `) : `
       <!-- DESKTOP / TABLE VIEW: HIỂN THỊ THEO CHẾ ĐỘ ĐÃ CHỌN (BẢNG RỘNG SÁT ĐÁY MÀN HÌNH NHƯ ẢNH 2) -->
       ${subMode === 'matrix'
         ? renderReportsMatrixTableComponent(targetCriteria, allCriteria, reportCriteria, activityCriteria, adminCriteria, activeUnits)
@@ -13646,7 +13716,7 @@ window.onAdminDocFilesChosen = function (fileList) {
       window._adminDocChosenFiles.push(f);
     }
   }
-  renderAdminDocChosenFiles();
+  if (typeof window.renderAdminDocChosenFiles === 'function') window.renderAdminDocChosenFiles();
   const inp = document.getElementById('admin-doc-file-input');
   if (inp) inp.value = '';
 };
@@ -13654,10 +13724,12 @@ window.onAdminDocFilesChosen = function (fileList) {
 window.removeAdminDocChosenFile = function (index) {
   if (window._adminDocChosenFiles && window._adminDocChosenFiles[index]) {
     window._adminDocChosenFiles.splice(index, 1);
-    renderAdminDocChosenFiles();
+    if (typeof window.renderAdminDocChosenFiles === 'function') window.renderAdminDocChosenFiles();
   }
 };
 
+function renderAdminDocChosenFiles() {
+}
 window.renderAdminDocChosenFiles = function () {
   const container = document.getElementById('admin-doc-chosen-files-container');
   if (!container) return;
@@ -13734,7 +13806,7 @@ function renderAdminDocsTab() {
   });
 
   const docs = uniqueDocs;
-  setTimeout(renderAdminDocChosenFiles, 50);
+  setTimeout(() => { if (typeof window.renderAdminDocChosenFiles === 'function') window.renderAdminDocChosenFiles(); }, 50);
 
 
 
@@ -14214,7 +14286,7 @@ window.uploadAdminDocument = async function () {
       if (titleInput) titleInput.value = '';
       if (numberInput) numberInput.value = '';
       window._adminDocChosenFiles = [];
-      renderAdminDocChosenFiles();
+      if (typeof window.renderAdminDocChosenFiles === 'function') window.renderAdminDocChosenFiles();
 
       showToast(`🎉 Đã đăng tải thành công văn bản và ${files.length} tệp đính kèm lên Google Drive! Bạn có thể tiếp tục thêm văn bản khác.`, 'success');
       renderApp();
@@ -16414,13 +16486,7 @@ window.toggleMaximizeChatWidget = function() {
 
   renderApp();
 
-  setTimeout(() => {
-
-    scrollChatToBottom();
-
-    window.initChatDrag();
-
-  }, 50);
+  setTimeout(() => { if (typeof window.renderAdminDocChosenFiles === 'function') window.renderAdminDocChosenFiles(); }, 50);
 
   try {
 
@@ -17814,10 +17880,7 @@ window.onChatFilePicked = async function(input) {
     renderApp();
     broadcastLocalSyncSignal();
 
-    setTimeout(() => {
-      scrollChatToBottom();
-      window.initChatDrag();
-    }, 50);
+    setTimeout(() => { if (typeof window.renderAdminDocChosenFiles === 'function') window.renderAdminDocChosenFiles(); }, 50);
 
     await mutateCloudDB(db => {
       db.chat_messages = db.chat_messages || [];
@@ -25056,13 +25119,13 @@ window.initTableCrosshairHover = function() {
 
 if (typeof document !== 'undefined') {
 
-  initDarkMode();
+  if (typeof window.initDarkMode === 'function') window.initDarkMode();
 
   document.addEventListener('DOMContentLoaded', () => {
 
-    initDarkMode();
+    if (typeof window.initDarkMode === 'function') window.initDarkMode();
 
-    initTableCrosshairHover();
+    if (typeof window.initTableCrosshairHover === 'function') window.initTableCrosshairHover();
 
   });
 
