@@ -3747,16 +3747,18 @@ body.dark-mode #tts-result-box {
 }
 
 /* KHUNG PANEL DÀI XUỐNG SÁT ĐÁY (CHUẨN MẪU SỐ 3) CHO VĂN BẢN VÀ LỊCH SỬ NỘP */
-.admin-docs-panel {
-  display: flex !important;
-  flex-direction: column !important;
-  flex: 1 1 auto !important;
-  height: calc(100vh - 128px) !important;
-  min-height: 520px !important;
-  max-height: none !important;
-  margin-bottom: 2px !important;
-  border-radius: 8px !important;
-  overflow: hidden !important;
+@media (min-width: 769px) {
+  .admin-docs-panel {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    height: calc(100vh - 128px) !important;
+    min-height: 520px !important;
+    max-height: none !important;
+    margin-bottom: 2px !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+  }
 }
 
 .admin-docs-table-container {
@@ -3864,7 +3866,9 @@ body.dark-mode #tts-result-box {
   }
 
   .panel.fullscreen-table-panel,
-  .panel {
+  .panel,
+  .admin-docs-panel,
+  .unit-history-panel {
     flex: none !important;
     height: auto !important;
     min-height: auto !important;
@@ -3872,11 +3876,22 @@ body.dark-mode #tts-result-box {
     overflow: visible !important;
   }
 
+  .admin-docs-panel .panel-body,
+  .unit-history-panel .panel-body {
+    flex: none !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 10px 10px !important;
+  }
+
   .unit-submit-table-container,
   .table-container,
   .ranking-table-container,
   .criteria-table-container,
-  .accounts-table-container {
+  .accounts-table-container,
+  .admin-docs-table-container {
     height: auto !important;
     min-height: auto !important;
     max-height: none !important;
