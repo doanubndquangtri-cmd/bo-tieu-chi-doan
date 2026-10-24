@@ -9349,6 +9349,36 @@ function renderMasterTableTab() {
 function renderMasterScoreCell(unit, crit, isAdmin) {
 
   const sc = getScoreObj(unit.id, crit.id);
+  const isBlank = Number(crit.is_report) === 3;
+
+  if (isBlank) {
+    const blankVal = sc ? (sc.report_content !== undefined && sc.report_content !== null ? sc.report_content : (sc.score !== null && sc.score !== undefined ? String(sc.score) : '')) : '';
+    if (isAdmin) {
+      return `
+        <td class="score-cell" id="cell-${unit.id}-${crit.id}" style="min-width:120px; max-width:220px; padding:2px 4px;">
+          <input
+            type="text"
+            class="score-input"
+            style="text-align:left; font-size:12px; font-weight:600; padding:4px 6px; width:100%; border-radius:4px; border:1px solid #cbd5e1; background:#fff; color:#0f172a;"
+            value="${escapeHtml(blankVal)}"
+            placeholder="Gõ nội dung..."
+            title="Admin gõ chữ, số liệu hoặc ghi chú cho đơn vị này"
+            data-unit="${unit.id}"
+            data-crit="${crit.id}"
+            data-is-blank="1"
+            onchange="onAdminInlineScoreChange(this)"
+            onkeydown="if(event.key==='Enter'){this.blur();}"
+          />
+        </td>
+      `;
+    } else {
+      return `
+        <td class="score-cell" id="cell-${unit.id}-${crit.id}" style="min-width:110px; max-width:220px; text-align:left; padding:4px 8px; font-size:12px; color:#334155; font-weight:500;">
+          ${blankVal ? escapeHtml(blankVal) : '<span style="color:#94a3b8; font-style:italic;">—</span>'}
+        </td>
+      `;
+    }
+  }
 
   const val = sc && sc.score !== null && sc.score !== undefined && sc.score !== '' ? sc.score : '';
 
@@ -9500,6 +9530,64 @@ window.onSortByChange = function (val) {
 window.onAdminInlineScoreChange = async function (inputEl) {
   const unitId = Number(inputEl.getAttribute('data-unit'));
   const critId = Number(inputEl.getAttribute('data-crit'));
+  const crit = (state.criteria || []).find(c => c.id === critId);
+  const isBlank = (crit && Number(crit.is_report) === 3) || inputEl.getAttribute('data-is-blank') === '1';
+
+  if (isBlank) {
+    const textVal = inputEl.value.trim();
+    const mapKey = unitId + '_' + critId;
+    const possibleNum = (textVal !== '' && !isNaN(Number(textVal.replace(',', '.')))) ? Number(textVal.replace(',', '.')) : null;
+
+    if (!state.scoresMap[mapKey]) {
+      state.scoresMap[mapKey] = {
+        unit_id: unitId,
+        criterion_id: critId,
+        score: possibleNum,
+        report_content: textVal,
+        approval_status: 'approved',
+        updated_by: 'admin'
+      };
+    } else {
+      state.scoresMap[mapKey].report_content = textVal;
+      if (possibleNum !== null) state.scoresMap[mapKey].score = possibleNum;
+      state.scoresMap[mapKey].updated_by = 'admin';
+    }
+
+    const res = await mutateCloudDB((db) => {
+      db.scores = db.scores || [];
+      const idx = db.scores.findIndex((s) => s.unit_id === unitId && s.criterion_id === critId);
+      if (idx >= 0) {
+        db.scores[idx].report_content = textVal;
+        if (possibleNum !== null) db.scores[idx].score = possibleNum;
+        db.scores[idx].updated_by = 'admin';
+        db.scores[idx].submitted_at = nowISO();
+      } else {
+        db.scores.push({
+          unit_id: unitId,
+          criterion_id: critId,
+          score: possibleNum,
+          quantity: 1,
+          self_score: possibleNum,
+          approval_status: 'approved',
+          report_content: textVal,
+          evidence_link: '',
+          file_name: '',
+          file_path: '',
+          submitted_at: nowISO(),
+          submitted_date: todayISO(),
+          is_on_time: 1,
+          updated_by: 'admin',
+          admin_note: '',
+        });
+      }
+    });
+
+    if (res && res.success) {
+      showToast('🟢 Đã lưu nội dung thành công!', 'success');
+    }
+    return;
+  }
+
   const rawVal = inputEl.value.trim().replace(',', '.');
 
   if (rawVal !== '' && isNaN(Number(rawVal))) {
@@ -14572,7 +14660,7 @@ window.openCriterionEditModal = function (critId) {
 
             <label style="font-weight:700; color:#166534; font-size:13.5px; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
 
-              📁 Tên thư mục tự tạo trên Google Drive / Tiêu chí (*):
+              📝 Tên / Nội dung Tiêu chí (*):
 
             </label>
 
@@ -15032,11 +15120,15 @@ window.openCriterionCreateModal = function () {
 
             <label style="font-weight:700; color:#166534; font-size:13.5px; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
 
-              📁 Tên thư mục tự tạo trên Google Drive (*):
+              📝 Tên / Nội dung Tiêu chí (*):
 
             </label>
 
-            <input type="text" id="new-crit-gdrive-folder-name" placeholder="VD: Báo cáo Tháng 10, Sinh hoạt chi đoàn, Kế hoạch 26/3..." style="background:#fff; font-size:14px; font-weight:600; padding:9px 12px; border:1.5px solid #22c55e; border-radius:6px; width:100%;" required />
+            <input type="text" id="new-crit-gdrive-folder-name" placeholder="VD: Tỷ lệ cài đặt App Thanh niên Việt Nam, Sinh hoạt chi đoàn, Kế hoạch 26/3..." style="background:#fff; font-size:14px; font-weight:600; padding:9px 12px; border:1.5px solid #22c55e; border-radius:6px; width:100%;" required />
+
+            <div id="new-crit-type-desc" style="font-size:12px; color:#15803d; margin-top:6px; font-weight:500; line-height:1.4;">
+              💡 <b>Gợi ý:</b> Nhập tên hoặc nội dung tiêu chí cần thêm vào bộ tiêu chí.
+            </div>
 
           </div>
 
@@ -15090,7 +15182,7 @@ window.openCriterionCreateModal = function () {
 
             <label style="font-weight:700;">📌 Phân loại Tiêu chí / Báo cáo:</label>
 
-            <select id="new-crit-is-report" style="font-weight:600; font-size:13.5px; padding:6px 10px;">
+            <select id="new-crit-is-report" onchange="window.onCriterionTypeChange(this.value)" style="font-weight:600; font-size:13.5px; padding:6px 10px;">
 
               <option value="0" selected>🎯 Hoạt động / Phong trào (Đơn vị nộp minh chứng - Tự động chấm điểm)</option>
 
@@ -15190,6 +15282,26 @@ window.toggleCustomGroupInput = function(val) {
 
 
 
+window.onCriterionTypeChange = function (val) {
+  const descEl = document.getElementById('new-crit-type-desc');
+  const typeVal = Number(val);
+  if (descEl) {
+    if (typeVal === 3) {
+      descEl.innerHTML = '💡 <b>Phân loại [Nội dung trống]:</b> Ban Thường vụ (Admin) có thể tự do gõ chữ, ký tự, số liệu (VD: "Đạt", "100%", "50 đoàn viên", "Chưa cài", ghi chú...) trực tiếp vào từng ô của đơn vị trên Bảng Tổng Hợp.';
+      descEl.style.color = '#0369a1';
+    } else if (typeVal === 2) {
+      descEl.innerHTML = '👑 <b>Phân loại [Admin tự chấm điểm]:</b> Ban Thường vụ trực tiếp vào chấm điểm cho từng đơn vị. Các cơ sở Đoàn không tự nộp tài liệu.';
+      descEl.style.color = '#b45309';
+    } else if (typeVal === 1) {
+      descEl.innerHTML = '📋 <b>Phân loại [Báo cáo định kỳ]:</b> Đơn vị nộp báo cáo và tài liệu để theo dõi tiến độ hoàn thành.';
+      descEl.style.color = '#b91c1c';
+    } else {
+      descEl.innerHTML = '🎯 <b>Phân loại [Hoạt động / Phong trào]:</b> Đơn vị nộp minh chứng, hệ thống tự động kiểm tra và chấm điểm đúng hạn.';
+      descEl.style.color = '#15803d';
+    }
+  }
+};
+
 window.saveNewCriterion = async function () {
 
   const folderInput = document.getElementById('new-crit-gdrive-folder-name');
@@ -15198,7 +15310,7 @@ window.saveNewCriterion = async function () {
 
   if (!title) {
 
-    showToast('Vui lòng nhập tên thư mục tự tạo trên Google Drive / Tiêu chí!', 'error');
+    showToast('Vui lòng nhập Tên / Nội dung tiêu chí!', 'error');
 
     if (folderInput) folderInput.focus();
 
@@ -15298,10 +15410,12 @@ window.saveNewCriterion = async function () {
 
 
 
-  // Khởi tạo thư mục trên Google Drive ngay lập tức nếu có Script
+  // Khởi tạo thư mục trên Google Drive ngay lập tức nếu có Script (bỏ qua nếu là Nội dung trống hoặc Admin tự chấm)
+  const isBlank = isReport === 3;
+  const isAdminScore = isReport === 2;
 
   const gdriveUrl = getGoogleDriveScriptUrl();
-  if (gdriveUrl) {
+  if (gdriveUrl && !isBlank && !isAdminScore) {
     try {
       const controller = new AbortController();
       const tId = setTimeout(() => controller.abort(), 3500);
@@ -15363,7 +15477,7 @@ window.saveNewCriterion = async function () {
       max_score: maxS,
       unit_step_score: maxS,
       unit_step_label: 'hoạt động',
-      allow_unit_submit: 1,
+      allow_unit_submit: (isReport === 2 || isReport === 3) ? 0 : 1,
       is_report: isReport,
       gdrive_folder_name: gdriveFolderName,
       gdrive_folder_url: gdriveFolderUrl || (state.settings && state.settings.gdrive_root_folder_url) || '',
@@ -17943,7 +18057,11 @@ function renderMasterMobileCardsView(activeUnits, filteredCriteria, isAdmin, mon
 
                         <div style="text-align:right;">
 
-                          ${hasScore ? `
+                          ${Number(c.is_report) === 3 ? `
+                            <div style="font-size:12px; font-weight:700; color:#0284c7; max-width:130px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
+                              ${sc && (sc.report_content || sc.score !== null) ? escapeHtml(sc.report_content || String(sc.score)) : '<span style="color:#94a3b8; font-style:italic;">Trống</span>'}
+                            </div>
+                          ` : (hasScore ? `
 
                             <div class="mobile-crit-score">+${scoreVal}đ</div>
 
@@ -17951,7 +18069,7 @@ function renderMasterMobileCardsView(activeUnits, filteredCriteria, isAdmin, mon
 
                             <div style="font-size:12px; color:#94a3b8; font-weight:600;">Chưa điểm</div>
 
-                          `}
+                          `)}
 
                         </div>
 
@@ -17970,6 +18088,12 @@ function renderMasterMobileCardsView(activeUnits, filteredCriteria, isAdmin, mon
                             if (rep === 2) {
 
                               return `<span style="font-size:11px; color:#b45309; font-weight:700; background:#fef3c7; padding:2px 6px; border-radius:4px; border:1px solid #fde68a;">👑 Admin tự chấm điểm</span>`;
+
+                            }
+
+                            if (rep === 3) {
+
+                              return `<span style="font-size:11px; color:#475569; font-weight:700; background:#f1f5f9; padding:2px 6px; border-radius:4px; border:1px solid #cbd5e1;">📝 Nội dung trống (Admin tự thêm)</span>`;
 
                             }
 
@@ -18013,7 +18137,11 @@ function renderMasterMobileCardsView(activeUnits, filteredCriteria, isAdmin, mon
 
 
 
-                          ${isAdmin ? `
+                          ${Number(c.is_report) === 3 ? (isAdmin ? `
+                            <button class="btn btn-sm btn-primary" onclick="openAdminEditBlankContentModal(${u.id}, ${c.id})" style="font-size:11.5px; padding:3px 8px; font-weight:700; background:#0284c7;">
+                              ✏️ Nhập Nội Dung
+                            </button>
+                          ` : '') : (isAdmin ? `
 
                             <button class="btn btn-sm btn-primary" onclick="openSubmissionDetailModal(${u.id}, ${c.id})" style="font-size:11.5px; padding:3px 8px; font-weight:700; background:#0052cc;">
 
@@ -18023,7 +18151,7 @@ function renderMasterMobileCardsView(activeUnits, filteredCriteria, isAdmin, mon
 
                           ` : (u.id === (state.user && state.user.id) ? (
 
-                            Number(c.is_report) === 2 ? '' : `
+                            (Number(c.is_report) === 2 || Number(c.is_report) === 3) ? '' : `
 
                             <button class="btn btn-sm btn-success" onclick="openUnitSubmitModal(${c.id}, ${u.id})" style="font-size:11.5px; padding:3px 8px; font-weight:700;">
 
@@ -18031,7 +18159,7 @@ function renderMasterMobileCardsView(activeUnits, filteredCriteria, isAdmin, mon
 
                             </button>
 
-                          `) : '')}
+                          `) : ''))}
 
                         </div>
 
@@ -29695,6 +29823,113 @@ document.addEventListener('visibilitychange', function() {
 if (window.initRealtimeLiveBridge) {
   window.initRealtimeLiveBridge();
 }
+
+
+// --- ADMIN MODAL NHẬP NỘI DUNG CHO TIÊU CHÍ NỘI DUNG TRỐNG ---
+window.openAdminEditBlankContentModal = function (unitId, critId) {
+  const u = (state.units || []).find(x => x.id === unitId);
+  const c = (state.criteria || []).find(x => x.id === critId);
+  if (!u || !c) return;
+
+  const sc = getScoreObj(unitId, critId);
+  const currentVal = sc ? (sc.report_content !== undefined && sc.report_content !== null ? sc.report_content : (sc.score !== null && sc.score !== undefined ? String(sc.score) : '')) : '';
+
+  const modalRoot = document.getElementById('modal-root');
+  if (!modalRoot) return;
+
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+      <div class="modal-box" style="max-width: 520px;">
+        <div class="modal-header" style="background: #0284c7; color: #fff; padding: 12px 16px; display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-weight: 700; font-size:14px;">📝 Nhập Nội Dung: ${escapeHtml(u.unit_name)}</span>
+          <button class="btn btn-sm btn-outline" onclick="closeModal()" style="color:#fff; border-color:rgba(255,255,255,0.4);">✕</button>
+        </div>
+        <div class="modal-body" style="padding: 18px 20px;">
+          <div style="font-size:13px; color:#0369a1; margin-bottom:14px; background:#f0f9ff; padding:10px 12px; border-radius:6px; border:1px solid #bae6fd; line-height:1.5;">
+            📌 <b>Tiêu chí:</b> ${escapeHtml(c.col_label)} - ${escapeHtml(c.title)}<br/>
+            💡 Admin có thể nhập chữ, số liệu, tỷ lệ % hoặc ghi chú tùy ý cho đơn vị này.
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label style="font-weight:700; color:#0f172a; margin-bottom:6px; display:block; font-size:13px;">Nội dung / Số liệu / Ghi chú (*):</label>
+            <textarea id="admin-blank-content-input" rows="4" placeholder="VD: Đã hoàn thành 100%, 85 đoàn viên cài đặt, Chưa đạt chỉ tiêu..." style="width:100%; padding:10px 12px; font-size:14px; font-weight:600; border:1.5px solid #0284c7; border-radius:6px; font-family:inherit; box-sizing:border-box;">${escapeHtml(currentVal)}</textarea>
+          </div>
+        </div>
+        <div class="modal-footer" style="padding: 12px 20px; display:flex; justify-content:space-between; background:#f8fafc; border-top:1px solid #e2e8f0;">
+          <button class="btn btn-outline" onclick="closeModal()">Hủy</button>
+          <button class="btn btn-primary" id="btn-save-blank-content" onclick="saveAdminBlankContentModal(${unitId}, ${critId})" style="font-weight:700; background:#0284c7; border-color:#0284c7;">
+            💾 Lưu Nội Dung
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  setTimeout(() => {
+    const input = document.getElementById('admin-blank-content-input');
+    if (input) input.focus();
+  }, 100);
+};
+
+window.saveAdminBlankContentModal = async function (unitId, critId) {
+  const inputEl = document.getElementById('admin-blank-content-input');
+  const btn = document.getElementById('btn-save-blank-content');
+  const textVal = (inputEl ? inputEl.value : '').trim();
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Đang lưu...';
+  }
+
+  const mapKey = unitId + '_' + critId;
+  const possibleNum = (textVal !== '' && !isNaN(Number(textVal.replace(',', '.')))) ? Number(textVal.replace(',', '.')) : null;
+
+  if (!state.scoresMap[mapKey]) {
+    state.scoresMap[mapKey] = {
+      unit_id: unitId,
+      criterion_id: critId,
+      score: possibleNum,
+      report_content: textVal,
+      approval_status: 'approved',
+      updated_by: 'admin'
+    };
+  } else {
+    state.scoresMap[mapKey].report_content = textVal;
+    if (possibleNum !== null) state.scoresMap[mapKey].score = possibleNum;
+    state.scoresMap[mapKey].updated_by = 'admin';
+  }
+
+  await mutateCloudDB((db) => {
+    db.scores = db.scores || [];
+    const idx = db.scores.findIndex((s) => s.unit_id === unitId && s.criterion_id === critId);
+    if (idx >= 0) {
+      db.scores[idx].report_content = textVal;
+      if (possibleNum !== null) db.scores[idx].score = possibleNum;
+      db.scores[idx].updated_by = 'admin';
+      db.scores[idx].submitted_at = nowISO();
+    } else {
+      db.scores.push({
+        unit_id: unitId,
+        criterion_id: critId,
+        score: possibleNum,
+        quantity: 1,
+        self_score: possibleNum,
+        approval_status: 'approved',
+        report_content: textVal,
+        evidence_link: '',
+        file_name: '',
+        file_path: '',
+        submitted_at: nowISO(),
+        submitted_date: todayISO(),
+        is_on_time: 1,
+        updated_by: 'admin',
+        admin_note: '',
+      });
+    }
+  });
+
+  closeModal();
+  renderApp();
+  showToast('🟢 Đã lưu nội dung thành công!', 'success');
+};
 
   </script>
 </body>
