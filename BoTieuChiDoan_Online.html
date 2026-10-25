@@ -4367,6 +4367,47 @@ body.dark-mode #tts-result-box {
   <div id="toast-root" class="toast-container"></div>
   <script>
 
+window.toggleCustomTypeInput = function(val) {
+  const t = document.getElementById('type-custom-name');
+  if (t) {
+    t.style.display = (val === '__NEW_CUSTOM_TYPE__') ? 'block' : 'none';
+    if (val === '__NEW_CUSTOM_TYPE__') {
+      const inp = document.getElementById('new-crit-custom-type');
+      if (inp) inp.focus();
+    }
+  }
+};
+
+window.toggleEditCustomTypeInput = function(val) {
+  const t = document.getElementById('edit-type-custom-name');
+  if (t) {
+    t.style.display = (val === '__NEW_CUSTOM_TYPE__') ? 'block' : 'none';
+    if (val === '__NEW_CUSTOM_TYPE__') {
+      const inp = document.getElementById('edit-crit-custom-type');
+      if (inp) inp.focus();
+    }
+  }
+};
+
+function getCriterionTypeBadge(c) {
+  const rep = Number(c.is_report);
+  if (rep === 0) {
+    return `<span class="badge" style="background:#eff6ff; color:#1d4ed8; font-size:11px; border:1px solid #bfdbfe; font-weight:700;">🎯 Hoạt động / Phong trào (Tự động chấm)</span>`;
+  }
+  if (rep === 1) {
+    return `<span class="badge" style="background:#fef2f2; color:#b91c1c; font-size:11px; border:1px solid #fecaca; font-weight:700;">📋 Báo cáo định kỳ</span>`;
+  }
+  if (rep === 2) {
+    return `<span class="badge" style="background:#fef3c7; color:#b45309; font-size:11px; border:1px solid #fde68a; font-weight:700;">👑 Admin tự chấm điểm</span>`;
+  }
+  if (rep === 3) {
+    return `<span class="badge" style="background:#f1f5f9; color:#475569; font-size:11px; border:1px solid #cbd5e1; font-weight:700;">📝 Nội dung trống</span>`;
+  }
+  const customCats = state.criterionCategories || (state.settings && state.settings.criterion_categories) || {};
+  const label = customCats[String(rep)] || c.category_label || `Phân loại ${rep}`;
+  return `<span class="badge" style="background:#f5f3ff; color:#6d28d9; font-size:11px; border:1px solid #ddd6fe; font-weight:700;">${escapeHtml(label)}</span>`;
+}
+
 
 // =========================================================================
 
@@ -6077,6 +6118,8 @@ function ingestCloudDB(db) {
   state.sampleScores = db.sample_scores || [];
 
   state.monthLabels = db.month_labels || {};
+  state.criterionCategories = db.criterion_categories || {};
+  state.deletedCategoryKeys = Array.isArray(db.deleted_category_keys) ? db.deleted_category_keys : [];
 
   state.writtenReports = Array.isArray(db.written_reports) ? db.written_reports : [];
 
@@ -13298,6 +13341,11 @@ function renderReportsMatrixTableComponent(targetCriteria, allCriteria, reportCr
                   <div style="margin-top:2px; display:flex; gap:3px; justify-content:center; flex-wrap:wrap;">
                     ${(() => {
                       const rep = Number(c.is_report);
+                      if (rep >= 4) {
+                        const customCats = state.criterionCategories || (state.settings && state.settings.criterion_categories) || {};
+                        const catName = customCats[String(rep)] || c.category_label || `Phân loại ${rep}`;
+                        return `<span class="badge" style="background:#f5f3ff; color:#6d28d9; border:1px solid #ddd6fe; font-size:9.5px; font-weight:700; padding:1px 4px;">🏷️ ${escapeHtml(catName)}</span>`;
+                      }
                       if (rep === 1) return '<span class="badge badge-success" style="font-size:9.5px; padding:1px 4px;">📋 Báo cáo</span>';
                       if (rep === 2) return '<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-size:9.5px; font-weight:700; padding:1px 4px;">👑 Admin chấm</span>';
                       if (rep === 3) return '<span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-size:9.5px; font-weight:700; padding:1px 4px;">📝 Nội dung trống</span>';
@@ -13463,6 +13511,11 @@ function renderReportsLogTableComponent(filteredLogs, activeUnits) {
                     ${(() => {
                       const foundCrit = (state.criteria || []).find(c => c.id === l.criterion_id);
                       const rep = foundCrit ? Number(foundCrit.is_report) : 0;
+                      if (rep >= 4) {
+                        const customCats = state.criterionCategories || (state.settings && state.settings.criterion_categories) || {};
+                        const catName = customCats[String(rep)] || foundCrit.category_label || `Phân loại ${rep}`;
+                        return `<span class="badge" style="background:#f5f3ff; color:#6d28d9; border:1px solid #ddd6fe; font-size:9.5px; font-weight:700;">🏷️ ${escapeHtml(catName)}</span>`;
+                      }
                       if (rep === 1) return '<span class="badge badge-success" style="font-size:9.5px;">📋 Báo cáo</span>';
                       if (rep === 2) return '<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-size:9.5px;">👑 Admin chấm</span>';
                       if (rep === 3) return '<span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-size:9.5px;">📝 Nội dung trống</span>';
@@ -14329,6 +14382,12 @@ function renderAdminCriteriaTab() {
 
           </button>
 
+          <button class="btn btn-sm" onclick="openManageCriterionCategoriesModal()" style="font-weight:700; background:#7c3aed; color:#fff; border:1px solid #6d28d9;" title="Quản lý, thêm mới, đổi tên hoặc xóa các Phân loại Tiêu chí & Báo cáo">
+
+            ⚙️ Quản Lý / Xóa Phân Loại Tiêu Chí & Báo Cáo
+
+          </button>
+
           <button class="btn btn-success btn-sm" onclick="toggleMonthLock(${mf}, 1)">
 
             🔓 Mở khóa gia hạn
@@ -14492,6 +14551,12 @@ function renderAdminCriteriaTab() {
                   ${(() => {
 
                     const rep = Number(c.is_report);
+
+                    if (rep >= 4) {
+                      const customCats = state.criterionCategories || (state.settings && state.settings.criterion_categories) || {};
+                      const catName = customCats[String(rep)] || c.category_label || `Phân loại ${rep}`;
+                      return `<span class="badge" style="background:#f5f3ff; color:#6d28d9; border:1px solid #ddd6fe; font-weight:700;" title="Phân loại tự tạo: ${escapeHtml(catName)}">🏷️ ${escapeHtml(catName)}</span>`;
+                    }
 
                     if (rep === 1) return '<span class="badge badge-success" title="Hiển thị trong bảng Theo Dõi Báo Cáo">📋 Báo cáo</span>';
 
@@ -14670,30 +14735,28 @@ window.openCriterionEditModal = function (critId) {
 
 
           <div class="form-group" style="background:#f8fafc; padding:12px; border-radius:8px; border:1px solid #cbd5e1; margin-bottom:14px;">
-
             <label style="font-weight:700;">📌 Phân loại Tiêu chí / Báo cáo:</label>
-
-            <select id="edit-crit-is-report" style="font-weight:600; font-size:13.5px; padding:6px 10px;">
-
-              <option value="0" ${Number(c.is_report) === 0 ? 'selected' : ''}>🎯 Hoạt động / Phong trào (Đơn vị nộp minh chứng - Tự động chấm điểm)</option>
-
-              <option value="1" ${Number(c.is_report) === 1 ? 'selected' : ''}>📋 Báo cáo định kỳ (Đơn vị nộp báo cáo & tài liệu - Theo dõi tiến độ)</option>
-
-              <option value="2" ${Number(c.is_report) === 2 ? 'selected' : ''}>👑 Admin tự chấm điểm (Ban Thường vụ tự chấm - Đơn vị không nhập điểm/tài liệu)</option>
-
-              <option value="3" ${Number(c.is_report) === 3 ? 'selected' : ''}>📝 Tiêu chí triển khai theo nội dung tự viết (Admin viết nội dung - Các Đoàn thực hiện)</option>
-
+            <select id="edit-crit-is-report" onchange="window.toggleEditCustomTypeInput(this.value)" style="font-weight:600; font-size:13.5px; padding:6px 10px; width:100%; border-radius:6px; border:1px solid #cbd5e1;">
+              <optgroup label="Phân loại chuẩn hệ thống">
+                <option value="0" ${Number(c.is_report) === 0 ? 'selected' : ''}>🎯 Hoạt động / Phong trào (Đơn vị nộp minh chứng - Tự động chấm điểm)</option>
+                <option value="1" ${Number(c.is_report) === 1 ? 'selected' : ''}>📋 Báo cáo định kỳ (Đơn vị nộp báo cáo & tài liệu - Theo dõi tiến độ)</option>
+                <option value="2" ${Number(c.is_report) === 2 ? 'selected' : ''}>👑 Admin tự chấm điểm (Ban Thường vụ tự chấm - Đơn vị không nhập điểm/tài liệu)</option>
+                <option value="3" ${Number(c.is_report) === 3 ? 'selected' : ''}>📝 Nội dung trống (Admin tự thêm nội dung vào)</option>
+              </optgroup>
+              ${Object.entries(state.criterionCategories || {}).length > 0 ? `
+                <optgroup label="Phân loại do Admin tự tạo">
+                  ${Object.entries(state.criterionCategories || {}).map(([k, v]) => `<option value="${k}" ${Number(c.is_report) === Number(k) ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}
+                </optgroup>
+              ` : ''}
+              <option value="__NEW_CUSTOM_TYPE__">➕ [+ Tự tạo Phân loại Tiêu chí / Báo cáo mới...]</option>
             </select>
-
-            
-
           </div>
 
-          <div class="form-group" style="background:#eff6ff; padding:12px 14px; border-radius:8px; border:1.5px solid #0284c7; margin-bottom:14px;">
-            <label style="font-weight:700; color:#0369a1; font-size:13.5px; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
-              📢 Nội dung Ban Thường vụ tự viết để triển khai cho các cơ sở Đoàn thực hiện (*):
+          <div class="form-group" id="edit-type-custom-name" style="display:none; background: #eff6ff; padding: 12px 14px; border-radius: 8px; border: 2px solid #3b82f6; margin-bottom: 12px;">
+            <label style="color: #1d4ed8; font-weight: 700; font-size: 13.5px; display: block; margin-bottom: 6px;">
+              ➕ Nhập tên Phân loại Tiêu chí / Báo cáo mới (Admin tự tạo) (*):
             </label>
-            <textarea id="edit-crit-deploy-content" rows="4" placeholder="Nhập chi tiết nội dung chỉ đạo, yêu cầu, chỉ tiêu hoặc hướng dẫn để triển khai cho các cơ sở Đoàn thực hiện..." style="width:100%; padding:10px 12px; font-size:13.5px; border:1.5px solid #0284c7; border-radius:6px; box-sizing:border-box; font-family:inherit; line-height:1.5; font-weight:500;">${escapeHtml(c.deploy_content || '')}</textarea>
+            <input type="text" id="edit-crit-custom-type" placeholder="VD: Theo dõi cài đặt App, Báo cáo chuyên đề, Nhiệm vụ đột xuất..." style="background:#fff; font-size:14px; font-weight:600; padding:9px 12px; border:1.5px solid #3b82f6; border-radius:6px; width:100%; box-sizing:border-box;" />
           </div>
 
 
@@ -14858,7 +14921,21 @@ window.saveCriterionEdit = async function (critId) {
 
   const mGroup = Number(document.getElementById('edit-crit-month').value);
 
-  const isReport = Number(document.getElementById('edit-crit-is-report') ? document.getElementById('edit-crit-is-report').value : 0);
+  const editTypeSelectVal = document.getElementById('edit-crit-is-report') ? document.getElementById('edit-crit-is-report').value : '0';
+  const editCustomTypeName = document.getElementById('edit-crit-custom-type') ? document.getElementById('edit-crit-custom-type').value.trim() : '';
+
+  if (editTypeSelectVal === '__NEW_CUSTOM_TYPE__') {
+    if (!editCustomTypeName) {
+      showToast('⚠️ Vui lòng nhập tên Phân loại Tiêu chí / Báo cáo mới!', 'error');
+      const tBox = document.getElementById('edit-type-custom-name');
+      const tInp = document.getElementById('edit-crit-custom-type');
+      if (tBox) tBox.style.display = 'block';
+      if (tInp) tInp.focus();
+      return;
+    }
+  }
+
+  let isReport = (editTypeSelectVal !== '__NEW_CUSTOM_TYPE__') ? Number(editTypeSelectVal) : 0;
 
   const gdriveFolderName = title;
 
@@ -15030,6 +15107,17 @@ window.saveCriterionEdit = async function (critId) {
     c.month_label = (db.month_labels && db.month_labels[String(mGroup)]) || defaultMonthLabels[String(mGroup)] || calculatedMonthLabel;
 
     c.start_date = startDate;
+
+    db.criterion_categories = db.criterion_categories || {};
+    if (editTypeSelectVal === '__NEW_CUSTOM_TYPE__' && editCustomTypeName) {
+      const typeKeys = Object.keys(db.criterion_categories).map(Number).filter(n => !isNaN(n));
+      const nextTypeKey = Math.max(3, ...(typeKeys.length > 0 ? typeKeys : [3])) + 1;
+      const formattedName = editCustomTypeName.startsWith('📌') ? editCustomTypeName : ('📌 ' + editCustomTypeName);
+      db.criterion_categories[String(nextTypeKey)] = formattedName;
+      if (!state.criterionCategories) state.criterionCategories = {};
+      state.criterionCategories[String(nextTypeKey)] = formattedName;
+      isReport = nextTypeKey;
+    }
 
     c.deadline = deadline;
 
@@ -15228,31 +15316,30 @@ window.openCriterionCreateModal = function () {
 
 
           <div class="form-group" style="background:#f8fafc; padding:12px; border-radius:8px; border:1px solid #cbd5e1; margin-bottom:14px;">
-
             <label style="font-weight:700;">📌 Phân loại Tiêu chí / Báo cáo:</label>
-
-            <select id="new-crit-is-report" onchange="window.onCriterionTypeChange(this.value)" style="font-weight:600; font-size:13.5px; padding:6px 10px;">
-
-              <option value="0" selected>🎯 Hoạt động / Phong trào (Đơn vị nộp minh chứng - Tự động chấm điểm)</option>
-
-              <option value="1">📋 Báo cáo định kỳ (Đơn vị nộp báo cáo & tài liệu - Theo dõi tiến độ)</option>
-
-              <option value="2">👑 Admin tự chấm điểm (Ban Thường vụ tự chấm - Đơn vị không nhập điểm/tài liệu)</option>
-
-              <option value="3">📝 Tiêu chí triển khai theo nội dung tự viết (Admin viết nội dung - Các Đoàn thực hiện)</option>
-
+            <select id="new-crit-is-report" onchange="window.toggleCustomTypeInput(this.value); window.onCriterionTypeChange(this.value);" style="font-weight:600; font-size:13.5px; padding:6px 10px; width:100%; border-radius:6px; border:1px solid #cbd5e1;">
+              <optgroup label="Phân loại chuẩn hệ thống">
+                <option value="0" selected>🎯 Hoạt động / Phong trào (Đơn vị nộp minh chứng - Tự động chấm điểm)</option>
+                <option value="1">📋 Báo cáo định kỳ (Đơn vị nộp báo cáo & tài liệu - Theo dõi tiến độ)</option>
+                <option value="2">👑 Admin tự chấm điểm (Ban Thường vụ tự chấm - Đơn vị không nhập điểm/tài liệu)</option>
+                <option value="3">📝 Nội dung trống (Admin tự thêm nội dung vào)</option>
+              </optgroup>
+              ${Object.entries(state.criterionCategories || {}).length > 0 ? `
+                <optgroup label="Phân loại do Admin tự tạo">
+                  ${Object.entries(state.criterionCategories || {}).map(([k, v]) => `<option value="${k}">${escapeHtml(v)}</option>`).join('')}
+                </optgroup>
+              ` : ''}
+              <option value="__NEW_CUSTOM_TYPE__">➕ [+ Tự tạo Phân loại Tiêu chí / Báo cáo mới...]</option>
             </select>
-
           </div>
 
-          <!-- Ô ADMIN TỰ VIẾT NỘI DUNG ĐỂ TRIỂN KHAI CHO CÁC ĐOÀN THỰC HIỆN -->
-          <div class="form-group" id="crit-deploy-content-group" style="background:#eff6ff; padding:12px 14px; border-radius:8px; border:1.5px solid #0284c7; margin-bottom:14px;">
-            <label style="font-weight:700; color:#0369a1; font-size:13.5px; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
-              📢 Nội dung Ban Thường vụ tự viết để triển khai cho các cơ sở Đoàn thực hiện (*):
+          <div class="form-group" id="type-custom-name" style="display:none; background: #eff6ff; padding: 12px 14px; border-radius: 8px; border: 2px solid #3b82f6; margin-bottom: 12px;">
+            <label style="color: #1d4ed8; font-weight: 700; font-size: 13.5px; display: block; margin-bottom: 6px;">
+              ➕ Nhập tên Phân loại Tiêu chí / Báo cáo mới (Admin tự tạo) (*):
             </label>
-            <textarea id="new-crit-deploy-content" rows="4" placeholder="Nhập chi tiết nội dung chỉ đạo, yêu cầu, chỉ tiêu hoặc hướng dẫn để triển khai cho các cơ sở Đoàn thực hiện (Ví dụ: Đề nghị các cơ sở Đoàn trực thuộc triển khai thực hiện việc tải, cài đặt và đăng ký tài khoản App Thanh niên Việt Nam đạt tối thiểu 90% đoàn viên trước ngày 20/10...)..." style="width:100%; padding:10px 12px; font-size:13.5px; border:1.5px solid #0284c7; border-radius:6px; box-sizing:border-box; font-family:inherit; line-height:1.5; font-weight:500;"></textarea>
-            <div style="font-size:12px; color:#0369a1; margin-top:5px; line-height:1.4;">
-              💡 <b>Cơ chế triển khai cho các Đoàn thực hiện:</b> Toàn bộ nội dung này sẽ được chuyển trực tiếp đến giao diện của các cơ sở Đoàn. Các Đoàn sẽ đọc nội dung hướng dẫn này và bấm nút <b>"Báo Cáo Thực Hiện"</b> để gửi kết quả / minh chứng về cho Ban Thường vụ.
+            <input type="text" id="new-crit-custom-type" placeholder="VD: Theo dõi cài đặt App, Báo cáo chuyên đề, Nhiệm vụ đột xuất, Sinh hoạt chi đoàn..." style="background:#fff; font-size:14px; font-weight:600; padding:9px 12px; border:1.5px solid #3b82f6; border-radius:6px; width:100%; box-sizing:border-box;" />
+            <div style="font-size:12px; color:#1d4ed8; margin-top:4px;">
+              💡 Phân loại mới sẽ được thêm vào danh sách và lưu dùng lại cho các tiêu chí khác trong tháng.
             </div>
           </div>
 
@@ -15347,10 +15434,17 @@ window.toggleCustomGroupInput = function(val) {
 
 window.onCriterionTypeChange = function (val) {
   const descEl = document.getElementById('new-crit-type-desc');
+  if (val === '__NEW_CUSTOM_TYPE__') {
+    if (descEl) {
+      descEl.innerHTML = '✨ <b>Phân loại tự tạo:</b> Nhập tên phân loại tiêu chí/báo cáo mới vào ô màu xanh bên dưới.';
+      descEl.style.color = '#1d4ed8';
+    }
+    return;
+  }
   const typeVal = Number(val);
   if (descEl) {
     if (typeVal === 3) {
-      descEl.innerHTML = '💡 <b>Phân loại [Tiêu chí triển khai theo nội dung tự viết]:</b> Ban Thường vụ tự viết nội dung chỉ đạo, yêu cầu hoặc chỉ tiêu vào ô bên dưới để triển khai trực tiếp cho các cơ sở Đoàn thực hiện và gửi báo cáo kết quả về.';
+      descEl.innerHTML = '💡 <b>Phân loại [Nội dung trống]:</b> Admin có thể tự do gõ chữ, ký tự, số liệu trực tiếp vào từng ô của đơn vị trên Bảng Tổng Hợp.';
       descEl.style.color = '#0369a1';
     } else if (typeVal === 2) {
       descEl.innerHTML = '👑 <b>Phân loại [Admin tự chấm điểm]:</b> Ban Thường vụ trực tiếp vào chấm điểm cho từng đơn vị. Các cơ sở Đoàn không tự nộp tài liệu.';
@@ -15358,6 +15452,11 @@ window.onCriterionTypeChange = function (val) {
     } else if (typeVal === 1) {
       descEl.innerHTML = '📋 <b>Phân loại [Báo cáo định kỳ]:</b> Đơn vị nộp báo cáo và tài liệu để theo dõi tiến độ hoàn thành.';
       descEl.style.color = '#b91c1c';
+    } else if (typeVal > 3) {
+      const cats = state.criterionCategories || {};
+      const catName = cats[String(typeVal)] || `Phân loại ${typeVal}`;
+      descEl.innerHTML = `📌 <b>Phân loại [${escapeHtml(catName)}]:</b> Phân loại tiêu chí riêng do Admin thiết lập.`;
+      descEl.style.color = '#6d28d9';
     } else {
       descEl.innerHTML = '🎯 <b>Phân loại [Hoạt động / Phong trào]:</b> Đơn vị nộp minh chứng, hệ thống tự động kiểm tra và chấm điểm đúng hạn.';
       descEl.style.color = '#15803d';
@@ -15410,13 +15509,25 @@ window.saveNewCriterion = async function () {
     }
   }
 
-  const deployContent = (document.getElementById('new-crit-deploy-content') ? document.getElementById('new-crit-deploy-content').value : '').trim();
-
   const startDate = document.getElementById('new-crit-start-date').value || '2026-01-01';
 
   const deadline = document.getElementById('new-crit-deadline').value || '2026-10-20';
 
-  const isReport = Number(document.getElementById('new-crit-is-report') ? document.getElementById('new-crit-is-report').value : 0);
+  const isReportSelectVal = document.getElementById('new-crit-is-report') ? document.getElementById('new-crit-is-report').value : '0';
+  const customTypeName = document.getElementById('new-crit-custom-type') ? document.getElementById('new-crit-custom-type').value.trim() : '';
+
+  if (isReportSelectVal === '__NEW_CUSTOM_TYPE__') {
+    if (!customTypeName) {
+      showToast('⚠️ Vui lòng nhập tên Phân loại Tiêu chí / Báo cáo mới!', 'error');
+      const tBox = document.getElementById('type-custom-name');
+      const tInp = document.getElementById('new-crit-custom-type');
+      if (tBox) tBox.style.display = 'block';
+      if (tInp) tInp.focus();
+      return;
+    }
+  }
+
+  let isReport = (isReportSelectVal !== '__NEW_CUSTOM_TYPE__') ? Number(isReportSelectVal) : 0;
 
   const gdriveFolderName = title;
 
@@ -15520,6 +15631,17 @@ window.saveNewCriterion = async function () {
   const res = await mutateCloudDB((db) => {
     db.criteria = Array.isArray(db.criteria) ? db.criteria : [];
     db.month_labels = db.month_labels || {};
+    db.criterion_categories = db.criterion_categories || {};
+
+    if (isReportSelectVal === '__NEW_CUSTOM_TYPE__' && customTypeName) {
+      const typeKeys = Object.keys(db.criterion_categories).map(Number).filter(n => !isNaN(n));
+      const nextTypeKey = Math.max(3, ...(typeKeys.length > 0 ? typeKeys : [3])) + 1;
+      const formattedName = customTypeName.startsWith('📌') ? customTypeName : ('📌 ' + customTypeName);
+      db.criterion_categories[String(nextTypeKey)] = formattedName;
+      if (!state.criterionCategories) state.criterionCategories = {};
+      state.criterionCategories[String(nextTypeKey)] = formattedName;
+      isReport = nextTypeKey;
+    }
 
     if (monthVal === '__NEW_CUSTOM__' && customGroupName) {
       const keys = Object.keys(db.month_labels).map(k => Number(k)).filter(n => !isNaN(n));
@@ -30027,6 +30149,177 @@ window.saveAdminBlankContentModal = async function (unitId, critId) {
   closeModal();
   renderApp();
   showToast('🟢 Đã lưu nội dung thành công!', 'success');
+};
+
+// =========================================================================
+// QUẢN LÝ / XÓA PHÂN LOẠI TIÊU CHÍ & BÁO CÁO (ADMIN)
+// =========================================================================
+window.openManageCriterionCategoriesModal = function () {
+  const modalRoot = document.getElementById('modal-root');
+  if (!modalRoot) return;
+
+  const customCats = state.criterionCategories || {};
+  const deletedKeys = state.deletedCategoryKeys || [];
+
+  const defaultCats = [
+    { key: '0', num: 0, label: '🎯 Hoạt động / Phong trào (Đơn vị nộp minh chứng - Tự động chấm điểm)', isStandard: true },
+    { key: '1', num: 1, label: '📋 Báo cáo định kỳ (Đơn vị nộp báo cáo & tài liệu - Theo dõi tiến độ)', isStandard: true },
+    { key: '2', num: 2, label: '👑 Admin tự chấm điểm (Ban Thường vụ tự chấm - Đơn vị không nhập điểm/tài liệu)', isStandard: true },
+    { key: '3', num: 3, label: '📝 Nội dung trống (Admin tự thêm nội dung vào)', isStandard: true }
+  ];
+
+  const customList = Object.entries(customCats)
+    .filter(([k]) => !deletedKeys.includes(String(k)))
+    .map(([k, v]) => {
+      const num = Number(k);
+      return { key: k, num, label: v, isStandard: false };
+    });
+
+  const allCategories = [...defaultCats, ...customList].map(c => {
+    const count = (state.criteria || []).filter(item => Number(item.is_report) === c.num).length;
+    return { ...c, count };
+  }).sort((a, b) => a.num - b.num);
+
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+      <div class="modal-box" style="max-width: 680px;">
+        <div class="modal-header" style="background: #7c3aed; color: #fff; padding: 12px 18px; display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-weight: 700; font-size:14.5px;">⚙️ Quản Lý, Thêm, Sửa & XÓA Phân Loại Tiêu Chí / Báo Cáo</span>
+          <button class="btn btn-sm btn-outline" onclick="closeModal()" style="color: #fff; border-color: rgba(255,255,255,0.4);">✕</button>
+        </div>
+        <div class="modal-body" style="padding: 20px;">
+          <p style="font-size: 13px; color: #475569; margin-bottom: 14px;">
+            Ban Thường vụ có toàn quyền thêm mới, chỉnh sửa tên hoặc <b>XÓA hoàn toàn</b> bất kỳ Phân loại tiêu chí / báo cáo nào trong hệ thống.
+          </p>
+
+          <div style="background: #f5f3ff; border: 1.5px solid #ddd6fe; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+            <div style="font-weight: 700; font-size: 13px; color: #5b21b6; margin-bottom: 8px;">
+              ➕ Thêm Phân loại Tiêu chí / Báo cáo mới:
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="new-category-name-input" placeholder="Nhập tên phân loại mới (VD: Theo dõi cài đặt App, Báo cáo chuyên đề...)" style="flex: 1; padding:8px 10px; border:1px solid #c4b5fd; border-radius:6px; font-size:13.5px;" />
+              <button class="btn" onclick="window.createCriterionCategoryFromModal()" style="background:#7c3aed; color:#fff; font-weight:700; white-space:nowrap; padding:8px 16px;">➕ Tạo Mới</button>
+            </div>
+          </div>
+
+          <div style="max-height: 380px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
+            <table class="data-table" style="margin: 0; width:100%;">
+              <thead>
+                <tr style="background:#f8fafc;">
+                  <th style="width: 50px; text-align: center;">Mã</th>
+                  <th>Tên Phân Loại Tiêu Chí / Báo Cáo</th>
+                  <th style="width: 100px; text-align: center;">Số tiêu chí</th>
+                  <th style="width: 160px; text-align: center;">Thao tác Admin</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${allCategories.map(cat => `
+                  <tr>
+                    <td style="text-align: center; font-weight: 700; color: #64748b;">${cat.num}</td>
+                    <td>
+                      <span style="font-weight: 600; color: #0f172a;">${escapeHtml(cat.label)}</span>
+                      ${cat.isStandard ? '<span class="badge badge-info" style="font-size:10px; margin-left:4px;">Chuẩn</span>' : ''}
+                    </td>
+                    <td style="text-align: center;">
+                      <span class="badge ${cat.count > 0 ? 'badge-success' : 'badge-warning'}">${cat.count} tiêu chí</span>
+                    </td>
+                    <td style="text-align: center; white-space: nowrap;">
+                      <button class="btn btn-sm btn-outline" onclick="window.renameCriterionCategory(${cat.num}, '${escapeHtml(cat.label.replace(/'/g, "\'"))}')" title="Đổi tên phân loại này">✏️ Đổi tên</button>
+                      ${!cat.isStandard ? `
+                        <button class="btn btn-sm btn-danger" onclick="window.deleteCriterionCategory(${cat.num})" style="margin-left: 4px;" title="Xóa bỏ phân loại này">🗑️ Xóa</button>
+                      ` : ''}
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="modal-footer" style="padding: 12px 20px;">
+          <button class="btn btn-primary" onclick="closeModal()">Đóng</button>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+window.createCriterionCategoryFromModal = async function () {
+  const input = document.getElementById('new-category-name-input');
+  const name = input ? input.value.trim() : '';
+  if (!name) {
+    showToast('Vui lòng nhập tên phân loại mới!', 'error');
+    return;
+  }
+  showToast('Đang tạo phân loại mới...', 'info');
+  const res = await mutateCloudDB((db) => {
+    db.criterion_categories = db.criterion_categories || {};
+    const keys = Object.keys(db.criterion_categories).map(Number).filter(n => !isNaN(n));
+    const nextKey = Math.max(3, ...(keys.length > 0 ? keys : [3])) + 1;
+    const formattedName = name.startsWith('📌') ? name : ('📌 ' + name);
+    db.criterion_categories[String(nextKey)] = formattedName;
+    if (!state.criterionCategories) state.criterionCategories = {};
+    state.criterionCategories[String(nextKey)] = formattedName;
+  }, `Create criterion category ${name}`);
+
+  if (res.ok) {
+    showToast(`Đã tạo phân loại "${name}" thành công!`, 'success');
+    openManageCriterionCategoriesModal();
+  }
+};
+
+window.renameCriterionCategory = async function (catNum, curName) {
+  const newName = prompt(`Nhập tên mới cho phân loại "${curName}":`, curName);
+  if (!newName || newName.trim() === '' || newName.trim() === curName) return;
+
+  showToast('Đang cập nhật tên phân loại...', 'info');
+  const res = await mutateCloudDB((db) => {
+    db.criterion_categories = db.criterion_categories || {};
+    db.criterion_categories[String(catNum)] = newName.trim();
+    if (!state.criterionCategories) state.criterionCategories = {};
+    state.criterionCategories[String(catNum)] = newName.trim();
+  }, `Rename criterion category ${catNum} to ${newName}`);
+
+  if (res.ok) {
+    showToast('Đã đổi tên phân loại thành công!', 'success');
+    openManageCriterionCategoriesModal();
+  }
+};
+
+window.deleteCriterionCategory = async function (catNum) {
+  const cats = state.criterionCategories || {};
+  const catName = cats[String(catNum)] || `Phân loại ${catNum}`;
+  const criteriaInCat = (state.criteria || []).filter(c => Number(c.is_report) === catNum);
+
+  let confirmMsg = `Bạn có chắc chắn muốn XÓA phân loại "${catName}"?`;
+  if (criteriaInCat.length > 0) {
+    confirmMsg += `\n\n⚠️ Đang có ${criteriaInCat.length} tiêu chí sử dụng phân loại này!\nKhi xóa, các tiêu chí này sẽ được tự động chuyển về "Hoạt động / Phong trào" để bảo toàn dữ liệu.`;
+  }
+
+  if (!confirm(confirmMsg)) return;
+
+  showToast('Đang xóa phân loại...', 'info');
+  const res = await mutateCloudDB((db) => {
+    db.criterion_categories = db.criterion_categories || {};
+    delete db.criterion_categories[String(catNum)];
+    db.deleted_category_keys = db.deleted_category_keys || [];
+    if (!db.deleted_category_keys.includes(String(catNum))) {
+      db.deleted_category_keys.push(String(catNum));
+    }
+    if (!state.criterionCategories) state.criterionCategories = {};
+    delete state.criterionCategories[String(catNum)];
+
+    for (const c of db.criteria || []) {
+      if (Number(c.is_report) === catNum) {
+        c.is_report = 0; // chuyển về mặc định Hoạt động / Phong trào
+      }
+    }
+  }, `Delete criterion category ${catNum}`);
+
+  if (res.ok) {
+    showToast(`Đã xóa "${catName}" thành công!`, 'success');
+    openManageCriterionCategoriesModal();
+    renderApp();
+  }
 };
 
   </script>
