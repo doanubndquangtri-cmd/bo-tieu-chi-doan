@@ -10104,7 +10104,7 @@ function renderUnitSubmitTab() {
 
                           : isBlankContent
 
-                          ? `<span class="badge" style="background:#f1f5f9; color:#475569; font-size:11px; border:1px solid #cbd5e1; font-weight:700;">📝 Nội dung trống</span>`
+                          ? `<span class="badge" style="background:#f0fdf4; color:#166534; font-size:11px; border:1px solid #86efac; font-weight:700;">📝 Triển khai theo nội dung</span>`
 
                           : isReport
 
@@ -10116,6 +10116,12 @@ function renderUnitSubmitTab() {
 
                     </div>
 
+                    ${c.deploy_content ? `
+                      <div style="margin-top:6px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:6px 10px; font-size:12.5px; color:#1e40af; line-height:1.4;">
+                        📢 <b>Nội dung Ban Thường vụ triển khai:</b>
+                        <div style="margin-top:2px; color:#0f172a; white-space:pre-wrap; font-weight:500;">${escapeHtml(c.deploy_content)}</div>
+                      </div>
+                    ` : ''}
                     ${
 
                       isAdminScore
@@ -10218,7 +10224,13 @@ function renderUnitSubmitTab() {
 
                       isBlankContent
 
-                        ? `<span style="font-size:11.5px; color:#94a3b8; font-style:italic;">Không nộp</span>`
+                        ? (st.canSubmit
+                            ? `<button class="btn btn-sm ${sc ? 'btn-outline' : 'btn-success'}" onclick="openUnitSubmitModal(${c.id})" style="font-weight:700;">
+                                ${sc ? '✏️ Cập nhật' : '📤 Báo Cáo Thực Hiện'}
+                              </button>`
+                            : `<button class="btn btn-sm btn-outline" onclick="openUnitSubmitModal(${c.id})" style="opacity:0.85; font-size:12px; font-weight:600;" title="${st.label}">
+                                ${sc ? '👁️ Xem bài nộp' : '🔒 ' + st.label}
+                              </button>`)
 
                         : isAdminScore
 
@@ -10391,6 +10403,12 @@ function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rank
             <div class="mobile-submit-card-title">
               ${escapeHtml(c.title)}
             </div>
+            ${c.deploy_content ? `
+              <div style="margin-top:6px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:8px 10px; font-size:12px; color:#1e40af; line-height:1.4;">
+                📢 <b>Nội dung Ban Thường vụ triển khai:</b>
+                <div style="margin-top:2px; color:#0f172a; white-space:pre-wrap; font-weight:500;">${escapeHtml(c.deploy_content)}</div>
+              </div>
+            ` : ''}
 
             <div class="mobile-submit-card-meta">
               <div>
@@ -10424,11 +10442,15 @@ function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rank
 
             <!-- Nút thao tác TO RÕ DỄ BẤM TRÊN MOBILE -->
             <div style="margin-top:2px;">
-              ${isBlankContent ? `
-                <div style="text-align:center; padding:8px; font-size:12px; color:#94a3b8; font-style:italic; background:#f8fafc; border-radius:6px;">
-                  📝 Tiêu chí ghi chú / Không cần nộp
-                </div>
-              ` : isAdminScore ? `
+              ${isBlankContent ? (st.canSubmit ? `
+                <button class="btn ${sc ? 'btn-outline' : 'btn-success'} mobile-submit-action-btn" onclick="openUnitSubmitModal(${c.id})">
+                  ${sc ? '✏️ Cập Nhật Báo Cáo Thực Hiện' : '📤 Báo Cáo Kết Quả Thực Hiện'}
+                </button>
+              ` : `
+                <button class="btn btn-outline mobile-submit-action-btn" onclick="openUnitSubmitModal(${c.id})" style="opacity:0.9;">
+                  ${sc ? '👁️ Xem Lại Báo Cáo Đã Nộp' : '🔒 ' + st.label}
+                </button>
+              `) : isAdminScore ? `
                 ${scoreVal !== null || (sc && (sc.report_content || sc.admin_note)) ? `
                   <button class="btn btn-outline mobile-submit-action-btn" onclick="openSubmissionDetailModal(${unit.id}, ${c.id})" style="border-color:#0052cc; color:#0052cc;">
                     👁️ Xem Chi Tiết Điểm & Nhận Xét
@@ -10576,6 +10598,15 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
               ${escapeHtml(crit.title)}
 
             </div>
+
+            ${crit.deploy_content ? `
+              <div style="margin-top:8px; margin-bottom:8px; background:#eff6ff; border:1.5px solid #3b82f6; border-radius:8px; padding:10px 12px; font-size:13px; color:#1e40af; line-height:1.5;">
+                <div style="font-weight:700; margin-bottom:3px; display:flex; align-items:center; gap:4px;">
+                  <span>📢</span> <span>NỘI DUNG BAN THƯỜNG VỤ TRIỂN KHAI THỰC HIỆN:</span>
+                </div>
+                <div style="color:#0f172a; white-space:pre-wrap; font-weight:500;">${escapeHtml(crit.deploy_content)}</div>
+              </div>
+            ` : ''}
 
             ${crit.gdrive_folder_url && state.user && state.user.role === 'admin' ? `
 
@@ -14348,7 +14379,7 @@ function renderAdminCriteriaTab() {
 
             ['13', 'Thường xuyên & Cuối năm'],
 
-            ...Object.entries(state.monthLabels || {}).filter(([k]) => Number(k) > 16)
+            ...Object.entries(state.monthLabels || {}).filter(([k]) => Number(k) > 13)
 
           ].map(([k, v]) => {
 
@@ -14624,7 +14655,7 @@ window.openCriterionEditModal = function (critId) {
 
                 ${Object.entries(state.monthLabels || {})
 
-                  .filter(([k]) => Number(k) > 16)
+                  .filter(([k]) => Number(k) > 13)
 
                   .map(([k, v]) => `<option value="${k}" ${Number(c.month_group) === Number(k) ? 'selected' : ''}>${escapeHtml(v)}</option>`)
 
@@ -14650,12 +14681,19 @@ window.openCriterionEditModal = function (critId) {
 
               <option value="2" ${Number(c.is_report) === 2 ? 'selected' : ''}>👑 Admin tự chấm điểm (Ban Thường vụ tự chấm - Đơn vị không nhập điểm/tài liệu)</option>
 
-              <option value="3" ${Number(c.is_report) === 3 ? 'selected' : ''}>📝 Nội dung trống (Admin tự thêm nội dung vào)</option>
+              <option value="3" ${Number(c.is_report) === 3 ? 'selected' : ''}>📝 Tiêu chí triển khai theo nội dung tự viết (Admin viết nội dung - Các Đoàn thực hiện)</option>
 
             </select>
 
             
 
+          </div>
+
+          <div class="form-group" style="background:#eff6ff; padding:12px 14px; border-radius:8px; border:1.5px solid #0284c7; margin-bottom:14px;">
+            <label style="font-weight:700; color:#0369a1; font-size:13.5px; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+              📢 Nội dung Ban Thường vụ tự viết để triển khai cho các cơ sở Đoàn thực hiện (*):
+            </label>
+            <textarea id="edit-crit-deploy-content" rows="4" placeholder="Nhập chi tiết nội dung chỉ đạo, yêu cầu, chỉ tiêu hoặc hướng dẫn để triển khai cho các cơ sở Đoàn thực hiện..." style="width:100%; padding:10px 12px; font-size:13.5px; border:1.5px solid #0284c7; border-radius:6px; box-sizing:border-box; font-family:inherit; line-height:1.5; font-weight:500;">${escapeHtml(c.deploy_content || '')}</textarea>
           </div>
 
 
@@ -14831,6 +14869,7 @@ window.saveCriterionEdit = async function (critId) {
   const pointsText = document.getElementById('edit-crit-points').value.trim();
 
   const maxS = Number(document.getElementById('edit-crit-max').value || 5);
+  const deployContent = (document.getElementById('edit-crit-deploy-content') ? document.getElementById('edit-crit-deploy-content').value : '').trim();
 
 
 
@@ -14996,6 +15035,10 @@ window.saveCriterionEdit = async function (critId) {
 
     c.is_report = isReport;
 
+    c.allow_unit_submit = (isReport === 2) ? 0 : 1;
+
+    c.deploy_content = deployContent || c.deploy_content || c.title;
+
     c.gdrive_folder_name = gdriveFolderName;
 
     c.gdrive_folder_url = gdriveFolderUrl;
@@ -15156,7 +15199,7 @@ window.openCriterionCreateModal = function () {
 
                 ${Object.entries(state.monthLabels || {})
 
-                  .filter(([k]) => Number(k) > 16)
+                  .filter(([k]) => Number(k) > 13)
 
                   .map(([k, v]) => `<option value="${k}">${escapeHtml(v)}</option>`)
 
@@ -15172,12 +15215,14 @@ window.openCriterionCreateModal = function () {
 
 
 
-          <div class="form-group" id="group-custom-name" style="display:none; background: #f0fdf4; padding: 10px; border-radius: 6px; border: 1px dashed #86efac;">
-
-            <label style="color: #166534; font-weight: 700;">Nhập tên Nhóm kỳ hạn / Tháng hoạt động mới (Admin tự tạo):</label>
-
-            <input type="text" id="new-crit-custom-group" placeholder="VD: Quý 1/2026, Đợt thi đua 26/3, Chiến dịch Hè..." />
-
+          <div class="form-group" id="group-custom-name" style="display:none; background: #f0fdf4; padding: 12px 14px; border-radius: 8px; border: 2px solid #22c55e; margin-bottom: 12px;">
+            <label style="color: #166534; font-weight: 700; font-size: 13.5px; display: block; margin-bottom: 6px;">
+              ➕ Nhập tên Nhóm kỳ hạn / Tháng hoạt động mới (Admin tự tạo) (*):
+            </label>
+            <input type="text" id="new-crit-custom-group" placeholder="VD: Chiến dịch Hè, Đợt thi đua 26/3, APP Thanh niên Việt Nam, Quý 1/2026..." style="background:#fff; font-size:14px; font-weight:600; padding:9px 12px; border:1.5px solid #22c55e; border-radius:6px; width:100%; box-sizing:border-box;" />
+            <div style="font-size:12px; color:#166534; margin-top:4px;">
+              💡 Nhóm mới sẽ được tạo và xuất hiện thành một thẻ lọc Kỳ / Tháng riêng trên Bảng tổng hợp.
+            </div>
           </div>
 
 
@@ -15194,10 +15239,21 @@ window.openCriterionCreateModal = function () {
 
               <option value="2">👑 Admin tự chấm điểm (Ban Thường vụ tự chấm - Đơn vị không nhập điểm/tài liệu)</option>
 
-              <option value="3">📝 Nội dung trống (Admin tự thêm nội dung vào)</option>
+              <option value="3">📝 Tiêu chí triển khai theo nội dung tự viết (Admin viết nội dung - Các Đoàn thực hiện)</option>
 
             </select>
 
+          </div>
+
+          <!-- Ô ADMIN TỰ VIẾT NỘI DUNG ĐỂ TRIỂN KHAI CHO CÁC ĐOÀN THỰC HIỆN -->
+          <div class="form-group" id="crit-deploy-content-group" style="background:#eff6ff; padding:12px 14px; border-radius:8px; border:1.5px solid #0284c7; margin-bottom:14px;">
+            <label style="font-weight:700; color:#0369a1; font-size:13.5px; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+              📢 Nội dung Ban Thường vụ tự viết để triển khai cho các cơ sở Đoàn thực hiện (*):
+            </label>
+            <textarea id="new-crit-deploy-content" rows="4" placeholder="Nhập chi tiết nội dung chỉ đạo, yêu cầu, chỉ tiêu hoặc hướng dẫn để triển khai cho các cơ sở Đoàn thực hiện (Ví dụ: Đề nghị các cơ sở Đoàn trực thuộc triển khai thực hiện việc tải, cài đặt và đăng ký tài khoản App Thanh niên Việt Nam đạt tối thiểu 90% đoàn viên trước ngày 20/10...)..." style="width:100%; padding:10px 12px; font-size:13.5px; border:1.5px solid #0284c7; border-radius:6px; box-sizing:border-box; font-family:inherit; line-height:1.5; font-weight:500;"></textarea>
+            <div style="font-size:12px; color:#0369a1; margin-top:5px; line-height:1.4;">
+              💡 <b>Cơ chế triển khai cho các Đoàn thực hiện:</b> Toàn bộ nội dung này sẽ được chuyển trực tiếp đến giao diện của các cơ sở Đoàn. Các Đoàn sẽ đọc nội dung hướng dẫn này và bấm nút <b>"Báo Cáo Thực Hiện"</b> để gửi kết quả / minh chứng về cho Ban Thường vụ.
+            </div>
           </div>
 
 
@@ -15277,11 +15333,14 @@ window.openCriterionCreateModal = function () {
 
 
 window.toggleCustomGroupInput = function(val) {
-
   const g = document.getElementById('group-custom-name');
-
-  if (g) g.style.display = (val === '__NEW_CUSTOM__') ? 'block' : 'none';
-
+  if (g) {
+    g.style.display = (val === '__NEW_CUSTOM__') ? 'block' : 'none';
+    if (val === '__NEW_CUSTOM__') {
+      const inp = document.getElementById('new-crit-custom-group');
+      if (inp) inp.focus();
+    }
+  }
 };
 
 
@@ -15291,7 +15350,7 @@ window.onCriterionTypeChange = function (val) {
   const typeVal = Number(val);
   if (descEl) {
     if (typeVal === 3) {
-      descEl.innerHTML = '💡 <b>Phân loại [Nội dung trống]:</b> Ban Thường vụ (Admin) có thể tự do gõ chữ, ký tự, số liệu (VD: "Đạt", "100%", "50 đoàn viên", "Chưa cài", ghi chú...) trực tiếp vào từng ô của đơn vị trên Bảng Tổng Hợp.';
+      descEl.innerHTML = '💡 <b>Phân loại [Tiêu chí triển khai theo nội dung tự viết]:</b> Ban Thường vụ tự viết nội dung chỉ đạo, yêu cầu hoặc chỉ tiêu vào ô bên dưới để triển khai trực tiếp cho các cơ sở Đoàn thực hiện và gửi báo cáo kết quả về.';
       descEl.style.color = '#0369a1';
     } else if (typeVal === 2) {
       descEl.innerHTML = '👑 <b>Phân loại [Admin tự chấm điểm]:</b> Ban Thường vụ trực tiếp vào chấm điểm cho từng đơn vị. Các cơ sở Đoàn không tự nộp tài liệu.';
@@ -15340,7 +15399,18 @@ window.saveNewCriterion = async function () {
 
   const customGroupName = document.getElementById('new-crit-custom-group') ? document.getElementById('new-crit-custom-group').value.trim() : '';
 
+  if (monthVal === '__NEW_CUSTOM__') {
+    if (!customGroupName) {
+      showToast('⚠️ Vui lòng nhập tên Nhóm kỳ hạn / Tháng hoạt động mới!', 'error');
+      const gBox = document.getElementById('group-custom-name');
+      const gInput = document.getElementById('new-crit-custom-group');
+      if (gBox) gBox.style.display = 'block';
+      if (gInput) gInput.focus();
+      return;
+    }
+  }
 
+  const deployContent = (document.getElementById('new-crit-deploy-content') ? document.getElementById('new-crit-deploy-content').value : '').trim();
 
   const startDate = document.getElementById('new-crit-start-date').value || '2026-01-01';
 
@@ -15470,6 +15540,7 @@ window.saveNewCriterion = async function () {
       col_number: db.criteria.length + 1,
       col_label: `Cột ${db.criteria.length + 1}`,
       title: title,
+      deploy_content: deployContent || title,
       points_text: pointsText,
       month_group: mGroup,
       month_label: mLabel,
@@ -15481,7 +15552,7 @@ window.saveNewCriterion = async function () {
       max_score: maxS,
       unit_step_score: maxS,
       unit_step_label: 'hoạt động',
-      allow_unit_submit: (isReport === 2 || isReport === 3) ? 0 : 1,
+      allow_unit_submit: (isReport === 2) ? 0 : 1,
       is_report: isReport,
       gdrive_folder_name: gdriveFolderName,
       gdrive_folder_url: gdriveFolderUrl || (state.settings && state.settings.gdrive_root_folder_url) || '',
@@ -15528,7 +15599,10 @@ window.saveNewCriterion = async function () {
         });
       }
     }
-    showToast('🎉 Đã thêm tiêu chí mới và đồng bộ Online thành công!', 'success');
+    if (monthVal === '__NEW_CUSTOM__' && savedCriterion) {
+      state.monthFilter = savedCriterion.month_group;
+    }
+    showToast('🎉 Đã thêm tiêu chí mới và triển khai Online thành công!', 'success');
     renderApp();
   } else {
     showToast('Lỗi khi lưu tiêu chí lên Đám mây: ' + (res.error ? res.error.message : ''), 'error');
