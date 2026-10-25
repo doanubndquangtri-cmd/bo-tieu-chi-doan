@@ -7245,6 +7245,7 @@ async function performLogin(username, password) {
     };
 
     state.user = guestUser;
+    state.chatTab = 'ai';
 
     state.isAdminSession = false;
 
@@ -7468,7 +7469,7 @@ window.switchAccountQuick = function (val) {
 // =========================================================================
 
 function isNotificationForUser(n, user) {
-  if (!user || !n) return false;
+  if (!user || !n || user.role === 'guest') return false;
   const isAdmin = user.role === 'admin';
   if (isAdmin) {
     // Admin receives all submissions, approvals, rejections, and broadcasts
@@ -7517,12 +7518,12 @@ function isNotificationUnread(n, user) {
 }
 
 function getUnreadNotificationCount() {
-  if (!state.user) return 0;
+  if (!state.user || state.user.role === 'guest') return 0;
   return (state.notifications || []).filter(n => isNotificationForUser(n, state.user) && isNotificationUnread(n, state.user)).length;
 }
 
 function getTotalBadgeCount() {
-  if (!state.user) return 0;
+  if (!state.user || state.user.role === 'guest') return 0;
   const notifUnread = typeof getUnreadNotificationCount === 'function' ? getUnreadNotificationCount() : 0;
   const chatUnread = typeof getTotalUnreadChatCount === 'function' ? getTotalUnreadChatCount() : 0;
   return notifUnread + chatUnread;
@@ -8375,9 +8376,10 @@ function renderHeader() {
 
   ].join('');
 
-  const totalBadgeCount = getTotalBadgeCount();
-  const unreadNotifCount = getUnreadNotificationCount();
-  const unreadChatCount = typeof getTotalUnreadChatCount === 'function' ? getTotalUnreadChatCount() : 0;
+  const isGuest = state.user && state.user.role === 'guest';
+  const totalBadgeCount = isGuest ? 0 : getTotalBadgeCount();
+  const unreadNotifCount = isGuest ? 0 : getUnreadNotificationCount();
+  const unreadChatCount = (isGuest || typeof getTotalUnreadChatCount !== 'function') ? 0 : getTotalUnreadChatCount();
 
   return `
 
@@ -8417,21 +8419,23 @@ function renderHeader() {
 
       <div class="header-actions" style="display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; flex-shrink: 0; overflow: visible; background: transparent; border: none; padding: 0;">
 
-        <!-- CHUÔNG THÔNG BÁO CHO ADMIN & CÁC ĐƠN VỊ -->
-        ${renderPushNotificationHeaderButton()}
+        <!-- CHUÔNG THÔNG BÁO CHO ADMIN & CÁC ĐƠN VỊ (ẨN HOÀN TOÀN Ở TÀI KHOẢN KHÁCH XEM) -->
+        ${!isGuest ? `
+          ${renderPushNotificationHeaderButton()}
 
-        <div class="notification-bell-container" id="notif-bell-container" style="position: relative; flex-shrink: 0; z-index: 999999 !important;">
-          <button class="btn btn-sm notification-bell-btn" onclick="toggleNotificationPanel(event)" style="font-size:11px; padding:3px 7px; height:27px;">
-            🔔 <span style="font-weight:700;">Thông báo</span>
-            ${unreadNotifCount > 0 ? `<span class="notification-badge">${unreadNotifCount > 99 ? '99+' : unreadNotifCount}</span>` : ''}
-          </button>
-          ${state.notificationsOpen ? renderNotificationDropdown() : ''}
-        </div>
+          <div class="notification-bell-container" id="notif-bell-container" style="position: relative; flex-shrink: 0; z-index: 999999 !important;">
+            <button class="btn btn-sm notification-bell-btn" onclick="toggleNotificationPanel(event)" style="font-size:11px; padding:3px 7px; height:27px;">
+              🔔 <span style="font-weight:700;">Thông báo</span>
+              ${unreadNotifCount > 0 ? `<span class="notification-badge">${unreadNotifCount > 99 ? '99+' : unreadNotifCount}</span>` : ''}
+            </button>
+            ${state.notificationsOpen ? renderNotificationDropdown() : ''}
+          </div>
+        ` : ''}
 
         <button class="btn btn-sm" onclick="toggleChatWidget()" title="Bấm để mở ô Trao Đổi Đoàn giữa các đơn vị và Ban Thường vụ Tỉnh" style="background: linear-gradient(135deg, #0284c7 0%, #0052cc 100%); color: #fff; border: 1px solid rgba(255,255,255,0.4); font-size: 11px; padding: 3px 8px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); cursor: pointer; border-radius: 5px; height:27px;">
           <span>💬</span>
           <span>Trao Đổi Đoàn</span>
-          ${unreadChatCount > 0 ? `<span style="background:#ef4444; color:#fff; font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:10px; margin-left:2px;">${unreadChatCount > 99 ? '99+' : unreadChatCount}</span>` : ''}
+          ${(!isGuest && unreadChatCount > 0) ? `<span style="background:#ef4444; color:#fff; font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:10px; margin-left:2px;">${unreadChatCount > 99 ? '99+' : unreadChatCount}</span>` : ''}
         </button>
 
         <button class="btn btn-sm btn-outline" onclick="syncFromCloudNow(false)" style="background:rgba(255,255,255,0.15); color:#fff; border-color:rgba(255,255,255,0.3); font-size:11px; padding:3px 7px; height:27px;" title="Tải dữ liệu mới nhất từ đám mây">
@@ -20912,8 +20916,13 @@ window.scrollChatToBottom = function() {
 
 
 window.toggleChatWidget = function() {
-
+  const isGuest = state.user && state.user.role === 'guest';
   state.chatOpen = !state.chatOpen;
+  if (state.chatOpen && isGuest) {
+    if (state.chatTab === 'public' || state.chatTab === 'private' || state.chatTab === 'video') {
+      state.chatTab = 'ai';
+    }
+  }
 
   if (state.chatOpen) {
 
@@ -21020,7 +21029,10 @@ window.openQrGenerator = function() {
 };
 
 window.switchChatTab = function(tab) {
-
+  const isGuest = state.user && state.user.role === 'guest';
+  if (isGuest && (tab === 'public' || tab === 'private' || tab === 'video')) {
+    tab = 'ai';
+  }
   if (tab === 'video') tab = 'public';
 
   state.chatTab = tab;
@@ -22692,6 +22704,11 @@ function renderFloatingChatWidget() {
 
   if (!state.user) return '';
 
+  const isGuest = state.user.role === 'guest';
+  if (isGuest && (state.chatTab === 'public' || state.chatTab === 'private' || state.chatTab === 'video')) {
+    state.chatTab = 'ai';
+  }
+
   if (state.chatOpen) {
     setChatRoomAsRead(getChatRoomKey());
   }
@@ -22878,12 +22895,14 @@ function renderFloatingChatWidget() {
             <button type="button" class="btn btn-sm btn-chat-action" onclick="syncFromCloudNow(false)" style="background:rgba(255,255,255,0.22); border:1px solid rgba(255,255,255,0.45); color:#fff; font-size:11px; font-weight:700; padding:3px 6px; border-radius:5px; cursor:pointer; height:28px; display:inline-flex; align-items:center; justify-content:center;" title="Tải lại tin nhắn mới nhất từ máy chủ">
               <span>🔄</span><span class="btn-text-full" style="margin-left:2px;"> Tải lại</span>
             </button>
-            <button type="button" class="btn btn-sm btn-chat-action" onclick="markAllChatAsRead()" style="background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.4); color:#fff; font-size:11px; font-weight:700; padding:3px 6px; border-radius:5px; cursor:pointer; height:28px; display:inline-flex; align-items:center; justify-content:center;" title="Đánh dấu tất cả tin nhắn trong hệ thống là đã đọc">
-              <span>✓</span><span class="btn-text-full" style="margin-left:2px;"> Đã đọc</span>
-            </button>
-            <button type="button" class="btn btn-sm btn-chat-action btn-chat-clear" onclick="openClearChatOptionsModal()" style="background:rgba(239,68,68,0.25); border:1px solid rgba(239,68,68,0.5); color:#fff; font-size:11px; font-weight:700; padding:3px 6px; border-radius:5px; cursor:pointer; height:28px; display:inline-flex; align-items:center; justify-content:center;" title="Xóa lịch sử trao đổi">
-              <span>🗑️</span><span class="btn-text-full" style="margin-left:2px;"> Xóa</span>
-            </button>
+            ${!isGuest ? `
+              <button type="button" class="btn btn-sm btn-chat-action" onclick="markAllChatAsRead()" style="background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.4); color:#fff; font-size:11px; font-weight:700; padding:3px 6px; border-radius:5px; cursor:pointer; height:28px; display:inline-flex; align-items:center; justify-content:center;" title="Đánh dấu tất cả tin nhắn trong hệ thống là đã đọc">
+                <span>✓</span><span class="btn-text-full" style="margin-left:2px;"> Đã đọc</span>
+              </button>
+              <button type="button" class="btn btn-sm btn-chat-action btn-chat-clear" onclick="openClearChatOptionsModal()" style="background:rgba(239,68,68,0.25); border:1px solid rgba(239,68,68,0.5); color:#fff; font-size:11px; font-weight:700; padding:3px 6px; border-radius:5px; cursor:pointer; height:28px; display:inline-flex; align-items:center; justify-content:center;" title="Xóa lịch sử trao đổi">
+                <span>🗑️</span><span class="btn-text-full" style="margin-left:2px;"> Xóa</span>
+              </button>
+            ` : ''}
             <button type="button" class="chat-maximize-btn" onclick="toggleMaximizeChatWidget()" style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:28px; height:28px; border-radius:5px; font-size:13px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center;" title="${state.chatMaximized ? 'Thu nhỏ về kích thước ban đầu' : 'Phóng to toàn màn hình'}">
               ${state.chatMaximized ? '❐' : '⛶'}
             </button>
@@ -22893,20 +22912,22 @@ function renderFloatingChatWidget() {
           </div>
         </div>
 
-        <!-- THANH CHUYỂN TAB: CHAT CHUNG, CHAT RIÊNG TƯ, HỎI ĐÁP AI, GIỌNG NÓI AI & TẠO QR (CHIA ĐỀU 5 CỘT) -->
-        <div class="chat-tabs-bar" style="display:grid; grid-template-columns:repeat(5, 1fr); gap:2px; padding:4px 3px; background:#f1f5f9; border-bottom:1px solid #cbd5e1; width:100%; box-sizing:border-box; flex-shrink:0;">
-          <button type="button" class="chat-tab-btn ${state.chatTab === 'public' ? 'active' : ''}" onclick="switchChatTab('public')" style="width:100%; min-width:0; padding:6px 1px; font-size:11px; font-weight:700; text-align:center; white-space:nowrap; border-radius:6px; display:flex; align-items:center; justify-content:center; gap:2px; border:1px solid ${state.chatTab === 'public' ? '#0052cc' : '#cbd5e1'}; background:${state.chatTab === 'public' ? '#0052cc' : '#ffffff'}; color:${state.chatTab === 'public' ? '#ffffff' : '#334155'}; cursor:pointer; box-sizing:border-box; height:32px;" title="Kênh trao đổi chung toàn Khối">
-            <span>🌐</span>
-            <span class="tab-label-full">Toàn Khối</span>
-            <span class="tab-label-short">Chung</span>
-            ${unreadPublic > 0 ? `<span class="chat-badge" style="background:#ef4444; color:#fff; font-size:9px; font-weight:800; padding:0 4px; border-radius:8px; margin-left:1px;">${unreadPublic}</span>` : ''}
-          </button>
-          <button type="button" class="chat-tab-btn ${state.chatTab === 'private' ? 'active' : ''}" onclick="switchChatTab('private')" style="width:100%; min-width:0; padding:6px 1px; font-size:11px; font-weight:700; text-align:center; white-space:nowrap; border-radius:6px; display:flex; align-items:center; justify-content:center; gap:2px; border:1px solid ${state.chatTab === 'private' ? '#0052cc' : '#cbd5e1'}; background:${state.chatTab === 'private' ? '#0052cc' : '#ffffff'}; color:${state.chatTab === 'private' ? '#ffffff' : '#334155'}; cursor:pointer; box-sizing:border-box; height:32px;" title="Kênh trao đổi riêng tư 1 - 1">
-            <span>🔒</span>
-            <span class="tab-label-full">Riêng Tư</span>
-            <span class="tab-label-short">Riêng</span>
-            ${unreadPrivate > 0 ? `<span class="chat-badge" style="background:#ef4444; color:#fff; font-size:9px; font-weight:800; padding:0 4px; border-radius:8px; margin-left:1px;">${unreadPrivate}</span>` : ''}
-          </button>
+        <!-- THANH CHUYỂN TAB: CHAT CHUNG, CHAT RIÊNG TƯ, HỎI ĐÁP AI, GIỌNG NÓI AI & TẠO QR (GUEST CHỈ HIỆN 3 TAB AI & TIỆN ÍCH) -->
+        <div class="chat-tabs-bar" style="display:grid; grid-template-columns:${isGuest ? 'repeat(3, 1fr)' : 'repeat(5, 1fr)'}; gap:2px; padding:4px 3px; background:#f1f5f9; border-bottom:1px solid #cbd5e1; width:100%; box-sizing:border-box; flex-shrink:0;">
+          ${!isGuest ? `
+            <button type="button" class="chat-tab-btn ${state.chatTab === 'public' ? 'active' : ''}" onclick="switchChatTab('public')" style="width:100%; min-width:0; padding:6px 1px; font-size:11px; font-weight:700; text-align:center; white-space:nowrap; border-radius:6px; display:flex; align-items:center; justify-content:center; gap:2px; border:1px solid ${state.chatTab === 'public' ? '#0052cc' : '#cbd5e1'}; background:${state.chatTab === 'public' ? '#0052cc' : '#ffffff'}; color:${state.chatTab === 'public' ? '#ffffff' : '#334155'}; cursor:pointer; box-sizing:border-box; height:32px;" title="Kênh trao đổi chung toàn Khối">
+              <span>🌐</span>
+              <span class="tab-label-full">Toàn Khối</span>
+              <span class="tab-label-short">Chung</span>
+              ${unreadPublic > 0 ? `<span class="chat-badge" style="background:#ef4444; color:#fff; font-size:9px; font-weight:800; padding:0 4px; border-radius:8px; margin-left:1px;">${unreadPublic}</span>` : ''}
+            </button>
+            <button type="button" class="chat-tab-btn ${state.chatTab === 'private' ? 'active' : ''}" onclick="switchChatTab('private')" style="width:100%; min-width:0; padding:6px 1px; font-size:11px; font-weight:700; text-align:center; white-space:nowrap; border-radius:6px; display:flex; align-items:center; justify-content:center; gap:2px; border:1px solid ${state.chatTab === 'private' ? '#0052cc' : '#cbd5e1'}; background:${state.chatTab === 'private' ? '#0052cc' : '#ffffff'}; color:${state.chatTab === 'private' ? '#ffffff' : '#334155'}; cursor:pointer; box-sizing:border-box; height:32px;" title="Kênh trao đổi riêng tư 1 - 1">
+              <span>🔒</span>
+              <span class="tab-label-full">Riêng Tư</span>
+              <span class="tab-label-short">Riêng</span>
+              ${unreadPrivate > 0 ? `<span class="chat-badge" style="background:#ef4444; color:#fff; font-size:9px; font-weight:800; padding:0 4px; border-radius:8px; margin-left:1px;">${unreadPrivate}</span>` : ''}
+            </button>
+          ` : ''}
           <button type="button" class="chat-tab-btn ai-tab ${state.chatTab === 'ai' ? 'active' : ''}" onclick="switchChatTab('ai')" style="width:100%; min-width:0; padding:6px 1px; font-size:11px; font-weight:700; text-align:center; white-space:nowrap; border-radius:6px; display:flex; align-items:center; justify-content:center; gap:2px; border:1px solid ${state.chatTab === 'ai' ? '#7c3aed' : '#cbd5e1'}; background:${state.chatTab === 'ai' ? '#7c3aed' : '#ffffff'}; color:${state.chatTab === 'ai' ? '#ffffff' : '#6d28d9'}; cursor:pointer; box-sizing:border-box; height:32px;" title="Hỏi Đáp Trí Tuệ Nhân Tạo Google Gemini (Trợ Lý AI Đoàn Khối)">
             <span>🤖</span>
             <span class="tab-label-full">Hỏi Đáp AI</span>
@@ -23308,6 +23329,7 @@ function renderFloatingChatWidget() {
 // 1. ÂM THANH THÔNG BÁO TINH TẾ (WEB AUDIO API)
 
 window.playNotificationChime = function() {
+  if (state.user && state.user.role === 'guest') return;
 
   try {
 
@@ -29696,6 +29718,8 @@ window.initRealtimeLiveBridge = function() {
         if (!raw || !raw.message) return;
         const evt = JSON.parse(raw.message);
         if (!evt || !evt.type) return;
+
+        if (state.user && state.user.role === 'guest') return;
 
         // Bỏ qua tin do chính tab này vừa phát đi
         if (state.user && evt.sender_id === state.user.id && (Date.now() - (evt.ts || 0) < 1500)) {
