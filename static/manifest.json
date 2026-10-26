@@ -1,8 +1,8 @@
 {
   "id": "doan-tieu-chi-2026",
-  "name": "Bộ Tiêu Chí Đoàn Cấp Cơ Sở 2026",
-  "short_name": "Tiêu Chí Đoàn",
-  "description": "Hệ thống quản lý, nộp báo cáo và tổng hợp bộ tiêu chí Đoàn cấp cơ sở năm 2026",
+  "name": "Bộ tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh",
+  "short_name": "Bộ Tiêu Chí Đoàn",
+  "description": "Bộ tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh - Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
