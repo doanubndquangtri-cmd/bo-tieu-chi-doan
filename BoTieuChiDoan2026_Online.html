@@ -4359,6 +4359,106 @@ body.dark-mode #tts-result-box {
   }
 }
 
+
+/* ========================================================================= */
+/* DONG THONG BAO CHU CHAY NGANG (MARQUEE TICKER)                            */
+/* ========================================================================= */
+.marquee-ticker-bar {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 34px;
+  min-height: 34px;
+  max-height: 34px;
+  overflow: hidden;
+  position: relative;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  z-index: 45;
+  user-select: none;
+}
+
+.marquee-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 0 10px;
+  height: 100%;
+  white-space: nowrap;
+  flex-shrink: 0;
+  z-index: 2;
+  box-shadow: 2px 0 6px rgba(0, 0, 0, 0.08);
+}
+
+.marquee-content-container {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 100%;
+  cursor: pointer;
+}
+
+.marquee-text-track {
+  display: inline-block;
+  white-space: nowrap;
+  font-size: 13.5px;
+  font-weight: 600;
+  will-change: transform;
+  animation-name: marqueeScroll;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.marquee-ticker-bar:hover .marquee-text-track,
+.marquee-text-track.paused {
+  animation-play-state: paused !important;
+}
+
+@keyframes marqueeScroll {
+  0% {
+    transform: translateX(100vw);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
+
+.marquee-admin-action {
+  flex-shrink: 0;
+  z-index: 2;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+}
+
+@media (max-width: 768px) {
+  .marquee-ticker-bar {
+    height: 30px;
+    min-height: 30px;
+    max-height: 30px;
+  }
+  .marquee-badge {
+    font-size: 10px;
+    padding: 0 6px;
+    letter-spacing: 0.2px;
+  }
+  .marquee-text-track {
+    font-size: 12px;
+  }
+  .marquee-admin-action button {
+    font-size: 10px !important;
+    padding: 1px 5px !important;
+    height: 20px !important;
+  }
+}
+
   </style>
 </head>
 <body>
@@ -6885,6 +6985,7 @@ function renderApp() {
     ` : ''}
 
     ${renderNavTabs()}
+    ${renderMarqueeTicker()}
 
     <div class="main-container">
 
@@ -8502,6 +8603,15 @@ function renderHeader() {
         <button class="btn btn-success btn-sm" onclick="exportToExcelClient()" title="Tải bảng tổng hợp Excel chuẩn về máy" style="font-size:11px; padding:3px 7px; height:27px;">
           📊 Xuất Excel
         </button>
+
+        ${isAdmin ? `
+          <button class="btn btn-sm" onclick="openMarqueeSettingsModal()" title="Cài đặt dòng chữ thông báo chạy ngang trên đầu trang" style="font-size:11px; padding:3px 7px; height:27px; background:${(state.settings && state.settings.marquee_enabled === '0') ? 'rgba(255,255,255,0.2)' : '#f59e0b'}; color:#fff; border:1px solid rgba(255,255,255,0.4); font-weight:700; display:inline-flex; align-items:center; gap:4px;">
+            📢 <span>Chữ Chạy</span>
+            <span style="font-size:9px; padding:1px 4px; border-radius:3px; background:${(state.settings && state.settings.marquee_enabled === '0') ? '#64748b' : '#15803d'}; font-weight:800;">
+              ${(state.settings && state.settings.marquee_enabled === '0') ? 'TẮT' : 'BẬT'}
+            </span>
+          </button>
+        ` : ''}
 
         ${isAdmin ? `
           <button class="btn btn-primary btn-sm" onclick="saveExcelToGoogleDrive()" title="Tự động xuất và lưu file Excel vào đúng thư mục Tháng trên Google Drive" style="background:#0284c7; border-color:#0284c7; font-weight:700; font-size:11px; padding:3px 7px; height:27px;">
@@ -30321,6 +30431,246 @@ window.deleteCriterionCategory = async function (catNum) {
     showToast(`Đã xóa "${catName}" thành công!`, 'success');
     openManageCriterionCategoriesModal();
     renderApp();
+  }
+};
+
+
+// =========================================================================
+// DÒNG THÔNG BÁO CHỮ CHẠY NGANG (MARQUEE TICKER) - HỆ THỐNG ĐIỀU HÀNH
+// =========================================================================
+
+function renderMarqueeTicker() {
+  const settings = state.settings || {};
+  const isEnabled = settings.marquee_enabled !== '0';
+  const text = (settings.marquee_text !== undefined) ? settings.marquee_text.trim() : 'Chào mừng các đồng chí đến với Hệ Thống Quản Lý & Tổng Hợp Bộ Tiêu Chí Đoàn Cấp Cơ Sở. Đề nghị các cơ sở Đoàn rà soát, hoàn thành kê khai và nộp minh chứng đúng thời hạn quy định!';
+
+  // Nếu bị tắt hoặc không có nội dung thì ẩn hoàn toàn, không chiếm diện tích
+  if (!isEnabled || !text) {
+    return '';
+  }
+
+  const badge = settings.marquee_badge || '📢 THÔNG BÁO:';
+  const speed = settings.marquee_speed || 'medium';
+  const colorTheme = settings.marquee_color || 'amber';
+
+  const speedMult = speed === 'slow' ? 1.6 : (speed === 'fast' ? 0.75 : 1.0);
+  const durationSec = Math.max(16, Math.min(65, Math.round(text.length * 0.18 * speedMult)));
+
+  const isAdmin = state.user && state.user.role === 'admin';
+
+  let themeStyles = {
+    bar: 'background: linear-gradient(90deg, #fffbeb 0%, #fef3c7 50%, #fffbeb 100%); border-bottom: 1.5px solid #fde68a; border-top: 1px solid #fef3c7;',
+    badge: 'background: #ea580c; color: #ffffff;',
+    text: 'color: #9a3412;'
+  };
+
+  if (colorTheme === 'blue') {
+    themeStyles = {
+      bar: 'background: linear-gradient(90deg, #f0f9ff 0%, #e0f2fe 50%, #f0f9ff 100%); border-bottom: 1.5px solid #bae6fd; border-top: 1px solid #e0f2fe;',
+      badge: 'background: #0284c7; color: #ffffff;',
+      text: 'color: #0369a1;'
+    };
+  } else if (colorTheme === 'red') {
+    themeStyles = {
+      bar: 'background: linear-gradient(90deg, #fef2f2 0%, #fee2e2 50%, #fef2f2 100%); border-bottom: 1.5px solid #fecaca; border-top: 1px solid #fee2e2;',
+      badge: 'background: #dc2626; color: #ffffff;',
+      text: 'color: #991b1b;'
+    };
+  } else if (colorTheme === 'green') {
+    themeStyles = {
+      bar: 'background: linear-gradient(90deg, #f0fdf4 0%, #dcfce7 50%, #f0fdf4 100%); border-bottom: 1.5px solid #bbf7d0; border-top: 1px solid #dcfce7;',
+      badge: 'background: #16a34a; color: #ffffff;',
+      text: 'color: #166534;'
+    };
+  }
+
+  return `
+    <div class="marquee-ticker-bar" style="${themeStyles.bar}" title="Bấm vào dòng chữ để Tạm dừng / Tiếp tục chạy">
+      <div class="marquee-badge" style="${themeStyles.badge}">
+        ${escapeHtml(badge)}
+      </div>
+      <div class="marquee-content-container" onclick="toggleMarqueePause(this)">
+        <div class="marquee-text-track" style="${themeStyles.text} animation-duration: ${durationSec}s;">
+          ${escapeHtml(text)} &nbsp;&nbsp;&nbsp;&nbsp; ⭐ &nbsp;&nbsp;&nbsp;&nbsp; ${escapeHtml(text)}
+        </div>
+      </div>
+      ${isAdmin ? `
+        <div class="marquee-admin-action">
+          <button class="btn btn-sm" onclick="openMarqueeSettingsModal()" style="font-size:11px; font-weight:700; padding:2px 8px; height:24px; background:#fff; color:#ea580c; border:1px solid #fdba74; border-radius:4px; box-shadow:0 1px 2px rgba(0,0,0,0.05); white-space:nowrap; cursor:pointer;" title="Chỉnh sửa nội dung hoặc Bật/Tắt dòng chữ chạy này">
+            ⚙️ Sửa
+          </button>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+window.toggleMarqueePause = function (el) {
+  const track = el ? el.querySelector('.marquee-text-track') : null;
+  if (track) {
+    track.classList.toggle('paused');
+  }
+};
+
+window.openMarqueeSettingsModal = function () {
+  const modalRoot = document.getElementById('modal-root');
+  if (!modalRoot) return;
+
+  const settings = state.settings || {};
+  const isEnabled = settings.marquee_enabled !== '0';
+  const currentText = (settings.marquee_text !== undefined) ? settings.marquee_text : 'Chào mừng các đồng chí đến với Hệ Thống Quản Lý & Tổng Hợp Bộ Tiêu Chí Đoàn Cấp Cơ Sở. Đề nghị các cơ sở Đoàn rà soát, hoàn thành kê khai và nộp minh chứng đúng thời hạn quy định!';
+  const currentBadge = settings.marquee_badge || '📢 THÔNG BÁO:';
+  const currentSpeed = settings.marquee_speed || 'medium';
+  const currentColor = settings.marquee_color || 'amber';
+
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+      <div class="modal-box" style="max-width: 650px; border-radius:10px; overflow:hidden; box-shadow:0 10px 25px rgba(0,0,0,0.25);">
+        <div class="modal-header" style="background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%); color: #fff; padding: 13px 18px; display:flex; justify-content:space-between; align-items:center;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:20px;">📢</span>
+            <span style="font-weight: 800; font-size:15px; text-transform:uppercase; letter-spacing:0.3px;">Quản Lý Dòng Chữ Thông Báo Chạy Ngang</span>
+          </div>
+          <button class="btn btn-sm btn-outline" onclick="closeModal()" style="color: #fff; border-color: rgba(255,255,255,0.4); font-size:14px; padding:2px 8px;">✕</button>
+        </div>
+
+        <div class="modal-body" style="padding: 20px; max-height: calc(85vh - 120px); overflow-y:auto; background:#fff;">
+          
+          <!-- BẬT / TẮT DÒNG CHỮ -->
+          <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 14px; margin-bottom: 16px;">
+            <label style="font-weight: 700; font-size: 13.5px; color: #1e293b; display: block; margin-bottom: 8px;">
+              Trạng thái dòng chữ chạy ngang:
+            </label>
+            <div style="display:flex; gap:16px; flex-wrap:wrap;">
+              <label style="display:inline-flex; align-items:center; gap:6px; font-weight:700; color:#15803d; cursor:pointer; font-size:13.5px;">
+                <input type="radio" name="marquee-status" value="1" ${isEnabled ? 'checked' : ''} style="width:16px; height:16px; accent-color:#15803d;" />
+                🟢 ĐANG BẬT (Hiển thị chạy chữ cho toàn hệ thống)
+              </label>
+              <label style="display:inline-flex; align-items:center; gap:6px; font-weight:700; color:#dc2626; cursor:pointer; font-size:13.5px;">
+                <input type="radio" name="marquee-status" value="0" ${!isEnabled ? 'checked' : ''} style="width:16px; height:16px; accent-color:#dc2626;" />
+                🔴 ĐÃ TẮT (Ẩn hoàn toàn, không hiển thị)
+              </label>
+            </div>
+            <div style="font-size:12px; color:#64748b; margin-top:6px;">
+              * Khi tắt, thanh thông báo sẽ tự động biến mất và không chiếm bất kỳ diện tích nào trên trang web.
+            </div>
+          </div>
+
+          <!-- NỘI DUNG CHỮ CHẠY -->
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label style="font-weight: 700; font-size: 13.5px; color: #1e293b; display: block; margin-bottom: 6px;">
+              📝 Nội dung chữ chạy ngang (*):
+            </label>
+            <textarea id="marquee-text-input" rows="4" style="width:100%; border:1.5px solid #94a3b8; border-radius:6px; padding:10px 12px; font-size:13.5px; font-weight:500; line-height:1.5; resize:vertical; box-sizing:border-box;" placeholder="Nhập nội dung cần thông báo chạy ngang từ phải sang trái...">${escapeHtml(currentText)}</textarea>
+            <div style="font-size:12px; color:#64748b; margin-top:4px;">
+              💡 Gợi ý: Có thể chèn các biểu tượng emoji như 📢, ⭐, ⚡, 🎯, 🔥 để dòng chữ thêm sinh động, bắt mắt.
+            </div>
+          </div>
+
+          <!-- TIÊU ĐỀ HUY HIỆU & TỐC ĐỘ & MÀU SẮC -->
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap:12px; margin-bottom: 16px;">
+            <div class="form-group">
+              <label style="font-weight: 700; font-size: 13px; color: #1e293b; display: block; margin-bottom: 5px;">
+                🏷️ Huy hiệu đầu dòng:
+              </label>
+              <input type="text" id="marquee-badge-input" value="${escapeHtml(currentBadge)}" style="width:100%; border:1px solid #cbd5e1; border-radius:6px; padding:7px 10px; font-size:13px; font-weight:700; box-sizing:border-box;" placeholder="VD: 📢 THÔNG BÁO:" />
+            </div>
+
+            <div class="form-group">
+              <label style="font-weight: 700; font-size: 13px; color: #1e293b; display: block; margin-bottom: 5px;">
+                ⏱️ Tốc độ chạy chữ:
+              </label>
+              <select id="marquee-speed-select" style="width:100%; border:1px solid #cbd5e1; border-radius:6px; padding:7px 10px; font-size:13px; font-weight:600; box-sizing:border-box;">
+                <option value="medium" ${currentSpeed === 'medium' ? 'selected' : ''}>Vừa phải (Khuyên dùng - Chuẩn PC & Mobile)</option>
+                <option value="slow" ${currentSpeed === 'slow' ? 'selected' : ''}>Chậm hơn (Dễ đọc kỹ từng chữ)</option>
+                <option value="fast" ${currentSpeed === 'fast' ? 'selected' : ''}>Nhanh hơn</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label style="font-weight: 700; font-size: 13px; color: #1e293b; display: block; margin-bottom: 5px;">
+                🎨 Màu sắc thanh chạy:
+              </label>
+              <select id="marquee-color-select" style="width:100%; border:1px solid #cbd5e1; border-radius:6px; padding:7px 10px; font-size:13px; font-weight:600; box-sizing:border-box;">
+                <option value="amber" ${currentColor === 'amber' ? 'selected' : ''}>Cam Hổ Phách (Nổi bật, ấm áp)</option>
+                <option value="blue" ${currentColor === 'blue' ? 'selected' : ''}>Xanh Dương (Hiện đại, thanh lịch)</option>
+                <option value="red" ${currentColor === 'red' ? 'selected' : ''}>Đỏ Khẩn Cấp (Chú ý đặc biệt)</option>
+                <option value="green" ${currentColor === 'green' ? 'selected' : ''}>Xanh Lá (Tươi mới, hài hòa)</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:10px 12px; font-size:12.5px; color:#1e40af; line-height:1.4;">
+            ✨ <b>Tính năng thông minh:</b> Người dùng trên máy tính khi rê chuột qua dòng chữ, hoặc chạm ngón tay trên điện thoại sẽ tự động <b>tạm dừng chạy</b> để đọc kỹ nội dung và tiếp tục chạy bình thường sau đó.
+          </div>
+
+        </div>
+
+        <div class="modal-footer" style="padding: 12px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:10px;">
+          <button class="btn btn-outline" onclick="closeModal()" style="font-weight:600;">Đóng</button>
+          <button class="btn btn-primary" onclick="saveMarqueeSettings()" id="btn-save-marquee" style="background:#ea580c; border-color:#ea580c; color:#fff; font-weight:700; padding:8px 18px;">
+            💾 Lưu & Áp Dụng Ngay
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+window.saveMarqueeSettings = async function () {
+  const statusEl = document.querySelector('input[name="marquee-status"]:checked');
+  const isEnabled = statusEl ? statusEl.value : '1';
+  const textInput = document.getElementById('marquee-text-input');
+  const textVal = textInput ? textInput.value.trim() : '';
+
+  if (isEnabled === '1' && !textVal) {
+    showToast('Vui lòng nhập nội dung cho dòng chữ chạy ngang!', 'error');
+    if (textInput) textInput.focus();
+    return;
+  }
+
+  const badgeInput = document.getElementById('marquee-badge-input');
+  const badgeVal = badgeInput ? badgeInput.value.trim() : '📢 THÔNG BÁO:';
+  const speedSelect = document.getElementById('marquee-speed-select');
+  const speedVal = speedSelect ? speedSelect.value : 'medium';
+  const colorSelect = document.getElementById('marquee-color-select');
+  const colorVal = colorSelect ? colorSelect.value : 'amber';
+
+  const btn = document.getElementById('btn-save-marquee');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Đang lưu...';
+  }
+
+  showToast('Đang cập nhật dòng chữ chạy ngang lên hệ thống...', 'info');
+
+  const res = await mutateCloudDB((db) => {
+    db.settings = db.settings || {};
+    db.settings.marquee_enabled = isEnabled;
+    db.settings.marquee_text = textVal;
+    db.settings.marquee_badge = badgeVal;
+    db.settings.marquee_speed = speedVal;
+    db.settings.marquee_color = colorVal;
+
+    state.settings = state.settings || {};
+    state.settings.marquee_enabled = isEnabled;
+    state.settings.marquee_text = textVal;
+    state.settings.marquee_badge = badgeVal;
+    state.settings.marquee_speed = speedVal;
+    state.settings.marquee_color = colorVal;
+  }, `Update marquee announcement settings`);
+
+  if (res.ok) {
+    closeModal();
+    renderApp();
+    showToast('🎉 Đã cập nhật dòng chữ chạy ngang thành công!', 'success');
+  } else {
+    const errMsg = (res && res.error) ? (typeof res.error === 'string' ? res.error : (res.error.message || JSON.stringify(res.error))) : 'Không xác định';
+    showToast('Lỗi khi lưu cài đặt: ' + errMsg, 'error');
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '💾 Lưu & Áp Dụng Ngay';
+    }
   }
 };
 
