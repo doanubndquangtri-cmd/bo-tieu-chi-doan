@@ -3243,7 +3243,7 @@ function startTitleFlash(text) {
   if (typeof document === 'undefined') return;
   if (_titleFlashInterval) clearInterval(_titleFlashInterval);
   let isAlt = false;
-  const baseTitle = 'Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí';
+  const baseTitle = 'Bộ tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh - Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí';
   _titleFlashInterval = setInterval(() => {
     if (!document.hidden || getTotalBadgeCount() === 0) {
       clearInterval(_titleFlashInterval);
@@ -4018,7 +4018,7 @@ function updateDynamicFaviconBadge(count) {
 
 function updateDocumentTitle(count) {
   if (typeof document === 'undefined') return;
-  const baseTitle = 'Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí';
+  const baseTitle = 'Bộ tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh - Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí';
   document.title = (count > 0 ? `(${count > 99 ? '99+' : count}) ` : '') + baseTitle;
 }
 
