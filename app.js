@@ -2056,9 +2056,15 @@ function getRankingMonthGroups() {
 
   });
 
+  // Di chuyển nhóm "Bộ tiêu chí sao (*)" lên ĐẦU TIÊN (trước Tháng 1)
+  const isStar = (g) => {
+    const lbl = String(g.label || '').toLowerCase();
+    return lbl.includes('sao') || lbl.includes('(*)') || lbl.includes('tiêu chí sao') || lbl.includes('*');
+  };
+  const starGroups = groups.filter(isStar);
+  const otherGroups = groups.filter(g => !isStar(g));
 
-
-  return groups;
+  return [...starGroups, ...otherGroups];
 
 }
 
@@ -4274,8 +4280,6 @@ window.exportToExcelClient = function () {
 
     ...monthGroups.map((mg) => mg.label),
 
-    'TỔNG ĐIỂM',
-
   ];
 
   const sheet2Rows = [s2Header];
@@ -4291,8 +4295,6 @@ window.exportToExcelClient = function () {
       r.push(getUnitMonthScore(u.id, mg.key));
 
     });
-
-    r.push(item.total);
 
     sheet2Rows.push(r);
 
@@ -4412,8 +4414,6 @@ window.saveExcelToGoogleDrive = async function () {
 
     ...monthGroups.map((mg) => mg.label),
 
-    'TỔNG ĐIỂM',
-
   ];
 
   const sheet2Rows = [s2Header];
@@ -4429,8 +4429,6 @@ window.saveExcelToGoogleDrive = async function () {
       r.push(getUnitMonthScore(u.id, mg.key));
 
     });
-
-    r.push(item.total);
 
     sheet2Rows.push(r);
 
@@ -11556,7 +11554,10 @@ function renderRankingTab() {
 
   const monthGroups = getRankingMonthGroups();
 
-
+  const isStarGroup = (mg) => {
+    const lbl = String(mg && mg.label ? mg.label : '').toLowerCase();
+    return lbl.includes('sao') || lbl.includes('(*)') || lbl.includes('tiêu chí sao') || lbl.includes('*');
+  };
 
   return `
 
@@ -11582,31 +11583,35 @@ function renderRankingTab() {
 
       <div class="panel-body ranking-table-container" style="flex:1 1 auto; min-height:0; padding:0; overflow-x:auto; overflow-y:auto !important; max-height:none !important; scrollbar-width:thin;">
 
-        <table class="data-table">
+        <table class="data-table" style="border-collapse:separate; border-spacing:0; width:100%;">
 
           <thead>
 
             <tr>
 
-              <th style="width:60px; text-align:center; position:sticky; top:0; z-index:15; background:#f1f5f9;">Hạng</th>
+              <th style="width:60px; min-width:60px; text-align:center; position:sticky; top:0; left:0; z-index:25; background:#1e293b; color:#f8fafc; font-weight:800; font-size:12.5px; border-bottom:2px solid #475569; padding:10px 4px;">Hạng</th>
 
-              <th style="width:80px; text-align:center; position:sticky; top:0; z-index:15; background:#f1f5f9;">Mã ĐV</th>
+              <th style="width:75px; min-width:75px; text-align:center; position:sticky; top:0; left:60px; z-index:25; background:#1e293b; color:#38bdf8; font-weight:800; font-size:12.5px; border-bottom:2px solid #475569; padding:10px 4px;">Mã ĐV</th>
 
-              <th style="min-width:220px; position:sticky; top:0; z-index:15; background:#f1f5f9;">Tên Đơn Vị Cơ Sở</th>
+              <th style="min-width:240px; max-width:300px; text-align:left; position:sticky; top:0; left:135px; z-index:25; background:#1e293b; color:#f8fafc; font-weight:800; font-size:13px; border-bottom:2px solid #475569; border-right:2px solid #64748b; padding:10px 12px; box-shadow:3px 0 6px rgba(0,0,0,0.25);">Tên Đơn Vị Cơ Sở</th>
 
               ${monthGroups
 
-                .map(
+                .map((mg) => {
 
-                  (mg) =>
+                  const isStar = isStarGroup(mg);
 
-                    `<th style="text-align:center; font-size:12px; white-space:nowrap; min-width:80px; position:sticky; top:0; z-index:15; background:#f1f5f9;">${escapeHtml(mg.label)}</th>`
+                  if (isStar) {
 
-                )
+                    return `<th style="min-width:150px; text-align:center; font-size:13px; font-weight:900; white-space:nowrap; position:sticky; top:0; z-index:20; background:linear-gradient(135deg, #b45309 0%, #d97706 100%) !important; color:#ffffff !important; border-bottom:3px solid #fde047; border-left:2px solid #f59e0b; border-right:2px solid #f59e0b; text-shadow:0 1px 2px rgba(0,0,0,0.6); padding:10px 10px; box-shadow:0 3px 10px rgba(245,158,11,0.4); text-transform:uppercase; letter-spacing:0.3px;">⭐ ${escapeHtml(mg.label)}</th>`;
+
+                  }
+
+                  return `<th style="text-align:center; font-size:12.5px; font-weight:700; white-space:nowrap; min-width:85px; position:sticky; top:0; z-index:15; background:#1e293b; color:#cbd5e1; border-bottom:2px solid #475569; padding:10px 6px;">${escapeHtml(mg.label)}</th>`;
+
+                })
 
                 .join('')}
-
-              <th style="width:115px; text-align:center; background:#fef9c3; position:sticky; top:0; z-index:15; font-weight:800; color:#b45309;">TỔNG ĐIỂM</th>
 
             </tr>
 
@@ -11616,7 +11621,7 @@ function renderRankingTab() {
 
             ${rankings
 
-              .map((item) => {
+              .map((item, rIdx) => {
 
                 const u = item.unit;
 
@@ -11636,15 +11641,17 @@ function renderRankingTab() {
 
                     : item.rank;
 
+                const rankColor = item.rank === 1 ? '#fbbf24' : item.rank === 2 ? '#e2e8f0' : item.rank === 3 ? '#f97316' : '#94a3b8';
+
                 return `
 
-                <tr>
+                <tr style="background:${rIdx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent'};">
 
-                  <td style="text-align:center; font-weight:800; font-size:14px;">${badgeRank}</td>
+                  <td style="width:60px; min-width:60px; text-align:center; position:sticky; left:0; z-index:12; background:#0f172a; font-weight:800; font-size:13.5px; color:${rankColor}; border-bottom:1px solid #1e293b; padding:9px 4px;">${badgeRank}</td>
 
-                  <td style="text-align:center; font-weight:700; color:#0052cc;">${escapeHtml(u.unit_code)}</td>
+                  <td style="width:75px; min-width:75px; text-align:center; position:sticky; left:60px; z-index:12; background:#0f172a; font-weight:800; font-size:12.5px; color:#38bdf8; border-bottom:1px solid #1e293b; padding:9px 4px;">${escapeHtml(u.unit_code)}</td>
 
-                  <td style="font-weight:600;">${escapeHtml(u.unit_name)}</td>
+                  <td style="min-width:240px; max-width:300px; text-align:left; position:sticky; left:135px; z-index:12; background:#0f172a; font-weight:600; font-size:13px; color:#f8fafc; border-bottom:1px solid #1e293b; border-right:2px solid #64748b; padding:9px 12px; box-shadow:3px 0 6px rgba(0,0,0,0.25); line-height:1.35; white-space:normal;">${escapeHtml(u.unit_name)}</td>
 
                   ${monthGroups
 
@@ -11652,21 +11659,27 @@ function renderRankingTab() {
 
                       const ms = getUnitMonthScore(u.id, mg.key);
 
-                      return `<td style="text-align:center; font-weight:600; color:${ms > 0 ? '#0f172a' : ms < 0 ? '#dc2626' : '#cbd5e1'};">${
+                      const isStar = isStarGroup(mg);
 
-                        ms !== 0 ? formatScore(ms) : '-'
+                      if (isStar) {
+
+                        return `<td style="text-align:center; background:rgba(245, 158, 11, 0.12) !important; border-left:2px solid rgba(245, 158, 11, 0.35); border-right:2px solid rgba(245, 158, 11, 0.35); border-bottom:1px solid rgba(245, 158, 11, 0.25); padding:8px 6px;">
+
+                          ${ms > 0 ? `<span style="display:inline-block; font-size:14px; font-weight:800; color:#fde047; text-shadow:0 1px 3px rgba(0,0,0,0.6); padding:3px 10px; border-radius:5px; background:rgba(217,119,6,0.4); border:1px solid #f59e0b;">⭐ ${formatScore(ms)}</span>` : '<span style="color:#78350f; font-weight:700; font-size:13px;">—</span>'}
+
+                        </td>`;
+
+                      }
+
+                      return `<td style="text-align:center; font-weight:700; font-size:13px; border-bottom:1px solid #1e293b; padding:8px 6px; color:${ms > 0 ? '#4ade80' : ms < 0 ? '#f87171' : '#64748b'};">${
+
+                        ms !== 0 ? formatScore(ms) : '<span style="color:#475569; font-weight:400;">—</span>'
 
                       }</td>`;
 
                     })
 
                     .join('')}
-
-                  <td style="text-align:center; font-weight:800; font-size:14.5px; color:#b45309; background:#fefce8;">
-
-                    ${formatScore(item.total) || '0'}
-
-                  </td>
 
                 </tr>
 
