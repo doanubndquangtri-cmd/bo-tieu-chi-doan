@@ -3243,7 +3243,7 @@ function startTitleFlash(text) {
   if (typeof document === 'undefined') return;
   if (_titleFlashInterval) clearInterval(_titleFlashInterval);
   let isAlt = false;
-  const baseTitle = 'Hệ Thống Quản Lý & Tổng Hợp Bộ Tiêu Chí Đoàn Cấp Cơ Sở';
+  const baseTitle = 'Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí';
   _titleFlashInterval = setInterval(() => {
     if (!document.hidden || getTotalBadgeCount() === 0) {
       clearInterval(_titleFlashInterval);
@@ -4018,7 +4018,7 @@ function updateDynamicFaviconBadge(count) {
 
 function updateDocumentTitle(count) {
   if (typeof document === 'undefined') return;
-  const baseTitle = 'Hệ Thống Quản Lý & Tổng Hợp Bộ Tiêu Chí Đoàn Cấp Cơ Sở';
+  const baseTitle = 'Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí';
   document.title = (count > 0 ? `(${count > 99 ? '99+' : count}) ` : '') + baseTitle;
 }
 
@@ -4079,10 +4079,8 @@ function renderHeader() {
 
           </div>
 
-          <h1 style="font-size: 13.5px; margin: 1px 0 0 0; text-transform: uppercase; line-height: 1.2; font-weight: 800; color: #fff;">
-
-            Hệ Thống Quản Lý & Tổng Hợp Bộ Tiêu Chí Đoàn Cấp Cơ Sở
-
+          <h1 style="font-size: 13px; margin: 1px 0 0 0; text-transform: uppercase; line-height: 1.2; font-weight: 800; color: #fff;">
+            Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí
           </h1>
 
         </div>
