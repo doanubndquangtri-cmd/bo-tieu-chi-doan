@@ -4449,3 +4449,194 @@ body.dark-mode #tts-result-box {
     height: 20px !important;
   }
 }
+
+
+/* ========================================================================= */
+/* NANG CAP TOAN DIEN GIAO DIEN MOBILE (LIGHT & DARK MODE)                   */
+/* ========================================================================= */
+@media (max-width: 768px) {
+  /* 4 The thong ke tren Mobile: Luoi 2x2 vuong van, dep mat */
+  .stats-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    margin-bottom: 10px !important;
+  }
+  .stat-card {
+    padding: 10px 12px !important;
+    border-radius: 10px !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+    border: 1.5px solid #e2e8f0 !important;
+    background: #ffffff !important;
+  }
+  .stat-card .stat-label {
+    font-size: 11px !important;
+    color: #64748b !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.3px !important;
+  }
+  .stat-card .stat-value {
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    margin-top: 2px !important;
+  }
+  .stat-card .stat-sub {
+    font-size: 10.5px !important;
+    color: #64748b !important;
+    margin-top: 2px !important;
+    display: block !important;
+  }
+
+  /* The tieu chi tren Mobile: Chuan, ro dep, gon gang */
+  .mobile-submit-card {
+    background: #ffffff !important;
+    border-radius: 12px !important;
+    border: 1.5px solid #e2e8f0 !important;
+    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.05) !important;
+    margin-bottom: 12px !important;
+    padding: 14px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    box-sizing: border-box !important;
+    position: relative !important;
+    overflow: hidden !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease !important;
+  }
+  .mobile-submit-card:active {
+    transform: scale(0.995) !important;
+  }
+  .mobile-submit-card.has-score {
+    border-left: 5px solid #16a34a !important;
+    border-color: #cbd5e1 !important;
+  }
+  .mobile-submit-card.is-pending {
+    border-left: 5px solid #f59e0b !important;
+    border-color: #cbd5e1 !important;
+  }
+  .mobile-submit-card-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 6px !important;
+    flex-wrap: wrap !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    padding-bottom: 8px !important;
+  }
+  .mobile-submit-col-badge {
+    background: #ffedd5 !important;
+    color: #9a3412 !important;
+    font-size: 11.5px !important;
+    font-weight: 800 !important;
+    padding: 3px 8px !important;
+    border-radius: 6px !important;
+    border: 1px solid #fed7aa !important;
+  }
+  .mobile-submit-month-badge {
+    background: #eff6ff !important;
+    color: #1e40af !important;
+    font-size: 11.5px !important;
+    font-weight: 700 !important;
+    padding: 3px 8px !important;
+    border-radius: 6px !important;
+    border: 1px solid #dbeafe !important;
+  }
+  .mobile-submit-card-title {
+    font-size: 14.5px !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+    line-height: 1.45 !important;
+    margin: 2px 0 !important;
+  }
+  .mobile-submit-card-meta {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px 12px !important;
+    background: #f8fafc !important;
+    padding: 10px 12px !important;
+    border-radius: 8px !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+  .mobile-submit-card-meta .meta-item {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+  }
+  .mobile-submit-card-meta .meta-label {
+    font-size: 11px !important;
+    color: #64748b !important;
+    font-weight: 600 !important;
+  }
+  .mobile-submit-card-meta .meta-value {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+  }
+  .mobile-submit-card-meta .meta-value.score-val {
+    color: #0369a1 !important;
+  }
+  .mobile-submit-card-meta .meta-value.deadline-val {
+    color: #dc2626 !important;
+  }
+  .mobile-submit-card-meta .meta-value.start-val {
+    color: #059669 !important;
+  }
+
+  .mobile-submit-action-btn {
+    width: 100% !important;
+    min-height: 44px !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    border-radius: 8px !important;
+    cursor: pointer !important;
+    touch-action: manipulation !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08) !important;
+    margin-top: 2px !important;
+  }
+
+  /* Support Dark Mode tren Mobile */
+  body.dark-mode .mobile-submit-card {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3) !important;
+  }
+  body.dark-mode .mobile-submit-card.has-score {
+    border-left-color: #22c55e !important;
+    border-color: #475569 !important;
+  }
+  body.dark-mode .mobile-submit-card.is-pending {
+    border-left-color: #f59e0b !important;
+    border-color: #475569 !important;
+  }
+  body.dark-mode .mobile-submit-card-header {
+    border-bottom-color: #334155 !important;
+  }
+  body.dark-mode .mobile-submit-card-title {
+    color: #f8fafc !important;
+  }
+  body.dark-mode .mobile-submit-card-meta {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+  }
+  body.dark-mode .mobile-submit-card-meta .meta-label {
+    color: #94a3b8 !important;
+  }
+  body.dark-mode .mobile-submit-card-meta .meta-value {
+    color: #f1f5f9 !important;
+  }
+  body.dark-mode .stat-card {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+  }
+  body.dark-mode .stat-card .stat-label {
+    color: #94a3b8 !important;
+  }
+  body.dark-mode .stat-card .stat-sub {
+    color: #94a3b8 !important;
+  }
+}
