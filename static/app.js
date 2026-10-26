@@ -5801,12 +5801,7 @@ function renderUnitSubmitTab() {
 
                     </div>
 
-                    ${c.deploy_content ? `
-                      <div style="margin-top:6px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:6px 10px; font-size:12.5px; color:#1e40af; line-height:1.4;">
-                        📢 <b>Nội dung Ban Thường vụ triển khai:</b>
-                        <div style="margin-top:2px; color:#0f172a; white-space:pre-wrap; font-weight:500;">${escapeHtml(c.deploy_content)}</div>
-                      </div>
-                    ` : ''}
+                    
                     ${
 
                       isAdminScore
@@ -6068,6 +6063,10 @@ function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rank
           typeBadge = `<span class="badge" style="background:#f1f5f9; color:#475569; font-size:10.5px; border:1px solid #cbd5e1; font-weight:700;">📝 Nội dung trống</span>`;
         } else if (isReport) {
           typeBadge = `<span class="badge" style="background:#fef2f2; color:#b91c1c; font-size:10.5px; border:1px solid #fecaca; font-weight:700;">📋 Báo cáo định kỳ</span>`;
+        } else if (Number(c.is_report) >= 4) {
+          const customCats = state.criterionCategories || (state.settings && state.settings.criterion_categories) || {};
+          const catName = customCats[String(c.is_report)] || c.category_label || `Phân loại ${c.is_report}`;
+          typeBadge = `<span class="badge" style="background:#f5f3ff; color:#6d28d9; font-size:10.5px; border:1px solid #ddd6fe; font-weight:700;">🏷️ ${escapeHtml(catName)}</span>`;
         } else {
           typeBadge = `<span class="badge" style="background:#eff6ff; color:#1d4ed8; font-size:10.5px; border:1px solid #bfdbfe; font-weight:700;">🎯 Hoạt động / Phong trào</span>`;
         }
@@ -6088,29 +6087,24 @@ function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rank
             <div class="mobile-submit-card-title">
               ${escapeHtml(c.title)}
             </div>
-            ${c.deploy_content ? `
-              <div style="margin-top:6px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:8px 10px; font-size:12px; color:#1e40af; line-height:1.4;">
-                📢 <b>Nội dung Ban Thường vụ triển khai:</b>
-                <div style="margin-top:2px; color:#0f172a; white-space:pre-wrap; font-weight:500;">${escapeHtml(c.deploy_content)}</div>
-              </div>
-            ` : ''}
+
 
             <div class="mobile-submit-card-meta">
-              <div>
-                <span style="color:#64748b;">Mức điểm:</span>
-                <b style="color:#0f172a; display:block; margin-top:1px;">${escapeHtml(c.points_text || c.max_score + ' điểm')}</b>
+              <div class="meta-item">
+                <span class="meta-label">🎯 Quy định điểm:</span>
+                <b class="meta-value score-val">${escapeHtml(c.points_text || c.max_score + ' điểm')}</b>
               </div>
-              <div>
-                <span style="color:#64748b;">Hạn nộp chót:</span>
-                <b style="color:#dc2626; display:block; margin-top:1px;">${formatDateVN(c.deadline)}</b>
+              <div class="meta-item">
+                <span class="meta-label">⏰ Hạn nộp chót:</span>
+                <b class="meta-value deadline-val">${formatDateVN(c.deadline)}</b>
               </div>
-              <div>
-                <span style="color:#64748b;">Bắt đầu:</span>
-                <span style="color:#059669; font-weight:600; display:block; margin-top:1px;">${formatDateVN(startDate)}</span>
+              <div class="meta-item">
+                <span class="meta-label">🟢 Ngày mở nộp:</span>
+                <span class="meta-value start-val">${formatDateVN(startDate)}</span>
               </div>
-              <div>
-                <span style="color:#64748b;">Trạng thái hạn:</span>
-                <span class="badge ${st.badgeClass}" style="display:inline-block; margin-top:1px; font-size:10.5px;">${st.label}</span>
+              <div class="meta-item">
+                <span class="meta-label">📌 Trạng thái:</span>
+                <span class="badge ${st.badgeClass}" style="display:inline-block; margin-top:2px; font-size:11px; padding:2px 8px; border-radius:4px; font-weight:700;">${st.label}</span>
               </div>
             </div>
 
@@ -6284,14 +6278,7 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
 
             </div>
 
-            ${crit.deploy_content ? `
-              <div style="margin-top:8px; margin-bottom:8px; background:#eff6ff; border:1.5px solid #3b82f6; border-radius:8px; padding:10px 12px; font-size:13px; color:#1e40af; line-height:1.5;">
-                <div style="font-weight:700; margin-bottom:3px; display:flex; align-items:center; gap:4px;">
-                  <span>📢</span> <span>NỘI DUNG BAN THƯỜNG VỤ TRIỂN KHAI THỰC HIỆN:</span>
-                </div>
-                <div style="color:#0f172a; white-space:pre-wrap; font-weight:500;">${escapeHtml(crit.deploy_content)}</div>
-              </div>
-            ` : ''}
+            
 
             ${crit.gdrive_folder_url && state.user && state.user.role === 'admin' ? `
 
