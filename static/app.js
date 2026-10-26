@@ -13507,7 +13507,7 @@ window.showPWAInstallGuide = function () {
 
             <img src="./apple-touch-icon.png" style="width:72px; height:72px; border-radius:16px; box-shadow:0 4px 10px rgba(0,0,0,0.15); margin-bottom:8px;" />
 
-            <div style="font-weight:800; font-size:15px; color:#0052cc;">Bộ Tiêu Chí Đoàn 2026</div>
+            <div style="font-weight:800; font-size:15px; color:#0052cc;">Bộ Tiêu Chí Cơ Sở Đoàn</div>
 
             <div style="font-size:12px; color:#64748b;">Cài trực tiếp ra màn hình chính, mở mượt mà toàn màn hình như App tải từ Store</div>
 
@@ -19501,7 +19501,7 @@ window.generateAiAssistantResponse = function(promptText) {
       const rank = rankedUnits.findIndex(r => r.id === target.id) + 1;
       const prev = rank > 1 ? rankedUnits[rank - 2] : null;
       return `📊 **TRA CỨU THỨ HẠNG THỜI GIAN THỰC TỪ HỆ THỐNG:**\n\n` +
-        `Căn cứ dữ liệu chấm điểm cập nhật trên hệ thống Bộ Tiêu chí Đoàn 2026:\n` +
+        `Căn cứ dữ liệu chấm điểm cập nhật trên hệ thống Bộ Tiêu chí Đoàn:\n` +
         `- **Đơn vị:** ${target.name}\n` +
         `- **Thứ hạng hiện tại:** Đứng **thứ ${rank}** trên tổng số **${rankedUnits.length} cơ sở Đoàn**.\n` +
         `- **Tổng điểm đạt được:** **${target.total} điểm**.\n` +
@@ -19677,7 +19677,7 @@ window.generateAiAssistantResponse = function(promptText) {
 
   // Trả lời câu hỏi chung
 
-  return `🤖 Chào đồng chí! Về nội dung "${promptText}", hệ thống Bộ Tiêu Chí Đoàn Cấp Cơ Sở 2026 hiện đang quản lý toàn diện **${(state.units || []).length} đơn vị** với **${(state.criteria || []).length} cột tiêu chí**. Nếu đồng chí cần kiểm tra minh chứng, hỗ trợ tải tài liệu lên Google Drive hoặc giải đáp quy chế chấm điểm của Ban Thường vụ, vui lòng cho tôi biết cụ thể để hỗ trợ ngay nhé!`;
+  return `🤖 Chào đồng chí! Về nội dung "${promptText}", hệ thống Bộ Tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh hiện đang quản lý toàn diện **${(state.units || []).length} đơn vị** với **${(state.criteria || []).length} cột tiêu chí**. Nếu đồng chí cần kiểm tra minh chứng, hỗ trợ tải tài liệu lên Google Drive hoặc giải đáp quy chế chấm điểm của Ban Thường vụ, vui lòng cho tôi biết cụ thể để hỗ trợ ngay nhé!`;
 
 };
 
@@ -20379,7 +20379,7 @@ function buildAiLiveSystemContext(promptText) {
   const currentLeader = rankedUnits[0] ? `${rankedUnits[0].name} (${rankedUnits[0].total} điểm)` : 'Chưa cập nhật';
 
   return `BẠN LÀ TRỢ LÝ AI ĐOÀN KHỐI (TÍCH HỢP TRỰC TIẾP TRÍ TUỆ NHÂN TẠO GOOGLE GEMINI VÀO HỆ THỐNG).
-HỆ THỐNG: Quản lý & Tổng hợp Bộ Tiêu Chí Đánh Giá Đoàn Cấp Cơ Sở Năm 2026 (Đoàn Khối Cơ Quan & Doanh Nghiệp Tỉnh / Đoàn UBND Tỉnh).
+HỆ THỐNG: Quản lý & Tổng hợp Bộ Tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh (Đoàn Khối Cơ Quan & Doanh Nghiệp Tỉnh / Đoàn UBND Tỉnh).
 NGÀY HỆ THỐNG HIỆN TẠI: ${formatDateVN(effDate)} (Thời điểm thực: ${new Date().toLocaleString('vi-VN')}).
 NGƯỜI DÙNG HIỆN TẠI: ${currentUserStr} (Vai trò: ${state.user ? state.user.role : 'khách'}).
 
@@ -25282,7 +25282,7 @@ window.openAiMonthlyReportModal = function() {
 
   const reportText = `BÁO CÁO TỔNG HỢP & NHẬN XÉT ĐÁNH GIÁ THÁNG\n` +
 
-    `BỘ TIÊU CHÍ CÔNG TÁC ĐOÀN CẤP CƠ SỞ NĂM 2026\n` +
+    `BỘ TIÊU CHÍ CÔNG TÁC ĐOÀN CẤP CƠ SỞ\n` +
 
     `---------------------------------------------------\n\n` +
 
