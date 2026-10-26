@@ -4073,15 +4073,19 @@ function renderHeader() {
 
         <div class="brand-title">
 
-          <div style="font-size: 10.5px; font-weight: 800; color: #fef08a; text-transform: uppercase; letter-spacing: 0.4px; line-height: 1.2;">
+          <div style="font-size: 10px; font-weight: 800; color: #fef08a; text-transform: uppercase; letter-spacing: 0.3px; line-height: 1.2;">
 
             TỈNH ĐOÀN QUẢNG TRỊ • ĐOÀN ỦY BAN NHÂN DÂN TỈNH
 
           </div>
 
-          <h1 style="font-size: 13px; margin: 1px 0 0 0; text-transform: uppercase; line-height: 1.2; font-weight: 800; color: #fff;">
-            Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí
+          <h1 style="font-size: 12.5px; margin: 1px 0 0 0; text-transform: uppercase; line-height: 1.25; font-weight: 800; color: #fff;" title="Bộ tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh - Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí">
+            Bộ Tiêu Chí Các Tổ Chức Cơ Sở Đoàn Trực Thuộc Đoàn UBND Tỉnh
           </h1>
+
+          <div style="font-size: 10.5px; font-weight: 600; color: #bfdbfe; line-height: 1.2; margin-top: 1px;">
+            Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí
+          </div>
 
         </div>
 
