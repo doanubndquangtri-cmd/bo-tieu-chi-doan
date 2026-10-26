@@ -11101,6 +11101,7 @@ window.saveNewCriterion = async function () {
   const folderInput = document.getElementById('new-crit-gdrive-folder-name');
 
   const title = (folderInput ? folderInput.value : '').trim();
+  const deployContent = title;
 
   if (!title) {
 
@@ -11294,7 +11295,7 @@ window.saveNewCriterion = async function () {
       col_number: db.criteria.length + 1,
       col_label: `Cột ${db.criteria.length + 1}`,
       title: title,
-      deploy_content: deployContent || title,
+      deploy_content: title,
       points_text: pointsText,
       month_group: mGroup,
       month_label: mLabel,
@@ -11359,7 +11360,8 @@ window.saveNewCriterion = async function () {
     showToast('🎉 Đã thêm tiêu chí mới và triển khai Online thành công!', 'success');
     renderApp();
   } else {
-    showToast('Lỗi khi lưu tiêu chí lên Đám mây: ' + (res.error ? res.error.message : ''), 'error');
+    const errMsg = (res && res.error) ? (typeof res.error === 'string' ? res.error : (res.error.message || JSON.stringify(res.error))) : 'Không xác định';
+    showToast('Lỗi khi lưu tiêu chí lên Đám mây: ' + errMsg, 'error');
     if (btn) {
       btn.disabled = false;
       btn.textContent = '➕ Thêm Tiêu Chí Online';
