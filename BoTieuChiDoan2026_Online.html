@@ -4459,6 +4459,197 @@ body.dark-mode #tts-result-box {
   }
 }
 
+
+/* ========================================================================= */
+/* NANG CAP TOAN DIEN GIAO DIEN MOBILE (LIGHT & DARK MODE)                   */
+/* ========================================================================= */
+@media (max-width: 768px) {
+  /* 4 The thong ke tren Mobile: Luoi 2x2 vuong van, dep mat */
+  .stats-grid {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px !important;
+    margin-bottom: 10px !important;
+  }
+  .stat-card {
+    padding: 10px 12px !important;
+    border-radius: 10px !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+    border: 1.5px solid #e2e8f0 !important;
+    background: #ffffff !important;
+  }
+  .stat-card .stat-label {
+    font-size: 11px !important;
+    color: #64748b !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.3px !important;
+  }
+  .stat-card .stat-value {
+    font-size: 18px !important;
+    font-weight: 800 !important;
+    margin-top: 2px !important;
+  }
+  .stat-card .stat-sub {
+    font-size: 10.5px !important;
+    color: #64748b !important;
+    margin-top: 2px !important;
+    display: block !important;
+  }
+
+  /* The tieu chi tren Mobile: Chuan, ro dep, gon gang */
+  .mobile-submit-card {
+    background: #ffffff !important;
+    border-radius: 12px !important;
+    border: 1.5px solid #e2e8f0 !important;
+    box-shadow: 0 3px 10px rgba(15, 23, 42, 0.05) !important;
+    margin-bottom: 12px !important;
+    padding: 14px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+    box-sizing: border-box !important;
+    position: relative !important;
+    overflow: hidden !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease !important;
+  }
+  .mobile-submit-card:active {
+    transform: scale(0.995) !important;
+  }
+  .mobile-submit-card.has-score {
+    border-left: 5px solid #16a34a !important;
+    border-color: #cbd5e1 !important;
+  }
+  .mobile-submit-card.is-pending {
+    border-left: 5px solid #f59e0b !important;
+    border-color: #cbd5e1 !important;
+  }
+  .mobile-submit-card-header {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 6px !important;
+    flex-wrap: wrap !important;
+    border-bottom: 1px solid #f1f5f9 !important;
+    padding-bottom: 8px !important;
+  }
+  .mobile-submit-col-badge {
+    background: #ffedd5 !important;
+    color: #9a3412 !important;
+    font-size: 11.5px !important;
+    font-weight: 800 !important;
+    padding: 3px 8px !important;
+    border-radius: 6px !important;
+    border: 1px solid #fed7aa !important;
+  }
+  .mobile-submit-month-badge {
+    background: #eff6ff !important;
+    color: #1e40af !important;
+    font-size: 11.5px !important;
+    font-weight: 700 !important;
+    padding: 3px 8px !important;
+    border-radius: 6px !important;
+    border: 1px solid #dbeafe !important;
+  }
+  .mobile-submit-card-title {
+    font-size: 14.5px !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+    line-height: 1.45 !important;
+    margin: 2px 0 !important;
+  }
+  .mobile-submit-card-meta {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px 12px !important;
+    background: #f8fafc !important;
+    padding: 10px 12px !important;
+    border-radius: 8px !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+  .mobile-submit-card-meta .meta-item {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 2px !important;
+  }
+  .mobile-submit-card-meta .meta-label {
+    font-size: 11px !important;
+    color: #64748b !important;
+    font-weight: 600 !important;
+  }
+  .mobile-submit-card-meta .meta-value {
+    font-size: 12px !important;
+    font-weight: 700 !important;
+    color: #0f172a !important;
+  }
+  .mobile-submit-card-meta .meta-value.score-val {
+    color: #0369a1 !important;
+  }
+  .mobile-submit-card-meta .meta-value.deadline-val {
+    color: #dc2626 !important;
+  }
+  .mobile-submit-card-meta .meta-value.start-val {
+    color: #059669 !important;
+  }
+
+  .mobile-submit-action-btn {
+    width: 100% !important;
+    min-height: 44px !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    border-radius: 8px !important;
+    cursor: pointer !important;
+    touch-action: manipulation !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08) !important;
+    margin-top: 2px !important;
+  }
+
+  /* Support Dark Mode tren Mobile */
+  body.dark-mode .mobile-submit-card {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3) !important;
+  }
+  body.dark-mode .mobile-submit-card.has-score {
+    border-left-color: #22c55e !important;
+    border-color: #475569 !important;
+  }
+  body.dark-mode .mobile-submit-card.is-pending {
+    border-left-color: #f59e0b !important;
+    border-color: #475569 !important;
+  }
+  body.dark-mode .mobile-submit-card-header {
+    border-bottom-color: #334155 !important;
+  }
+  body.dark-mode .mobile-submit-card-title {
+    color: #f8fafc !important;
+  }
+  body.dark-mode .mobile-submit-card-meta {
+    background: #0f172a !important;
+    border-color: #334155 !important;
+  }
+  body.dark-mode .mobile-submit-card-meta .meta-label {
+    color: #94a3b8 !important;
+  }
+  body.dark-mode .mobile-submit-card-meta .meta-value {
+    color: #f1f5f9 !important;
+  }
+  body.dark-mode .stat-card {
+    background: #1e293b !important;
+    border-color: #334155 !important;
+  }
+  body.dark-mode .stat-card .stat-label {
+    color: #94a3b8 !important;
+  }
+  body.dark-mode .stat-card .stat-sub {
+    color: #94a3b8 !important;
+  }
+}
+
   </style>
 </head>
 <body>
@@ -10269,12 +10460,7 @@ function renderUnitSubmitTab() {
 
                     </div>
 
-                    ${c.deploy_content ? `
-                      <div style="margin-top:6px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:6px 10px; font-size:12.5px; color:#1e40af; line-height:1.4;">
-                        📢 <b>Nội dung Ban Thường vụ triển khai:</b>
-                        <div style="margin-top:2px; color:#0f172a; white-space:pre-wrap; font-weight:500;">${escapeHtml(c.deploy_content)}</div>
-                      </div>
-                    ` : ''}
+                    
                     ${
 
                       isAdminScore
@@ -10536,6 +10722,10 @@ function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rank
           typeBadge = `<span class="badge" style="background:#f1f5f9; color:#475569; font-size:10.5px; border:1px solid #cbd5e1; font-weight:700;">📝 Nội dung trống</span>`;
         } else if (isReport) {
           typeBadge = `<span class="badge" style="background:#fef2f2; color:#b91c1c; font-size:10.5px; border:1px solid #fecaca; font-weight:700;">📋 Báo cáo định kỳ</span>`;
+        } else if (Number(c.is_report) >= 4) {
+          const customCats = state.criterionCategories || (state.settings && state.settings.criterion_categories) || {};
+          const catName = customCats[String(c.is_report)] || c.category_label || `Phân loại ${c.is_report}`;
+          typeBadge = `<span class="badge" style="background:#f5f3ff; color:#6d28d9; font-size:10.5px; border:1px solid #ddd6fe; font-weight:700;">🏷️ ${escapeHtml(catName)}</span>`;
         } else {
           typeBadge = `<span class="badge" style="background:#eff6ff; color:#1d4ed8; font-size:10.5px; border:1px solid #bfdbfe; font-weight:700;">🎯 Hoạt động / Phong trào</span>`;
         }
@@ -10556,29 +10746,24 @@ function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rank
             <div class="mobile-submit-card-title">
               ${escapeHtml(c.title)}
             </div>
-            ${c.deploy_content ? `
-              <div style="margin-top:6px; background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:8px 10px; font-size:12px; color:#1e40af; line-height:1.4;">
-                📢 <b>Nội dung Ban Thường vụ triển khai:</b>
-                <div style="margin-top:2px; color:#0f172a; white-space:pre-wrap; font-weight:500;">${escapeHtml(c.deploy_content)}</div>
-              </div>
-            ` : ''}
+
 
             <div class="mobile-submit-card-meta">
-              <div>
-                <span style="color:#64748b;">Mức điểm:</span>
-                <b style="color:#0f172a; display:block; margin-top:1px;">${escapeHtml(c.points_text || c.max_score + ' điểm')}</b>
+              <div class="meta-item">
+                <span class="meta-label">🎯 Quy định điểm:</span>
+                <b class="meta-value score-val">${escapeHtml(c.points_text || c.max_score + ' điểm')}</b>
               </div>
-              <div>
-                <span style="color:#64748b;">Hạn nộp chót:</span>
-                <b style="color:#dc2626; display:block; margin-top:1px;">${formatDateVN(c.deadline)}</b>
+              <div class="meta-item">
+                <span class="meta-label">⏰ Hạn nộp chót:</span>
+                <b class="meta-value deadline-val">${formatDateVN(c.deadline)}</b>
               </div>
-              <div>
-                <span style="color:#64748b;">Bắt đầu:</span>
-                <span style="color:#059669; font-weight:600; display:block; margin-top:1px;">${formatDateVN(startDate)}</span>
+              <div class="meta-item">
+                <span class="meta-label">🟢 Ngày mở nộp:</span>
+                <span class="meta-value start-val">${formatDateVN(startDate)}</span>
               </div>
-              <div>
-                <span style="color:#64748b;">Trạng thái hạn:</span>
-                <span class="badge ${st.badgeClass}" style="display:inline-block; margin-top:1px; font-size:10.5px;">${st.label}</span>
+              <div class="meta-item">
+                <span class="meta-label">📌 Trạng thái:</span>
+                <span class="badge ${st.badgeClass}" style="display:inline-block; margin-top:2px; font-size:11px; padding:2px 8px; border-radius:4px; font-weight:700;">${st.label}</span>
               </div>
             </div>
 
@@ -10752,14 +10937,7 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
 
             </div>
 
-            ${crit.deploy_content ? `
-              <div style="margin-top:8px; margin-bottom:8px; background:#eff6ff; border:1.5px solid #3b82f6; border-radius:8px; padding:10px 12px; font-size:13px; color:#1e40af; line-height:1.5;">
-                <div style="font-weight:700; margin-bottom:3px; display:flex; align-items:center; gap:4px;">
-                  <span>📢</span> <span>NỘI DUNG BAN THƯỜNG VỤ TRIỂN KHAI THỰC HIỆN:</span>
-                </div>
-                <div style="color:#0f172a; white-space:pre-wrap; font-weight:500;">${escapeHtml(crit.deploy_content)}</div>
-              </div>
-            ` : ''}
+            
 
             ${crit.gdrive_folder_url && state.user && state.user.role === 'admin' ? `
 
