@@ -7621,7 +7621,7 @@ function isNotificationForUser(n, user) {
   }
   const uId = Number(user.id);
   // Unit receives all broadcasts from Admin (new docs, new criteria)
-  if (n.type === 'admin_doc' || n.type === 'new_criterion' || n.target_role === 'unit' || n.target_all) {
+  if (n.type === 'admin_doc' || n.type === 'new_criterion' || n.type === 'marquee_announcement' || n.target_role === 'unit' || n.target_all) {
     return true;
   }
   // Unit receives notifications targeted specifically to itself
@@ -7646,7 +7646,7 @@ function isNotificationUnread(n, user) {
     const uId = Number(user.id);
     if (typeof localStorage !== 'undefined' && localStorage.getItem('notif_read_' + uId + '_' + n.id)) return false;
     // Broadcasts from Admin (văn bản mới, tiêu chí mới)
-    if (n.type === 'admin_doc' || n.type === 'new_criterion' || n.target_role === 'unit' || n.target_all) {
+    if (n.type === 'admin_doc' || n.type === 'new_criterion' || n.type === 'marquee_announcement' || n.target_role === 'unit' || n.target_all) {
       const readUnits = Array.isArray(n.read_by_units) ? n.read_by_units.map(Number) : [];
       return !readUnits.includes(uId);
     }
@@ -20019,6 +20019,16 @@ window.openNotificationDetail = async function(notifId) {
   }, 'Mark notification read');
 
   // Điều hướng xem chi tiết theo loại thông báo
+  if (notif.type === 'marquee_announcement') {
+    const bar = document.querySelector('.marquee-ticker-bar');
+    if (bar) {
+      bar.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      bar.style.transition = 'box-shadow 0.3s ease';
+      bar.style.boxShadow = '0 0 15px rgba(234, 88, 12, 0.8)';
+      setTimeout(() => { bar.style.boxShadow = ''; }, 2500);
+    }
+    return;
+  }
   if (notif.type === 'admin_doc') {
     setTab('admin_docs');
     return;
@@ -20253,6 +20263,11 @@ function renderNotificationDropdown() {
             cardBorderLeft = '5px solid #2563eb';
             cardBg = '#ffffff';
             cardShadow = '0 2px 7px rgba(37, 99, 235, 0.08)';
+          } else if (n.type === 'marquee_announcement') {
+            cardBorder = '1.5px solid #fed7aa';
+            cardBorderLeft = '5px solid #ea580c';
+            cardBg = '#fffbeb';
+            cardShadow = '0 2px 7px rgba(234, 88, 12, 0.08)';
           } else if (sc && sc.approval_status === 'pending') {
             cardBorder = '1.5px solid #fed7aa';
             cardBorderLeft = '5px solid #ea580c';
@@ -20269,7 +20284,7 @@ function renderNotificationDropdown() {
             <div class="notification-item ${isUnread ? 'unread' : 'read'}" onclick="openNotificationDetail('${n.id}')" style="background:${cardBg}; border:${cardBorder}; border-left:${cardBorderLeft}; border-radius:10px; box-shadow:${cardShadow}; padding:12px 14px; margin-bottom:0; cursor:pointer; transition:all 0.18s ease;">
               <div class="notification-title" style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
                 <span style="color:#003d99; font-weight:800; font-size:13.5px; display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
-                  ${n.type === 'admin_doc' ? '📄 Văn bản Ban Thường vụ' : (n.type === 'new_criterion' ? '🎯 Tiêu chí / Báo cáo mới' : (isApproved ? '👑 Ban Thường vụ đã duyệt điểm' : (isRejected ? '❌ Thông báo không duyệt' : `🏢 ${escapeHtml(n.unit_name || 'Đơn vị')}`)))}
+                  ${n.type === 'admin_doc' ? '📄 Văn bản Ban Thường vụ' : (n.type === 'new_criterion' ? '🎯 Tiêu chí / Báo cáo mới' : (n.type === 'marquee_announcement' ? '📢 Thông báo Chữ chạy (Tin nổi bật)' : (isApproved ? '👑 Ban Thường vụ đã duyệt điểm' : (isRejected ? '❌ Thông báo không duyệt' : `🏢 ${escapeHtml(n.unit_name || 'Đơn vị')}`))))}
                   ${isUnread ? '<span class="badge" style="background:#ef4444; color:#fff; font-size:10px; font-weight:800; padding:1px 6px; border-radius:10px; margin-left:3px;">🔴 Mới</span>' : '<span class="badge" style="background:#f1f5f9; color:#64748b; font-size:10px; font-weight:600; padding:1px 6px; border-radius:10px; margin-left:3px;">✓ Đã xem</span>'}
                   ${isApproved ? '<span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; font-size:10px; font-weight:700; padding:1px 6px; border-radius:10px; margin-left:3px;">✅ Đã duyệt</span>' : ''}
                 </span>
@@ -30036,7 +30051,7 @@ window.initRealtimeLiveBridge = function() {
 
         if (evt.type === 'CHAT_MSG' && evt.payload) {
           handleIncomingRealtimeChat(evt.payload);
-        } else if (evt.type === 'REPORT_SUBMITTED' || evt.type === 'NEW_CRITERIA' || evt.type === 'ADMIN_DOC' || evt.type === 'PROOF_APPROVED' || evt.type === 'PROOF_REJECTED') {
+        } else if (evt.type === 'REPORT_SUBMITTED' || evt.type === 'NEW_CRITERIA' || evt.type === 'ADMIN_DOC' || evt.type === 'PROOF_APPROVED' || evt.type === 'PROOF_REJECTED' || evt.type === 'MARQUEE_ANNOUNCEMENT') {
           if (window.playNotificationChime) window.playNotificationChime();
           if (typeof window.syncFromCloudNow === 'function') {
             window.syncFromCloudNow(true).then(() => {
@@ -30048,6 +30063,9 @@ window.initRealtimeLiveBridge = function() {
                   const cTitle = (evt.payload && evt.payload.col_label) ? `${evt.payload.col_label}: "${evt.payload.title || ''}"` : 'tiêu chí mới';
                   title = `📤 ${uName} vừa nộp hồ sơ/minh chứng`;
                   body = `Đã nộp minh chứng: ${cTitle}`;
+                } else if (evt.type === 'MARQUEE_ANNOUNCEMENT') {
+                  title = (evt.payload && evt.payload.title) ? evt.payload.title : '📢 Thông Báo Từ Ban Thường Vụ';
+                  body = (evt.payload && (evt.payload.message || evt.payload.text)) ? (evt.payload.message || evt.payload.text) : 'Ban Thường vụ phát thông báo chạy chữ mới';
                 } else if (evt.type === 'NEW_CRITERIA') {
                   title = '📋 Tiêu Chí / Báo Cáo Mới';
                   body = (evt.payload && evt.payload.title) ? `Ban hành: ${evt.payload.title}` : 'Ban Thường vụ đã ban hành tiêu chí mới';
@@ -30600,6 +30618,17 @@ window.openMarqueeSettingsModal = function () {
             </div>
           </div>
 
+          <!-- PHÁT THÔNG BÁO NỔI GÓC MÀN HÌNH VÀ HUY HIỆU ĐỎ -->
+          <div style="background: #fff7ed; border: 1.5px solid #fed7aa; border-radius: 8px; padding: 12px 14px; margin-bottom: 16px;">
+            <label style="display:flex; align-items:center; gap:8px; font-weight:700; color:#c2410c; cursor:pointer; font-size:13.5px;">
+              <input type="checkbox" id="marquee-send-push" checked style="width:18px; height:18px; accent-color:#ea580c; cursor:pointer;" />
+              <span>🔔 Đồng thời phát thông báo nổi lên góc màn hình Máy Tính (PC) & Điện Thoại</span>
+            </label>
+            <div style="font-size:12px; color:#78350f; margin-top:5px; margin-left:26px;">
+              * Thiết bị của Ban Thường vụ và các cơ sở Đoàn sẽ nhận được thông báo nổi trên góc màn hình (dù đang thu nhỏ hoặc không mở trang web) kèm số huy hiệu đỏ trên chuông thông báo.
+            </div>
+          </div>
+
           <div style="background:#eff6ff; border:1px solid #bfdbfe; border-radius:6px; padding:10px 12px; font-size:12.5px; color:#1e40af; line-height:1.4;">
             ✨ <b>Tính năng thông minh:</b> Người dùng trên máy tính khi rê chuột qua dòng chữ, hoặc chạm ngón tay trên điện thoại sẽ tự động <b>tạm dừng chạy</b> để đọc kỹ nội dung và tiếp tục chạy bình thường sau đó.
           </div>
@@ -30635,14 +30664,18 @@ window.saveMarqueeSettings = async function () {
   const speedVal = speedSelect ? speedSelect.value : 'medium';
   const colorSelect = document.getElementById('marquee-color-select');
   const colorVal = colorSelect ? colorSelect.value : 'amber';
+  const sendPushCheckbox = document.getElementById('marquee-send-push');
+  const shouldSendPush = sendPushCheckbox ? sendPushCheckbox.checked : true;
 
   const btn = document.getElementById('btn-save-marquee');
   if (btn) {
     btn.disabled = true;
-    btn.textContent = '⏳ Đang lưu...';
+    btn.textContent = '⏳ Đang lưu & phát thông báo...';
   }
 
-  showToast('Đang cập nhật dòng chữ chạy ngang lên hệ thống...', 'info');
+  showToast('Đang cập nhật dòng chữ chạy & phát thông báo...', 'info');
+
+  const cleanBadge = badgeVal ? badgeVal.replace(/[:\s]+$/, '') : '📢 THÔNG BÁO TỪ BAN THƯỜNG VỤ';
 
   const res = await mutateCloudDB((db) => {
     db.settings = db.settings || {};
@@ -30658,12 +30691,71 @@ window.saveMarqueeSettings = async function () {
     state.settings.marquee_badge = badgeVal;
     state.settings.marquee_speed = speedVal;
     state.settings.marquee_color = colorVal;
-  }, `Update marquee announcement settings`);
+
+    // GHI NHẬN VÀO HÒM THƯ THÔNG BÁO & HUY HIỆU ĐỎ
+    if (isEnabled === '1' && textVal && shouldSendPush) {
+      db.notifications = db.notifications || [];
+      db.notifications.unshift({
+        id: 'notif_marquee_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        type: 'marquee_announcement',
+        target_role: 'unit',
+        target_all: true,
+        title: cleanBadge,
+        content: `Ban Thường vụ thông báo chạy chữ: "${textVal}"`,
+        marquee_text: textVal,
+        submitted_at: nowISO(),
+        read: false,
+        read_by_units: [],
+        created_at: nowISO()
+      });
+      if (db.notifications.length > 200) db.notifications.length = 200;
+    }
+  }, `Update marquee announcement & push notification`);
 
   if (res.ok) {
     closeModal();
     renderApp();
-    showToast('🎉 Đã cập nhật dòng chữ chạy ngang thành công!', 'success');
+
+    if (isEnabled === '1' && textVal && shouldSendPush) {
+      // 1. GỬI WEBPUSH ONESIGNAL ĐẾN TOÀN BỘ MÁY TÍNH & ĐIỆN THOẠI (KỂ CẢ KHI TẮT WEB)
+      if (window.WebPushManager && window.WebPushManager.sendPushNotification) {
+        window.WebPushManager.sendPushNotification({
+          title: cleanBadge,
+          message: textVal,
+          targetRole: null, // Gửi cho toàn bộ mọi người
+          badgeType: 'Increase',
+          badgeCount: 1,
+          url: './'
+        }).catch(err => console.warn('[WebPush] Error:', err));
+      }
+
+      // 2. PHÁT TÍN HIỆU LIVE CHO CÁC THIẾT BỊ ĐANG MỞ
+      if (window.broadcastLiveEvent) {
+        window.broadcastLiveEvent('MARQUEE_ANNOUNCEMENT', {
+          title: cleanBadge,
+          message: textVal,
+          text: textVal,
+          badge: badgeVal
+        });
+      }
+
+      // 3. HIỂN THỊ NGAY THÔNG BÁO GÓC MÀN HÌNH NATIVE DESKTOP PC
+      if (window.WebPushManager && window.WebPushManager.showLocalNativeNotification) {
+        window.WebPushManager.showLocalNativeNotification(cleanBadge, textVal, './');
+      }
+
+      // 4. PHÁT ÂM THANH CHUÔNG
+      if (window.playNotificationChime) {
+        try { window.playNotificationChime(); } catch (e) {}
+      }
+
+      // 5. CẬP NHẬT HUY HIỆU TRÊN THANH TASKBAR WINDOWS
+      if (typeof updateSystemAppBadge === 'function') {
+        updateSystemAppBadge(getTotalBadgeCount() + 1);
+      }
+    }
+
+    showToast('🎉 Đã cập nhật dòng chữ chạy ngang & phát thông báo tới tất cả thiết bị thành công!', 'success');
   } else {
     const errMsg = (res && res.error) ? (typeof res.error === 'string' ? res.error : (res.error.message || JSON.stringify(res.error))) : 'Không xác định';
     showToast('Lỗi khi lưu cài đặt: ' + errMsg, 'error');
