@@ -647,7 +647,7 @@ function updateMasterHeaderTops() {
 
 
 
-  const hBanner = Math.round(rowBanner.getBoundingClientRect().height) || 38;
+  const hBanner = Math.min(42, Math.max(30, Math.round(rowBanner.getBoundingClientRect().height) || 38));
 
   const hTitles = Math.round(rowTitles.getBoundingClientRect().height) || 60;
 
@@ -4922,18 +4922,14 @@ function renderMasterTableTab() {
     <div class="spreadsheet-wrapper" id="master-spreadsheet-wrapper" style="flex:1 1 auto; height:calc(100vh - 128px) !important; min-height:520px !important; max-height:none !important; margin-bottom:2px !important;">
       <table class="master-table">
         <thead>
-          <tr class="row-banner">
-            <th class="sticky-col-stt" style="${isMobile ? 'width:36px; min-width:36px; max-width:36px;' : 'width:42px; min-width:42px; max-width:42px; position:sticky; left:0;'} top:0; z-index:60; background:#003d99 !important; color:#fff !important; text-align:center;">#</th>
-            <th class="sticky-col-unit banner-unit-cell" ${isMobile ? '' : 'colspan="2"'} style="background:#003d99 !important; color:#ffffff !important; font-weight:800 !important; ${isMobile ? 'width:145px; min-width:145px; max-width:145px;' : 'width:370px; min-width:370px; max-width:370px; position:sticky; left:42px;'} top:0; z-index:60 !important; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(headerTitle)}</th>
+          <tr class="row-banner" style="height:36px !important; max-height:36px !important;">
+            <th class="sticky-col-stt" style="${isMobile ? 'width:36px; min-width:36px; max-width:36px;' : 'width:42px; min-width:42px; max-width:42px; position:sticky; left:0;'} top:0; z-index:60; background:#003d99 !important; color:#fff !important; text-align:center; height:36px !important; max-height:36px !important; line-height:36px !important; padding:0 !important;">#</th>
+            <th class="sticky-col-unit banner-unit-cell" ${isMobile ? '' : 'colspan="2"'} style="background:#003d99 !important; color:#ffffff !important; font-weight:800 !important; ${isMobile ? 'width:145px; min-width:145px; max-width:145px;' : 'width:370px; min-width:370px; max-width:370px; position:sticky; left:42px;'} top:0; z-index:60 !important; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; height:36px !important; max-height:36px !important; line-height:36px !important; padding:0 8px !important;">${escapeHtml(headerTitle)}</th>
             ${isMobile ? `
-              <th class="sticky-col-total" style="width:65px; min-width:65px; max-width:65px; background:#003d99 !important; color:#fde047 !important; text-align:center; padding:5px 2px; font-size:10px; top:0; z-index:60;">ĐIỂM</th>
+              <th class="sticky-col-total" style="width:65px; min-width:65px; max-width:65px; background:#003d99 !important; color:#fde047 !important; text-align:center; padding:0 2px !important; font-size:10px; font-weight:800; top:0; z-index:60; height:36px !important; max-height:36px !important; line-height:36px !important; white-space:nowrap;">ĐIỂM</th>
             ` : ''}
-            <th colspan="${Math.max(1, filteredCriteria.length)}">
-              ${
-                isAdmin
-                  ? '💡 Admin có thể nhập/sửa điểm trực tiếp vào từng ô bên dưới (Nhấn Enter hoặc click ra ngoài để tự động lưu lên Đám mây Online). Click biểu tượng 📎 để xem báo cáo đơn vị nộp.'
-                  : '💡 Bảng tổng hợp tự động cập nhật điểm Online ngay khi đơn vị nộp báo cáo / kê khai đúng ngày hạn chót.'
-              }
+            <th colspan="${Math.max(1, filteredCriteria.length)}" style="height:36px !important; max-height:36px !important; line-height:36px !important; white-space:nowrap !important; overflow:hidden !important; text-overflow:ellipsis !important; padding:0 10px !important; font-size:11.5px !important; font-weight:700 !important; color:#ffffff !important; background:#003d99 !important; text-align:left;" title="${isAdmin ? 'Admin có thể nhập/sửa điểm trực tiếp vào từng ô bên dưới (Nhấn Enter hoặc click ra ngoài để tự động lưu lên Đám mây Online). Click biểu tượng 📎 để xem báo cáo đơn vị nộp.' : 'Bảng tổng hợp tự động cập nhật điểm Online ngay khi đơn vị nộp báo cáo / kê khai đúng ngày hạn chót.'}">
+              ${isAdmin ? '💡 Admin nhập/sửa điểm trực tiếp • Tự động lưu Đám mây' : '💡 Bảng tổng hợp tự động cập nhật điểm Online'}
             </th>
           </tr>
 
@@ -4950,7 +4946,7 @@ function renderMasterTableTab() {
               .map((c) => {
                 const open = isCriterionOpen(c);
                 return `
-                <th style="${isMobile ? 'width:80px; min-width:80px; max-width:80px; box-sizing:border-box;' : ''}" title="${escapeHtml(c.title)}&#10;Bắt đầu mở: ${formatDateVN(c.start_date || '2026-01-01')}&#10;Hạn chót: ${formatDateVN(c.deadline)}">
+                <th style="${isMobile ? (filteredCriteria.length === 1 ? 'width:115px; min-width:115px; max-width:115px; box-sizing:border-box;' : 'width:80px; min-width:80px; max-width:80px; box-sizing:border-box;') : ''}" title="${escapeHtml(c.title)}&#10;Bắt đầu mở: ${formatDateVN(c.start_date || '2026-01-01')}&#10;Hạn chót: ${formatDateVN(c.deadline)}">
                   <div style="display:flex; flex-direction:column; justify-content:space-between; height:100%; gap:3px;">
                     <div style="font-size:10px; font-weight:800; color:#0284c7; text-transform:uppercase; letter-spacing:0.3px;">
                       📅 ${escapeHtml(c.month_label)}
@@ -4988,7 +4984,7 @@ function renderMasterTableTab() {
             <th class="sticky-col-stt" style="${isMobile ? 'width:36px; min-width:36px; max-width:36px;' : ''}">#</th>
             <th class="sticky-col-unit" style="${isMobile ? 'width:145px; min-width:145px; max-width:145px; border-right:2px solid #93c5fd;' : ''}">Cột 1</th>
             <th class="sticky-col-total" style="${isMobile ? 'width:65px; min-width:65px; max-width:65px;' : ''}">Cột 2</th>
-            ${filteredCriteria.length === 0 ? '<th>Chưa có cột</th>' : filteredCriteria.map((c) => `<th style="${isMobile ? 'width:80px; min-width:80px; max-width:80px;' : ''}">${escapeHtml(c.col_label)}</th>`).join('')}
+            ${filteredCriteria.length === 0 ? '<th>Chưa có cột</th>' : filteredCriteria.map((c) => `<th style="${isMobile ? (filteredCriteria.length === 1 ? 'width:115px; min-width:115px; max-width:115px;' : 'width:80px; min-width:80px; max-width:80px;') : ''}">${escapeHtml(c.col_label)}</th>`).join('')}
           </tr>
         </thead>
 
