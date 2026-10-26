@@ -5539,7 +5539,7 @@ const state = {
 
   writtenReports: [],
 
-  activeTab: 'master',
+  activeTab: 'ranking',
 
   monthFilter: 0,
 
@@ -7076,7 +7076,7 @@ async function initApp() {
 
         state.isAdminSession = true;
 
-        state.activeTab = 'master';
+        state.activeTab = 'ranking';
 
       } else {
 
@@ -7566,7 +7566,7 @@ async function performLogin(username, password) {
 
     localStorage.setItem('doan2026_user', JSON.stringify(adminUser));
 
-    state.activeTab = 'master';
+    state.activeTab = 'ranking';
 
     showToast(`Xin chào: <b>Ban Thường vụ Đoàn UBND tỉnh (Quản trị viên)</b>`, 'success');
 
@@ -7611,7 +7611,7 @@ async function performLogin(username, password) {
 
     localStorage.setItem('doan2026_user', JSON.stringify(guestUser));
 
-    state.activeTab = 'master';
+    state.activeTab = 'ranking';
 
     showToast(`Xin chào: <b>Khách xem / Đại biểu (Chế độ chỉ xem)</b>`, 'success');
 
@@ -7782,7 +7782,7 @@ window.switchAccountQuick = function (val) {
 
     if (window.WebPushManager) window.WebPushManager.syncUser(state.user);
 
-    state.activeTab = 'master';
+    state.activeTab = 'ranking';
 
     showToast('Đã quay về quyền Quản trị viên (Admin)', 'info');
 
@@ -8952,11 +8952,9 @@ window.exportToExcelClient = function () {
 
     'TÊN ĐƠN VỊ',
 
-    'TỔNG ĐIỂM',
-
-    'BC ĐÚNG HẠN',
-
     ...monthGroups.map((mg) => mg.label),
+
+    'TỔNG ĐIỂM',
 
   ];
 
@@ -8966,13 +8964,15 @@ window.exportToExcelClient = function () {
 
     const u = item.unit;
 
-    const r = [item.rank, u.unit_code, u.unit_name, item.total, totalReports > 0 ? `${item.reportsDone} / ${totalReports}` : "0 / 0"];
+    const r = [item.rank, u.unit_code, u.unit_name];
 
     monthGroups.forEach((mg) => {
 
       r.push(getUnitMonthScore(u.id, mg.key));
 
     });
+
+    r.push(item.total);
 
     sheet2Rows.push(r);
 
@@ -9090,11 +9090,9 @@ window.saveExcelToGoogleDrive = async function () {
 
     'TÊN ĐƠN VỊ',
 
-    'TỔNG ĐIỂM',
-
-    'BC ĐÚNG HẠN',
-
     ...monthGroups.map((mg) => mg.label),
+
+    'TỔNG ĐIỂM',
 
   ];
 
@@ -9104,13 +9102,15 @@ window.saveExcelToGoogleDrive = async function () {
 
     const u = item.unit;
 
-    const r = [item.rank, u.unit_code, u.unit_name, item.total, totalReports > 0 ? `${item.reportsDone} / ${totalReports}` : "0 / 0"];
+    const r = [item.rank, u.unit_code, u.unit_name];
 
     monthGroups.forEach((mg) => {
 
       r.push(getUnitMonthScore(u.id, mg.key));
 
     });
+
+    r.push(item.total);
 
     sheet2Rows.push(r);
 
@@ -9250,6 +9250,9 @@ function renderNavTabs() {
   if (isAdmin) {
     return `
       <nav class="nav-tabs">
+        <div class="nav-tab ${state.activeTab === 'ranking' ? 'active' : ''}" onclick="setTab('ranking')">
+          🏆 Bảng Xếp Hạng Thi Đua
+        </div>
         <div class="nav-tab ${state.activeTab === 'master' ? 'active' : ''}" onclick="setTab('master')">
           📋 Bảng Tổng Hợp (Chấm Điểm)
         </div>
@@ -9259,9 +9262,6 @@ function renderNavTabs() {
         </div>
         <div class="nav-tab ${state.activeTab === 'criteria' ? 'active' : ''}" onclick="setTab('criteria')">
           ⚙️ Quản Lý Bộ Tiêu Chí & Hạn Nộp (${state.criteria.length})
-        </div>
-        <div class="nav-tab ${state.activeTab === 'ranking' ? 'active' : ''}" onclick="setTab('ranking')">
-          🏆 Bảng Xếp Hạng Thi Đua
         </div>
         <div class="nav-tab ${state.activeTab === 'admin_docs' ? 'active' : ''}" onclick="setTab('admin_docs')">
           📂 Hệ Thống Văn Bản
@@ -9274,13 +9274,13 @@ function renderNavTabs() {
   } else if (isGuest) {
     return `
       <nav class="nav-tabs">
+        <div class="nav-tab ${state.activeTab === 'ranking' ? 'active' : ''}" onclick="setTab('ranking')">
+          🏆 Bảng Xếp Hạng Toàn Khối
+        </div>
         <div class="nav-tab ${state.activeTab === 'master' ? 'active' : ''}" onclick="setTab('master')">
           📋 Bảng Tổng Hợp Chấm Điểm (Chỉ Xem)
         </div>
         ${twoReportsTabs}
-        <div class="nav-tab ${state.activeTab === 'ranking' ? 'active' : ''}" onclick="setTab('ranking')">
-          🏆 Bảng Xếp Hạng Toàn Khối
-        </div>
         <div class="nav-tab ${state.activeTab === 'admin_docs' ? 'active' : ''}" onclick="setTab('admin_docs')">
           📂 Hệ Thống Văn Bản
         </div>
@@ -9289,6 +9289,9 @@ function renderNavTabs() {
   } else {
     return `
       <nav class="nav-tabs">
+        <div class="nav-tab ${state.activeTab === 'ranking' ? 'active' : ''}" onclick="setTab('ranking')">
+          🏆 Bảng Xếp Hạng Toàn Khối
+        </div>
         <div class="nav-tab ${state.activeTab === 'unit_submit' ? 'active' : ''}" onclick="setTab('unit_submit')">
           📤 Nộp Báo Cáo Tháng & Kê Khai Tiêu Chí
         </div>
@@ -9296,9 +9299,6 @@ function renderNavTabs() {
           📋 Xem Bảng Tổng Hợp (Chấm Điểm)
         </div>
         ${twoReportsTabs}
-        <div class="nav-tab ${state.activeTab === 'ranking' ? 'active' : ''}" onclick="setTab('ranking')">
-          🏆 Bảng Xếp Hạng Toàn Khối
-        </div>
         <div class="nav-tab ${state.activeTab === 'admin_docs' ? 'active' : ''}" onclick="setTab('admin_docs')">
           📂 Hệ Thống Văn Bản
         </div>
@@ -9354,7 +9354,7 @@ function renderActiveTabContent() {
 
   if (isGuest && state.activeTab !== 'master' && state.activeTab !== 'ranking' && state.activeTab !== 'reports' && state.activeTab !== 'admin_docs') {
 
-    state.activeTab = 'master';
+    state.activeTab = 'ranking';
 
   }
 
@@ -16236,8 +16236,6 @@ function renderRankingTab() {
 
   const monthGroups = getRankingMonthGroups();
 
-  const totalReports = state.criteria.filter((c) => Number(c.is_report) === 1).length;
-
 
 
   return `
@@ -16248,7 +16246,7 @@ function renderRankingTab() {
 
         <div class="panel-title">
 
-          🏆 BẢNG XẾP HẠNG THI ĐUA & TỔNG HỢP ĐIỂM THEO THÁNG NĂM 2026 (${rankings.length} ĐƠN VỊ)
+          🏆 BẢNG XẾP HẠNG THI ĐUA & TỔNG HỢP ĐIỂM THEO THÁNG (${rankings.length} ĐƠN VỊ)
 
         </div>
 
@@ -16276,10 +16274,6 @@ function renderRankingTab() {
 
               <th style="min-width:220px; position:sticky; top:0; z-index:15; background:#f1f5f9;">Tên Đơn Vị Cơ Sở</th>
 
-              <th style="width:115px; text-align:center; background:#fef9c3; position:sticky; top:0; z-index:15;">TỔNG ĐIỂM</th>
-
-              <th style="width:115px; text-align:center; position:sticky; top:0; z-index:15; background:#f1f5f9;">BC Đúng Hạn</th>
-
               ${monthGroups
 
                 .map(
@@ -16291,6 +16285,8 @@ function renderRankingTab() {
                 )
 
                 .join('')}
+
+              <th style="width:115px; text-align:center; background:#fef9c3; position:sticky; top:0; z-index:15; font-weight:800; color:#b45309;">TỔNG ĐIỂM</th>
 
             </tr>
 
@@ -16330,18 +16326,6 @@ function renderRankingTab() {
 
                   <td style="font-weight:600;">${escapeHtml(u.unit_name)}</td>
 
-                  <td style="text-align:center; font-weight:800; font-size:14.5px; color:#b45309; background:#fefce8;">
-
-                    ${formatScore(item.total) || '0'}
-
-                  </td>
-
-                  <td style="text-align:center;">
-
-                    ${totalReports > 0 ? `<span class="badge badge-success" style="white-space:nowrap; display:inline-block; font-weight:700; padding:3px 10px; font-size:12px; min-width:48px; text-align:center;">${item.reportsDone} / ${totalReports}</span>` : `<span class="badge" style="white-space:nowrap; display:inline-block; font-weight:600; padding:3px 10px; font-size:12px; min-width:48px; text-align:center; background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1;">0 / 0</span>`}
-
-                  </td>
-
                   ${monthGroups
 
                     .map((mg) => {
@@ -16357,6 +16341,12 @@ function renderRankingTab() {
                     })
 
                     .join('')}
+
+                  <td style="text-align:center; font-weight:800; font-size:14.5px; color:#b45309; background:#fefce8;">
+
+                    ${formatScore(item.total) || '0'}
+
+                  </td>
 
                 </tr>
 
