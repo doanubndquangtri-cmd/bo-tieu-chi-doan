@@ -483,18 +483,27 @@ textarea:focus {
 }
 
 /* Row 1: Title Banner - CỐ ĐỊNH NỀN XANH CHỮ TRẮNG KHÔNG BỊ TRÔI MẤT KHI CUỘN */
+.master-table tr.row-banner {
+  height: 36px !important;
+  max-height: 36px !important;
+}
 .master-table tr.row-banner th {
   background: #003d99 !important;
   color: #ffffff !important;
-  font-size: 13.5px !important;
+  font-size: 13px !important;
   font-weight: 800 !important;
   text-align: left;
-  padding: 8px 14px;
-  height: 38px;
+  padding: 4px 10px !important;
+  height: 36px !important;
+  max-height: 36px !important;
+  line-height: 28px !important;
   position: sticky;
   top: 0 !important;
   z-index: 25 !important;
   box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
 }
 
 .master-table tr.row-banner th.sticky-col-stt {
@@ -1202,12 +1211,24 @@ thead th.sticky-col-total {
   }
 
   /* Header rows stay sticky vertically when scrolling down through the 41 units */
+  .master-table thead tr.row-banner {
+    height: 36px !important;
+    max-height: 36px !important;
+  }
   .master-table thead tr.row-banner th {
     position: sticky !important;
     top: 0px !important;
     z-index: 30 !important;
     background: #003d99 !important;
     color: #ffffff !important;
+    height: 36px !important;
+    max-height: 36px !important;
+    line-height: 36px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
   }
   .master-table thead tr.row-titles th {
     position: sticky !important;
