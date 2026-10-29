@@ -1650,41 +1650,51 @@ thead th.sticky-col-total {
   box-shadow: 0 1px 3px rgba(0, 82, 204, 0.3);
 }
 
-.notification-dropdown {
-  position: absolute;
-  top: calc(100% + 8px);
+.notification-backdrop {
+  position: fixed;
+  top: 0;
   left: 0;
-  right: auto;
-  width: 480px;
-  max-width: min(480px, calc(100vw - 28px));
-  max-height: calc(100vh - 100px);
+  width: 100vw;
+  height: 100vh;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  z-index: 999990 !important;
+}
+
+.notification-dropdown {
+  position: fixed;
+  top: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 780px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 72px);
   background: #ffffff !important;
   border-radius: 12px;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(0, 82, 204, 0.25);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2), 0 0 0 1px #cbd5e1;
   border: 2px solid #0052cc;
   z-index: 999999 !important;
   overflow: hidden;
   color: #0f172a;
   text-align: left;
-  animation: slideDown 0.2s ease-out;
   display: flex;
   flex-direction: column;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 768px) {
   .notification-dropdown {
     position: fixed;
-    top: 48px;
-    right: 6px;
-    left: 6px;
-    bottom: 12px;
+    top: 46px;
+    left: 8px;
+    right: 8px;
+    bottom: auto;
     width: auto;
-    max-width: calc(100vw - 12px);
-    max-height: calc(100vh - 60px);
-    height: calc(100vh - 60px);
-    display: flex;
-    flex-direction: column;
+    transform: none;
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 56px);
+    height: auto;
     border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
   }
 }
 
@@ -20648,7 +20658,7 @@ function renderNotificationDropdown() {
   }
 
   return `
-    <div class="notification-backdrop" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(15,23,42,0.65); z-index:999990; backdrop-filter:blur(2px);" onclick="state.notificationsOpen = false; renderApp();"></div>
+    <div class="notification-backdrop" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:transparent !important; backdrop-filter:none !important; z-index:999990;" onclick="state.notificationsOpen = false; renderApp();"></div>
     <div class="notification-dropdown" onclick="event.stopPropagation()">
       <div class="notification-header" style="flex-shrink:0;">
         <div style="display:flex; align-items:center; gap:8px;">
