@@ -2635,15 +2635,15 @@ html, body {
 
 .app-header {
   flex-shrink: 0;
-  height: 46px;
   min-height: 46px;
-  max-height: 46px;
-  padding: 0 12px;
+  height: auto;
+  max-height: none;
+  padding: 4px 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: nowrap !important;
-  gap: 6px;
+  flex-wrap: wrap !important;
+  gap: 6px 12px;
   background: linear-gradient(135deg, #003380 0%, #0052cc 100%);
   color: #fff;
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
@@ -2661,17 +2661,45 @@ html, body {
 .brand-box {
   display: flex;
   align-items: center;
-  flex-shrink: 0;
+  flex-shrink: 0 !important;
+  min-width: max-content !important;
+}
+
+.brand-title {
+  white-space: nowrap !important;
 }
 
 @media (min-width: 769px) {
+.app-header {
+  min-height: 46px !important;
+  height: auto !important;
+  max-height: none !important;
+  flex-wrap: wrap !important;
+  gap: 6px 12px !important;
+}
+
+.brand-box {
+  flex-shrink: 0 !important;
+  min-width: max-content !important;
+}
+
+.brand-title {
+  min-width: max-content !important;
+  white-space: nowrap !important;
+}
+
+.brand-title * {
+  white-space: nowrap !important;
+}
+
 .header-actions {
   display: flex;
   align-items: center;
   gap: 4px;
-  flex-wrap: nowrap !important;
-  flex-shrink: 0 !important;
-  flex: none !important;
+  flex-wrap: wrap !important;
+  flex-shrink: 1 !important;
+  flex: 1 1 auto !important;
+  justify-content: flex-end !important;
   overflow: visible !important;
   background: transparent !important;
   border: none !important;
@@ -8763,11 +8791,11 @@ function renderHeader() {
 
   return `
 
-    <header class="app-header" style="background: linear-gradient(135deg, #003380 0%, #0052cc 100%); color: #fff; padding: 4px 12px; min-height: 46px; display: flex; justify-content: space-between; align-items: center; flex-wrap: nowrap; gap: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: sticky; top: 0; z-index: 1000 !important;">
+    <header class="app-header" style="background: linear-gradient(135deg, #003380 0%, #0052cc 100%); color: #fff; padding: 4px 12px; min-height: 46px; height: auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: sticky; top: 0; z-index: 1000 !important;">
 
       <!-- BÊN TRÁI: LOGO VÀ TIÊU ĐỀ HỆ THỐNG -->
 
-      <div class="brand-box" style="display: flex; align-items: center; min-width: 0; flex: 1 1 auto;">
+      <div class="brand-box" style="display: flex; align-items: center; flex-shrink: 0; min-width: max-content;">
 
         <div style="display: inline-flex; align-items: center; justify-content: center; margin-right: 8px; flex-shrink: 0;">
 
@@ -8775,7 +8803,7 @@ function renderHeader() {
 
         </div>
 
-        <div class="brand-title" style="min-width: 0; flex: 1;">
+        <div class="brand-title" style="min-width: max-content; white-space: nowrap;">
 
           <div style="font-size: 10px; font-weight: 800; color: #fef08a; text-transform: uppercase; letter-spacing: 0.3px; line-height: 1.2;">
 
@@ -8799,7 +8827,7 @@ function renderHeader() {
 
       <!-- CÁC NÚT THAO TÁC CỐ ĐỊNH TRỰC TIẾP TRÊN THANH HEADER (CÙNG HÀNG VỚI THÔNG BÁO, KHÔNG BỊ CUỘN HAY ĐÓNG KHUÔN) -->
 
-      <div class="header-actions" style="display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; flex-shrink: 0; overflow: visible; background: transparent; border: none; padding: 0;">
+      <div class="header-actions" style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap; flex-shrink: 1; flex: 1 1 auto; justify-content: flex-end; overflow: visible; background: transparent; border: none; padding: 0;">
 
         <!-- CHUÔNG THÔNG BÁO CHO ADMIN & CÁC ĐƠN VỊ (ẨN HOÀN TOÀN Ở TÀI KHOẢN KHÁCH XEM) -->
         ${!isGuest ? `
