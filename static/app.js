@@ -15922,7 +15922,7 @@ function renderNotificationDropdown() {
   }
 
   return `
-    <div class="notification-backdrop" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(15,23,42,0.65); z-index:999990; backdrop-filter:blur(2px);" onclick="state.notificationsOpen = false; renderApp();"></div>
+    <div class="notification-backdrop" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:transparent !important; backdrop-filter:none !important; z-index:999990;" onclick="state.notificationsOpen = false; renderApp();"></div>
     <div class="notification-dropdown" onclick="event.stopPropagation()">
       <div class="notification-header" style="flex-shrink:0;">
         <div style="display:flex; align-items:center; gap:8px;">
