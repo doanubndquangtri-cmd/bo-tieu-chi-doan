@@ -2626,15 +2626,15 @@ html, body {
 
 .app-header {
   flex-shrink: 0;
-  height: 46px;
   min-height: 46px;
-  max-height: 46px;
-  padding: 0 12px;
+  height: auto;
+  max-height: none;
+  padding: 4px 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: nowrap !important;
-  gap: 6px;
+  flex-wrap: wrap !important;
+  gap: 6px 12px;
   background: linear-gradient(135deg, #003380 0%, #0052cc 100%);
   color: #fff;
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
@@ -2652,17 +2652,45 @@ html, body {
 .brand-box {
   display: flex;
   align-items: center;
-  flex-shrink: 0;
+  flex-shrink: 0 !important;
+  min-width: max-content !important;
+}
+
+.brand-title {
+  white-space: nowrap !important;
 }
 
 @media (min-width: 769px) {
+.app-header {
+  min-height: 46px !important;
+  height: auto !important;
+  max-height: none !important;
+  flex-wrap: wrap !important;
+  gap: 6px 12px !important;
+}
+
+.brand-box {
+  flex-shrink: 0 !important;
+  min-width: max-content !important;
+}
+
+.brand-title {
+  min-width: max-content !important;
+  white-space: nowrap !important;
+}
+
+.brand-title * {
+  white-space: nowrap !important;
+}
+
 .header-actions {
   display: flex;
   align-items: center;
   gap: 4px;
-  flex-wrap: nowrap !important;
-  flex-shrink: 0 !important;
-  flex: none !important;
+  flex-wrap: wrap !important;
+  flex-shrink: 1 !important;
+  flex: 1 1 auto !important;
+  justify-content: flex-end !important;
   overflow: visible !important;
   background: transparent !important;
   border: none !important;
