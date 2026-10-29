@@ -8334,9 +8334,12 @@ window.WebPushManager = {
 
     const bCount = (typeof getTotalBadgeCount === 'function' ? getTotalBadgeCount() : 1) || 1;
     const bType = (options && options.badgeType) ? options.badgeType : 'Increase';
+    const originUrl = (typeof window !== 'undefined' && window.location && window.location.origin)
+      ? window.location.origin
+      : 'https://botieuchidoan.io.vn';
     const siteBaseUrl = (typeof window !== 'undefined' && window.location && window.location.origin)
       ? (window.location.origin + window.location.pathname)
-      : 'https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/';
+      : 'https://botieuchidoan.io.vn/';
     const fullTargetUrl = (url && String(url).startsWith('http')) ? url : siteBaseUrl;
 
     const payload = {
@@ -8348,8 +8351,8 @@ window.WebPushManager = {
       android_visibility: 1,
       android_accent_color: '0052CC',
       ttl: 259200,
-      chrome_web_icon: 'https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/icon-192.png',
-      chrome_web_badge: 'https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/favicon.png',
+      chrome_web_icon: originUrl + '/icon-192.png',
+      chrome_web_badge: originUrl + '/favicon.png',
       ios_badgeType: bType,
       ios_badgeCount: bType === 'Increase' ? 1 : bCount,
       android_badge_type: bType,
@@ -8357,9 +8360,9 @@ window.WebPushManager = {
       data: { url: fullTargetUrl, badgeCount: bCount, badgeType: bType }
     };
 
-    // Chỉ loại trừ thiết bị người gửi trong thông báo chung toàn khối (public)
+    // Chỉ loại trừ thiết bị người gửi trong thông báo chung toàn khối (public) khi không có cờ skipExclusion
     // Đối với tin nhắn riêng 1-1, bộ lọc tag role: admin và unit_id đã hoàn toàn tách biệt
-    if (!targetRole && (targetUnitId === undefined || targetUnitId === null)) {
+    if (!options.skipExclusion && !targetRole && (targetUnitId === undefined || targetUnitId === null)) {
       try {
         if (window.OneSignal && window.OneSignal.User && window.OneSignal.User.PushSubscription) {
           currentSubId = window.OneSignal.User.PushSubscription.id;
@@ -16188,7 +16191,7 @@ window.openDateSettingsModal = function () {
             <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:8px 10px; font-size:11px; color:#64748b; line-height:1.45;">
               📖 <b>Hướng dẫn 3 bước lấy mã miễn phí trong 2 phút:</b><br/>
               1. Truy cập <a href="https://onesignal.com" target="_blank" style="color:#0284c7; font-weight:700; text-decoration:underline;">onesignal.com</a> & đăng ký miễn phí bằng Google.<br/>
-              2. Chọn <b>New App/Website</b> &rarr; chọn <b>Web Push</b> &rarr; Điền Site URL: <code style="color:#0f172a; background:#e2e8f0; padding:1px 4px; border-radius:3px;">https://doanubndquangtri-cmd.github.io/bo-tieu-chi-doan/</code><br/>
+              2. Chọn <b>New App/Website</b> &rarr; chọn <b>Web Push</b> &rarr; Điền Site URL: <code style="color:#0f172a; background:#e2e8f0; padding:1px 4px; border-radius:3px;">https://botieuchidoan.io.vn</code><br/>
               3. Vào mục <b>Settings &rarr; Keys & IDs</b>, sao chép <b>App ID</b> và <b>REST API Key</b> dán vào 2 ô trên & bấm Lưu Cấu Hình.
             </div>
           </div>
