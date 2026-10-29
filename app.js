@@ -4065,11 +4065,11 @@ function renderHeader() {
 
   return `
 
-    <header class="app-header" style="background: linear-gradient(135deg, #003380 0%, #0052cc 100%); color: #fff; padding: 4px 12px; min-height: 46px; display: flex; justify-content: space-between; align-items: center; flex-wrap: nowrap; gap: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: sticky; top: 0; z-index: 1000 !important;">
+    <header class="app-header" style="background: linear-gradient(135deg, #003380 0%, #0052cc 100%); color: #fff; padding: 4px 12px; min-height: 46px; height: auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: sticky; top: 0; z-index: 1000 !important;">
 
       <!-- BÊN TRÁI: LOGO VÀ TIÊU ĐỀ HỆ THỐNG -->
 
-      <div class="brand-box" style="display: flex; align-items: center; min-width: 0; flex: 1 1 auto;">
+      <div class="brand-box" style="display: flex; align-items: center; flex-shrink: 0; min-width: max-content;">
 
         <div style="display: inline-flex; align-items: center; justify-content: center; margin-right: 8px; flex-shrink: 0;">
 
@@ -4077,7 +4077,7 @@ function renderHeader() {
 
         </div>
 
-        <div class="brand-title" style="min-width: 0; flex: 1;">
+        <div class="brand-title" style="min-width: max-content; white-space: nowrap;">
 
           <div style="font-size: 10px; font-weight: 800; color: #fef08a; text-transform: uppercase; letter-spacing: 0.3px; line-height: 1.2;">
 
@@ -4101,7 +4101,7 @@ function renderHeader() {
 
       <!-- CÁC NÚT THAO TÁC CỐ ĐỊNH TRỰC TIẾP TRÊN THANH HEADER (CÙNG HÀNG VỚI THÔNG BÁO, KHÔNG BỊ CUỘN HAY ĐÓNG KHUÔN) -->
 
-      <div class="header-actions" style="display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; flex-shrink: 0; overflow: visible; background: transparent; border: none; padding: 0;">
+      <div class="header-actions" style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap; flex-shrink: 1; flex: 1 1 auto; justify-content: flex-end; overflow: visible; background: transparent; border: none; padding: 0;">
 
         <!-- CHUÔNG THÔNG BÁO CHO ADMIN & CÁC ĐƠN VỊ (ẨN HOÀN TOÀN Ở TÀI KHOẢN KHÁCH XEM) -->
         ${!isGuest ? `
