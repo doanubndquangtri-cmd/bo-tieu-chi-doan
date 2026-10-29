@@ -44,7 +44,7 @@ if (typeof self !== 'undefined' && self.registration) {
   };
 }
 
-const SW_VERSION = '1793245557';
+const SW_VERSION = '1793250399';
 const CACHE_NAME = 'tieuchidoan-v' + SW_VERSION;
 const ASSETS_TO_CACHE = [
   './logo_doan.png',
