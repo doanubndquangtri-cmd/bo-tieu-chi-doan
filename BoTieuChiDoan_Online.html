@@ -4094,13 +4094,31 @@ body.dark-mode #tts-result-box {
   }
 
   .brand-box {
-    flex-wrap: wrap !important;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
     gap: 8px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .brand-title {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    overflow: hidden !important;
   }
 
   .brand-title h1 {
-    font-size: 13.5px !important;
+    font-size: clamp(10px, 3.1vw, 13px) !important;
     line-height: 1.25 !important;
+    white-space: nowrap !important;
+    letter-spacing: -0.2px !important;
+  }
+
+  .header-status-box {
+    margin-left: 0 !important;
+    height: 30px !important;
   }
 
   /* Sắp xếp thanh công cụ trên mobile: Gọn gàng, thoáng đẹp, bấm chọn dễ dàng */
@@ -8749,7 +8767,7 @@ function renderHeader() {
 
       <!-- BÊN TRÁI: LOGO VÀ TIÊU ĐỀ HỆ THỐNG -->
 
-      <div class="brand-box" style="display: flex; align-items: center; flex-shrink: 0;">
+      <div class="brand-box" style="display: flex; align-items: center; min-width: 0; flex: 1 1 auto;">
 
         <div style="display: inline-flex; align-items: center; justify-content: center; margin-right: 8px; flex-shrink: 0;">
 
@@ -8757,7 +8775,7 @@ function renderHeader() {
 
         </div>
 
-        <div class="brand-title">
+        <div class="brand-title" style="min-width: 0; flex: 1;">
 
           <div style="font-size: 10px; font-weight: 800; color: #fef08a; text-transform: uppercase; letter-spacing: 0.3px; line-height: 1.2;">
 
@@ -8765,8 +8783,8 @@ function renderHeader() {
 
           </div>
 
-          <h1 style="font-size: 12.5px; margin: 1px 0 0 0; text-transform: uppercase; line-height: 1.25; font-weight: 800; color: #fff;" title="Bộ tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh - Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí">
-            Bộ Tiêu Chí Các Tổ Chức Cơ Sở Đoàn Trực Thuộc Đoàn UBND Tỉnh
+          <h1 style="font-size: clamp(10px, 3.1vw, 13px); margin: 1px 0 0 0; text-transform: uppercase; line-height: 1.25; font-weight: 800; color: #fff; white-space: nowrap; letter-spacing: -0.2px;" title="Bộ tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh - Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí">
+            Bộ Tiêu Chí Các Tổ Chức Cơ Sở Đoàn Trực Thuộc
           </h1>
 
           <div style="font-size: 10.5px; font-weight: 600; color: #bfdbfe; line-height: 1.2; margin-top: 1px;">
@@ -8846,26 +8864,17 @@ function renderHeader() {
         <button class="btn btn-outline btn-sm" onclick="handleLogout()" style="background: rgba(255,255,255,0.15); color: #fff; border-color: rgba(255,255,255,0.3); font-size:11px; padding:3px 7px; height:27px;">
           Đăng xuất
         </button>
-      </div>
 
-
-
-      <!-- BÊN GÓC PHẢI: ONLINE & ĐỒNG HỒ THỜI GIAN THỰC (Ảnh 3 & 4) -->
-
-      <div class="header-status-box" style="display: flex; align-items: center; gap: 5px; flex-shrink: 0;">
-
-        <span class="badge ${state.cloudOnline ? 'badge-success' : 'badge-warning'}" style="font-size: 10px; font-weight: 700; padding: 2px 6px;">
-
-          ${state.cloudOnline ? '🟢 Online' : '🟡 Offline'}
-
-        </span>
-
-        <span style="color: #ffffff; font-weight: 700; font-family: monospace; font-size: 10.5px; background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2);" id="live-realtime-clock" title="Đồng hồ thời gian thực">
-
-          ⏱️ ${new Date().toLocaleTimeString('vi-VN')}
-
-        </span>
-
+        <!-- ONLINE & ĐỒNG HỒ NẰM CHUNG HÀNG VỚI NÚT THAO TÁC, GỌN GÀNG ĐẸP MẮT -->
+        <div class="header-status-box" style="display: inline-flex; align-items: center; gap: 4px; height: 27px; padding: 2px 8px; background: rgba(0,0,0,0.28); border-radius: 6px; border: 1px solid rgba(255,255,255,0.25); flex-shrink: 0;">
+          <span style="font-size: 10.5px; font-weight: 700; color: ${state.cloudOnline ? '#4ade80' : '#facc15'}; display: inline-flex; align-items: center; gap: 3px;">
+            ${state.cloudOnline ? '🟢 Online' : '🟡 Offline'}
+          </span>
+          <span style="color: rgba(255,255,255,0.35); font-size: 10px; margin: 0 1px;">|</span>
+          <span style="color: #ffffff; font-weight: 700; font-family: monospace; font-size: 10.5px;" id="live-realtime-clock" title="Đồng hồ thời gian thực">
+            ⏱️ ${new Date().toLocaleTimeString('vi-VN')}
+          </span>
+        </div>
       </div>
 
     </header>
