@@ -7183,7 +7183,74 @@ async function initApp() {
 
 
 function renderNotificationPermissionAlertBanner() {
-  return '';
+  try {
+    if (typeof window === 'undefined') return '';
+    if (sessionStorage.getItem('dismiss_notif_banner') === '1') return '';
+
+    // A. Kiểm tra nếu là thiết bị iOS (iPhone/iPad) và chưa cài PWA ra màn hình chính
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+
+    if (isIOS && !isStandalone) {
+      return `
+        <div class="notif-permission-alert" style="background: linear-gradient(90deg, #1e3a8a, #0284c7); color: #fff; padding: 10px 16px; font-size: 12.5px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 2px solid #38bdf8; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 99999;">
+          <div style="display:flex; align-items:center; gap:10px; flex:1;">
+            <span style="font-size:20px;">📲</span>
+            <div style="line-height:1.4;">
+              <b>Nhận thông báo màn hình khóa trên iPhone:</b> Bấm biểu tượng <b>Chia sẻ (⎋)</b> ở dưới cùng Safari ➔ Chọn <b>'Thêm vào MH chính' (Add to Home Screen)</b> ➔ Mở icon vừa tạo để nhận thông báo khi tắt máy.
+            </div>
+          </div>
+          <button type="button" onclick="sessionStorage.setItem('dismiss_notif_banner','1'); renderApp();" style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:26px; height:26px; border-radius:50%; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">✕</button>
+        </div>
+      `;
+    }
+
+    // B. Kiểm tra quyền thông báo trên Android & Máy tính
+    if (typeof Notification === 'undefined') return '';
+    const perm = Notification.permission;
+
+    if (perm === 'default') {
+      return `
+        <div class="notif-permission-alert" style="background: linear-gradient(90deg, #0f766e, #0284c7); color: #fff; padding: 9px 16px; font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; border-bottom: 2px solid #38bdf8; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 99999;">
+          <div style="display:flex; align-items:center; gap:9px; flex:1; min-width:260px;">
+            <span style="font-size:20px;">🔔</span>
+            <div style="line-height:1.35;">
+              <b>Bật thông báo ngoài màn hình:</b> Nhận chuông & tin nổi ngay cả khi tắt web / khóa màn hình khi có tiêu chí mới, duyệt điểm, nộp bài!
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button type="button" onclick="WebPushManager.requestPermission()" style="background: #facc15; color: #0f172a; font-weight: 800; font-size: 12.5px; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2); white-space:nowrap; display:flex; align-items:center; gap:5px;">
+              👉 BẬT THÔNG BÁO NGAY
+            </button>
+            <button type="button" onclick="sessionStorage.setItem('dismiss_notif_banner','1'); renderApp();" style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:26px; height:26px; border-radius:50%; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; flex-shrink:0;" title="Đóng thông báo này">✕</button>
+          </div>
+        </div>
+      `;
+    }
+
+    if (perm === 'denied') {
+      return `
+        <div class="notif-permission-alert" style="background: #fef2f2; color: #991b1b; padding: 9px 16px; font-size: 12.5px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; border-bottom: 2px solid #ef4444; box-shadow: 0 2px 8px rgba(0,0,0,0.08); z-index: 99999;">
+          <div style="display:flex; align-items:center; gap:9px; flex:1; min-width:260px;">
+            <span style="font-size:20px;">⚠️</span>
+            <div style="line-height:1.35;">
+              <b>Trình duyệt đang chặn thông báo trên điện thoại:</b> Vui lòng bấm vào biểu tượng <b>🔒 (ổ khóa)</b> ở góc trái thanh địa chỉ ➔ <b>Cài đặt trang web / Quyền</b> ➔ Bật <b>Cho phép (Allow) Thông báo</b>.
+            </div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button type="button" onclick="WebPushManager.requestPermission()" style="background: #ef4444; color: #fff; font-weight: 700; font-size: 12px; border: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.2); white-space:nowrap;">
+              🔄 Tôi đã bật, kiểm tra lại
+            </button>
+            <button type="button" onclick="sessionStorage.setItem('dismiss_notif_banner','1'); renderApp();" style="background:#fee2e2; border:none; color:#991b1b; width:26px; height:26px; border-radius:50%; cursor:pointer; font-size:14px; display:flex; align-items:center; justify-content:center; flex-shrink:0;">✕</button>
+          </div>
+        </div>
+      `;
+    }
+
+    return '';
+  } catch (e) {
+    return '';
+  }
 }
 
 function renderApp() {
@@ -8244,22 +8311,37 @@ window.WebPushManager = {
   // 3. Yêu cầu cấp quyền nhận thông báo trên thiết bị hiện tại
   requestPermission: async function() {
     try {
-      window.OneSignalDeferred = window.OneSignalDeferred || [];
-      OneSignalDeferred.push(async function(OneSignal) {
-        try {
-          if (OneSignal.Notifications && OneSignal.Notifications.requestPermission) {
-            await OneSignal.Notifications.requestPermission();
-          }
-          if (OneSignal.User && OneSignal.User.PushSubscription && OneSignal.User.PushSubscription.optIn) {
-            await OneSignal.User.PushSubscription.optIn().catch(() => {});
-          }
-        } catch (pErr) {
-          console.warn('[WebPush] OneSignal requestPermission error:', pErr);
-        }
-      });
+      let perm = typeof Notification !== 'undefined' ? Notification.permission : 'default';
 
+      // 1. Kích hoạt trực tiếp theo cử chỉ chạm (User Gesture) cho trình duyệt di động
       if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
-        await Notification.requestPermission();
+        try {
+          perm = await Notification.requestPermission();
+        } catch (e) {
+          console.warn('[WebPush] Native requestPermission error:', e);
+        }
+      }
+
+      // 2. Kích hoạt OneSignal OptIn & đăng ký token thiết bị với máy chủ OneSignal
+      const doOptIn = async (os) => {
+        try {
+          if (os.Notifications && os.Notifications.requestPermission) {
+            await os.Notifications.requestPermission().catch(() => {});
+          }
+          if (os.User && os.User.PushSubscription && os.User.PushSubscription.optIn) {
+            await os.User.PushSubscription.optIn().catch(() => {});
+            console.log('[WebPush] OptIn hoàn tất. Push ID:', os.User.PushSubscription.id);
+          }
+        } catch (err) {
+          console.warn('[WebPush] OptIn error:', err);
+        }
+      };
+
+      if (window.OneSignal && window.OneSignal.User) {
+        await doOptIn(window.OneSignal);
+      } else {
+        window.OneSignalDeferred = window.OneSignalDeferred || [];
+        OneSignalDeferred.push(doOptIn);
       }
 
       if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
@@ -8274,10 +8356,10 @@ window.WebPushManager = {
         }
         window.WebPushManager.showLocalNativeNotification(
           '🔔 Thông Báo Đoàn Hoạt Động Chuẩn Xác',
-          'Thiết bị này đã sẵn sàng nhận thông báo mới từ Ban Thường vụ và các cơ sở Đoàn!'
+          'Thiết bị của bạn đã được kết nối thành công với hệ thống tiêu chí Đoàn!'
         );
-      } else if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
-        showToast('Trình duyệt đang chặn thông báo. Vui lòng bấm vào icon ổ khóa cạnh tên miền để Cho phép (Allow).', 'warning');
+      } else if (perm === 'denied' || (typeof Notification !== 'undefined' && Notification.permission === 'denied')) {
+        showToast('⚠️ Trình duyệt trên điện thoại đang CHẶN thông báo. Vui lòng bấm vào biểu tượng 🔒 ở góc trái thanh địa chỉ để Cho phép (Allow).', 'warning');
       }
       if (typeof renderApp === 'function') renderApp();
     } catch (err) {
@@ -8473,7 +8555,8 @@ window.WebPushManager = {
     await window.WebPushManager.sendPushNotification({
       title: '🔔 [Thử Nghiệm] Hệ Thống Tiêu Chí Đoàn',
       message: 'Xin chào! Thông báo nổi trên màn hình Desktop & Điện thoại của bạn đang hoạt động cực kỳ hoàn hảo.',
-      url: './'
+      url: './',
+      skipExclusion: true
     });
     showToast('🎉 Đã phát tín hiệu thông báo đẩy! Hãy thử khóa màn hình điện thoại hoặc thu nhỏ web để xem thông báo nổi.', 'success');
   },
