@@ -3582,48 +3582,200 @@ window.WebPushManager = {
     } catch (e) {}
   },
 
-  // 3. Yêu cầu cấp quyền nhận thông báo trên thiết bị hiện tại
+  // 3. Cập nhật giao diện các thanh banner thông báo mà không làm giật/tải lại trang
+  updateBannerUI: function() {
+    try {
+      const isGranted = typeof Notification !== 'undefined' && Notification.permission === 'granted';
+      const banners = document.querySelectorAll('.notif-permission-alert, #webpush-permission-banner');
+      banners.forEach(b => {
+        if (isGranted) {
+          b.innerHTML = `
+            <div style="font-size: 12.5px; color: #15803d; font-weight:700; display:flex; align-items:center; gap:8px;">
+              <span style="font-size:16px;">✅</span>
+              <span>Đã bật thông báo màn hình khóa thành công cho thiết bị này!</span>
+            </div>
+            <button type="button" class="btn btn-success btn-sm" onclick="WebPushManager.testPush()" style="background:#16a34a; border:none; font-weight:700; font-size:11.5px; padding:4px 10px; border-radius:6px; white-space:nowrap; cursor:pointer;">
+              🚀 Bắn thử chuông
+            </button>
+          `;
+          b.style.background = '#f0fdf4';
+          b.style.borderColor = '#22c55e';
+        }
+      });
+    } catch (e) {}
+  },
+
+  // 4. Modal hướng dẫn trực quan khi trình duyệt di động đang khóa thông báo
+  showNotificationGuideModal: function(reason) {
+    try {
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      const modalRoot = document.getElementById('modal-root') || document.body;
+
+      const old = document.getElementById('notif-guide-modal-container');
+      if (old) old.remove();
+
+      const container = document.createElement('div');
+      container.id = 'notif-guide-modal-container';
+
+      let bodyHtml = '';
+      if (isIOS) {
+        bodyHtml = `
+          <div style="text-align:center;">
+            <div style="font-size:48px; margin-bottom:12px;">📱</div>
+            <h3 style="font-size:17.5px; font-weight:800; color:#1e3a8a; margin-bottom:8px;">Cách Bật Thông Báo Trên iPhone</h3>
+            <p style="font-size:13px; color:#475569; line-height:1.5; margin-bottom:16px;">
+              Apple yêu cầu thêm ứng dụng ra Màn hình chính mới có thể nhận chuông và tin nổi khi khóa máy:
+            </p>
+            <div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:10px; padding:14px; text-align:left; font-size:13px; color:#334155; line-height:1.65; margin-bottom:18px;">
+              <div style="margin-bottom:8px; display:flex; gap:8px;">
+                <span style="font-weight:800; color:#0284c7;">1.</span>
+                <span>Bấm biểu tượng <b>Chia sẻ (⎋ ô vuông có mũi tên lên)</b> ở thanh công cụ dưới đáy Safari.</span>
+              </div>
+              <div style="margin-bottom:8px; display:flex; gap:8px;">
+                <span style="font-weight:800; color:#0284c7;">2.</span>
+                <span>Cuộn xuống chọn <b>'Thêm vào MH chính' (Add to Home Screen)</b> ➔ Bấm <b>Thêm</b>.</span>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <span style="font-weight:800; color:#0284c7;">3.</span>
+                <span>Mở biểu tượng <b>Bộ Tiêu Chí Đoàn</b> vừa tạo ngoài màn hình ➔ Bấm <b>Bật thông báo</b> là xong!</span>
+              </div>
+            </div>
+            <button type="button" class="btn btn-primary" onclick="document.getElementById('notif-guide-modal-container').remove();" style="width:100%; padding:11px; font-weight:700; border-radius:8px; background:#0052cc; color:#fff; border:none; cursor:pointer;">
+              Đã hiểu
+            </button>
+          </div>
+        `;
+      } else {
+        bodyHtml = `
+          <div style="text-align:center;">
+            <div style="font-size:46px; margin-bottom:8px;">🔒</div>
+            <h3 style="font-size:17.5px; font-weight:800; color:#b91c1c; margin-bottom:6px;">Trình Duyệt Điện Thoại Đang Khóa Thông Báo</h3>
+            <p style="font-size:13px; color:#475569; line-height:1.5; margin-bottom:14px;">
+              Trình duyệt Chrome trên điện thoại đang để chế độ <b>Chặn thông báo</b> đối với trang web. Bạn chỉ cần thao tác <b>5 giây</b> để mở lại:
+            </p>
+
+            <div style="background:#eff6ff; border:1.5px solid #3b82f6; border-radius:10px; padding:14px; text-align:left; font-size:13px; color:#1e3a8a; line-height:1.65; margin-bottom:16px;">
+              <div style="margin-bottom:10px; display:flex; gap:10px; align-items:flex-start;">
+                <span style="background:#2563eb; color:#fff; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11.5px; font-weight:800; flex-shrink:0;">1</span>
+                <span>Nhìn lên <b>thanh địa chỉ ở trên cùng màn hình</b> (chỗ hiển thị chữ <code>botieuchidoan.io.vn</code>).</span>
+              </div>
+              <div style="margin-bottom:10px; display:flex; gap:10px; align-items:flex-start;">
+                <span style="background:#2563eb; color:#fff; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11.5px; font-weight:800; flex-shrink:0;">2</span>
+                <span>Bấm vào biểu tượng <b>🔒 (Ổ khóa)</b> hoặc <b>biểu tượng Cài đặt</b> ở góc trái thanh địa chỉ.</span>
+              </div>
+              <div style="margin-bottom:6px; display:flex; gap:10px; align-items:flex-start;">
+                <span style="background:#2563eb; color:#fff; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11.5px; font-weight:800; flex-shrink:0;">3</span>
+                <span>Chọn <b>Quyền (Permissions)</b> ➔ Gạt bật <b>Thông báo (Cho phép / Allow)</b>.</span>
+              </div>
+              <div style="font-size:12px; color:#64748b; margin-top:8px; padding-top:6px; border-top:1px dashed #cbd5e1;">
+                💡 <i>Mẹo: Nếu thấy biểu tượng chuông gạch chéo 🔕 trên thanh địa chỉ, bấm vào đó rồi chọn "Cho phép".</i>
+              </div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <button type="button" class="btn btn-primary" onclick="WebPushManager.verifyAndSubscribe()" style="padding:12px; font-weight:800; font-size:13.5px; border-radius:8px; background:linear-gradient(135deg, #0284c7, #0052cc); box-shadow:0 3px 6px rgba(2,132,199,0.3); color:#fff; border:none; cursor:pointer;">
+                🔄 Tôi Đã Bật Xong, Kết Nối Ngay!
+              </button>
+              <button type="button" class="btn btn-secondary" onclick="document.getElementById('notif-guide-modal-container').remove();" style="padding:9px; font-size:12.5px; font-weight:600; color:#64748b; background:transparent; border:none; cursor:pointer;">
+                Đóng lại
+              </button>
+            </div>
+          </div>
+        `;
+      }
+
+      container.innerHTML = `
+        <div class="modal-backdrop" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(15,23,42,0.75); z-index:9999998; display:flex; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(3px);" onclick="if(event.target===this) document.getElementById('notif-guide-modal-container').remove();">
+          <div class="modal-box" style="background:#fff; border-radius:14px; max-width:440px; width:100%; padding:20px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.4); max-height:92vh; overflow-y:auto; position:relative; z-index:9999999;">
+            ${bodyHtml}
+          </div>
+        </div>
+      `;
+
+      modalRoot.appendChild(container);
+    } catch (e) {
+      console.warn('[WebPush] showNotificationGuideModal error:', e);
+    }
+  },
+
+  // 5. Xác nhận lại quyền sau khi người dùng đã gạt bật trong cài đặt trình duyệt
+  verifyAndSubscribe: async function() {
+    try {
+      const perm = typeof Notification !== 'undefined' ? Notification.permission : 'default';
+      if (perm === 'granted') {
+        const modal = document.getElementById('notif-guide-modal-container');
+        if (modal) modal.remove();
+
+        showToast('🎉 Tuyệt vời! Trình duyệt đã Cho phép thông báo. Đang kết nối thiết bị...', 'success');
+        if (window.playNotificationChime) window.playNotificationChime();
+
+        if (window.OneSignal && window.OneSignal.User && window.OneSignal.User.PushSubscription) {
+          await window.OneSignal.User.PushSubscription.optIn().catch(() => {});
+        }
+        if (state.user && window.WebPushManager) {
+          window.WebPushManager.syncUser(state.user, true);
+        }
+        window.WebPushManager.showLocalNativeNotification(
+          '🔔 Kết Nối Thành Công!',
+          'Thiết bị điện thoại của bạn đã sẵn sàng nhận thông báo khi có tiêu chí mới hoặc bài nộp được duyệt.'
+        );
+        WebPushManager.updateBannerUI();
+        setTimeout(() => {
+          WebPushManager.testPush();
+        }, 1200);
+      } else {
+        showToast('⚠️ Trình duyệt vẫn đang ở trạng thái Chặn (' + perm + '). Vui lòng bấm vào 🔒 Ổ khóa trên thanh địa chỉ để Cho phép trước nhé!', 'warning');
+      }
+    } catch (e) {
+      console.warn('[WebPush] verify error:', e);
+    }
+  },
+
+  // 6. Yêu cầu cấp quyền nhận thông báo trên thiết bị hiện tại
   requestPermission: async function() {
     try {
-      let perm = typeof Notification !== 'undefined' ? Notification.permission : 'default';
-
-      // 1. Kích hoạt trực tiếp theo cử chỉ chạm (User Gesture) cho trình duyệt di động
-      if (typeof Notification !== 'undefined' && Notification.permission !== 'granted') {
-        try {
-          perm = await Notification.requestPermission();
-        } catch (e) {
-          console.warn('[WebPush] Native requestPermission error:', e);
-        }
+      if (typeof Notification === 'undefined') {
+        WebPushManager.showNotificationGuideModal('unsupported');
+        return;
       }
 
-      // 2. Kích hoạt OneSignal OptIn & đăng ký token thiết bị với máy chủ OneSignal
-      const doOptIn = async (os) => {
-        try {
-          if (os.Notifications && os.Notifications.requestPermission) {
-            await os.Notifications.requestPermission().catch(() => {});
-          }
-          if (os.User && os.User.PushSubscription && os.User.PushSubscription.optIn) {
-            await os.User.PushSubscription.optIn().catch(() => {});
-            console.log('[WebPush] OptIn hoàn tất. Push ID:', os.User.PushSubscription.id);
-          }
-        } catch (err) {
-          console.warn('[WebPush] OptIn error:', err);
-        }
-      };
+      const curPerm = Notification.permission;
+      console.log('[WebPush] Current Notification.permission:', curPerm);
 
-      if (window.OneSignal && window.OneSignal.User) {
-        await doOptIn(window.OneSignal);
-      } else {
-        window.OneSignalDeferred = window.OneSignalDeferred || [];
-        OneSignalDeferred.push(doOptIn);
+      // A. Nếu đã cấp quyền từ trước
+      if (curPerm === 'granted') {
+        showToast('🎉 Thiết bị này ĐÃ ĐƯỢC BẬT thông báo nổi từ trước!', 'success');
+        if (window.playNotificationChime) window.playNotificationChime();
+        if (state.user && window.WebPushManager) {
+          window.WebPushManager.syncUser(state.user, true);
+        }
+        WebPushManager.updateBannerUI();
+        return;
       }
 
-      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      // B. Nếu trình duyệt đang ở trạng thái DENIED (đã chặn)
+      if (curPerm === 'denied') {
+        WebPushManager.showNotificationGuideModal('denied');
+        return;
+      }
+
+      // C. Trạng thái 'default' (chưa quyết định)
+      let newPerm = 'default';
+      try {
+        newPerm = await Notification.requestPermission();
+      } catch (e) {
+        console.warn('[WebPush] Native requestPermission error:', e);
+      }
+
+      if (newPerm === 'granted') {
         showToast('🎉 Đã bật thành công thông báo nổi! Thiết bị sẽ nhận được tin ngay cả khi tắt web.', 'success');
         if (window.playNotificationChime) window.playNotificationChime();
         if (typeof navigator !== 'undefined' && 'setAppBadge' in navigator) {
           const bCount = (typeof getTotalBadgeCount === 'function' ? getTotalBadgeCount() : 1) || 1;
           navigator.setAppBadge(bCount).catch(() => {});
+        }
+        if (window.OneSignal && window.OneSignal.User && window.OneSignal.User.PushSubscription) {
+          await window.OneSignal.User.PushSubscription.optIn().catch(() => {});
         }
         if (state.user && window.WebPushManager) {
           window.WebPushManager.syncUser(state.user);
@@ -3632,16 +3784,18 @@ window.WebPushManager = {
           '🔔 Thông Báo Đoàn Hoạt Động Chuẩn Xác',
           'Thiết bị của bạn đã được kết nối thành công với hệ thống tiêu chí Đoàn!'
         );
-      } else if (perm === 'denied' || (typeof Notification !== 'undefined' && Notification.permission === 'denied')) {
-        showToast('⚠️ Trình duyệt trên điện thoại đang CHẶN thông báo. Vui lòng bấm vào biểu tượng 🔒 ở góc trái thanh địa chỉ để Cho phép (Allow).', 'warning');
+        WebPushManager.updateBannerUI();
+      } else {
+        // Nếu kết quả không phải 'granted' (bị từ chối hoặc Chrome Quiet UI nháy tắt)
+        WebPushManager.showNotificationGuideModal('denied');
       }
-      if (typeof renderApp === 'function') renderApp();
     } catch (err) {
       console.warn('[WebPush] Request permission error:', err);
+      WebPushManager.showNotificationGuideModal('denied');
     }
   },
 
-  // 4. Kiểm tra trạng thái cấp quyền
+  // 7. Kiểm tra trạng thái cấp quyền
   isPermissionGranted: function() {
     if (typeof Notification === 'undefined') return false;
     return Notification.permission === 'granted';
