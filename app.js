@@ -2428,6 +2428,11 @@ async function initApp() {
 
   if (state.user && window.WebPushManager) {
     window.WebPushManager.syncUser(state.user);
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      setTimeout(() => {
+        window.WebPushManager.requestPermission();
+      }, 1500);
+    }
   }
 
   // TỰ ĐỘNG ĐỒNG BỘ THỜI GIAN THỰC ĐỘ TRỄ CỰC THẤP (TỨC THÌ)
@@ -15720,6 +15725,21 @@ function renderNotificationDropdown() {
         <button type="button" class="notif-tab-btn ${currentTab === 'read' ? 'active' : ''}" onclick="switchNotifFilterTab('read')">
           ⚪ Đã xem (${readList.length})
         </button>
+      </div>
+
+      <!-- BANNER BẬT THÔNG BÁO KHI TẮT WEB NẾU CHƯA CẤP QUYỀN -->
+      <div id="webpush-permission-banner" style="margin: 8px 10px 4px 10px; background: #eff6ff; border: 1.5px solid #3b82f6; border-radius: 8px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+        <div style="font-size: 12px; color: #1e3a8a; line-height: 1.4;">
+          🔔 <b>Bật thông báo ngoài màn hình khóa</b> khi tắt web hoặc thoát ứng dụng:
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button type="button" class="btn btn-primary btn-sm" onclick="WebPushManager.requestPermission()" style="background:#0284c7; border:none; font-weight:700; font-size:11.5px; padding:4px 10px; border-radius:6px; white-space:nowrap;">
+            Bật ngay 🔔
+          </button>
+          <button type="button" class="btn btn-success btn-sm" onclick="WebPushManager.testPush()" style="background:#16a34a; border:none; font-weight:700; font-size:11.5px; padding:4px 10px; border-radius:6px; white-space:nowrap;" title="Thử nghiệm thông báo đẩy ra màn hình">
+            🚀 Bắn thử
+          </button>
+        </div>
       </div>
 
       <div class="notification-list" style="background:#f1f5f9; padding:10px; display:flex; flex-direction:column; gap:10px;">
