@@ -4085,13 +4085,31 @@ body.dark-mode #tts-result-box {
   }
 
   .brand-box {
-    flex-wrap: wrap !important;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
     gap: 8px !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .brand-title {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    overflow: hidden !important;
   }
 
   .brand-title h1 {
-    font-size: 13.5px !important;
+    font-size: clamp(10px, 3.1vw, 13px) !important;
     line-height: 1.25 !important;
+    white-space: nowrap !important;
+    letter-spacing: -0.2px !important;
+  }
+
+  .header-status-box {
+    margin-left: 0 !important;
+    height: 30px !important;
   }
 
   /* Sắp xếp thanh công cụ trên mobile: Gọn gàng, thoáng đẹp, bấm chọn dễ dàng */
