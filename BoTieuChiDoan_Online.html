@@ -9937,13 +9937,32 @@ function renderMasterTableTab() {
                             : ''
                         }
                       </span>
-                      ${c.gdrive_folder_url && isAdmin ? `
-                        <span style="margin-top:2px;">
-                          <a href="${escapeHtml(c.gdrive_folder_url)}" target="_blank" style="color:#15803d; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:2px;" title="Mở thư mục Google Drive tiếp nhận báo cáo của tiêu chí này (Chỉ Quản trị viên)">
+                      <div style="display:flex; align-items:center; justify-content:space-between; gap:2px; margin-top:3px; padding-top:2px; border-top:1px dashed rgba(203,213,225,0.8); flex-wrap:nowrap;">
+                        ${c.gdrive_folder_url && isAdmin ? `
+                          <a href="${escapeHtml(c.gdrive_folder_url)}" target="_blank" style="color:#15803d; font-weight:700; font-size:9.5px; text-decoration:none; display:inline-flex; align-items:center; gap:1px; white-space:nowrap;" title="Mở thư mục Google Drive tiếp nhận báo cáo của tiêu chí này (Chỉ Quản trị viên)">
                             📁 Drive ↗
                           </a>
-                        </span>
-                      ` : ''}
+                        ` : (isAdmin ? `<span style="font-size:9.5px; color:#94a3b8; font-weight:600;">📁 Drive</span>` : `<span></span>`)}
+
+                        ${(() => {
+                          const attList = (c.attachments && Array.isArray(c.attachments)) ? c.attachments : [];
+                          const attCount = attList.length;
+                          if (isAdmin) {
+                            return `
+                              <button type="button" onclick="openCriterionAttachmentsModal(${c.id})" style="background:${attCount > 0 ? '#dbeafe' : '#f8fafc'}; color:${attCount > 0 ? '#1d4ed8' : '#0284c7'}; border:1px solid ${attCount > 0 ? '#60a5fa' : '#cbd5e1'}; font-size:9.5px; font-weight:700; padding:1px 5px; border-radius:4px; cursor:pointer; display:inline-flex; align-items:center; gap:2px; white-space:nowrap; box-shadow:0 1px 2px rgba(0,0,0,0.05);" title="Thêm / xem tệp đính kèm, văn bản, video của tiêu chí này">
+                                📎 ${attCount > 0 ? `Tệp (${attCount})` : '+ Tệp'}
+                              </button>
+                            `;
+                          } else if (attCount > 0) {
+                            return `
+                              <button type="button" onclick="openCriterionAttachmentsModal(${c.id})" style="background:#dbeafe; color:#1d4ed8; border:1px solid #60a5fa; font-size:9.5px; font-weight:700; padding:1px 5px; border-radius:4px; cursor:pointer; display:inline-flex; align-items:center; gap:2px; white-space:nowrap; box-shadow:0 1px 2px rgba(0,0,0,0.05);" title="Bấm để xem & tải tài liệu, video, tệp đính kèm từ Ban Thường vụ">
+                                📎 Tệp (${attCount})
+                              </button>
+                            `;
+                          }
+                          return '';
+                        })()}
+                      </div>
                     </div>
                   </div>
                 </th>
@@ -12982,6 +13001,46 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
 
             <!-- NỘI DUNG / GIẢI TRÌNH -->
 
+          ${(crit.attachments && Array.isArray(crit.attachments) && crit.attachments.length > 0) ? `
+            <div style="margin-bottom:14px; background:#eff6ff; padding:12px 14px; border-radius:8px; border:1.5px solid #93c5fd;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                <span style="font-weight:800; color:#1e40af; font-size:13px; display:flex; align-items:center; gap:6px;">
+                  <span>📁</span> <span>Tài liệu & Tệp hướng dẫn từ Ban Thường vụ (${crit.attachments.length}):</span>
+                </span>
+                ${isAdmin ? `
+                  <button type="button" onclick="openCriterionAttachmentsModal(${crit.id})" style="background:#2563eb; color:#fff; border:none; padding:3px 9px; border-radius:5px; font-size:11.5px; font-weight:700; cursor:pointer;">
+                    + Quản lý tệp
+                  </button>
+                ` : ''}
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px;">
+                ${crit.attachments.map(att => `
+                  <div style="background:#fff; border:1px solid #bfdbfe; border-radius:6px; padding:8px 10px; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                    <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+                      <span style="font-size:18px;">${getAttachmentIcon(att.name, att.url)}</span>
+                      <div style="overflow:hidden;">
+                        <div style="font-weight:700; font-size:12.5px; color:#1e3a8a; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                          ${escapeHtml(att.name)}
+                        </div>
+                        <div style="font-size:11px; color:#64748b;">
+                          ${att.size ? formatBytes(att.size) : 'Liên kết'} ${att.uploaded_at ? ' • ' + formatShortDateTimeVN(att.uploaded_at) : ''}
+                        </div>
+                      </div>
+                    </div>
+                    <div style="display:flex; gap:4px; flex-shrink:0;">
+                      <button type="button" class="btn btn-sm btn-outline" onclick="openFileInlinePreviewModal('${escapeHtml(att.url)}', '${escapeHtml(att.name)}')" style="font-size:11.5px; padding:3px 8px;" title="Xem trực tiếp">
+                        👁️ Xem
+                      </button>
+                      <a href="${escapeHtml(att.url)}" target="_blank" class="btn btn-sm btn-primary" style="font-size:11.5px; padding:3px 8px; text-decoration:none; display:inline-flex; align-items:center;" title="Mở tab mới / Tải về">
+                        ↗️ Tải / Mở
+                      </a>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+
             <div class="form-group" style="margin-bottom:12px;">
 
               <label style="font-weight:700; color:#0f172a;">📝 Nội dung báo cáo / Giải trình & Lý do được điểm:</label>
@@ -15201,6 +15260,7 @@ function renderAdminCriteriaTab() {
 
                   <button class="btn btn-sm" onclick="duplicateCriterion(${c.id})" style="background:#e0e7ff; color:#3730a3; border:1px solid #c7d2fe; font-weight:700;" title="Nhân đôi tiêu chí này">📋 Nhân đôi</button>
 
+                  <button class="btn btn-sm" onclick="openCriterionAttachmentsModal(${c.id})" style="margin-left:4px; background:${(c.attachments && c.attachments.length > 0) ? '#dbeafe' : '#f8fafc'}; color:${(c.attachments && c.attachments.length > 0) ? '#1d4ed8' : '#0284c7'}; border:1px solid ${(c.attachments && c.attachments.length > 0) ? '#60a5fa' : '#cbd5e1'}; font-weight:700;" title="Quản lý tệp đính kèm, văn bản, video">📎 Tệp (${(c.attachments || []).length})</button>
                   <button class="btn btn-sm btn-primary" onclick="openCriterionEditModal(${c.id})" style="margin-left:4px;" title="Chỉnh sửa ngày/điểm/tên">✏️ Sửa</button>
 
                   <button class="btn btn-sm btn-danger" onclick="window.deleteCriterion(${c.id})" style="margin-left:4px;" title="Xóa hẳn tiêu chí này">🗑️ Xóa</button>
@@ -15413,6 +15473,20 @@ window.openCriterionEditModal = function (critId) {
           </div>
 
 
+
+          <div class="form-group" style="background:#eff6ff; padding:12px 14px; border-radius:8px; border:1.5px solid #93c5fd; margin-bottom:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <label style="font-weight:700; color:#1e40af; font-size:13.5px; margin:0;">
+                📎 Tệp đính kèm & Tài liệu tiêu chí (${(c.attachments || []).length}):
+              </label>
+              <button type="button" class="btn btn-sm btn-primary" onclick="openCriterionAttachmentsModal(${c.id})" style="font-weight:700; font-size:12px; padding:3px 10px;">
+                Quản lý tệp ↗
+              </button>
+            </div>
+            <div style="font-size:12px; color:#475569; margin-top:4px;">
+              Đính kèm văn bản chỉ đạo, file mẫu Excel/Word, video hướng dẫn hoặc liên kết ngoài cho tiêu chí này.
+            </div>
+          </div>
 
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
 
@@ -31273,6 +31347,327 @@ window.saveMarqueeSettings = async function () {
       btn.textContent = '💾 Lưu & Áp Dụng Ngay';
     }
   }
+};
+
+
+/* ==========================================================================
+   QUẢN LÝ TỆP ĐÍNH KÈM / VĂN BẢN / VIDEO CHO TIÊU CHÍ (ADMIN & ĐƠN VỊ)
+   ========================================================================== */
+
+function getAttachmentIcon(name, url) {
+  const n = (name || url || '').toLowerCase();
+  if (/\.(mp4|mov|webm|avi|mkv|flv|wmv)$/i.test(n) || n.includes('youtube.com') || n.includes('youtu.be')) return '🎬';
+  if (/\.(pdf)$/i.test(n)) return '📕';
+  if (/\.(doc|docx)$/i.test(n)) return '📘';
+  if (/\.(xls|xlsx|csv)$/i.test(n)) return '📗';
+  if (/\.(ppt|pptx)$/i.test(n)) return '📙';
+  if (/\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(n)) return '🖼️';
+  if (/\.(zip|rar|7z|tar|gz)$/i.test(n)) return '🗂️';
+  if (/\.(mp3|wav|m4a|aac)$/i.test(n)) return '🎵';
+  if (n.startsWith('http')) return '🔗';
+  return '📎';
+}
+
+function formatShortDateTimeVN(isoStr) {
+  if (!isoStr) return '';
+  try {
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return isoStr;
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${pad(d.getHours())}:${pad(d.getMinutes())} ${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
+  } catch (e) {
+    return isoStr;
+  }
+}
+
+window.openCriterionAttachmentsModal = function(criterionId) {
+  const crit = (state.criteria || []).find((c) => c.id === criterionId);
+  if (!crit) {
+    showToast('Không tìm thấy thông tin tiêu chí!', 'error');
+    return;
+  }
+
+  if (!crit.attachments || !Array.isArray(crit.attachments)) {
+    crit.attachments = [];
+  }
+
+  const isAdmin = state.user && state.user.role === 'admin';
+  const modalRoot = document.getElementById('modal-root') || document.body;
+
+  const oldModal = document.getElementById('criterion-attachments-modal-container');
+  if (oldModal) oldModal.remove();
+
+  const container = document.createElement('div');
+  container.id = 'criterion-attachments-modal-container';
+
+  const attList = crit.attachments;
+
+  container.innerHTML = `
+    <div class="modal-backdrop" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(15,23,42,0.75); z-index:9999998; display:flex; align-items:center; justify-content:center; padding:14px; backdrop-filter:blur(3px);" onclick="if(event.target===this) window.closeCriterionAttachmentsModal()">
+      <div class="modal-box" style="background:#ffffff; border-radius:14px; max-width:680px; width:100%; box-shadow:0 25px 50px -12px rgba(0,0,0,0.4); max-height:92vh; display:flex; flex-direction:column; overflow:hidden; border:1px solid #cbd5e1; z-index:9999999; animation:slideDown 0.2s ease-out;">
+        
+        <!-- HEADER -->
+        <div style="background:linear-gradient(135deg, #003d99 0%, #0052cc 100%); color:#fff; padding:12px 18px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-shrink:0;">
+          <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+            <span style="font-size:22px;">📎</span>
+            <div style="overflow:hidden;">
+              <div style="font-weight:800; font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                Tài Liệu & Tệp Đính Kèm: <span style="color:#fde047;">${escapeHtml(crit.col_label)}</span>
+              </div>
+              <div style="font-size:11.5px; opacity:0.9; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                ${escapeHtml(crit.title)}
+              </div>
+            </div>
+          </div>
+          <button type="button" onclick="window.closeCriterionAttachmentsModal()" style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.4); color:#fff; font-size:13px; font-weight:800; border-radius:6px; padding:4px 10px; cursor:pointer;" title="Đóng cửa sổ">✕</button>
+        </div>
+
+        <!-- BODY -->
+        <div style="padding:16px 20px; overflow-y:auto; flex:1 1 auto; display:flex; flex-direction:column; gap:16px; background:#f8fafc;">
+          
+          <!-- DANH SÁCH TỆP ĐÃ ĐÍNH KÈM -->
+          <div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <label style="font-weight:800; color:#0f172a; font-size:13.5px; display:flex; align-items:center; gap:6px;">
+                <span>📁</span> <span>Danh sách tệp / văn bản / video đã đính kèm (${attList.length}):</span>
+              </label>
+              ${crit.gdrive_folder_url && isAdmin ? `
+                <a href="${escapeHtml(crit.gdrive_folder_url)}" target="_blank" style="color:#15803d; font-size:11.5px; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:3px;">
+                  📁 Mở thư mục Drive ↗
+                </a>
+              ` : ''}
+            </div>
+
+            ${attList.length === 0 ? `
+              <div style="padding:24px 16px; text-align:center; background:#ffffff; border:1.5px dashed #cbd5e1; border-radius:10px; color:#64748b; font-size:13px;">
+                <div style="font-size:32px; margin-bottom:6px;">📭</div>
+                <div style="font-weight:700; color:#334155;">Chưa có tệp đính kèm nào cho tiêu chí này.</div>
+                <div style="font-size:12px; margin-top:4px;">${isAdmin ? 'Quản trị viên có thể tải tệp từ máy tính hoặc dán liên kết video/văn bản ở bên dưới.' : 'Khi Ban Thường vụ bổ sung văn bản chỉ đạo, file mẫu hoặc video hướng dẫn, tệp sẽ hiển thị tại đây.'}</div>
+              </div>
+            ` : `
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                ${attList.map((att, idx) => `
+                  <div style="background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:10px; box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                    <div style="display:flex; align-items:center; gap:10px; overflow:hidden; flex:1;">
+                      <span style="font-size:22px; flex-shrink:0;">${getAttachmentIcon(att.name, att.url)}</span>
+                      <div style="overflow:hidden;">
+                        <div style="font-weight:700; font-size:13px; color:#003d99; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${escapeHtml(att.name)}">
+                          ${escapeHtml(att.name)}
+                        </div>
+                        <div style="font-size:11px; color:#64748b; display:flex; align-items:center; gap:8px; margin-top:2px;">
+                          <span>${att.size ? formatBytes(att.size) : 'Liên kết ngoài'}</span>
+                          ${att.uploaded_at ? `<span>• ${formatShortDateTimeVN(att.uploaded_at)}</span>` : ''}
+                          ${att.uploaded_by ? `<span>• ${escapeHtml(att.uploaded_by)}</span>` : ''}
+                        </div>
+                      </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:5px; flex-shrink:0;">
+                      <button type="button" class="btn btn-sm btn-outline" onclick="openFileInlinePreviewModal('${escapeHtml(att.url)}', '${escapeHtml(att.name)}')" style="font-size:12px; font-weight:700; padding:4px 9px;" title="Xem trực tiếp trong ứng dụng">
+                        👁️ Xem
+                      </button>
+                      <a href="${escapeHtml(att.url)}" target="_blank" class="btn btn-sm btn-primary" style="font-size:12px; font-weight:700; padding:4px 9px; text-decoration:none; display:inline-flex; align-items:center;" title="Mở trong tab mới / Tải về máy">
+                        ↗️ Tải về
+                      </a>
+                      ${isAdmin ? `
+                        <button type="button" class="btn btn-sm btn-danger" onclick="deleteCriterionAttachment(${crit.id}, '${escapeHtml(att.id)}')" style="font-size:12px; padding:4px 8px; margin-left:4px;" title="Xóa tệp này">
+                          🗑️
+                        </button>
+                      ` : ''}
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            `}
+          </div>
+
+          <!-- KHU VỰC THÊM TỆP & LIÊN KẾT (CHỈ QUẢN TRỊ VIÊN) -->
+          ${isAdmin ? `
+            <div style="background:#ffffff; border:1.5px solid #93c5fd; border-radius:10px; padding:14px; box-shadow:0 1px 4px rgba(37,99,235,0.08);">
+              <div style="font-weight:800; font-size:13.5px; color:#1e40af; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+                <span>⚡</span> <span>Thêm Tệp / Văn Bản / Video Hướng Dẫn:</span>
+              </div>
+
+              <!-- CÁCH 1: TẢI TỆP TỪ MÁY TÍNH -->
+              <div style="margin-bottom:14px; background:#eff6ff; border:1px dashed #3b82f6; border-radius:8px; padding:12px; text-align:center;">
+                <input type="file" id="crit-att-file-input" multiple onchange="handleCriterionFileUpload(${crit.id}, this.files)" style="display:none;" />
+                <button type="button" class="btn btn-primary" onclick="document.getElementById('crit-att-file-input').click()" style="padding:9px 16px; font-weight:800; font-size:13px; border-radius:7px; background:linear-gradient(135deg, #0284c7, #0052cc); border:none; box-shadow:0 2px 4px rgba(2,132,199,0.3); display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+                  📁 Tải Tệp Lên Từ Máy Tính (Word, Excel, PDF, Video MP4, Ảnh, ZIP...)
+                </button>
+                <div style="font-size:11.5px; color:#475569; margin-top:6px;">
+                  Hệ thống tự động đồng bộ và lưu tệp trực tiếp vào Thư mục Google Drive của tiêu chí này.
+                </div>
+              </div>
+
+              <!-- CÁCH 2: DÁN ĐƯỜNG DẪN / VIDEO YOUTUBE / DRIVE NGOÀI -->
+              <div style="border-top:1px dashed #cbd5e1; padding-top:12px;">
+                <div style="font-weight:700; font-size:12.5px; color:#334155; margin-bottom:8px;">
+                  🔗 Hoặc thêm liên kết ngoài (Video YouTube, Google Drive, Trang web văn bản...):
+                </div>
+                <div style="display:flex; flex-direction:column; gap:8px;">
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+                    <input type="text" id="crit-att-link-name" placeholder="Tên tệp / Tên hiển thị (VD: Kế hoạch số 12, Video hướng dẫn...)" style="padding:8px 10px; font-size:12.5px; border:1px solid #cbd5e1; border-radius:6px; font-family:inherit;" />
+                    <input type="text" id="crit-att-link-url" placeholder="Đường link URL (https://...)" style="padding:8px 10px; font-size:12.5px; border:1px solid #cbd5e1; border-radius:6px; font-family:inherit;" />
+                  </div>
+                  <div style="text-align:right;">
+                    <button type="button" class="btn btn-success" onclick="addCriterionLinkAttachment(${crit.id})" style="padding:7px 14px; font-weight:700; font-size:12.5px; border-radius:6px; background:#16a34a; border:none; color:#fff; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
+                      ➕ Thêm Liên Kết Này
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          ` : ''}
+
+        </div>
+
+        <!-- FOOTER -->
+        <div style="padding:10px 18px; background:#ffffff; border-top:1px solid #cbd5e1; display:flex; justify-content:flex-end; gap:8px; flex-shrink:0;">
+          <button type="button" class="btn btn-secondary" onclick="window.closeCriterionAttachmentsModal()" style="padding:6px 14px; font-weight:700; font-size:12.5px; border-radius:6px;">
+            Đóng
+          </button>
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  modalRoot.appendChild(container);
+};
+
+window.closeCriterionAttachmentsModal = function() {
+  const m = document.getElementById('criterion-attachments-modal-container');
+  if (m) m.remove();
+};
+
+window.handleCriterionFileUpload = async function(criterionId, fileList) {
+  if (!fileList || fileList.length === 0) return;
+  const crit = (state.criteria || []).find((c) => c.id === criterionId);
+  if (!crit) return;
+
+  const files = Array.from(fileList);
+  showUploadProgressModal('Tải Tệp Đính Kèm Tiêu Chí');
+
+  const newAttachments = [];
+
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    try {
+      updateUploadProgress({
+        percent: Math.round((i / files.length) * 100),
+        fileName: f.name,
+        fileIndex: `${i + 1}/${files.length}`,
+        statusText: `Đang tải lên (${i + 1}/${files.length}): ${f.name}...`
+      });
+
+      const b64 = await readFileAsDataURL(f);
+      const upRes = await uploadFileToCloud(b64, f.name, 0, criterionId, (percent) => {
+        const mapped = Math.round(((i / files.length) + (percent / 100) / files.length) * 100);
+        updateUploadProgress({
+          percent: Math.min(99, mapped),
+          fileName: f.name,
+          fileIndex: `${i + 1}/${files.length}`,
+          statusText: `Đang lưu tệp vào Google Drive... (${percent}%)`
+        });
+      });
+
+      newAttachments.push({
+        id: 'att_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+        name: f.name,
+        url: upRes.fileUrl || '',
+        size: f.size,
+        type: f.type || '',
+        uploaded_at: nowISO(),
+        uploaded_by: (state.user && state.user.name) || 'Ban Thường vụ'
+      });
+    } catch (err) {
+      console.warn('Lỗi khi tải tệp đính kèm tiêu chí:', err);
+      showToast(`Lỗi khi tải tệp "${f.name}": ${err.message}`, 'error');
+    }
+  }
+
+  hideUploadProgressModal();
+
+  if (newAttachments.length > 0) {
+    if (!crit.attachments || !Array.isArray(crit.attachments)) crit.attachments = [];
+    crit.attachments = [...crit.attachments, ...newAttachments];
+
+    showToast(`🎉 Đã tải lên thành công ${newAttachments.length} tệp đính kèm!`, 'success');
+
+    await mutateCloudDB((db) => {
+      const tc = (db.criteria || []).find((x) => x.id === criterionId);
+      if (tc) {
+        tc.attachments = crit.attachments;
+      }
+    }, `Thêm ${newAttachments.length} tệp đính kèm tiêu chí #${criterionId}`);
+
+    renderApp();
+    openCriterionAttachmentsModal(criterionId);
+  }
+};
+
+window.addCriterionLinkAttachment = async function(criterionId) {
+  const crit = (state.criteria || []).find((c) => c.id === criterionId);
+  if (!crit) return;
+
+  const nameInput = document.getElementById('crit-att-link-name');
+  const urlInput = document.getElementById('crit-att-link-url');
+
+  const name = (nameInput ? nameInput.value : '').trim();
+  const url = (urlInput ? urlInput.value : '').trim();
+
+  if (!url) {
+    showToast('Vui lòng nhập đường link URL (https://...)!', 'error');
+    if (urlInput) urlInput.focus();
+    return;
+  }
+
+  const finalName = name || url;
+
+  if (!crit.attachments || !Array.isArray(crit.attachments)) crit.attachments = [];
+  crit.attachments.push({
+    id: 'att_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+    name: finalName,
+    url: url,
+    size: 0,
+    type: 'link',
+    uploaded_at: nowISO(),
+    uploaded_by: (state.user && state.user.name) || 'Ban Thường vụ'
+  });
+
+  showToast('Đang lưu liên kết vào hệ thống...', 'info');
+
+  await mutateCloudDB((db) => {
+    const tc = (db.criteria || []).find((x) => x.id === criterionId);
+    if (tc) {
+      tc.attachments = crit.attachments;
+    }
+  }, `Thêm liên kết tệp đính kèm tiêu chí #${criterionId}`);
+
+  showToast('🎉 Đã thêm liên kết tệp đính kèm thành công!', 'success');
+  renderApp();
+  openCriterionAttachmentsModal(criterionId);
+};
+
+window.deleteCriterionAttachment = async function(criterionId, attId) {
+  if (!confirm('Bạn có chắc chắn muốn xóa tệp này khỏi tiêu chí?')) return;
+  const crit = (state.criteria || []).find((c) => c.id === criterionId);
+  if (!crit || !crit.attachments) return;
+
+  crit.attachments = crit.attachments.filter((x) => x.id !== attId);
+
+  showToast('Đang cập nhật thay đổi...', 'info');
+
+  await mutateCloudDB((db) => {
+    const tc = (db.criteria || []).find((x) => x.id === criterionId);
+    if (tc) {
+      tc.attachments = crit.attachments;
+    }
+  }, `Xóa tệp đính kèm tiêu chí #${criterionId}`);
+
+  showToast('Đã xóa tệp đính kèm thành công!', 'success');
+  renderApp();
+  openCriterionAttachmentsModal(criterionId);
 };
 
   </script>
