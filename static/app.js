@@ -2534,6 +2534,10 @@ function renderApp() {
   if (!state.user) {
     document.body.classList.add('is-login-screen');
     document.body.classList.remove('is-app-screen');
+    try {
+      const metaTheme = document.querySelector('meta[name="theme-color"]');
+      if (metaTheme) metaTheme.setAttribute('content', '#071f45');
+    } catch(e) {}
     appEl.innerHTML = renderLoginView();
     try {
       const bgVid = document.getElementById('login-bg-video');
@@ -2669,7 +2673,7 @@ function renderLoginView() {
 
     <div class="login-screen" style="position:relative; overflow:hidden;">
 
-      <!-- VIDEO NỀN CHUYỂN ĐỘNG FULLSCREEN MƯỢT MÀ KHÔNG DẤU VẾT -->
+      <!-- VIDEO NỀN CHUYỂN ĐỘNG FULLSCREEN GỐC 1080P SÁNG ĐẸP KHÔNG DẤU VẾT -->
       <div class="login-video-bg">
         <video
           id="login-bg-video"
@@ -2679,14 +2683,13 @@ function renderLoginView() {
           playsinline
           webkit-playsinline
           preload="auto"
-          poster="https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/static/bg_poster.jpg"
+          poster="static/bg_poster.jpg"
         >
           <source src="static/bg_video.mp4" type="video/mp4" />
           <source src="bg_video.mp4" type="video/mp4" />
           <source src="https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/static/bg_video.mp4" type="video/mp4" />
           <source src="https://botieuchidoan.io.vn/static/bg_video.mp4" type="video/mp4" />
         </video>
-        <div class="login-video-overlay"></div>
       </div>
 
       <div class="login-card" style="position:relative; z-index:10;">
