@@ -2534,6 +2534,14 @@ function renderApp() {
   if (!state.user) {
 
     appEl.innerHTML = renderLoginView();
+    try {
+      const bgVid = document.getElementById('login-bg-video');
+      if (bgVid) {
+        bgVid.muted = true;
+        const p = bgVid.play();
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+      }
+    } catch (e) {}
 
     return;
 
@@ -2658,16 +2666,23 @@ function renderLoginView() {
 
     <div class="login-screen" style="position:relative; overflow:hidden;">
 
-      <!-- VIDEO NỀN CHUYỂN ĐỘNG YOUTUBE -->
-      <div class="login-video-bg" style="position:fixed; top:0; left:0; width:100vw; height:100vh; overflow:hidden; z-index:0; pointer-events:none;">
-        <iframe
-          src="https://www.youtube-nocookie.com/embed/AWz5guBHcI8?autoplay=1&mute=1&loop=1&playlist=AWz5guBHcI8&controls=0&showinfo=0&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&playsinline=1"
-          frameborder="0"
-          allow="autoplay; encrypted-media"
-          allowfullscreen
-          style="position:absolute; top:50%; left:50%; width:100vw; height:56.25vw; min-height:100vh; min-width:177.77vh; transform:translate(-50%, -50%); pointer-events:none; border:none; filter:brightness(0.7) contrast(1.05);"
-        ></iframe>
-        <div style="position:absolute; inset:0; background:radial-gradient(circle, rgba(15,23,42,0.2) 0%, rgba(15,23,42,0.65) 100%); backdrop-filter:blur(1px);"></div>
+      <!-- VIDEO NỀN CHUYỂN ĐỘNG FULLSCREEN MƯỢT MÀ KHÔNG DẤU VẾT -->
+      <div class="login-video-bg">
+        <video
+          id="login-bg-video"
+          autoplay
+          loop
+          muted
+          playsinline
+          webkit-playsinline
+          preload="auto"
+          poster="static/bg_poster.jpg"
+        >
+          <source src="static/bg_video.mp4" type="video/mp4" />
+          <source src="bg_video.mp4" type="video/mp4" />
+          <source src="https://botieuchidoan.io.vn/static/bg_video.mp4" type="video/mp4" />
+        </video>
+        <div class="login-video-overlay"></div>
       </div>
 
       <div class="login-card" style="position:relative; z-index:10;">
