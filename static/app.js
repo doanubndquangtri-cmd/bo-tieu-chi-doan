@@ -2754,11 +2754,11 @@ function renderLoginView() {
 
 
 
-            <div style="text-align: center; margin-top: 10px;">
+            <div style="display: flex; justify-content: center; align-items: center; margin-top: 10px; width: 100%;">
 
-              <button type="button" class="btn btn-outline" onclick="onQuickSelectLogin('khachxem')" style="width: 100%; border-radius: 6px; font-size: 13px; padding: 8px 12px; font-weight: 700; color: #0284c7; border-color: #bae6fd; background: #f0f9ff; display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;">
+              <button type="button" class="btn btn-outline" onclick="onQuickSelectLogin('khachxem')" style="width: 100%; max-width: 320px; border-radius: 8px; font-size: 13.5px; padding: 9px 16px; font-weight: 700; color: #0284c7; border: 1.5px solid #bae6fd; background: #f0f9ff; display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; text-align: center; box-shadow: 0 1px 3px rgba(2,132,199,0.08);">
 
-                👁️ Vào Nhanh Với Tư Cách Khách Xem (Tự Có Mật Khẩu & Vào Xem Luôn)
+                👁️ Chế Độ Khách
 
               </button>
 
@@ -2766,11 +2766,11 @@ function renderLoginView() {
 
 
 
-            <div style="text-align: center; margin-top: 14px; padding-top: 12px; border-top: 1px dashed #cbd5e1;">
+            <div style="display: flex; justify-content: center; align-items: center; margin-top: 14px; padding-top: 12px; border-top: 1px dashed #cbd5e1; width: 100%;">
 
-              <button type="button" class="btn btn-outline btn-sm" onclick="showPWAInstallGuide()" style="border-radius: 20px; font-size: 12.5px; padding: 6px 16px; font-weight: 700; color: #0052cc; border-color: #93c5fd; background: #eff6ff; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
+              <button type="button" class="btn btn-outline btn-sm" onclick="showPWAInstallGuide()" style="border-radius: 20px; font-size: 13px; padding: 7px 20px; font-weight: 700; color: #0052cc; border: 1.5px solid #93c5fd; background: #eff6ff; display: inline-flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 1px 4px rgba(0,82,204,0.08); cursor: pointer; text-align: center;">
 
-                📲 Cài Đặt Ứng Dụng Vào Điện Thoại (iOS & Android)
+                📲 Cài Đặt Ứng Dụng
 
               </button>
 
