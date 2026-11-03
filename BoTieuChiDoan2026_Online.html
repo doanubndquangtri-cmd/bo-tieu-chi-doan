@@ -4727,6 +4727,43 @@ body.dark-mode #tts-result-box {
   }
 }
 
+/* Login Screen Video Background & Modern Card */
+.login-screen {
+  position: relative;
+  overflow: hidden;
+  min-height: 100vh;
+}
+
+.login-card {
+  position: relative !important;
+  z-index: 10 !important;
+  backdrop-filter: blur(12px) !important;
+  background: rgba(255, 255, 255, 0.95) !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.2) !important;
+}
+
+body.dark-mode .login-card {
+  background: rgba(15, 23, 42, 0.88) !important;
+  border: 1px solid rgba(56, 189, 248, 0.25) !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6) !important;
+}
+
+body.dark-mode .login-header {
+  background: rgba(30, 41, 59, 0.7) !important;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.7) !important;
+}
+
+body.dark-mode .login-header p {
+  color: #cbd5e1 !important;
+}
+
+body.dark-mode #login-realtime-clock {
+  background: rgba(15, 23, 42, 0.75) !important;
+  color: #38bdf8 !important;
+  border-color: rgba(56, 189, 248, 0.3) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
+}
+
   </style>
 </head>
 <body>
@@ -7392,9 +7429,26 @@ function renderLoginView() {
 
   return `
 
-    <div class="login-screen">
+    <div class="login-screen" style="position:relative; overflow:hidden;">
 
-      <div class="login-card">
+      <!-- VIDEO NỀN CHUYỂN ĐỘNG YOUTUBE -->
+      <div class="login-video-bg" style="position:fixed; top:0; left:0; width:100vw; height:100vh; overflow:hidden; z-index:0; pointer-events:none;">
+        <iframe
+          src="https://www.youtube-nocookie.com/embed/AWz5guBHcI8?autoplay=1&mute=1&loop=1&playlist=AWz5guBHcI8&controls=0&showinfo=0&rel=0&modestbranding=1&iv_load_policy=3&disablekb=1&playsinline=1"
+          frameborder="0"
+          allow="autoplay; encrypted-media"
+          allowfullscreen
+          style="position:absolute; top:50%; left:50%; width:100vw; height:56.25vw; min-height:100vh; min-width:177.77vh; transform:translate(-50%, -50%); pointer-events:none; border:none; filter:brightness(0.7) contrast(1.05);"
+        ></iframe>
+        <div style="position:absolute; inset:0; background:radial-gradient(circle, rgba(15,23,42,0.2) 0%, rgba(15,23,42,0.65) 100%); backdrop-filter:blur(1px);"></div>
+      </div>
+
+      <div class="login-card" style="position:relative; z-index:10;">
+
+        <!-- ĐỒNG HỒ THỜI GIAN GÓC TRÊN BÊN PHẢI -->
+        <div id="login-realtime-clock" style="position:absolute; top:12px; right:14px; z-index:20; font-family:monospace; font-weight:700; font-size:12px; background:rgba(255,255,255,0.85); color:#003d99; border:1px solid rgba(0,61,153,0.2); padding:3px 9px; border-radius:14px; box-shadow:0 2px 5px rgba(0,0,0,0.08); display:flex; align-items:center; gap:4px; backdrop-filter:blur(4px);">
+          ⏱️ ${new Date().toLocaleTimeString('vi-VN')}
+        </div>
 
         <div class="login-header">
 
@@ -7412,27 +7466,11 @@ function renderLoginView() {
 
           </div>
 
-          <p style="font-size: 13px; color: #334155; font-weight: 700; text-transform: uppercase;">
+          <p style="font-size: 13px; color: #334155; font-weight: 700; text-transform: uppercase; margin-bottom: 2px;">
 
-            HỆ THỐNG QUẢN LÝ & TỔNG HỢP BỘ TIÊU CHÍ ĐOÀN CẤP CƠ SỞ
+            HỆ THỐNG QUẢN LÝ & TỔNG HỢP BỘ TIÊU CHÍ
 
           </p>
-
-          <div style="margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 8px;">
-
-            <span class="badge ${state.cloudOnline ? 'badge-success' : 'badge-warning'}">
-
-              ${state.cloudOnline ? '🟢 Đã kết nối Máy chủ Đám mây Online 24/7' : '⏳ Đang kết nối máy chủ Online...'}
-
-            </span>
-
-            <span class="badge badge-info" id="login-realtime-clock" style="font-family:monospace; font-weight:700; padding:4px 8px;">
-
-              ⏱️ ${new Date().toLocaleTimeString('vi-VN')}
-
-            </span>
-
-          </div>
 
         </div>
 
@@ -7464,9 +7502,9 @@ function renderLoginView() {
 
             <div class="form-group">
 
-              <label>Tên đăng nhập (Username):</label>
+              <label>Tên tài khoản:</label>
 
-              <input type="text" id="login-username" placeholder="Nhập tên đăng nhập (VD: admin, donvi01 hoặc khách xem)" oninput="checkGuestInput(this.value)" required />
+              <input type="text" id="login-username" placeholder="Tên tài khoản" oninput="checkGuestInput(this.value)" required />
 
             </div>
 
@@ -7476,7 +7514,7 @@ function renderLoginView() {
 
               <label>Mật khẩu:</label>
 
-              <input type="password" id="login-password" placeholder="Nhập mật khẩu (Khách xem tự có mật khẩu)" />
+              <input type="password" id="login-password" placeholder="Mật khẩu" />
 
             </div>
 
