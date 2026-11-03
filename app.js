@@ -2532,7 +2532,8 @@ function renderApp() {
   const appEl = document.getElementById('app');
 
   if (!state.user) {
-
+    document.body.classList.add('is-login-screen');
+    document.body.classList.remove('is-app-screen');
     appEl.innerHTML = renderLoginView();
     try {
       const bgVid = document.getElementById('login-bg-video');
@@ -2546,6 +2547,8 @@ function renderApp() {
     return;
 
   }
+  document.body.classList.remove('is-login-screen');
+  document.body.classList.add('is-app-screen');
 
 
 
