@@ -2676,10 +2676,11 @@ function renderLoginView() {
           playsinline
           webkit-playsinline
           preload="auto"
-          poster="static/bg_poster.jpg"
+          poster="https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/static/bg_poster.jpg"
         >
           <source src="static/bg_video.mp4" type="video/mp4" />
           <source src="bg_video.mp4" type="video/mp4" />
+          <source src="https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/static/bg_video.mp4" type="video/mp4" />
           <source src="https://botieuchidoan.io.vn/static/bg_video.mp4" type="video/mp4" />
         </video>
         <div class="login-video-overlay"></div>
