@@ -480,6 +480,35 @@ function doPost(e) {
     // ---------------------------------------------------------------------
     // TRƯỜNG HỢP 4: LƯU FILE BÁO CÁO EXCEL ĐỊNH KỲ TỪ WEB
     // ---------------------------------------------------------------------
+    
+    // ---------------------------------------------------------------------
+    // TRƯỜNG HỢP: TẢI NỘI DUNG TỆP TỪ GOOGLE DRIVE (ĐỐI SOÁT TỪ KHÓA AN TOÀN KHÔNG BỊ CORS)
+    // ---------------------------------------------------------------------
+    if (data.action === "get_file_b64" || data.action === "get_file_content") {
+      var targetFileId = data.fileId;
+      if (!targetFileId && data.fileUrl) {
+        var match = String(data.fileUrl).match(/[-\w]{25,}/);
+        if (match) targetFileId = match[0];
+      }
+      if (!targetFileId) {
+        return createJsonResponse({ status: "error", message: "Không tìm thấy ID tệp Google Drive!" });
+      }
+      try {
+        var driveFile = DriveApp.getFileById(targetFileId);
+        var blob = driveFile.getBlob();
+        var b64Data = Utilities.base64Encode(blob.getBytes());
+        return createJsonResponse({
+          status: "success",
+          fileName: driveFile.getName(),
+          mimeType: driveFile.getMimeType(),
+          size: blob.getBytes().length,
+          fileDataB64: b64Data
+        });
+      } catch (err) {
+        return createJsonResponse({ status: "error", message: "Lỗi đọc tệp từ Drive: " + err.message });
+      }
+    }
+
     if (data.action === "save_excel") {
       var fileDataB64Excel = data.fileData;
       if (!fileDataB64Excel) {
