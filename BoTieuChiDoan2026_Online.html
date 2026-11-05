@@ -13308,12 +13308,18 @@ window.confirmResetUnitSubmission = function (unitId, criterionId) {
    ========================================================================= */
 
 window.openSubmissionDetailModal = function (unitId, criterionId) {
+  unitId = Number(unitId);
+  criterionId = Number(criterionId);
+  const critId = criterionId;
 
-  const unit = state.units.find((u) => u.id === unitId);
+  const unit = state.units.find((u) => Number(u.id) === unitId) || (state.user && Number(state.user.id) === unitId ? state.user : null);
+  const crit = state.criteria.find((c) => Number(c.id) === criterionId);
 
-  const crit = state.criteria.find((c) => c.id === criterionId);
-
-  if (!unit || !crit) return;
+  if (!unit || !crit) {
+    console.warn('openSubmissionDetailModal: unit or crit not found', unitId, criterionId);
+    showToast('Không tìm thấy thông tin đơn vị hoặc tiêu chí!', 'warning');
+    return;
+  }
 
 
 
@@ -13434,7 +13440,7 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
               ` : ''}
               <div style="margin-top:8px; display:flex; justify-content:space-between; align-items:center;">
                 <span style="font-size:11px; color:#701a75; font-style:italic;">* Đơn vị cơ sở nộp bình thường và không thấy mục kiểm tra này.</span>
-                <button type="button" class="btn btn-sm btn-outline" onclick="rescanSubmissionKeywords(${unitId}, ${critId})" style="font-size:11.5px; font-weight:700; padding:3px 9px; color:#701a75; border-color:#d8b4fe; background:#fff;" title="Quét lại nội dung tệp/báo cáo theo từ khóa">
+                <button type="button" class="btn btn-sm btn-outline" onclick="rescanSubmissionKeywords(${unitId}, ${criterionId})" style="font-size:11.5px; font-weight:700; padding:3px 9px; color:#701a75; border-color:#d8b4fe; background:#fff;" title="Quét lại nội dung tệp/báo cáo theo từ khóa">
                   🔄 Quét lại từ khóa
                 </button>
               </div>
@@ -16795,7 +16801,7 @@ window.saveNewCriterion = async function () {
   if (gdriveUrl && !isBlank && !isAdminScore) {
     try {
       const controller = new AbortController();
-      const tId = setTimeout(() => controller.abort(), 3500);
+      const tId = setTimeout(() => controller.abort(), 15000);
       const createRes = await fetch(gdriveUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -16803,7 +16809,8 @@ window.saveNewCriterion = async function () {
           action: 'create_criterion_folder',
           folderName: title,
           monthLabel: mLabel,
-          title: title
+          title: title,
+          customFolderId: (state.settings && state.settings.gdrive_root_folder_id) || ''
         }),
         signal: controller.signal
       });
@@ -21123,19 +21130,37 @@ window.openNotificationDetail = async function(notifId) {
     return;
   }
   if (notif.type === 'new_criterion') {
+    const crit = (state.criteria || []).find(c => Number(c.id) === Number(notif.criterion_id));
+    if (crit && crit.month_group) {
+      state.activeMonthGroup = crit.month_group;
+    }
     if (isAdminUser) {
       setTab('master');
     } else {
       setTab('unit_submit');
     }
+    renderApp();
+    if (crit) {
+      setTimeout(() => {
+        const el = document.getElementById(`th-crit-${crit.id}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+      }, 300);
+    }
     return;
   }
   if (notif.unit_id && notif.criterion_id) {
-    openSubmissionDetailModal(notif.unit_id, notif.criterion_id);
+    const crit = (state.criteria || []).find(c => Number(c.id) === Number(notif.criterion_id));
+    if (crit && crit.month_group) {
+      state.activeMonthGroup = crit.month_group;
+    }
+    setTab('master');
+    renderApp();
+    setTimeout(() => {
+      openSubmissionDetailModal(Number(notif.unit_id), Number(notif.criterion_id));
+    }, 150);
   }
 };
 
-// XÓA TOÀN BỘ DANH SÁCH THÔNG BÁO (KÈM HỘP THOẠI XÁC NHẬN)
 window.clearAllNotifications = async function() {
   const notifs = state.notifications || [];
   if (notifs.length === 0) {
