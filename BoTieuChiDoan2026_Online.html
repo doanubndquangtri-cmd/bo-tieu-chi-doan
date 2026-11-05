@@ -7,6 +7,8 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
   <style>
 :root {
   --primary: #0052cc;
@@ -11602,6 +11604,7 @@ window.rescanSubmissionKeywords = async function(unitId, critId) {
     scanned_at: nowISO(),
     scanned_count: (sc.files || []).length || 1
   };
+  sc.keyword_check = kwCheck;
 
   await mutateCloudDB(db => {
     const scoreRow = (db.scores || []).find(s => Number(s.unit_id) === unitId && Number(s.criterion_id) === critId);
