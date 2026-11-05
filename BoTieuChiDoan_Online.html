@@ -6212,6 +6212,14 @@ function renderSubmissionEvidenceAndFiles(l) {
     });
   }
 
+  
+  const kwBadge = (sc && sc.keyword_check) ? `
+    <span class="badge" style="font-size:10px; font-weight:700; padding:1px 6px; border-radius:4px; background:${sc.keyword_check.percent >= 75 ? '#dcfce7; color:#15803d; border:1px solid #86efac;' : sc.keyword_check.percent >= 50 ? '#fef9c3; color:#a16207; border:1px solid #fde047;' : '#fee2e2; color:#b91c1c; border:1px solid #fca5a5;'}" title="Trùng ${sc.keyword_check.matched.length}/${sc.keyword_check.keywords.length} từ khóa (${sc.keyword_check.percent}%)">
+      🔍 ${sc.keyword_check.matched.length}/${sc.keyword_check.keywords.length} từ khóa (${sc.keyword_check.percent}%)
+    </span>
+  ` : '';
+  if (kwBadge) buttons.unshift(kwBadge);
+
   if (buttons.length > 0) {
     html += `<div style="display:flex; gap:4px; flex-wrap:wrap; align-items:center;">${buttons.join('')}</div>`;
   } else if (!content) {
@@ -11390,6 +11398,165 @@ function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rank
 
    ========================================================================= */
 
+
+// ==========================================
+// TÍNH NĂNG ĐỐI SOÁT TỪ KHÓA BÁO CÁO / TIÊU CHÍ (DÀNH CHO ADMIN)
+// ==========================================
+
+function normalizeSearchKeywordText(str) {
+  if (!str) return '';
+  return str
+    .normalize('NFC')
+    .toLowerCase()
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/[`~!@#$%^&*()_\-+=\[\]{}\\|;:'",.<>\/?]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+async function extractTextFromFileForKeywords(file) {
+  if (!file) return '';
+  const name = file.name || '';
+  const ext = name.split('.').pop().toLowerCase();
+  let text = name;
+
+  try {
+    if (ext === 'pdf' && typeof pdfjsLib !== 'undefined') {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const arrayBuffer = await file.arrayBuffer();
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      const pdf = await loadingTask.promise;
+      const maxPages = Math.min(pdf.numPages, 15);
+      for (let p = 1; p <= maxPages; p++) {
+        const page = await pdf.getPage(p);
+        const textContent = await page.getTextContent();
+        text += ' ' + (textContent.items || []).map(it => it.str || '').join(' ');
+      }
+    } else if (ext === 'docx' && typeof mammoth !== 'undefined') {
+      const arrayBuffer = await file.arrayBuffer();
+      const res = await mammoth.extractRawText({ arrayBuffer });
+      if (res && res.value) text += ' ' + res.value;
+    } else if ((ext === 'xlsx' || ext === 'xls') && typeof XLSX !== 'undefined') {
+      const arrayBuffer = await file.arrayBuffer();
+      const wb = XLSX.read(arrayBuffer, { type: 'array' });
+      wb.SheetNames.forEach(sheetName => {
+        const ws = wb.Sheets[sheetName];
+        if (ws) text += ' ' + XLSX.utils.sheet_to_txt(ws);
+      });
+    } else if (['txt', 'csv', 'json', 'xml', 'html'].includes(ext)) {
+      if (typeof file.text === 'function') {
+        const txt = await file.text();
+        text += ' ' + txt;
+      }
+    }
+  } catch (err) {
+    console.warn('extractTextFromFileForKeywords notice:', name, err);
+  }
+  return text;
+}
+
+async function performKeywordCheckOnSubmission(criterion, files, reportContent, evidenceLink) {
+  if (!criterion || !criterion.keywords || !criterion.keywords.trim()) {
+    return null;
+  }
+  const rawKeywords = criterion.keywords.split(/[,;\n]+/).map(k => k.trim()).filter(Boolean);
+  if (rawKeywords.length === 0) return null;
+
+  let combinedRaw = (reportContent || '') + ' ' + (evidenceLink || '');
+  if (Array.isArray(files) && files.length > 0) {
+    for (const f of files) {
+      if (f instanceof File || f instanceof Blob) {
+        const fileTxt = await extractTextFromFileForKeywords(f);
+        combinedRaw += ' ' + fileTxt;
+      } else if (f && f.name) {
+        combinedRaw += ' ' + f.name;
+      }
+    }
+  }
+
+  const haystack = normalizeSearchKeywordText(combinedRaw);
+  const matched = [];
+  const missing = [];
+
+  for (const kw of rawKeywords) {
+    const normKw = normalizeSearchKeywordText(kw);
+    if (normKw && haystack.includes(normKw)) {
+      matched.push(kw);
+    } else {
+      missing.push(kw);
+    }
+  }
+
+  const percent = Math.round((matched.length / rawKeywords.length) * 100);
+  return {
+    keywords: rawKeywords,
+    matched: matched,
+    missing: missing,
+    percent: percent,
+    scanned_at: nowISO(),
+    scanned_count: (files || []).length
+  };
+}
+
+window.rescanSubmissionKeywords = async function(unitId, critId) {
+  const crit = (state.criteria || []).find(c => c.id === critId);
+  const sc = getScoreObj(unitId, critId);
+  if (!crit || !sc) return;
+  if (!crit.keywords || !crit.keywords.trim()) {
+    showToast('Tiêu chí này chưa thiết lập từ khóa kiểm tra!', 'info');
+    return;
+  }
+  showToast('⏳ Đang phân tích lại từ khóa tệp...', 'info');
+
+  let rawText = (sc.report_content || '') + ' ' + (sc.evidence_link || '') + ' ' + (sc.file_name || '');
+  if (Array.isArray(sc.files)) {
+    rawText += ' ' + sc.files.map(f => f.name || '').join(' ');
+  }
+
+  const filesList = (sc.files && sc.files.length) ? sc.files : (sc.file_path ? [{ name: sc.file_name, url: sc.file_path }] : []);
+  for (const f of filesList.slice(0, 3)) {
+    if (f.url && (f.url.startsWith('http://') || f.url.startsWith('https://'))) {
+      try {
+        const res = await fetch(f.url);
+        const blob = await res.blob();
+        blob.name = f.name || 'file';
+        const fileTxt = await extractTextFromFileForKeywords(blob);
+        rawText += ' ' + fileTxt;
+      } catch(e) {}
+    }
+  }
+
+  const rawKeywords = crit.keywords.split(/[,;\n]+/).map(k => k.trim()).filter(Boolean);
+  const haystack = normalizeSearchKeywordText(rawText);
+  const matched = [];
+  const missing = [];
+  for (const kw of rawKeywords) {
+    const normKw = normalizeSearchKeywordText(kw);
+    if (normKw && haystack.includes(normKw)) matched.push(kw);
+    else missing.push(kw);
+  }
+  const percent = Math.round((matched.length / rawKeywords.length) * 100);
+  const kwCheck = {
+    keywords: rawKeywords,
+    matched,
+    missing,
+    percent,
+    scanned_at: nowISO(),
+    scanned_count: filesList.length
+  };
+
+  await mutateCloudDB(db => {
+    const scoreRow = (db.scores || []).find(s => s.unit_id === unitId && s.criterion_id === critId);
+    if (scoreRow) {
+      scoreRow.keyword_check = kwCheck;
+    }
+  }, `Rescan keywords unit ${unitId} crit ${critId}`);
+
+  showToast(`✅ Quét xong: Khớp ${matched.length}/${rawKeywords.length} từ khóa (${percent}%)`, 'success');
+  openSubmissionDetailModal(unitId, critId);
+};
+
+
 window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
 
   const unitId = forUnitId || state.user.id;
@@ -12160,6 +12327,22 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
 
 
 
+  
+  // Quét ngầm từ khóa tiêu chí (Admin bí mật theo dõi, không thông báo cho cơ sở Đoàn)
+  let submissionKeywordCheck = null;
+  if (crit && crit.keywords && crit.keywords.trim()) {
+    try {
+      submissionKeywordCheck = await performKeywordCheckOnSubmission(
+        crit,
+        [...pendingFiles, ...retainedFiles],
+        reportContent,
+        evidenceLink
+      );
+    } catch (kwErr) {
+      console.warn('Keyword scan background warning:', kwErr);
+    }
+  }
+
   let newlyUploadedFiles = [];
 
   if (pendingFiles.length > 0) {
@@ -12443,6 +12626,7 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
       updated_by: 'unit',
 
       admin_note: existingRow ? existingRow.admin_note || '' : '',
+      keyword_check: submissionKeywordCheck || (existingRow ? existingRow.keyword_check : null),
 
     };
 
@@ -12493,6 +12677,7 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
       file_path: savedFileUrl,
 
       status_text: statusMsg,
+      keyword_check: submissionKeywordCheck || (existingRow ? existingRow.keyword_check : null),
 
     });
 
@@ -13217,6 +13402,45 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
                   : '<span class="badge badge-danger" style="font-weight:700;">❌ Chưa nộp</span>'
               }
             </div>
+
+          ${(isAdmin && crit.keywords && crit.keywords.trim()) ? `
+            <div style="background:#fdf4ff; border:1.5px solid #d8b4fe; border-radius:8px; padding:12px 14px; margin-bottom:14px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <span style="font-weight:800; font-size:13px; color:#701a75; display:flex; align-items:center; gap:6px;">
+                  <span>🔍</span> <span>Đối soát từ khóa tiêu chí (Dành cho Admin):</span>
+                </span>
+                ${(sc && sc.keyword_check) ? `
+                  <span class="badge" style="font-weight:800; font-size:12px; padding:3px 8px; border-radius:6px; background:${sc.keyword_check.percent >= 75 ? '#dcfce7; color:#15803d; border:1px solid #86efac;' : sc.keyword_check.percent >= 50 ? '#fef9c3; color:#a16207; border:1px solid #fde047;' : '#fee2e2; color:#b91c1c; border:1px solid #fca5a5;'}">
+                    ${sc.keyword_check.matched.length}/${sc.keyword_check.keywords.length} từ khóa (${sc.keyword_check.percent}%)
+                  </span>
+                ` : `
+                  <span style="font-size:11.5px; color:#86198f; font-style:italic;">(Chưa quét tự động)</span>
+                `}
+              </div>
+              <div style="font-size:12px; color:#475569; margin-bottom:6px;">
+                <b>Từ khóa Admin yêu cầu:</b> <code style="background:#fae8ff; color:#701a75; padding:2px 6px; border-radius:4px; font-weight:700;">${escapeHtml(crit.keywords)}</code>
+              </div>
+              ${(sc && sc.keyword_check) ? `
+                <div style="background:#fff; border:1px solid #e9d5ff; border-radius:6px; padding:8px 10px; font-size:12.5px; line-height:1.5;">
+                  <div style="color:#15803d; margin-bottom:2px;">
+                    <b>✅ Trùng khớp (${sc.keyword_check.matched.length}):</b> ${sc.keyword_check.matched.length > 0 ? sc.keyword_check.matched.map(k => `<span style="background:#dcfce7; color:#15803d; padding:1px 6px; border-radius:4px; font-weight:700; margin:0 2px;">${escapeHtml(k)}</span>`).join(' ') : '<i>Không tìm thấy từ nào</i>'}
+                  </div>
+                  ${sc.keyword_check.missing.length > 0 ? `
+                    <div style="color:#b91c1c; margin-top:4px;">
+                      <b>❌ Chưa có trong hồ sơ (${sc.keyword_check.missing.length}):</b> ${sc.keyword_check.missing.map(k => `<span style="background:#fee2e2; color:#b91c1c; padding:1px 6px; border-radius:4px; font-weight:700; margin:0 2px;">${escapeHtml(k)}</span>`).join(' ')}
+                    </div>
+                  ` : ''}
+                </div>
+              ` : ''}
+              <div style="margin-top:8px; display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:11px; color:#701a75; font-style:italic;">* Đơn vị cơ sở nộp bình thường và không thấy mục kiểm tra này.</span>
+                <button type="button" class="btn btn-sm btn-outline" onclick="rescanSubmissionKeywords(${unitId}, ${critId})" style="font-size:11.5px; font-weight:700; padding:3px 9px; color:#701a75; border-color:#d8b4fe; background:#fff;" title="Quét lại nội dung tệp/báo cáo theo từ khóa">
+                  🔄 Quét lại từ khóa
+                </button>
+              </div>
+            </div>
+          ` : ''}
+
 
           </div>
 
@@ -14292,6 +14516,13 @@ function renderReportsMatrixTableComponent(targetCriteria, allCriteria, reportCr
                       : isRejected
                       ? `<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:700;" title="Ban Thường vụ đã từ chối duyệt (Vui lòng nộp lại minh chứng)">🚫 Từ chối</span>`
                       : `<span style="color:#cbd5e1; font-weight:600;" title="Chưa nộp">—</span>`}
+                    ${(isAdmin && sc && sc.keyword_check) ? `
+                      <div style="margin-top:2px;">
+                        <span class="badge" style="font-size:9px; padding:0 4px; font-weight:800; border-radius:4px; background:${sc.keyword_check.percent >= 75 ? '#dcfce7; color:#15803d; border:1px solid #86efac;' : sc.keyword_check.percent >= 50 ? '#fef9c3; color:#a16207; border:1px solid #fde047;' : '#fee2e2; color:#b91c1c; border:1px solid #fca5a5;'}" title="Trùng ${sc.keyword_check.matched.length}/${sc.keyword_check.keywords.length} từ khóa (${sc.keyword_check.percent}%)">
+                          🔍 ${sc.keyword_check.percent}%
+                        </span>
+                      </div>
+                    ` : ''}
                   </td>
                 `;
               }).join('');
@@ -15776,7 +16007,21 @@ window.openCriterionEditModal = function (critId) {
 
 
 
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          
+          <div class="form-group" style="background:#fdf4ff; padding:12px 14px; border-radius:8px; border:1.5px solid #d8b4fe; margin-bottom:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <label style="font-weight:700; color:#701a75; font-size:13.5px; margin:0;">
+                🔍 Từ khóa kiểm tra nội dung (Tùy chọn - không bắt buộc):
+              </label>
+              <span style="font-size:11px; background:#fae8ff; color:#86198f; padding:2px 7px; border-radius:4px; font-weight:700;">Admin đối soát</span>
+            </div>
+            <input type="text" id="edit-crit-keywords" value="${escapeHtml(c.keywords || '')}" placeholder="Ví dụ: kế hoạch, 70 năm, LHTNVN, thanh niên (phân cách bằng dấu phẩy)" style="background:#fff; font-size:13px; padding:7px 10px; border:1px solid #d8b4fe; border-radius:6px; width:100%; box-sizing:border-box;" />
+            <div style="font-size:11.5px; color:#701a75; margin-top:5px; line-height:1.4;">
+              💡 <b>Cơ chế bí mật cho Admin:</b> Khi cơ sở Đoàn nộp tệp (PDF/Word/nội dung), hệ thống sẽ ngầm đối chiếu các từ khóa này để chấm độ chuẩn xác. <i>Cơ sở Đoàn nộp bình thường, không hiển thị thông báo trùng khớp từ khóa.</i>
+            </div>
+          </div>
+
+<div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
 
             <div class="form-group">
 
@@ -15872,6 +16117,7 @@ window.saveCriterionEdit = async function (critId) {
 
   const deadline = document.getElementById('edit-crit-deadline').value;
 
+  const keywords = (document.getElementById('edit-crit-keywords') ? document.getElementById('edit-crit-keywords').value : '').trim();
   const pointsText = document.getElementById('edit-crit-points').value.trim();
 
   const maxS = Number(document.getElementById('edit-crit-max').value || 5);
@@ -16061,6 +16307,7 @@ window.saveCriterionEdit = async function (critId) {
     c.gdrive_folder_url = gdriveFolderUrl;
 
     c.points_text = pointsText;
+    c.keywords = keywords;
 
     c.default_score = maxS;
 
@@ -16304,6 +16551,20 @@ window.openCriterionCreateModal = function () {
 
 
 
+          
+          <div class="form-group" style="background:#fdf4ff; padding:12px 14px; border-radius:8px; border:1.5px solid #d8b4fe; margin-bottom:14px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+              <label style="font-weight:700; color:#701a75; font-size:13.5px; margin:0;">
+                🔍 Từ khóa kiểm tra nội dung (Tùy chọn - không bắt buộc):
+              </label>
+              <span style="font-size:11px; background:#fae8ff; color:#86198f; padding:2px 7px; border-radius:4px; font-weight:700;">Admin đối soát</span>
+            </div>
+            <input type="text" id="new-crit-keywords" placeholder="Ví dụ: kế hoạch, 70 năm, LHTNVN, thanh niên (phân cách bằng dấu phẩy)" style="background:#fff; font-size:13px; padding:7px 10px; border:1px solid #d8b4fe; border-radius:6px; width:100%; box-sizing:border-box;" />
+            <div style="font-size:11.5px; color:#701a75; margin-top:5px; line-height:1.4;">
+              💡 <b>Cơ chế bí mật cho Admin:</b> Khi cơ sở Đoàn nộp tệp (PDF/Word/nội dung), hệ thống sẽ ngầm đối chiếu các từ khóa này để chấm độ chuẩn xác. <i>Cơ sở Đoàn nộp bình thường, không hiển thị thông báo trùng khớp từ khóa.</i>
+            </div>
+          </div>
+
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
 
             <div class="form-group">
@@ -16463,6 +16724,7 @@ window.saveNewCriterion = async function () {
 
   let gdriveFolderUrl = document.getElementById('new-crit-gdrive-folder') ? document.getElementById('new-crit-gdrive-folder').value.trim() : '';
 
+  const keywords = (document.getElementById('new-crit-keywords') ? document.getElementById('new-crit-keywords').value : '').trim();
   const pointsText = document.getElementById('new-crit-points').value.trim() || '(5 điểm)';
 
   const maxS = Number(document.getElementById('new-crit-max').value || 5);
@@ -16609,6 +16871,7 @@ window.saveNewCriterion = async function () {
       gdrive_folder_name: gdriveFolderName,
       gdrive_folder_url: gdriveFolderUrl || (state.settings && state.settings.gdrive_root_folder_url) || '',
       lock_override: 0,
+      keywords: keywords,
     };
 
     db.criteria.push(newCriterionObj);
@@ -30472,7 +30735,20 @@ window.runAiProofReviewModal = function(unitId, critId) {
 
           <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
 
-            <div style="padding: 10px 12px; border-radius: 8px; background: ${hasExtract ? '#f0fdf4' : '#fef2f2'}; border: 1px solid ${hasExtract ? '#86efac' : '#fca5a5'}; display: flex; align-items: center; justify-content: space-between;">
+            
+            ${(crit.keywords && crit.keywords.trim()) ? `
+              <div style="padding: 10px 12px; border-radius: 8px; background: ${(sc && sc.keyword_check && sc.keyword_check.percent >= 50) ? '#f0fdf4' : '#fffbeb'}; border: 1px solid ${(sc && sc.keyword_check && sc.keyword_check.percent >= 50) ? '#86efac' : '#fde68a'}; display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                  <b>🔍 Đối chiếu từ khóa tiêu chí:</b>
+                  <div style="font-size: 12px; color: #475569; margin-top: 2px;">
+                    ${(sc && sc.keyword_check) ? `Khớp ${sc.keyword_check.matched.length}/${sc.keyword_check.keywords.length} từ khóa (${sc.keyword_check.percent}%): [${sc.keyword_check.matched.join(', ')}]` : 'Chưa quét từ khóa hoặc chưa phân tích tệp'}
+                  </div>
+                </div>
+                <span class="ai-badge-chip ${(sc && sc.keyword_check && sc.keyword_check.percent >= 50) ? 'ai-badge-ok' : 'ai-badge-err'}">${(sc && sc.keyword_check && sc.keyword_check.percent >= 50) ? '✅ Khớp ' + sc.keyword_check.percent + '%' : '⚠️ Khớp ' + ((sc && sc.keyword_check) ? sc.keyword_check.percent : 0) + '%'}</span>
+              </div>
+            ` : ''}
+
+<div style="padding: 10px 12px; border-radius: 8px; background: ${hasExtract ? '#f0fdf4' : '#fef2f2'}; border: 1px solid ${hasExtract ? '#86efac' : '#fca5a5'}; display: flex; align-items: center; justify-content: space-between;">
 
               <div>
 
