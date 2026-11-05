@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Bộ tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh - Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí</title>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
   <style>
 :root {
@@ -4874,6 +4875,71 @@ body.dark-mode #login-realtime-clock {
   color: #38bdf8 !important;
   border-color: rgba(56, 189, 248, 0.3) !important;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Auto Score PDF/Excel Modal Styles */
+.auto-score-dropzone {
+  border: 2px dashed #3b82f6;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 24px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.auto-score-dropzone:hover {
+  background: #eff6ff;
+  border-color: #1d4ed8;
+  transform: translateY(-1px);
+}
+body.dark-mode .auto-score-dropzone {
+  background: #1e293b;
+  border-color: #60a5fa;
+}
+body.dark-mode .auto-score-dropzone:hover {
+  background: #334155;
+  border-color: #93c5fd;
+}
+.auto-score-table-wrap {
+  max-height: 420px;
+  overflow-y: auto;
+  border: 1px solid var(--border-light, #e2e8f0);
+  border-radius: 8px;
+  margin-top: 12px;
+}
+.auto-score-table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.auto-score-table-wrap th {
+  background: #f1f5f9;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 2px solid #cbd5e1;
+  font-weight: 700;
+  color: #334155;
+}
+.auto-score-table-wrap td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.auto-score-table-wrap tr:hover td {
+  background: #f8fafc;
+}
+body.dark-mode .auto-score-table-wrap th {
+  background: #1e293b;
+  color: #f1f5f9;
+  border-bottom-color: #475569;
+}
+body.dark-mode .auto-score-table-wrap td {
+  border-bottom-color: #334155;
+}
+body.dark-mode .auto-score-table-wrap tr:hover td {
+  background: #273549;
 }
 
   </style>
@@ -10105,7 +10171,8 @@ function renderMasterTableTab() {
                         ⏰ Hạn: ${formatShortDateVN(c.deadline)}
                         ${
                           isAdmin
-                            ? `<span style="cursor:pointer; margin-left:4px; color:#0052cc; text-decoration:underline;" onclick="openBatchFillModal(${c.id})" title="Chấm nhanh cột này">⚡Chấm</span>`
+                            ? `<span style="cursor:pointer; margin-left:4px; color:#0052cc; text-decoration:underline; font-weight:700;" onclick="openBatchFillModal(${c.id})" title="Chấm đồng loạt 1 mức điểm cho cột này">⚡Chấm</span>
+                               <button type="button" onclick="openAutoScoreModal(${c.id})" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-size:9px; font-weight:700; padding:1px 4px; border-radius:4px; cursor:pointer; margin-left:3px; display:inline-flex; align-items:center; gap:1px; white-space:nowrap; box-shadow:0 1px 2px rgba(0,0,0,0.05);" title="Tự động nhận diện cơ sở Đoàn & chấm điểm từ tệp PDF / Excel">📥 Nhập file</button>`
                             : ''
                         }
                       </span>
@@ -14009,7 +14076,7 @@ window.openBatchFillModal = function (criterionId) {
 
         <div class="modal-header">
 
-          <span>⚡ Chấm Điểm Hàng Loạt: ${escapeHtml(crit.col_label)}</span>
+          <span>⚡ Chấm Điểm: ${escapeHtml(crit.col_label)}</span>
 
           <button class="btn btn-sm btn-outline" onclick="closeModal()">✕</button>
 
@@ -14020,6 +14087,25 @@ window.openBatchFillModal = function (criterionId) {
           <p style="font-weight:700; margin-bottom:6px;">${escapeHtml(crit.title)}</p>
 
           <p style="font-size:12.5px; color:#475569; margin-bottom:14px;">Quy định điểm: ${escapeHtml(crit.points_text)}</p>
+
+          <!-- TÙY CHỌN 1: CHẤM ĐIỂM TỰ ĐỘNG TỪ TỆP PDF / EXCEL -->
+          <div style="background:linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%); border:1.5px dashed #2563eb; border-radius:10px; padding:12px 14px; margin-bottom:16px; text-align:center; box-shadow:0 2px 5px rgba(37,99,235,0.08);">
+            <div style="font-weight:800; color:#1e40af; font-size:14px; margin-bottom:4px; display:flex; align-items:center; justify-content:center; gap:6px;">
+              <span>📄</span> <span>Có Sẵn Tệp Điểm (PDF / Excel)?</span>
+            </div>
+            <p style="font-size:12px; color:#475569; margin-bottom:10px; line-height:1.4;">
+              Hệ thống tự động đọc bảng điểm (như file link Facebook, file tổng kết), nhận diện đúng từng cơ sở Đoàn và điền chuẩn xác từng mức điểm (5.00, 0.00...).
+            </p>
+            <button type="button" class="btn btn-primary" onclick="closeModal(); openAutoScoreModal(${crit.id});" style="font-weight:700; font-size:13px; padding:8px 18px; box-shadow:0 2px 4px rgba(0,0,0,0.15);">
+              📥 Nhập Điểm Tự Động Từ Tệp (PDF / Excel) ↗
+            </button>
+          </div>
+
+          <div style="border-top:1px dashed #cbd5e1; margin-bottom:14px;"></div>
+
+          <div style="font-weight:700; color:#334155; font-size:13px; margin-bottom:6px;">
+            Hoặc: Áp dụng cùng một mức điểm cho tất cả đơn vị
+          </div>
 
           <div class="form-group">
 
@@ -31668,6 +31754,12 @@ window.openCriterionAttachmentsModal = function(criterionId) {
                 <div style="font-size:11.5px; color:#475569; margin-top:6px;">
                   Hệ thống tự động đồng bộ và lưu tệp trực tiếp vào Thư mục Google Drive của tiêu chí này.
                 </div>
+                
+                <div style="margin-top:10px; padding-top:8px; border-top:1px dashed #bfdbfe; display:flex; align-items:center; justify-content:center; gap:6px;">
+                  <button type="button" onclick="window.closeCriterionAttachmentsModal(); openAutoScoreModal(${crit.id});" style="background:#f0fdf4; color:#15803d; border:1px solid #86efac; padding:6px 14px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px; box-shadow:0 1px 2px rgba(0,0,0,0.05);" title="Tự động đọc điểm từ tệp PDF/Excel và điền vào bảng điểm">
+                    <span>📥</span> <span>Tệp này chứa bảng điểm đã chấm? Bấm để Nhận Diện & Chấm Tự Động ↗</span>
+                  </button>
+                </div>
               </div>
 
               <!-- CÁCH 2: DÁN ĐƯỜNG DẪN / VIDEO YOUTUBE / DRIVE NGOÀI -->
@@ -31840,6 +31932,655 @@ window.deleteCriterionAttachment = async function(criterionId, attId) {
   showToast('Đã xóa tệp đính kèm thành công!', 'success');
   renderApp();
   openCriterionAttachmentsModal(criterionId);
+};
+
+/* ==========================================================================
+   HỆ THỐNG NHẬN DIỆN & CHẤM ĐIỂM TỰ ĐỘNG TỪ TỆP (PDF / EXCEL)
+   Hỗ trợ:
+   - PDF bảng biểu (như tệp xuất link Facebook, báo cáo kết quả chấm điểm)
+   - Excel (.xlsx, .xls, .csv)
+   - Nhận diện cơ sở Đoàn bằng Smart Fuzzy Matching
+   - Tự động bóc tách cột điểm (5,00; 5.0; 0,00; ...)
+   ========================================================================== */
+
+function normalizeUnitForMatch(str) {
+  if (!str) return '';
+  let s = String(str).toLowerCase();
+  
+  // Xóa tiền tố cơ cấu tổ chức
+  const removePrefixes = [
+    'chi đoàn cơ sở', 'đoàn cơ sở', 'chi đoàn', 'đoàn trường', 
+    'ban thường vụ', 'ủy ban nhân dân', 'tỉnh quảng trị', 'quảng trị', 'quảng bình',
+    'đoàn', 'cơ sở', 'chi doan', 'doan co so', 'doan'
+  ];
+  for (const p of removePrefixes) {
+    s = s.split(p).join(' ');
+  }
+
+  // Chuẩn hóa từ viết tắt phổ biến
+  s = s.replace(/\bbql\b/g, 'ban quản lý')
+       .replace(/\btnhh\b/g, ' ')
+       .replace(/\bmtv\b/g, ' ')
+       .replace(/\bxskt\b/g, 'xổ số kiến thiết')
+       .replace(/\bcp\b/g, 'cổ phần')
+       .replace(/\bqlkt\b/g, ' ')
+       .replace(/\bktcttl\b/g, 'thủy lợi')
+       .replace(/\bcttl\b/g, 'thủy lợi')
+       .replace(/\bcđ\b/g, 'cao đẳng')
+       .replace(/\bvp\b/g, 'văn phòng')
+       .replace(/\bvh-tt&dl\b/g, 'văn hóa thể thao du lịch')
+       .replace(/\bkh&cn\b/g, 'khoa học công nghệ')
+       .replace(/\bkhcn\b/g, 'khoa học công nghệ')
+       .replace(/\bgdnn-gdtx\b/g, 'giáo dục nghề nghiệp')
+       .replace(/\bbhxh\b/g, 'bảo hiểm xã hội');
+
+  // Xóa ký tự đặc biệt
+  s = s.replace(/[\.,\-_/\\()\[\]:;]/g, ' ');
+  return s.replace(/\s+/g, ' ').trim();
+}
+
+function fuzzyMatchUnitName(rawText, activeUnits) {
+  if (!rawText) return null;
+  const normText = normalizeUnitForMatch(rawText);
+  if (!normText) return null;
+
+  const textWords = normText.split(' ').filter(w => w.length > 1);
+  if (textWords.length === 0) return null;
+
+  let bestUnit = null;
+  let bestScore = 0;
+
+  for (const u of activeUnits) {
+    const normUnit = normalizeUnitForMatch(u.unit_name);
+    const unitWords = normUnit.split(' ').filter(w => w.length > 1);
+    if (unitWords.length === 0) continue;
+
+    // 1. Kiểm tra bao hàm chính xác
+    if (normText.includes(normUnit) || normUnit.includes(normText)) {
+      const lenRatio = Math.min(normText.length, normUnit.length) / Math.max(normText.length, normUnit.length);
+      const score = 0.9 + lenRatio * 0.1;
+      if (score > bestScore) {
+        bestScore = score;
+        bestUnit = u;
+      }
+      continue;
+    }
+
+    // 2. Tính độ trùng lặp từ vựng (Word overlap)
+    let overlapCount = 0;
+    for (const tw of textWords) {
+      if (unitWords.includes(tw)) overlapCount++;
+    }
+
+    const overlapRatio = overlapCount / unitWords.length;
+    if (overlapRatio > bestScore) {
+      bestScore = overlapRatio;
+      bestUnit = u;
+    }
+  }
+
+  if (bestScore >= 0.5 && bestUnit) {
+    return {
+      unit: bestUnit,
+      confidence: bestScore,
+      confidenceLabel: bestScore >= 0.85 ? '✅ Khớp 100%' : `⚠️ Khớp ${Math.round(bestScore * 100)}%`
+    };
+  }
+  return null;
+}
+
+function parseScoreFromText(text) {
+  if (!text) return null;
+  // Bỏ qua URL hoàn toàn
+  const clean = text.replace(/https?:\/\/\S+/gi, '').trim();
+  // Tìm số cuối dòng (ví dụ 5,00 hoặc 5.0 hoặc 0,00 hoặc 10)
+  const m = clean.match(/(?:điểm[:\s]*)?(\d{1,3}(?:[,\.]\d{1,2})?)(?:\s*điểm)?\s*$/i);
+  if (m) {
+    const val = parseFloat(m[1].replace(',', '.'));
+    if (!isNaN(val) && val >= 0 && val <= 100) {
+      return val;
+    }
+  }
+  return null;
+}
+
+window.openAutoScoreModal = function(criterionId) {
+  const crit = (state.criteria || []).find(c => c.id === criterionId);
+  if (!crit) {
+    showToast('Không tìm thấy thông tin tiêu chí!', 'error');
+    return;
+  }
+
+  const modalRoot = document.getElementById('modal-root');
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+      <div class="modal-box" style="max-width:880px; width:95%; max-height:90vh; display:flex; flex-direction:column; padding:0; overflow:hidden; border-radius:14px; box-shadow:0 25px 65px rgba(0,0,0,0.4);">
+        <!-- HEADER -->
+        <div class="modal-header" style="background:linear-gradient(135deg, #0047ab, #0284c7); color:#fff; padding:16px 22px; display:flex; justify-content:space-between; align-items:center;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="font-size:24px; background:rgba(255,255,255,0.2); width:40px; height:40px; border-radius:8px; display:flex; align-items:center; justify-content:center;">📥</div>
+            <div>
+              <div style="font-size:15px; font-weight:800; letter-spacing:0.3px;">CHẤM ĐIỂM TỰ ĐỘNG TỪ TỆP (PDF / EXCEL)</div>
+              <div style="font-size:12px; opacity:0.95; margin-top:2px;">
+                Tiêu chí: <b>${escapeHtml(crit.col_label)}: ${escapeHtml(crit.title)}</b> | Mức điểm: <b>${escapeHtml(crit.points_text || 'Theo quy chế')}</b>
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-sm" onclick="closeModal()" style="color:#fff; background:rgba(255,255,255,0.2); border:none; font-size:14px; font-weight:700; width:30px; height:30px; border-radius:50%; cursor:pointer;">✕</button>
+        </div>
+
+        <!-- BODY -->
+        <div class="modal-body" style="padding:18px 22px; overflow-y:auto; flex:1 1 auto;">
+          <!-- DROPZONE -->
+          <div id="auto-score-dropzone-box" class="auto-score-dropzone" onclick="document.getElementById('auto-score-file-input').click()">
+            <input type="file" id="auto-score-file-input" accept=".pdf, .xlsx, .xls, .csv" style="display:none;" onchange="onAutoScoreFileChosen(event, ${criterionId})" />
+            <div style="font-size:36px; margin-bottom:8px;">📄</div>
+            <div style="font-size:15px; font-weight:800; color:#0052cc; margin-bottom:4px;">
+              Bấm vào đây để chọn tệp bảng điểm (PDF hoặc Excel)
+            </div>
+            <div style="font-size:12.5px; color:#64748b; max-width:550px; margin:0 auto; line-height:1.45;">
+              Hệ thống tự động quét bóc tách tên cơ sở Đoàn và điểm số tương ứng (như tệp thống kê link Facebook, danh sách điểm).
+            </div>
+            <div style="margin-top:10px; display:inline-flex; gap:8px;">
+              <span class="badge" style="background:#fee2e2; color:#b91c1c; font-size:11px; font-weight:700;">PDF (.pdf)</span>
+              <span class="badge" style="background:#dcfce7; color:#15803d; font-size:11px; font-weight:700;">Excel (.xlsx, .xls)</span>
+              <span class="badge" style="background:#f1f5f9; color:#475569; font-size:11px; font-weight:700;">CSV (.csv)</span>
+            </div>
+          </div>
+
+          <!-- CONTAINER CHỨA KẾT QUẢ ĐỐI SOÁT & PREVIEW -->
+          <div id="auto-score-preview-wrap" style="display:none; margin-top:16px;"></div>
+        </div>
+
+        <!-- FOOTER -->
+        <div class="modal-footer" id="auto-score-modal-footer" style="padding:12px 22px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+          <button class="btn btn-outline" onclick="closeModal()">Đóng</button>
+          <div id="auto-score-footer-actions"></div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+window.onAutoScoreFileChosen = async function(event, criterionId) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  const dropzoneBox = document.getElementById('auto-score-dropzone-box');
+  const previewWrap = document.getElementById('auto-score-preview-wrap');
+  const footerActions = document.getElementById('auto-score-footer-actions');
+
+  previewWrap.style.display = 'block';
+  previewWrap.innerHTML = `
+    <div style="text-align:center; padding:30px 10px;">
+      <div style="font-size:24px; animation:spin 1s linear infinite; display:inline-block; margin-bottom:10px;">⏳</div>
+      <div style="font-size:14px; font-weight:700; color:#0052cc;">Đang đọc và phân tích dữ liệu từ tệp: "${escapeHtml(file.name)}"...</div>
+      <div style="font-size:12px; color:#64748b; margin-top:4px;">Vui lòng chờ trong giây lát (khoảng 0.5 - 1 giây)...</div>
+    </div>
+  `;
+
+  try {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const activeUnits = (state.units || []).filter(u => Number(u.is_active) === 1);
+    let extractedRows = [];
+
+    if (ext === 'pdf') {
+      extractedRows = await parsePdfFileToRows(file);
+    } else if (['xlsx', 'xls', 'csv'].includes(ext)) {
+      extractedRows = await parseExcelFileToRows(file);
+    } else {
+      throw new Error('Định dạng tệp không được hỗ trợ! Vui lòng chọn tệp .pdf hoặc .xlsx, .xls, .csv');
+    }
+
+    // Đối soát dữ liệu với 40 cơ sở Đoàn
+    const matchResults = matchExtractedRowsWithUnits(extractedRows, activeUnits);
+    state._currentAutoScoreData = {
+      criterionId: criterionId,
+      fileName: file.name,
+      results: matchResults
+    };
+
+    renderAutoScorePreview(criterionId);
+  } catch (err) {
+    console.error('Lỗi khi đọc file bảng điểm:', err);
+    previewWrap.innerHTML = `
+      <div style="background:#fef2f2; border:1px solid #f87171; border-radius:8px; padding:16px; color:#991b1b; text-align:center;">
+        <div style="font-weight:700; font-size:14px; margin-bottom:4px;">⚠️ Không thể đọc được nội dung tệp!</div>
+        <div style="font-size:12.5px;">${escapeHtml(err.message || 'Lỗi không xác định khi bóc tách văn bản')}</div>
+        <button class="btn btn-sm btn-outline" onclick="document.getElementById('auto-score-file-input').click()" style="margin-top:10px; font-weight:700;">
+          Chọn lại tệp khác
+        </button>
+      </div>
+    `;
+  }
+};
+
+async function parsePdfFileToRows(file) {
+  if (typeof pdfjsLib === 'undefined') {
+    throw new Error('Thư viện PDF.js chưa sẵn sàng! Vui lòng kiểm tra kết nối mạng và thử lại.');
+  }
+
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const arrayBuffer = await file.arrayBuffer();
+  const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+  const pdf = await loadingTask.promise;
+  const rows = [];
+
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    const page = await pdf.getPage(pageNum);
+    const textContent = await page.getTextContent();
+    const items = textContent.items || [];
+    if (items.length === 0) continue;
+
+    // Tìm tọa độ cột ĐIỂM nếu có
+    let scoreColX = null;
+    items.forEach(it => {
+      const txt = (it.str || '').trim().toLowerCase();
+      if (txt === 'điểm' || txt === 'diem' || txt === 'score') {
+        scoreColX = it.transform[4];
+      }
+    });
+
+    // Gom nhóm các dòng theo tọa độ trục Y (ngưỡng 7px)
+    const lineBuckets = [];
+    const TOLERANCE_Y = 7;
+
+    items.forEach(it => {
+      const str = (it.str || '').trim();
+      if (!str) return;
+      const x = it.transform[4];
+      const y = it.transform[5];
+
+      let bucket = lineBuckets.find(b => Math.abs(b.y - y) <= TOLERANCE_Y);
+      if (!bucket) {
+        bucket = { y: y, items: [] };
+        lineBuckets.push(bucket);
+      }
+      bucket.items.push({ x: x, str: str });
+    });
+
+    // Sắp xếp dòng từ trên xuống dưới (trục Y giảm dần)
+    lineBuckets.sort((a, b) => b.y - a.y);
+
+    lineBuckets.forEach(b => {
+      b.items.sort((a, b) => a.x - b.x);
+      const lineText = b.items.map(it => it.str).join(' ');
+      const rawTokens = b.items.map(it => it.str);
+      
+      // Tìm số điểm ở cột ĐIỂM nếu xác định được scoreColX
+      let colScore = null;
+      if (scoreColX !== null) {
+        const scoreItem = b.items.find(it => Math.abs(it.x - scoreColX) <= 65);
+        if (scoreItem) {
+          const num = parseFloat(scoreItem.str.replace(',', '.').trim());
+          if (!isNaN(num) && num >= 0 && num <= 100) {
+            colScore = num;
+          }
+        }
+      }
+
+      rows.push({
+        lineText: lineText,
+        rawTokens: rawTokens,
+        colScore: colScore,
+        items: b.items
+      });
+    });
+  }
+
+  return rows;
+}
+
+async function parseExcelFileToRows(file) {
+  if (typeof XLSX === 'undefined') {
+    throw new Error('Thư viện đọc Excel chưa sẵn sàng!');
+  }
+
+  const arrayBuffer = await file.arrayBuffer();
+  const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  const sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+
+  const rows = [];
+  let scoreColIdx = -1;
+
+  // Tìm cột điểm ở dòng tiêu đề
+  for (const row of sheetData) {
+    if (Array.isArray(row)) {
+      row.forEach((cell, idx) => {
+        const txt = String(cell || '').trim().toLowerCase();
+        if (txt === 'điểm' || txt === 'diem' || txt === 'tổng điểm' || txt === 'score') {
+          scoreColIdx = idx;
+        }
+      });
+      if (scoreColIdx !== -1) break;
+    }
+  }
+
+  sheetData.forEach(row => {
+    if (!Array.isArray(row) || row.length === 0) return;
+    const tokens = row.map(c => (c !== undefined && c !== null ? String(c).trim() : '')).filter(Boolean);
+    const lineText = tokens.join(' ');
+    
+    let colScore = null;
+    if (scoreColIdx >= 0 && row[scoreColIdx] !== undefined && row[scoreColIdx] !== null) {
+      const cleanNum = String(row[scoreColIdx]).replace(',', '.').trim();
+      const num = parseFloat(cleanNum);
+      if (!isNaN(num) && num >= 0 && num <= 100) {
+        colScore = num;
+      }
+    }
+
+    rows.push({
+      lineText: lineText,
+      rawTokens: tokens,
+      colScore: colScore
+    });
+  });
+
+  return rows;
+}
+
+function matchExtractedRowsWithUnits(rows, activeUnits) {
+  const unitScoreMap = {};
+  let currentMatchedUnit = null;
+
+  for (const r of rows) {
+    // 1. Kiểm tra dòng này có chứa tên cơ sở Đoàn nào không
+    const match = fuzzyMatchUnitName(r.lineText, activeUnits);
+    if (match) {
+      currentMatchedUnit = match.unit;
+    }
+
+    // 2. Xác định điểm số
+    let score = null;
+    if (r.colScore !== null) {
+      score = r.colScore;
+    } else {
+      score = parseScoreFromText(r.lineText);
+    }
+
+    // 3. Nếu tìm thấy điểm và đang trong khối của đơn vị này
+    if (score !== null && currentMatchedUnit) {
+      unitScoreMap[currentMatchedUnit.id] = {
+        unit: currentMatchedUnit,
+        score: score,
+        rawFoundText: r.lineText,
+        confidence: match ? match.confidence : 0.85,
+        confidenceLabel: match ? match.confidenceLabel : '✅ Nhận diện từ khối bảng'
+      };
+    }
+  }
+
+  // Tạo danh sách tổng hợp cho toàn bộ 40 cơ sở Đoàn
+  const results = activeUnits.map((u, idx) => {
+    const found = unitScoreMap[u.id];
+    if (found) {
+      return {
+        unitId: u.id,
+        stt: idx + 1,
+        systemUnitName: u.unit_name,
+        rawFoundText: found.rawFoundText,
+        detectedScore: found.score,
+        matched: true,
+        confidence: found.confidence,
+        confidenceLabel: found.confidenceLabel,
+        selected: true
+      };
+    } else {
+      return {
+        unitId: u.id,
+        stt: idx + 1,
+        systemUnitName: u.unit_name,
+        rawFoundText: '(Không tìm thấy trong tệp)',
+        detectedScore: null,
+        matched: false,
+        confidence: 0,
+        confidenceLabel: '⚪ Chưa tìm thấy',
+        selected: false
+      };
+    }
+  });
+
+  return results;
+}
+
+function renderAutoScorePreview(criterionId) {
+  const data = state._currentAutoScoreData;
+  if (!data || !data.results) return;
+
+  const previewWrap = document.getElementById('auto-score-preview-wrap');
+  const footerActions = document.getElementById('auto-score-footer-actions');
+  const matchedList = data.results.filter(r => r.matched);
+  const unmatchedList = data.results.filter(r => !r.matched);
+  const selectedList = data.results.filter(r => r.selected);
+
+  previewWrap.innerHTML = `
+    <!-- THỐNG KÊ TỔNG QUAN -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px; margin-bottom:14px;">
+      <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:10px 14px;">
+        <div style="font-size:11px; font-weight:700; color:#15803d; text-transform:uppercase;">Đã khớp thành công</div>
+        <div style="font-size:20px; font-weight:800; color:#166534; margin-top:2px;">
+          ${matchedList.length} <span style="font-size:12.5px; font-weight:600; color:#15803d;">/ ${data.results.length} đơn vị</span>
+        </div>
+      </div>
+      <div style="background:${unmatchedList.length > 0 ? '#fffbeb' : '#f8fafc'}; border:1px solid ${unmatchedList.length > 0 ? '#fde68a' : '#e2e8f0'}; border-radius:8px; padding:10px 14px;">
+        <div style="font-size:11px; font-weight:700; color:${unmatchedList.length > 0 ? '#b45309' : '#64748b'}; text-transform:uppercase;">Chưa tìm thấy trong tệp</div>
+        <div style="font-size:20px; font-weight:800; color:${unmatchedList.length > 0 ? '#92400e' : '#475569'}; margin-top:2px;">
+          ${unmatchedList.length} <span style="font-size:12.5px; font-weight:600;">đơn vị</span>
+        </div>
+      </div>
+      <div style="background:#eff6ff; border:1px solid #93c5fd; border-radius:8px; padding:10px 14px;">
+        <div style="font-size:11px; font-weight:700; color:#1d4ed8; text-transform:uppercase;">Đang chọn để lưu</div>
+        <div style="font-size:20px; font-weight:800; color:#1e40af; margin-top:2px;" id="auto-score-selected-count">
+          ${selectedList.length} <span style="font-size:12.5px; font-weight:600;">đơn vị</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- THANH CÔNG CỤ NHANH -->
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px; background:#f8fafc; padding:8px 12px; border-radius:8px; border:1px solid #e2e8f0;">
+      <div style="display:flex; align-items:center; gap:6px;">
+        <button type="button" class="btn btn-sm btn-outline" onclick="selectAllAutoScoreRows(true)" style="font-size:11.5px; font-weight:700;">
+          ✓ Chọn tất cả đã khớp (${matchedList.length})
+        </button>
+        <button type="button" class="btn btn-sm btn-outline" onclick="selectAllAutoScoreRows(false)" style="font-size:11.5px; font-weight:700;">
+          ✕ Bỏ chọn tất cả
+        </button>
+        <button type="button" class="btn btn-sm btn-outline" onclick="fillZeroForUnmatched()" style="font-size:11.5px; font-weight:700; color:#b45309;" title="Gán 0 điểm cho các đơn vị không nộp bài hoặc không có tên trong file">
+          ⚡ Điền 0 điểm cho đơn vị vắng
+        </button>
+      </div>
+      <div style="font-size:12px; color:#64748b;">
+        Tệp đang đọc: <b>${escapeHtml(data.fileName)}</b>
+      </div>
+    </div>
+
+    <!-- BẢNG ĐỐI SOÁT CHI TIẾT -->
+    <div class="auto-score-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:40px; text-align:center;">
+              <input type="checkbox" onchange="toggleSelectAllAutoScore(this.checked)" checked title="Chọn / bỏ chọn tất cả" />
+            </th>
+            <th style="width:45px; text-align:center;">STT</th>
+            <th>Tên Cơ Sở Đoàn Trên Hệ Thống</th>
+            <th style="width:130px; text-align:center;">Điểm Nhận Diện</th>
+            <th style="width:140px; text-align:center;">Trạng Thái Nhận Diện</th>
+          </tr>
+        </thead>
+        <tbody id="auto-score-tbody">
+          ${data.results.map((r, i) => `
+            <tr style="background:${r.matched ? (r.selected ? '#f0fdf4' : '#fff') : '#f8fafc'}; opacity:${r.selected ? '1' : '0.65'};">
+              <td style="text-align:center;">
+                <input type="checkbox" id="auto-score-chk-${r.unitId}" ${r.selected ? 'checked' : ''} onchange="toggleAutoScoreRow(${r.unitId}, this.checked)" />
+              </td>
+              <td style="text-align:center; font-weight:700; color:#64748b;">${r.stt}</td>
+              <td>
+                <div style="font-weight:700; color:#0f172a; font-size:13px;">${escapeHtml(r.systemUnitName)}</div>
+                ${r.rawFoundText && r.matched ? `
+                  <div style="font-size:11px; color:#64748b; margin-top:2px; display:flex; align-items:center; gap:4px;">
+                    <span style="color:#059669;">🔎 Đã quét:</span> <span style="font-style:italic;">"${escapeHtml(r.rawFoundText.slice(0, 75))}${r.rawFoundText.length > 75 ? '...' : ''}"</span>
+                  </div>
+                ` : ''}
+              </td>
+              <td style="text-align:center;">
+                <input type="number" step="0.01" min="0" max="100" id="auto-score-val-${r.unitId}" value="${r.detectedScore !== null ? r.detectedScore : ''}" 
+                       oninput="updateAutoScoreVal(${r.unitId}, this.value)"
+                       placeholder="Chưa có" 
+                       style="width:90px; text-align:center; font-weight:800; font-size:13.5px; padding:5px 8px; border-radius:6px; border:1.5px solid ${r.detectedScore !== null ? '#22c55e' : '#cbd5e1'}; background:#fff; color:#0f172a;" />
+              </td>
+              <td style="text-align:center;">
+                <span class="badge" style="background:${r.matched ? '#dcfce7' : '#f1f5f9'}; color:${r.matched ? '#15803d' : '#64748b'}; font-weight:700; font-size:11px; padding:3px 8px;">
+                  ${r.confidenceLabel}
+                </span>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  // Render Footer action button
+  footerActions.innerHTML = `
+    <button type="button" class="btn btn-primary" onclick="executeSaveAutoScore(${criterionId})" style="font-weight:700; font-size:13.5px; padding:8px 22px; background:#0052cc; box-shadow:0 3px 8px rgba(0,82,204,0.3);">
+      💾 Xác Nhận & Lưu Điểm Tự Động (${selectedList.length} đơn vị)
+    </button>
+  `;
+}
+
+window.toggleAutoScoreRow = function(unitId, isChecked) {
+  const data = state._currentAutoScoreData;
+  if (!data) return;
+  const item = data.results.find(r => r.unitId === unitId);
+  if (item) {
+    item.selected = isChecked;
+    updateAutoScoreFooterCount();
+  }
+};
+
+window.updateAutoScoreVal = function(unitId, val) {
+  const data = state._currentAutoScoreData;
+  if (!data) return;
+  const item = data.results.find(r => r.unitId === unitId);
+  if (item) {
+    const num = val === '' ? null : parseFloat(val);
+    item.detectedScore = (!isNaN(num) && num >= 0) ? num : null;
+    if (item.detectedScore !== null && !item.selected) {
+      item.selected = true;
+      const chk = document.getElementById(`auto-score-chk-${unitId}`);
+      if (chk) chk.checked = true;
+    }
+    updateAutoScoreFooterCount();
+  }
+};
+
+window.selectAllAutoScoreRows = function(onlyMatched) {
+  const data = state._currentAutoScoreData;
+  if (!data) return;
+  data.results.forEach(r => {
+    if (onlyMatched) {
+      r.selected = r.matched && r.detectedScore !== null;
+    } else {
+      r.selected = false;
+    }
+    const chk = document.getElementById(`auto-score-chk-${r.unitId}`);
+    if (chk) chk.checked = r.selected;
+  });
+  renderAutoScorePreview(data.criterionId);
+};
+
+window.fillZeroForUnmatched = function() {
+  const data = state._currentAutoScoreData;
+  if (!data) return;
+  data.results.forEach(r => {
+    if (!r.matched || r.detectedScore === null) {
+      r.detectedScore = 0;
+      r.selected = true;
+      r.confidenceLabel = '⚡ Điền 0 tự động';
+    }
+  });
+  renderAutoScorePreview(data.criterionId);
+  showToast('Đã gán 0 điểm cho các đơn vị chưa có điểm!', 'info');
+};
+
+window.toggleSelectAllAutoScore = function(isChecked) {
+  const data = state._currentAutoScoreData;
+  if (!data) return;
+  data.results.forEach(r => {
+    r.selected = isChecked;
+    const chk = document.getElementById(`auto-score-chk-${r.unitId}`);
+    if (chk) chk.checked = isChecked;
+  });
+  updateAutoScoreFooterCount();
+};
+
+function updateAutoScoreFooterCount() {
+  const data = state._currentAutoScoreData;
+  if (!data) return;
+  const selCount = data.results.filter(r => r.selected).length;
+  const countEl = document.getElementById('auto-score-selected-count');
+  if (countEl) countEl.innerHTML = `${selCount} <span style="font-size:12.5px; font-weight:600;">đơn vị</span>`;
+  
+  const footerActions = document.getElementById('auto-score-footer-actions');
+  if (footerActions) {
+    footerActions.innerHTML = `
+      <button type="button" class="btn btn-primary" onclick="executeSaveAutoScore(${data.criterionId})" style="font-weight:700; font-size:13.5px; padding:8px 22px; background:#0052cc; box-shadow:0 3px 8px rgba(0,82,204,0.3);">
+        💾 Xác Nhận & Lưu Điểm Tự Động (${selCount} đơn vị)
+      </button>
+    `;
+  }
+}
+
+window.executeSaveAutoScore = async function(criterionId) {
+  const data = state._currentAutoScoreData;
+  if (!data || !data.results) return;
+
+  const toApply = data.results.filter(r => r.selected && r.detectedScore !== null);
+  if (toApply.length === 0) {
+    alert('Vui lòng chọn ít nhất 1 đơn vị có điểm hợp lệ để lưu!');
+    return;
+  }
+
+  showToast(`⏳ Đang lưu điểm cho ${toApply.length} cơ sở Đoàn lên Đám mây...`, 'info');
+
+  const res = await mutateCloudDB((db) => {
+    db.scores = db.scores || [];
+    const now = nowISO();
+
+    for (const item of toApply) {
+      const uId = Number(item.unitId);
+      const scoreVal = Math.round(Number(item.detectedScore) * 100) / 100;
+      const idx = db.scores.findIndex(s => Number(s.unit_id) === uId && Number(s.criterion_id) === criterionId);
+
+      if (idx >= 0) {
+        db.scores[idx].score = scoreVal;
+        db.scores[idx].approval_status = 'approved';
+        db.scores[idx].updated_by = 'admin';
+        db.scores[idx].updated_at = now;
+      } else {
+        db.scores.push({
+          unit_id: uId,
+          criterion_id: criterionId,
+          score: scoreVal,
+          approval_status: 'approved',
+          updated_by: 'admin',
+          submitted_at: now
+        });
+      }
+    }
+  }, `Chấm điểm tự động từ tệp: ${data.fileName} cho tiêu chí #${criterionId}`);
+
+  if (res.ok) {
+    closeModal();
+    renderApp();
+    showToast(`🎉 Đã tự động chấm điểm thành công cho ${toApply.length} đơn vị từ tệp "${data.fileName}"!`, 'success');
+  } else {
+    showToast('⚠️ Lưu điểm thất bại, vui lòng kiểm tra kết nối mạng và thử lại!', 'error');
+  }
 };
 
   </script>
