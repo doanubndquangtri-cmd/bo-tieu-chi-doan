@@ -6651,6 +6651,7 @@ window.rescanSubmissionKeywords = async function(unitId, critId) {
     scanned_at: nowISO(),
     scanned_count: (sc.files || []).length || 1
   };
+  sc.keyword_check = kwCheck;
 
   await mutateCloudDB(db => {
     const scoreRow = (db.scores || []).find(s => Number(s.unit_id) === unitId && Number(s.criterion_id) === critId);
