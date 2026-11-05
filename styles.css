@@ -4866,3 +4866,68 @@ body.dark-mode #login-realtime-clock {
   border-color: rgba(56, 189, 248, 0.3) !important;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4) !important;
 }
+
+/* Auto Score PDF/Excel Modal Styles */
+.auto-score-dropzone {
+  border: 2px dashed #3b82f6;
+  border-radius: 12px;
+  background: #f8fafc;
+  padding: 24px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.auto-score-dropzone:hover {
+  background: #eff6ff;
+  border-color: #1d4ed8;
+  transform: translateY(-1px);
+}
+body.dark-mode .auto-score-dropzone {
+  background: #1e293b;
+  border-color: #60a5fa;
+}
+body.dark-mode .auto-score-dropzone:hover {
+  background: #334155;
+  border-color: #93c5fd;
+}
+.auto-score-table-wrap {
+  max-height: 420px;
+  overflow-y: auto;
+  border: 1px solid var(--border-light, #e2e8f0);
+  border-radius: 8px;
+  margin-top: 12px;
+}
+.auto-score-table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.auto-score-table-wrap th {
+  background: #f1f5f9;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 2px solid #cbd5e1;
+  font-weight: 700;
+  color: #334155;
+}
+.auto-score-table-wrap td {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e2e8f0;
+}
+.auto-score-table-wrap tr:hover td {
+  background: #f8fafc;
+}
+body.dark-mode .auto-score-table-wrap th {
+  background: #1e293b;
+  color: #f1f5f9;
+  border-bottom-color: #475569;
+}
+body.dark-mode .auto-score-table-wrap td {
+  border-bottom-color: #334155;
+}
+body.dark-mode .auto-score-table-wrap tr:hover td {
+  background: #273549;
+}
