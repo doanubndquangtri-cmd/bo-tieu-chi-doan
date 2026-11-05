@@ -26994,9 +26994,9 @@ window.deleteCriterionAttachment = async function(criterionId, attId) {
 
 function normalizeUnitForMatch(str) {
   if (!str) return '';
-  let s = String(str).toLowerCase();
+  let s = String(str).normalize('NFC').toLowerCase();
   
-  // Xóa tiền tố cơ cấu tổ chức
+  // Loại bỏ các tiền tố/hậu tố hành chính
   const removePrefixes = [
     'chi đoàn cơ sở', 'đoàn cơ sở', 'chi đoàn', 'đoàn trường', 
     'ban thường vụ', 'ủy ban nhân dân', 'tỉnh quảng trị', 'quảng trị', 'quảng bình',
@@ -27021,6 +27021,8 @@ function normalizeUnitForMatch(str) {
        .replace(/\bkh&cn\b/g, 'khoa học công nghệ')
        .replace(/\bkhcn\b/g, 'khoa học công nghệ')
        .replace(/\bgdnn-gdtx\b/g, 'giáo dục nghề nghiệp')
+       .replace(/\bgdnn - gdtx\b/g, 'giáo dục nghề nghiệp')
+       .replace(/\btct\b/g, 'tổng công ty')
        .replace(/\bbhxh\b/g, 'bảo hiểm xã hội');
 
   // Xóa ký tự đặc biệt
@@ -27030,7 +27032,9 @@ function normalizeUnitForMatch(str) {
 
 function fuzzyMatchUnitName(rawText, activeUnits) {
   if (!rawText) return null;
-  const normText = normalizeUnitForMatch(rawText);
+  // Bỏ toàn bộ đường link/URL trước khi so khớp tên đơn vị
+  const clean = String(rawText).replace(/https?:\/\/\S+/gi, ' ').trim();
+  const normText = normalizeUnitForMatch(clean);
   if (!normText) return null;
 
   const textWords = normText.split(' ').filter(w => w.length > 1);
@@ -27044,10 +27048,10 @@ function fuzzyMatchUnitName(rawText, activeUnits) {
     const unitWords = normUnit.split(' ').filter(w => w.length > 1);
     if (unitWords.length === 0) continue;
 
-    // 1. Kiểm tra bao hàm chính xác
+    // 1. Kiểm tra bao hàm chính xác (Ưu tiên tuyệt đối: score >= 2.0)
     if (normText.includes(normUnit) || normUnit.includes(normText)) {
       const lenRatio = Math.min(normText.length, normUnit.length) / Math.max(normText.length, normUnit.length);
-      const score = 0.9 + lenRatio * 0.1;
+      const score = 2.0 + lenRatio * 0.5;
       if (score > bestScore) {
         bestScore = score;
         bestUnit = u;
@@ -27061,7 +27065,7 @@ function fuzzyMatchUnitName(rawText, activeUnits) {
       if (unitWords.includes(tw)) overlapCount++;
     }
 
-    const overlapRatio = overlapCount / unitWords.length;
+    const overlapRatio = (overlapCount / unitWords.length + overlapCount / textWords.length) / 2.0;
     if (overlapRatio > bestScore) {
       bestScore = overlapRatio;
       bestUnit = u;
@@ -27071,8 +27075,8 @@ function fuzzyMatchUnitName(rawText, activeUnits) {
   if (bestScore >= 0.5 && bestUnit) {
     return {
       unit: bestUnit,
-      confidence: bestScore,
-      confidenceLabel: bestScore >= 0.85 ? '✅ Khớp 100%' : `⚠️ Khớp ${Math.round(bestScore * 100)}%`
+      confidence: bestScore >= 2.0 ? 1.0 : bestScore,
+      confidenceLabel: bestScore >= 2.0 ? '✅ Khớp 100%' : `⚠️ Khớp ${Math.round(bestScore * 100)}%`
     };
   }
   return null;
@@ -27080,10 +27084,9 @@ function fuzzyMatchUnitName(rawText, activeUnits) {
 
 function parseScoreFromText(text) {
   if (!text) return null;
-  // Tuyệt đối bỏ qua nếu dòng chứa link/URL (như link Facebook, http...)
+  // Tuyệt đối bỏ qua nếu dòng chứa link/URL
   if (/https?:\/\/|facebook\.com/i.test(text)) return null;
   const clean = text.trim();
-  // Tìm số ở cuối hoặc độc lập (ví dụ 5,00 hoặc 5.0 hoặc 0,00 hoặc 1,75 hoặc 10)
   const m = clean.match(/(?:điểm[:\s]*)?(\d{1,3}(?:[,\.]\d{1,2})?)(?:\s*điểm)?\s*$/i);
   if (m) {
     const val = parseFloat(m[1].replace(',', '.'));
@@ -27129,7 +27132,7 @@ window.openAutoScoreModal = function(criterionId) {
               Bấm vào đây để chọn tệp bảng điểm (PDF hoặc Excel)
             </div>
             <div style="font-size:12.5px; color:#64748b; max-width:550px; margin:0 auto; line-height:1.45;">
-              Hệ thống tự động quét bóc tách tên cơ sở Đoàn và điểm số tương ứng (như tệp thống kê link Facebook, danh sách điểm).
+              Hệ thống tự động dò đúng tên cơ sở Đoàn và lấy đúng điểm tương ứng, không phụ thuộc vào thứ tự dòng trong file.
             </div>
             <div style="margin-top:10px; display:inline-flex; gap:8px;">
               <span class="badge" style="background:#fee2e2; color:#b91c1c; font-size:11px; font-weight:700;">PDF (.pdf)</span>
@@ -27164,8 +27167,8 @@ window.onAutoScoreFileChosen = async function(event, criterionId) {
   previewWrap.innerHTML = `
     <div style="text-align:center; padding:30px 10px;">
       <div style="font-size:24px; animation:spin 1s linear infinite; display:inline-block; margin-bottom:10px;">⏳</div>
-      <div style="font-size:14px; font-weight:700; color:#0052cc;">Đang đọc và phân tích dữ liệu từ tệp: "${escapeHtml(file.name)}"...</div>
-      <div style="font-size:12px; color:#64748b; margin-top:4px;">Vui lòng chờ trong giây lát (khoảng 0.5 - 1 giây)...</div>
+      <div style="font-size:14px; font-weight:700; color:#0052cc;">Đang quét dò tên đơn vị và bóc tách điểm: "${escapeHtml(file.name)}"...</div>
+      <div style="font-size:12px; color:#64748b; margin-top:4px;">Vui lòng chờ trong giây lát...</div>
     </div>
   `;
 
@@ -27182,7 +27185,7 @@ window.onAutoScoreFileChosen = async function(event, criterionId) {
       throw new Error('Định dạng tệp không được hỗ trợ! Vui lòng chọn tệp .pdf hoặc .xlsx, .xls, .csv');
     }
 
-    // Đối soát dữ liệu với 40 cơ sở Đoàn
+    // Đối soát dữ liệu theo ĐÚNG TÊN ĐƠN VỊ với 40 cơ sở Đoàn
     const matchResults = matchExtractedRowsWithUnits(extractedRows, activeUnits);
     state._currentAutoScoreData = {
       criterionId: criterionId,
@@ -27214,33 +27217,44 @@ async function parsePdfFileToRows(file) {
   const arrayBuffer = await file.arrayBuffer();
   const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
   const pdf = await loadingTask.promise;
-  const rows = [];
+  const pagesData = [];
+
+  // BƯỚC 1: Quét toàn bộ các trang để tìm tọa độ cột ĐIỂM (scoreColX) chuẩn xác
+  let scoreColX = null;
+  const decimalXCoords = [];
 
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
     const page = await pdf.getPage(pageNum);
     const viewport = page.getViewport({ scale: 1.0 });
-    const pageWidth = viewport.width;
-    const pageHeight = viewport.height;
     const textContent = await page.getTextContent();
     const items = textContent.items || [];
-    if (items.length === 0) continue;
+    pagesData.push({ page, viewport, items });
 
-    // A. Tìm tọa độ cột ĐIỂM và cột ĐƠN VỊ từ dòng tiêu đề (Header)
-    let scoreColX = null;
-    let unitColX = null;
-    items.forEach(it => {
+    for (const it of items) {
       const normStr = (it.str || '').normalize('NFC').trim().toLowerCase();
       if (/^(điểm|diem|tổng điểm|tong diem|score|kết quả)$/i.test(normStr)) {
         scoreColX = it.transform[4];
       }
-      if (/(tổ chức đoàn|cơ sở đoàn|đơn vị|tên cơ sở|tên đơn vị|tổ chức)/i.test(normStr)) {
-        unitColX = it.transform[4];
+      if (/^\d{1,2}[,\.]\d{2}$/.test((it.str || '').trim()) && it.transform[4] >= viewport.width * 0.5) {
+        decimalXCoords.push(it.transform[4]);
       }
-    });
+    }
+  }
 
-    // B. Thu thập tất cả các ô điểm hợp lệ trên trang (Candidate Scores)
-    // Đặc điểm: chuỗi thuần số điểm (VD: 1,75; 0,50; 5,00; 10; 0), nằm ở cột ĐIỂM (x >= pageWidth * 0.65 hoặc gần scoreColX)
-    // Và KHÔNG nằm ở cột STT hoặc Số Link (x >= 120 và x >= pageWidth * 0.25)
+  // Nếu không thấy chữ ĐIỂM, lấy tọa độ X trung vị của các số thập phân
+  if (scoreColX === null && decimalXCoords.length > 0) {
+    decimalXCoords.sort((a, b) => a - b);
+    scoreColX = decimalXCoords[Math.floor(decimalXCoords.length / 2)];
+  }
+
+  // BƯỚC 2: Bóc tách từng trang với tọa độ cột điểm chuẩn
+  const rows = [];
+
+  for (const pageData of pagesData) {
+    const { page, viewport, items } = pageData;
+    if (items.length === 0) continue;
+
+    // A. Thu thập tất cả các ô điểm hợp lệ trong đúng cột ĐIỂM (+/- 10px quanh scoreColX)
     const candidateScores = [];
     items.forEach(it => {
       const str = (it.str || '').trim();
@@ -27253,16 +27267,15 @@ async function parsePdfFileToRows(file) {
       const x = it.transform[4];
       const y = it.transform[5];
 
-      const isInScoreCol = (scoreColX !== null && Math.abs(x - scoreColX) <= 85) ||
-                           (scoreColX === null && x >= pageWidth * 0.65);
-      
-      // Loại trừ các cột số link và STT bên trái trang
-      if (isInScoreCol && x >= 120) {
+      // Điều kiện nghiêm ngặt: Phải nằm trong cột ĐIỂM (+/- 10px từ scoreColX)
+      // Loại bỏ hoàn toàn cột trạng thái (x=455), cột số link (x=60), cột STT (x=30)...
+      const inScoreColumn = scoreColX !== null ? Math.abs(x - scoreColX) <= 10 : (x >= viewport.width * 0.65);
+      if (inScoreColumn) {
         candidateScores.push({ x: x, y: y, score: num, rawText: str });
       }
     });
 
-    // C. Gom nhóm các chuỗi văn bản theo dòng trục Y (TOLERANCE_Y = 8)
+    // B. Gom nhóm các chuỗi văn bản theo dòng trục Y (TOLERANCE_Y = 8px)
     const lineBuckets = [];
     const TOLERANCE_Y = 8;
 
@@ -27280,7 +27293,7 @@ async function parsePdfFileToRows(file) {
       bucket.items.push({ x: x, y: y, str: str });
     });
 
-    // Sắp xếp các dòng từ trên xuống dưới (trục Y giảm dần)
+    // Sắp xếp các dòng từ trên xuống dưới
     lineBuckets.sort((a, b) => b.y - a.y);
 
     lineBuckets.forEach(b => {
@@ -27289,11 +27302,12 @@ async function parsePdfFileToRows(file) {
       const rawTokens = b.items.map(it => it.str);
       const hasUrl = /https?:\/\/|facebook\.com/i.test(lineText);
 
-      // Tìm điểm số thuộc dòng này từ candidateScores (khoảng cách Y <= 16px)
+      // Tìm điểm số thuộc dòng này từ candidateScores (khoảng cách Y <= 25px)
       let colScore = null;
-      const matchedScoreItem = candidateScores.find(cand => Math.abs(cand.y - b.y) <= 16);
-      if (matchedScoreItem) {
-        colScore = matchedScoreItem.score;
+      const validCands = candidateScores.filter(cand => Math.abs(cand.y - b.y) <= 25);
+      if (validCands.length > 0) {
+        validCands.sort((c1, c2) => Math.abs(c1.y - b.y) - Math.abs(c2.y - b.y));
+        colScore = validCands[0].score;
       }
 
       rows.push({
@@ -27320,7 +27334,7 @@ async function parseExcelFileToRows(file) {
   const sheetName = workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
 
-  // 1. Tự động bung các ô bị gộp (Merged Cells) nếu có để mọi dòng đều nhận đủ giá trị
+  // 1. Tự động bung các ô bị gộp (Merged Cells) nếu có
   if (sheet['!merges']) {
     sheet['!merges'].forEach(range => {
       const startCellRef = XLSX.utils.encode_cell(range.s);
@@ -27372,7 +27386,6 @@ async function parseExcelFileToRows(file) {
       }
     }
 
-    // Nếu chưa tìm thấy cột điểm theo header, nhưng ô cuối cùng của dòng là một số điểm
     if (colScore === null && row.length > 2) {
       for (let c = row.length - 1; c >= 0; c--) {
         const valStr = String(row[c] || '').trim();
@@ -27386,7 +27399,6 @@ async function parseExcelFileToRows(file) {
       }
     }
 
-    // Lấy text của cả dòng
     const tokens = row.map(c => (c !== undefined && c !== null ? String(c).trim() : '')).filter(Boolean);
     const lineText = tokens.join(' ');
     const hasUrl = /https?:\/\/|facebook\.com/i.test(lineText);
@@ -27406,12 +27418,11 @@ async function parseExcelFileToRows(file) {
 
 function matchExtractedRowsWithUnits(rows, activeUnits) {
   const unitScoreMap = {};
-  let currentMatchedUnit = null;
 
   for (const r of rows) {
     const hasUrl = r.hasUrl || /https?:\/\/|facebook\.com/i.test(r.lineText);
 
-    // 1. Kiểm tra dòng này có chứa tên cơ sở Đoàn nào không
+    // 1. Dò đúng tên cơ sở Đoàn (theo tên, không theo số thứ tự)
     let match = null;
     if (r.unitCellText) {
       match = fuzzyMatchUnitName(r.unitCellText, activeUnits);
@@ -27420,41 +27431,38 @@ function matchExtractedRowsWithUnits(rows, activeUnits) {
       match = fuzzyMatchUnitName(r.lineText, activeUnits);
     }
 
-    if (match) {
-      currentMatchedUnit = match.unit;
-    }
-
-    // 2. Nếu dòng này là dòng link thuần túy (chứa URL và KHÔNG khớp tên đơn vị), BỎ QUA HOÀN TOÀN
-    // Tuyệt đối không đọc số link làm điểm số!
+    // 2. Nếu dòng link thuần túy không có tên cơ sở Đoàn, bỏ qua hoàn toàn
     if (hasUrl && !match) {
       continue;
     }
 
-    // 3. Xác định điểm số
-    let score = null;
-    if (r.colScore !== null && r.colScore !== undefined) {
-      score = r.colScore;
-    } else if (!hasUrl) {
-      // Chỉ bóc tách số cuối dòng nếu dòng này KHÔNG chứa URL
-      score = parseScoreFromText(r.lineText);
-    }
+    // 3. Nếu dòng này khớp với một đơn vị cụ thể
+    if (match) {
+      const unit = match.unit;
+      let score = null;
+      if (r.colScore !== null && r.colScore !== undefined) {
+        score = r.colScore;
+      } else if (!hasUrl) {
+        score = parseScoreFromText(r.lineText);
+      }
 
-    // 4. Ghi nhận điểm số cho đơn vị
-    if (currentMatchedUnit && score !== null) {
-      // Chỉ gán nếu đơn vị chưa có điểm, hoặc dòng này có điểm trực tiếp từ cột ĐIỂM (colScore)
-      if (!unitScoreMap[currentMatchedUnit.id] || r.colScore !== null) {
-        unitScoreMap[currentMatchedUnit.id] = {
-          unit: currentMatchedUnit,
-          score: score,
-          rawFoundText: r.lineText,
-          confidence: match ? match.confidence : 0.9,
-          confidenceLabel: match ? (match.confidence >= 0.85 ? '✅ Khớp 100%' : `⚠️ Khớp ${Math.round(match.confidence * 100)}%`) : '✅ Nhận diện từ bảng điểm'
-        };
+      // Lưu điểm cho đơn vị này
+      if (score !== null) {
+        // Chỉ lưu nếu đơn vị chưa có điểm, hoặc điểm này đến từ colScore chính xác
+        if (!unitScoreMap[unit.id] || r.colScore !== null) {
+          unitScoreMap[unit.id] = {
+            unit: unit,
+            score: score,
+            rawFoundText: r.lineText,
+            confidence: match.confidence,
+            confidenceLabel: match.confidenceLabel
+          };
+        }
       }
     }
   }
 
-  // Tạo danh sách tổng hợp cho toàn bộ 40 cơ sở Đoàn
+  // 4. Tạo kết quả cho toàn bộ 40 cơ sở Đoàn trên hệ thống (dò đúng tên theo ID từng đơn vị)
   const results = activeUnits.map((u, idx) => {
     const found = unitScoreMap[u.id];
     if (found) {
