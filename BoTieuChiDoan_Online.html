@@ -11400,6 +11400,7 @@ function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rank
 
 
 // ==========================================
+// ==========================================
 // TÍNH NĂNG ĐỐI SOÁT TỪ KHÓA BÁO CÁO / TIÊU CHÍ (DÀNH CHO ADMIN)
 // ==========================================
 
@@ -11414,38 +11415,62 @@ function normalizeSearchKeywordText(str) {
     .trim();
 }
 
-async function extractTextFromFileForKeywords(file) {
-  if (!file) return '';
-  const name = file.name || '';
+async function extractTextFromFileForKeywords(fileOrBlob) {
+  if (!fileOrBlob) return '';
+  const name = fileOrBlob.name || '';
   const ext = name.split('.').pop().toLowerCase();
   let text = name;
 
   try {
-    if (ext === 'pdf' && typeof pdfjsLib !== 'undefined') {
+    let arrayBuffer = null;
+    if (typeof fileOrBlob.arrayBuffer === 'function') {
+      arrayBuffer = await fileOrBlob.arrayBuffer();
+    } else if (fileOrBlob instanceof ArrayBuffer) {
+      arrayBuffer = fileOrBlob;
+    }
+
+    if (ext === 'docx' && arrayBuffer) {
+      // 1. Ưu tiên: Dùng JSZip đọc thẳng file XML word/document.xml (nhanh 100%, chuẩn xác không phụ thuộc layout)
+      if (typeof JSZip !== 'undefined') {
+        try {
+          const zip = await JSZip.loadAsync(arrayBuffer);
+          const docXml = await zip.file('word/document.xml').async('text');
+          if (docXml) {
+            const cleanXml = docXml.replace(/<\/w:p>/g, '\n').replace(/<[^>]+>/g, ' ');
+            text += ' ' + cleanXml;
+          }
+        } catch(zipErr) {
+          console.warn('JSZip parse warning, trying mammoth:', zipErr);
+        }
+      }
+      // 2. Fallback: Dùng mammoth nếu JSZip chưa lấy được văn bản
+      if (typeof mammoth !== 'undefined' && text.length <= name.length + 5) {
+        try {
+          const res = await mammoth.extractRawText({ arrayBuffer });
+          if (res && res.value) text += ' ' + res.value;
+        } catch(mErr) {
+          console.warn('Mammoth parse warning:', mErr);
+        }
+      }
+    } else if (ext === 'pdf' && arrayBuffer && typeof pdfjsLib !== 'undefined') {
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      const arrayBuffer = await file.arrayBuffer();
       const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
       const pdf = await loadingTask.promise;
-      const maxPages = Math.min(pdf.numPages, 15);
+      const maxPages = Math.min(pdf.numPages, 30);
       for (let p = 1; p <= maxPages; p++) {
         const page = await pdf.getPage(p);
         const textContent = await page.getTextContent();
         text += ' ' + (textContent.items || []).map(it => it.str || '').join(' ');
       }
-    } else if (ext === 'docx' && typeof mammoth !== 'undefined') {
-      const arrayBuffer = await file.arrayBuffer();
-      const res = await mammoth.extractRawText({ arrayBuffer });
-      if (res && res.value) text += ' ' + res.value;
-    } else if ((ext === 'xlsx' || ext === 'xls') && typeof XLSX !== 'undefined') {
-      const arrayBuffer = await file.arrayBuffer();
+    } else if ((ext === 'xlsx' || ext === 'xls') && arrayBuffer && typeof XLSX !== 'undefined') {
       const wb = XLSX.read(arrayBuffer, { type: 'array' });
       wb.SheetNames.forEach(sheetName => {
         const ws = wb.Sheets[sheetName];
         if (ws) text += ' ' + XLSX.utils.sheet_to_txt(ws);
       });
     } else if (['txt', 'csv', 'json', 'xml', 'html'].includes(ext)) {
-      if (typeof file.text === 'function') {
-        const txt = await file.text();
+      if (typeof fileOrBlob.text === 'function') {
+        const txt = await fileOrBlob.text();
         text += ' ' + txt;
       }
     }
@@ -11494,35 +11519,68 @@ async function performKeywordCheckOnSubmission(criterion, files, reportContent, 
     missing: missing,
     percent: percent,
     scanned_at: nowISO(),
-    scanned_count: (files || []).length
+    scanned_count: (files || []).length,
+    extracted_text: combinedRaw.slice(0, 80000)
   };
 }
 
 window.rescanSubmissionKeywords = async function(unitId, critId) {
-  const crit = (state.criteria || []).find(c => c.id === critId);
+  unitId = Number(unitId);
+  critId = Number(critId);
+  const crit = (state.criteria || []).find(c => Number(c.id) === critId);
   const sc = getScoreObj(unitId, critId);
   if (!crit || !sc) return;
   if (!crit.keywords || !crit.keywords.trim()) {
     showToast('Tiêu chí này chưa thiết lập từ khóa kiểm tra!', 'info');
     return;
   }
-  showToast('⏳ Đang phân tích lại từ khóa tệp...', 'info');
+  showToast('⏳ Đang phân tích lại toàn bộ nội dung tệp & đối soát từ khóa...', 'info');
 
   let rawText = (sc.report_content || '') + ' ' + (sc.evidence_link || '') + ' ' + (sc.file_name || '');
   if (Array.isArray(sc.files)) {
     rawText += ' ' + sc.files.map(f => f.name || '').join(' ');
   }
 
-  const filesList = (sc.files && sc.files.length) ? sc.files : (sc.file_path ? [{ name: sc.file_name, url: sc.file_path }] : []);
-  for (const f of filesList.slice(0, 3)) {
-    if (f.url && (f.url.startsWith('http://') || f.url.startsWith('https://'))) {
-      try {
-        const res = await fetch(f.url);
-        const blob = await res.blob();
-        blob.name = f.name || 'file';
-        const fileTxt = await extractTextFromFileForKeywords(blob);
-        rawText += ' ' + fileTxt;
-      } catch(e) {}
+  // 1. Kiểm tra nếu đã có file_text lưu sẵn trong DB
+  if (sc.file_text && sc.file_text.length > 30) {
+    rawText += ' ' + sc.file_text;
+  } else {
+    // 2. Nếu chưa có, tải dữ liệu file qua Google Apps Script backend (tránh hoàn toàn lỗi CORS của Google Drive)
+    const filesList = (sc.files && sc.files.length) ? sc.files : (sc.file_path ? [{ name: sc.file_name, url: sc.file_path }] : []);
+    const gdriveUrl = getGoogleDriveScriptUrl();
+    for (const f of filesList.slice(0, 3)) {
+      if (f.url) {
+        let fileId = extractDriveFolderId(f.url);
+        if (!fileId) {
+          const match = String(f.url).match(/[-\w]{25,}/);
+          if (match) fileId = match[0];
+        }
+        if (fileId && gdriveUrl) {
+          try {
+            const gasRes = await fetch(gdriveUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify({ action: 'get_file_b64', fileId: fileId })
+            });
+            const gasData = await gasRes.json();
+            if (gasData && gasData.status === 'success' && gasData.fileDataB64) {
+              const byteChars = atob(gasData.fileDataB64);
+              const byteNums = new Array(byteChars.length);
+              for (let i = 0; i < byteChars.length; i++) byteNums[i] = byteChars.charCodeAt(i);
+              const byteArray = new Uint8Array(byteNums);
+              const blob = new Blob([byteArray]);
+              blob.name = gasData.fileName || f.name || 'document.docx';
+              const extracted = await extractTextFromFileForKeywords(blob);
+              if (extracted && extracted.length > 30) {
+                rawText += ' ' + extracted;
+                sc.file_text = extracted.slice(0, 80000);
+              }
+            }
+          } catch(gasErr) {
+            console.warn('Lỗi tải tệp qua Google Apps Script:', gasErr);
+          }
+        }
+      }
     }
   }
 
@@ -11542,20 +11600,20 @@ window.rescanSubmissionKeywords = async function(unitId, critId) {
     missing,
     percent,
     scanned_at: nowISO(),
-    scanned_count: filesList.length
+    scanned_count: (sc.files || []).length || 1
   };
 
   await mutateCloudDB(db => {
-    const scoreRow = (db.scores || []).find(s => s.unit_id === unitId && s.criterion_id === critId);
+    const scoreRow = (db.scores || []).find(s => Number(s.unit_id) === unitId && Number(s.criterion_id) === critId);
     if (scoreRow) {
       scoreRow.keyword_check = kwCheck;
+      if (sc.file_text) scoreRow.file_text = sc.file_text;
     }
   }, `Rescan keywords unit ${unitId} crit ${critId}`);
 
-  showToast(`✅ Quét xong: Khớp ${matched.length}/${rawKeywords.length} từ khóa (${percent}%)`, 'success');
+  showToast(`✅ Đã quét xong: Khớp ${matched.length}/${rawKeywords.length} từ khóa (${percent}%)`, 'success');
   openSubmissionDetailModal(unitId, critId);
 };
-
 
 window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
 
@@ -12627,6 +12685,7 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
 
       admin_note: existingRow ? existingRow.admin_note || '' : '',
       keyword_check: submissionKeywordCheck || (existingRow ? existingRow.keyword_check : null),
+      file_text: (submissionKeywordCheck && submissionKeywordCheck.extracted_text) || (existingRow ? existingRow.file_text || "" : ""),
 
     };
 
