@@ -10038,29 +10038,42 @@ function renderMasterTableTab() {
   const filteredCriteria = getFilteredCriteria();
   const filteredUnits = getFilteredUnits();
 
-  // Build dynamic month pills including all 12 months and any custom groups created by Admin
+  // Build dynamic month pills: ĐỒNG BỘ 100% với danh sách Nhóm Tháng & Đợt hoạt động
   const monthPills = [
     { val: 0, label: `Tất cả (${state.criteria.length} cột)` },
   ];
 
+  const deletedKeys = state.deletedMonthKeys || [];
+  const labels = state.monthLabels || {};
+
+  // 12 Tháng chuẩn (chỉ hiển thị những tháng chưa bị xóa)
   for (let m = 1; m <= 12; m++) {
-    const count = state.criteria.filter(c => Number(c.month_group) === m).length;
-    monthPills.push({ val: m, label: `Tháng ${m}${count > 0 ? ` (${count})` : ''}` });
+    if (!deletedKeys.includes(String(m))) {
+      const lbl = labels[String(m)] || `Tháng ${m}`;
+      const count = state.criteria.filter(c => Number(c.month_group) === m).length;
+      monthPills.push({ val: m, label: `${lbl}${count > 0 ? ` (${count})` : ''}` });
+    }
   }
 
-  const countTx = state.criteria.filter(c => Number(c.month_group) === 13).length;
-  monthPills.push({ val: 13, label: `Thường xuyên & Cuối năm${countTx > 0 ? ` (${countTx})` : ''}` });
+  // Nhóm 13 (Thường xuyên & Cuối năm) nếu chưa bị xóa
+  if (!deletedKeys.includes('13')) {
+    const lbl13 = labels['13'] || 'Thường xuyên & Cuối năm';
+    const countTx = state.criteria.filter(c => Number(c.month_group) === 13).length;
+    monthPills.push({ val: 13, label: `${lbl13}${countTx > 0 ? ` (${countTx})` : ''}` });
+  }
 
-  const seenLabels = new Set(['Thường xuyên & Cuối năm']);
-  if (state.monthLabels) {
-    Object.entries(state.monthLabels).forEach(([k, v]) => {
-      const numKey = Number(k);
-      if (numKey > 13 && !seenLabels.has(v)) {
-        seenLabels.add(v);
-        const cnt = state.criteria.filter(c => Number(c.month_group) === numKey).length;
-        monthPills.push({ val: numKey, label: `${v}${cnt > 0 ? ` (${cnt})` : ''}` });
-      }
-    });
+  // Các nhóm kỳ hạn / tháng tự tạo của Admin (> 13)
+  const customGroups = Object.entries(labels)
+    .filter(([k]) => {
+      const num = Number(k);
+      return num > 13 && !deletedKeys.includes(String(k));
+    })
+    .sort((a, b) => Number(a[0]) - Number(b[0]));
+
+  for (const [k, v] of customGroups) {
+    const numKey = Number(k);
+    const cnt = state.criteria.filter(c => Number(c.month_group) === numKey).length;
+    monthPills.push({ val: numKey, label: `${v}${cnt > 0 ? ` (${cnt})` : ''}` });
   }
 
   const headerTitle = state.settings.header_title || 'BỘ TIÊU CHÍ ĐOÀN CẤP CƠ SỞ';
@@ -14484,6 +14497,7 @@ window.executeBatchFillColumn = async function (criterionId) {
    ========================================================================= */
 
 function renderReportsMatrixTableComponent(targetCriteria, allCriteria, reportCriteria, activityCriteria, adminCriteria, activeUnits) {
+  const isAdmin = (state.user && state.user.role === 'admin') || Boolean(state.isAdminSession) || localStorage.getItem('doan2026_admin_authenticated') === '1';
   return `
     <div class="panel reports-table-panel fullscreen-table-panel" style="display:flex; flex-direction:column; min-height:540px; flex:1 1 auto; margin-bottom:4px; border-radius:6px; border:1px solid #cbd5e1; overflow:hidden;">
       <div class="panel-header" style="flex-wrap:wrap; gap:8px; padding:6px 12px; flex-shrink:0;">
@@ -18937,11 +18951,11 @@ window.createMonthGroupFromModal = async function () {
 
 
   if (res.ok) {
-
+    if (res.db && res.db.month_labels) state.monthLabels = res.db.month_labels;
+    if (res.db && res.db.deleted_month_keys) state.deletedMonthKeys = res.db.deleted_month_keys;
     showToast(`Đã tạo nhóm "${name}" thành công!`, 'success');
-
     openManageMonthGroupsModal();
-
+    renderApp();
   }
 
 };
@@ -18979,11 +18993,10 @@ window.renameMonthGroup = async function (groupNum, curName) {
 
 
   if (res.ok) {
-
+    if (res.db && res.db.month_labels) state.monthLabels = res.db.month_labels;
     showToast('Đã đổi tên nhóm thành công!', 'success');
-
     openManageMonthGroupsModal();
-
+    renderApp();
   }
 
 };
@@ -18991,73 +19004,58 @@ window.renameMonthGroup = async function (groupNum, curName) {
 
 
 window.deleteMonthGroup = async function (groupNum) {
-
   const labels = state.monthLabels || {};
-
   const groupName = labels[String(groupNum)] || `Tháng / Kỳ ${groupNum}`;
-
   const criteriaInGroup = state.criteria.filter(c => Number(c.month_group) === groupNum);
 
-
-
   let confirmMsg = `Bạn có chắc chắn muốn XÓA nhóm / tháng "${groupName}"?`;
-
   if (criteriaInGroup.length > 0) {
-
-    confirmMsg += `\n\n⚠️ Nhóm này đang chứa ${criteriaInGroup.length} tiêu chí!\nKhi xóa nhóm, các tiêu chí này sẽ được tự động chuyển về "Thường xuyên & Cuối năm" để bảo toàn 100% dữ liệu điểm.`;
-
+    confirmMsg += `\n\n⚠️ Nhóm này đang chứa ${criteriaInGroup.length} tiêu chí!\nKhi xóa nhóm, các tiêu chí này sẽ được tự động chuyển sang nhóm hoạt động còn hiệu lực để bảo toàn 100% dữ liệu điểm.`;
   }
-
-
 
   if (!confirm(confirmMsg)) return;
 
-
-
   showToast('Đang xóa nhóm / tháng...', 'info');
-
   const res = await mutateCloudDB((db) => {
-
     db.month_labels = db.month_labels || {};
-
     delete db.month_labels[String(groupNum)];
-
     db.deleted_month_keys = db.deleted_month_keys || [];
-
     if (!db.deleted_month_keys.includes(String(groupNum))) {
-
       db.deleted_month_keys.push(String(groupNum));
-
     }
 
-
+    // Chọn nhóm đích an toàn chưa bị xóa
+    let fallbackGroup = 13;
+    if (db.deleted_month_keys.includes('13')) {
+      fallbackGroup = 12;
+      for (let m = 12; m >= 1; m--) {
+        if (!db.deleted_month_keys.includes(String(m))) {
+          fallbackGroup = m;
+          break;
+        }
+      }
+    }
+    const fallbackLabel = (db.month_labels && db.month_labels[String(fallbackGroup)]) || `Tháng ${fallbackGroup}`;
 
     for (const c of db.criteria || []) {
-
       if (Number(c.month_group) === groupNum) {
-
-        c.month_group = 13;
-
-        c.month_label = db.month_labels['13'] || 'Thường xuyên & Cuối năm';
-
+        c.month_group = fallbackGroup;
+        c.month_label = fallbackLabel;
       }
-
     }
-
   }, `Delete month group ${groupNum}`);
 
-
-
   if (res.ok) {
-
+    if (res.db && res.db.month_labels) state.monthLabels = res.db.month_labels;
+    if (res.db && res.db.deleted_month_keys) state.deletedMonthKeys = res.db.deleted_month_keys;
+    if (res.db && res.db.criteria) state.criteria = res.db.criteria;
+    if (Number(state.monthFilter) === Number(groupNum)) {
+      state.monthFilter = 0;
+    }
     showToast(`Đã xóa "${groupName}" thành công!`, 'success');
-
     openManageMonthGroupsModal();
-
     renderApp();
-
   }
-
 };
 
 
@@ -32306,107 +32304,123 @@ window.deleteCriterionAttachment = async function(criterionId, attId) {
    - Tự động bóc tách cột điểm (5,00; 5.0; 0,00; ...)
    ========================================================================== */
 
-function normalizeUnitForMatch(str) {
-  if (!str) return '';
-  let s = String(str).normalize('NFC').toLowerCase();
-  
-  // Loại bỏ các tiền tố/hậu tố hành chính
-  const removePrefixes = [
-    'chi đoàn cơ sở', 'đoàn cơ sở', 'chi đoàn', 'đoàn trường', 
-    'ban thường vụ', 'ủy ban nhân dân', 'tỉnh quảng trị', 'quảng trị', 'quảng bình',
-    'đoàn', 'cơ sở', 'chi doan', 'doan co so', 'doan'
-  ];
-  for (const p of removePrefixes) {
-    s = s.split(p).join(' ');
+// =========================================================================
+// HỆ THỐNG TỰ ĐỘNG CHẤM ĐIỂM TỪ TỆP (WORD / EXCEL / PDF) CHUẨN XÁC 100%
+// - Dò đúng tên cơ sở Đoàn (theo từ khóa định danh, không theo số thứ tự)
+// - Bóc tách chính xác điểm số từ cột ĐIỂM (không lấy nhầm cột STT hay số link)
+// - Hỗ trợ đầy đủ các định dạng: Word (.docx, .doc), Excel (.xlsx, .xls), PDF, CSV
+// =========================================================================
+
+const UNIT_KEYWORDS_MAP = {
+  1: { kw: ['khu kinh tế', 'bql khu kinh tế', 'ban quản lý khu kinh tế'] },
+  2: { kw: ['xskt', 'xổ số kiến thiết', 'xổ số'] },
+  3: { kw: ['việt trung', 'viet trung'] },
+  4: { kw: ['qlkt cttl', 'cttl quảng trị', 'thủy lợi quảng trị'] },
+  5: { kw: ['tư pháp', 'sở tư pháp'] },
+  6: { kw: ['hải quan', 'chi cục hải quan', 'hải quan khu vực ix'] },
+  7: { kw: ['bệnh viện đa khoa', 'bv đa khoa', 'bệnh viện'] },
+  8: { kw: ['ktcttl', 'cttl quảng bình', 'thủy lợi quảng bình'] },
+  9: { kw: ['tài chính', 'sở tài chính'] },
+  10: { kw: ['nông nghiệp và môi trường', 'nông nghiệp', 'sở nông nghiệp'] },
+  11: { kw: ['sở xây dựng', 'xây dựng'] },
+  12: { kw: ['vp ubnd', 'văn phòng ubnd', 'vp ủy ban', 'văn phòng ủy ban', 'vpubnd', 'văn phòng'] },
+  13: { kw: ['thanh tra', 'thanh tra tỉnh'] },
+  14: { kw: ['thống kê'] },
+  15: { kw: ['công nông nghiệp', 'công - nông nghiệp', 'kỹ thuật công nông nghiệp'] },
+  16: { kw: ['đảng ủy', 'cơ quan đảng ủy'] },
+  17: { kw: ['nội vụ', 'sở nội vụ'] },
+  18: { kw: ['cđ y tế', 'cao đẳng y tế', 'trường cđ y tế'] },
+  19: { kw: ['khoa học và công nghệ', 'khoa học công nghệ', 'kh&cn', 'khcn', 'khoa học'] },
+  20: { kw: ['ngoại vụ', 'sở ngoại vụ'] },
+  21: { kw: ['văn hóa thể thao', 'thể thao và du lịch', 'văn hóa', 'du lịch', 'vhtt&dl', 'vh-tt&dl'] },
+  22: { kw: ['tổng công ty thương mại', 'thương mại quảng trị', 'sepon'] },
+  23: { kw: ['phong nha kẻ bàng', 'phong nha - kẻ bàng', 'phong nha', 'kẻ bàng'] },
+  24: { kw: ['cđ nghề', 'cao đẳng nghề', 'nghề quảng trị'] },
+  25: { kw: ['long đại', 'lâm công nghiệp long đại', 'long dai'] },
+  26: { kw: ['cđ kỹ thuật quảng trị', 'cao đẳng kỹ thuật quảng trị', 'cđ kỹ thuật', 'cao đẳng kỹ thuật'] },
+  27: { kw: ['quỹ đất', 'phát triển quỹ đất'] },
+  28: { kw: ['sư phạm', 'cđ sư phạm', 'cao đẳng sư phạm'] },
+  29: { kw: ['dự trữ', 'dự trữ nhà nước'] },
+  30: { kw: ['nước sạch'] },
+  31: { kw: ['gdnn', 'gdtx', 'giáo dục nghề nghiệp', 'giáo dục thường xuyên'] },
+  32: { kw: ['lệ ninh', 'le ninh'] },
+  33: { kw: ['công thương', 'sở công thương'] },
+  34: { kw: ['sở y tế'] },
+  35: { kw: ['thuế', 'cục thuế'] },
+  36: { kw: ['xúc tiến', 'xúc tiến đầu tư'] },
+  37: { kw: ['cao su'] },
+  38: { kw: ['bảo hiểm xã hội', 'bhxh', 'bảo hiểm'] },
+  39: { kw: ['ctdd', 'htkt', 'dân dụng', 'ctdd cn htkt'] },
+  40: { kw: ['ctgt', 'giao thông', 'dự án ctgt', 'xây dựng ctgt'] },
+};
+
+function matchUnitByName(rawText, activeUnits) {
+  if (!rawText) return null;
+  const clean = String(rawText).replace(/https?:\/\/\S+/gi, ' ').normalize('NFC').toLowerCase().trim();
+  if (!clean) return null;
+
+  // 1. So khớp trực tiếp bao hàm tên đầy đủ (Ưu tiên cao nhất)
+  for (const u of activeUnits) {
+    const uClean = String(u.unit_name || '').normalize('NFC').toLowerCase().trim();
+    if (clean.includes(uClean) || uClean.includes(clean)) {
+      if (clean.length >= 8 && uClean.length >= 8) {
+        return { unit: u, confidence: 1.0, confidenceLabel: '✅ Khớp 100%' };
+      }
+    }
   }
 
-  // Chuẩn hóa từ viết tắt phổ biến
-  s = s.replace(/\bbql\b/g, 'ban quản lý')
-       .replace(/\btnhh\b/g, ' ')
-       .replace(/\bmtv\b/g, ' ')
-       .replace(/\bxskt\b/g, 'xổ số kiến thiết')
-       .replace(/\bcp\b/g, 'cổ phần')
-       .replace(/\bqlkt\b/g, ' ')
-       .replace(/\bktcttl\b/g, 'thủy lợi')
-       .replace(/\bcttl\b/g, 'thủy lợi')
-       .replace(/\bcđ\b/g, 'cao đẳng')
-       .replace(/\bvp\b/g, 'văn phòng')
-       .replace(/\bvh-tt&dl\b/g, 'văn hóa thể thao du lịch')
-       .replace(/\bkh&cn\b/g, 'khoa học công nghệ')
-       .replace(/\bkhcn\b/g, 'khoa học công nghệ')
-       .replace(/\bgdnn-gdtx\b/g, 'giáo dục nghề nghiệp')
-       .replace(/\bgdnn - gdtx\b/g, 'giáo dục nghề nghiệp')
-       .replace(/\btct\b/g, 'tổng công ty')
-       .replace(/\bbhxh\b/g, 'bảo hiểm xã hội');
-
-  // Xóa ký tự đặc biệt
-  s = s.replace(/[\.,\-_/\\()\[\]:;]/g, ' ');
-  return s.replace(/\s+/g, ' ').trim();
-}
-
-function fuzzyMatchUnitName(rawText, activeUnits) {
-  if (!rawText) return null;
-  // Bỏ toàn bộ đường link/URL trước khi so khớp tên đơn vị
-  const clean = String(rawText).replace(/https?:\/\/\S+/gi, ' ').trim();
-  const normText = normalizeUnitForMatch(clean);
-  if (!normText) return null;
-
-  const textWords = normText.split(' ').filter(w => w.length > 1);
-  if (textWords.length === 0) return null;
-
+  // 2. So khớp theo bộ từ khóa đặc trưng (có xử lý chống nhầm lẫn triệt để)
   let bestUnit = null;
   let bestScore = 0;
 
   for (const u of activeUnits) {
-    const normUnit = normalizeUnitForMatch(u.unit_name);
-    const unitWords = normUnit.split(' ').filter(w => w.length > 1);
-    if (unitWords.length === 0) continue;
-
-    // 1. Kiểm tra bao hàm chính xác (Ưu tiên tuyệt đối: score >= 2.0)
-    if (normText.includes(normUnit) || normUnit.includes(normText)) {
-      const lenRatio = Math.min(normText.length, normUnit.length) / Math.max(normText.length, normUnit.length);
-      const score = 2.0 + lenRatio * 0.5;
-      if (score > bestScore) {
-        bestScore = score;
-        bestUnit = u;
+    const rule = UNIT_KEYWORDS_MAP[u.id];
+    if (!rule) continue;
+    let score = 0;
+    for (const kw of rule.kw) {
+      if (clean.includes(kw)) {
+        score = Math.max(score, kw.length * 10);
       }
-      continue;
     }
 
-    // 2. Tính độ trùng lặp từ vựng (Word overlap)
-    let overlapCount = 0;
-    for (const tw of textWords) {
-      if (unitWords.includes(tw)) overlapCount++;
-    }
+    // Quy tắc loại trừ chống trùng chéo tên:
+    // a. CTGT / Giao thông không được gán cho Sở Xây dựng
+    if ((clean.includes('ctgt') || clean.includes('giao thông')) && u.id === 11) score = 0;
+    // b. CTDD / Dân dụng không được gán cho Sở Xây dựng
+    if ((clean.includes('ctdd') || clean.includes('dân dụng') || clean.includes('htkt')) && u.id === 11) score = 0;
+    // c. Ban quản lý / Dự án không được gán cho Sở Xây dựng
+    if ((clean.includes('ban quản lý') || clean.includes('bql') || clean.includes('dự án')) && u.id === 11) score = 0;
+    // d. CĐ Kỹ thuật Công - Nông nghiệp không nhầm với CĐ Kỹ thuật
+    if (clean.includes('công nông nghiệp') && u.id === 26) score = 0;
+    // e. Sở Y tế không nhầm với CĐ Y tế
+    if (clean.includes('sở y tế') && u.id === 18) score = 0;
+    if ((clean.includes('cđ y tế') || clean.includes('cao đẳng y tế')) && u.id === 34) score = 0;
+    // f. Cơ quan Đảng ủy không nhầm với VP UBND
+    if (clean.includes('đảng ủy') && u.id === 12) score = 0;
+    // g. Thủy lợi Quảng Bình không nhầm với Thủy lợi Quảng Trị
+    if ((clean.includes('thủy lợi quảng bình') || clean.includes('cttl quảng bình') || clean.includes('ktcttl')) && u.id === 4) score = 0;
+    if ((clean.includes('thủy lợi quảng trị') || clean.includes('cttl quảng trị') || clean.includes('qlkt cttl')) && u.id === 8) score = 0;
 
-    const overlapRatio = (overlapCount / unitWords.length + overlapCount / textWords.length) / 2.0;
-    if (overlapRatio > bestScore) {
-      bestScore = overlapRatio;
+    if (score > bestScore) {
+      bestScore = score;
       bestUnit = u;
     }
   }
 
-  if (bestScore >= 0.5 && bestUnit) {
-    return {
-      unit: bestUnit,
-      confidence: bestScore >= 2.0 ? 1.0 : bestScore,
-      confidenceLabel: bestScore >= 2.0 ? '✅ Khớp 100%' : `⚠️ Khớp ${Math.round(bestScore * 100)}%`
-    };
+  if (bestUnit && bestScore > 0) {
+    return { unit: bestUnit, confidence: 0.95, confidenceLabel: '✅ Khớp chuẩn' };
   }
   return null;
 }
 
 function parseScoreFromText(text) {
   if (!text) return null;
-  // Tuyệt đối bỏ qua nếu dòng chứa link/URL
   if (/https?:\/\/|facebook\.com/i.test(text)) return null;
-  const clean = text.trim();
+  const clean = String(text).trim();
   const m = clean.match(/(?:điểm[:\s]*)?(\d{1,3}(?:[,\.]\d{1,2})?)(?:\s*điểm)?\s*$/i);
   if (m) {
     const val = parseFloat(m[1].replace(',', '.'));
-    if (!isNaN(val) && val >= 0 && val <= 100) {
-      return val;
-    }
+    if (!isNaN(val) && val >= 0 && val <= 100) return val;
   }
   return null;
 }
@@ -32421,13 +32435,13 @@ window.openAutoScoreModal = function(criterionId) {
   const modalRoot = document.getElementById('modal-root');
   modalRoot.innerHTML = `
     <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
-      <div class="modal-box" style="max-width:880px; width:95%; max-height:90vh; display:flex; flex-direction:column; padding:0; overflow:hidden; border-radius:14px; box-shadow:0 25px 65px rgba(0,0,0,0.4);">
+      <div class="modal-box" style="max-width:900px; width:95%; max-height:92vh; display:flex; flex-direction:column; padding:0; overflow:hidden; border-radius:14px; box-shadow:0 25px 65px rgba(0,0,0,0.4);">
         <!-- HEADER -->
         <div class="modal-header" style="background:linear-gradient(135deg, #0047ab, #0284c7); color:#fff; padding:16px 22px; display:flex; justify-content:space-between; align-items:center;">
           <div style="display:flex; align-items:center; gap:10px;">
-            <div style="font-size:24px; background:rgba(255,255,255,0.2); width:40px; height:40px; border-radius:8px; display:flex; align-items:center; justify-content:center;">📥</div>
+            <div style="font-size:26px; background:rgba(255,255,255,0.2); width:42px; height:42px; border-radius:10px; display:flex; align-items:center; justify-content:center;">📥</div>
             <div>
-              <div style="font-size:15px; font-weight:800; letter-spacing:0.3px;">CHẤM ĐIỂM TỰ ĐỘNG TỪ TỆP (PDF / EXCEL)</div>
+              <div style="font-size:15px; font-weight:800; letter-spacing:0.3px;">CHẤM ĐIỂM TỰ ĐỘNG TỪ TỆP (WORD / EXCEL / PDF)</div>
               <div style="font-size:12px; opacity:0.95; margin-top:2px;">
                 Tiêu chí: <b>${escapeHtml(crit.col_label)}: ${escapeHtml(crit.title)}</b> | Mức điểm: <b>${escapeHtml(crit.points_text || 'Theo quy chế')}</b>
               </div>
@@ -32440,18 +32454,19 @@ window.openAutoScoreModal = function(criterionId) {
         <div class="modal-body" style="padding:18px 22px; overflow-y:auto; flex:1 1 auto;">
           <!-- DROPZONE -->
           <div id="auto-score-dropzone-box" class="auto-score-dropzone" onclick="document.getElementById('auto-score-file-input').click()">
-            <input type="file" id="auto-score-file-input" accept=".pdf, .xlsx, .xls, .csv" style="display:none;" onchange="onAutoScoreFileChosen(event, ${criterionId})" />
-            <div style="font-size:36px; margin-bottom:8px;">📄</div>
-            <div style="font-size:15px; font-weight:800; color:#0052cc; margin-bottom:4px;">
-              Bấm vào đây để chọn tệp bảng điểm (PDF hoặc Excel)
+            <input type="file" id="auto-score-file-input" accept=".docx, .doc, .xlsx, .xls, .pdf, .csv" style="display:none;" onchange="onAutoScoreFileChosen(event, ${criterionId})" />
+            <div style="font-size:40px; margin-bottom:8px;">📄</div>
+            <div style="font-size:15.5px; font-weight:800; color:#0052cc; margin-bottom:4px;">
+              Bấm vào đây để chọn tệp bảng điểm (Word, Excel hoặc PDF)
             </div>
-            <div style="font-size:12.5px; color:#64748b; max-width:550px; margin:0 auto; line-height:1.45;">
-              Hệ thống tự động dò đúng tên cơ sở Đoàn và lấy đúng điểm tương ứng, không phụ thuộc vào thứ tự dòng trong file.
+            <div style="font-size:12.5px; color:#64748b; max-width:620px; margin:0 auto; line-height:1.5;">
+              Hệ thống tự động dò đúng tên cơ sở Đoàn và lấy đúng điểm tương ứng, <b>không phụ thuộc vào số thứ tự dòng</b> trong tệp.
             </div>
-            <div style="margin-top:10px; display:inline-flex; gap:8px;">
-              <span class="badge" style="background:#fee2e2; color:#b91c1c; font-size:11px; font-weight:700;">PDF (.pdf)</span>
-              <span class="badge" style="background:#dcfce7; color:#15803d; font-size:11px; font-weight:700;">Excel (.xlsx, .xls)</span>
-              <span class="badge" style="background:#f1f5f9; color:#475569; font-size:11px; font-weight:700;">CSV (.csv)</span>
+            <div style="margin-top:12px; display:inline-flex; gap:8px; flex-wrap:wrap; justify-content:center;">
+              <span class="badge" style="background:#dbeafe; color:#1d4ed8; font-size:11px; font-weight:700; padding:4px 8px;">Word (.docx, .doc)</span>
+              <span class="badge" style="background:#dcfce7; color:#15803d; font-size:11px; font-weight:700; padding:4px 8px;">Excel (.xlsx, .xls)</span>
+              <span class="badge" style="background:#fee2e2; color:#b91c1c; font-size:11px; font-weight:700; padding:4px 8px;">PDF (.pdf)</span>
+              <span class="badge" style="background:#f1f5f9; color:#475569; font-size:11px; font-weight:700; padding:4px 8px;">CSV (.csv)</span>
             </div>
           </div>
 
@@ -32473,16 +32488,13 @@ window.onAutoScoreFileChosen = async function(event, criterionId) {
   const file = event.target.files && event.target.files[0];
   if (!file) return;
 
-  const dropzoneBox = document.getElementById('auto-score-dropzone-box');
   const previewWrap = document.getElementById('auto-score-preview-wrap');
-  const footerActions = document.getElementById('auto-score-footer-actions');
-
   previewWrap.style.display = 'block';
   previewWrap.innerHTML = `
     <div style="text-align:center; padding:30px 10px;">
-      <div style="font-size:24px; animation:spin 1s linear infinite; display:inline-block; margin-bottom:10px;">⏳</div>
-      <div style="font-size:14px; font-weight:700; color:#0052cc;">Đang quét dò tên đơn vị và bóc tách điểm: "${escapeHtml(file.name)}"...</div>
-      <div style="font-size:12px; color:#64748b; margin-top:4px;">Vui lòng chờ trong giây lát...</div>
+      <div style="font-size:26px; animation:spin 1s linear infinite; display:inline-block; margin-bottom:10px;">⏳</div>
+      <div style="font-size:14.5px; font-weight:700; color:#0052cc;">Đang bóc tách dữ liệu & đối soát tên cơ sở Đoàn từ tệp "${escapeHtml(file.name)}"...</div>
+      <div style="font-size:12px; color:#64748b; margin-top:4px;">Hệ thống đang quét đúng cột điểm và tên đơn vị chuẩn xác...</div>
     </div>
   `;
 
@@ -32491,19 +32503,22 @@ window.onAutoScoreFileChosen = async function(event, criterionId) {
     const activeUnits = (state.units || []).filter(u => Number(u.is_active) === 1);
     let extractedRows = [];
 
-    if (ext === 'pdf') {
+    if (ext === 'docx' || ext === 'doc') {
+      extractedRows = await parseWordFileToRows(file);
+    } else if (ext === 'pdf') {
       extractedRows = await parsePdfFileToRows(file);
     } else if (['xlsx', 'xls', 'csv'].includes(ext)) {
       extractedRows = await parseExcelFileToRows(file);
     } else {
-      throw new Error('Định dạng tệp không được hỗ trợ! Vui lòng chọn tệp .pdf hoặc .xlsx, .xls, .csv');
+      throw new Error('Định dạng tệp không được hỗ trợ! Vui lòng chọn tệp Word (.docx, .doc), Excel (.xlsx, .xls) hoặc PDF (.pdf)');
     }
 
-    // Đối soát dữ liệu theo ĐÚNG TÊN ĐƠN VỊ với 40 cơ sở Đoàn
+    // Đối soát theo đúng tên đơn vị với 40 cơ sở Đoàn
     const matchResults = matchExtractedRowsWithUnits(extractedRows, activeUnits);
     state._currentAutoScoreData = {
       criterionId: criterionId,
       fileName: file.name,
+      fileExt: ext,
       results: matchResults
     };
 
@@ -32522,122 +32537,259 @@ window.onAutoScoreFileChosen = async function(event, criterionId) {
   }
 };
 
+// =========================================================================
+// BỘ BÓC TÁCH TỆP WORD (.DOCX, .DOC) QUA JSZIP & XML DOM
+// =========================================================================
+async function parseWordFileToRows(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const rows = [];
+  let parsedViaXml = false;
+
+  if (typeof JSZip !== 'undefined') {
+    try {
+      const zip = await JSZip.loadAsync(arrayBuffer);
+      const docXml = await zip.file('word/document.xml').async('text');
+      if (docXml) {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(docXml, 'text/xml');
+        const tables = xmlDoc.getElementsByTagName('w:tbl');
+
+        for (let t = 0; t < tables.length; t++) {
+          const tbl = tables[t];
+          const trList = tbl.getElementsByTagName('w:tr');
+          let unitColIdx = -1;
+          let scoreColIdx = -1;
+
+          // Tìm cột đơn vị và cột điểm trong 3 dòng đầu
+          for (let r = 0; r < Math.min(trList.length, 4); r++) {
+            const cells = trList[r].getElementsByTagName('w:tc');
+            for (let c = 0; c < cells.length; c++) {
+              const txt = (cells[c].textContent || '').normalize('NFC').trim().toLowerCase();
+              if (unitColIdx === -1 && /(đơn vị|cơ sở đoàn|tổ chức đoàn|tổ chức|tên cơ sở|tên đơn vị)/i.test(txt)) {
+                unitColIdx = c;
+              }
+              if (scoreColIdx === -1 && /^(điểm|diem|tổng điểm|tong diem|score|kết quả)$/i.test(txt)) {
+                scoreColIdx = c;
+              }
+            }
+            if (unitColIdx !== -1 && scoreColIdx !== -1) break;
+          }
+
+          // Duyệt qua các dòng dữ liệu của bảng Word
+          let lastUnitText = '';
+          for (let r = 0; r < trList.length; r++) {
+            const tcList = trList[r].getElementsByTagName('w:tc');
+            if (tcList.length === 0) continue;
+
+            let unitText = '';
+            if (unitColIdx >= 0 && tcList[unitColIdx]) {
+              unitText = (tcList[unitColIdx].textContent || '').trim();
+            }
+            if (unitText) lastUnitText = unitText;
+            else unitText = lastUnitText;
+
+            let colScore = null;
+            if (scoreColIdx >= 0 && tcList[scoreColIdx]) {
+              const rawScore = (tcList[scoreColIdx].textContent || '').trim().replace(',', '.');
+              const num = parseFloat(rawScore);
+              if (!isNaN(num) && num >= 0 && num <= 100) colScore = num;
+            }
+
+            const tokens = [];
+            for (let c = 0; c < tcList.length; c++) {
+              const ct = (tcList[c].textContent || '').trim();
+              if (ct) tokens.push(ct);
+            }
+            const lineText = tokens.join(' ');
+            const hasUrl = /https?:\/\/|facebook\.com/i.test(lineText);
+
+            if (unitText || colScore !== null) {
+              rows.push({
+                rowIdx: r,
+                lineText: lineText,
+                rawTokens: tokens,
+                colScore: colScore,
+                hasUrl: hasUrl,
+                unitCellText: unitText || null
+              });
+            }
+          }
+          parsedViaXml = true;
+        }
+      }
+    } catch (docxErr) {
+      console.warn('Lỗi đọc bảng XML Word qua JSZip, thử fallback:', docxErr);
+    }
+  }
+
+  // Fallback đọc văn bản qua Mammoth nếu không có bảng XML
+  if (!parsedViaXml || rows.length === 0) {
+    if (typeof mammoth !== 'undefined') {
+      try {
+        const res = await mammoth.extractRawText({ arrayBuffer });
+        if (res && res.value) {
+          const lines = res.value.split('\n').map(l => l.trim()).filter(Boolean);
+          lines.forEach((l, idx) => {
+            const score = parseScoreFromText(l);
+            rows.push({
+              rowIdx: idx,
+              lineText: l,
+              rawTokens: [l],
+              colScore: score,
+              hasUrl: /https?:\/\/|facebook\.com/i.test(l),
+              unitCellText: null
+            });
+          });
+        }
+      } catch (mErr) {
+        console.warn('Mammoth parse fallback error:', mErr);
+      }
+    }
+  }
+
+  return rows;
+}
+
+// =========================================================================
+// BỘ BÓC TÁCH TỆP PDF QUA PDF.JS - THEO KHỐI ĐƠN VỊ & CỘT ĐIỂM CHUẨN XÁC
+// =========================================================================
 async function parsePdfFileToRows(file) {
   if (typeof pdfjsLib === 'undefined') {
-    throw new Error('Thư viện PDF.js chưa sẵn sàng! Vui lòng kiểm tra kết nối mạng và thử lại.');
+    throw new Error('Thư viện PDF.js chưa sẵn sàng! Vui lòng tải lại trang.');
   }
 
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   const arrayBuffer = await file.arrayBuffer();
   const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
   const pdf = await loadingTask.promise;
-  const pagesData = [];
-
-  // BƯỚC 1: Quét toàn bộ các trang để tìm tọa độ cột ĐIỂM (scoreColX) chuẩn xác
-  let scoreColX = null;
-  const decimalXCoords = [];
+  const activeUnits = (state.units || []).filter(u => Number(u.is_active) === 1);
+  const rows = [];
 
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
     const page = await pdf.getPage(pageNum);
     const viewport = page.getViewport({ scale: 1.0 });
     const textContent = await page.getTextContent();
     const items = textContent.items || [];
-    pagesData.push({ page, viewport, items });
+    if (items.length === 0) continue;
+
+    // 1. Xác định tọa độ X của cột ĐIỂM (luôn nằm ở rìa phải của trang: x >= 65% width)
+    let scoreColMinX = viewport.width * 0.65;
+    let foundScoreHeaderX = null;
 
     for (const it of items) {
       const normStr = (it.str || '').normalize('NFC').trim().toLowerCase();
       if (/^(điểm|diem|tổng điểm|tong diem|score|kết quả)$/i.test(normStr)) {
-        scoreColX = it.transform[4];
-      }
-      if (/^\d{1,2}[,\.]\d{2}$/.test((it.str || '').trim()) && it.transform[4] >= viewport.width * 0.5) {
-        decimalXCoords.push(it.transform[4]);
+        foundScoreHeaderX = it.transform[4];
       }
     }
-  }
+    if (foundScoreHeaderX !== null) {
+      scoreColMinX = Math.max(viewport.width * 0.55, foundScoreHeaderX - 50);
+    }
 
-  // Nếu không thấy chữ ĐIỂM, lấy tọa độ X trung vị của các số thập phân
-  if (scoreColX === null && decimalXCoords.length > 0) {
-    decimalXCoords.sort((a, b) => a - b);
-    scoreColX = decimalXCoords[Math.floor(decimalXCoords.length / 2)];
-  }
-
-  // BƯỚC 2: Bóc tách từng trang với tọa độ cột điểm chuẩn
-  const rows = [];
-
-  for (const pageData of pagesData) {
-    const { page, viewport, items } = pageData;
-    if (items.length === 0) continue;
-
-    // A. Thu thập tất cả các ô điểm hợp lệ trong đúng cột ĐIỂM (+/- 10px quanh scoreColX)
+    // 2. Thu thập tất cả các ô điểm hợp lệ trong đúng cột ĐIỂM (x >= scoreColMinX)
+    // TUYỆT ĐỐI KHÔNG LẤY TỪ CỘT STT HAY CỘT SỐ LINK (x < scoreColMinX)
     const candidateScores = [];
-    items.forEach(it => {
+    for (const it of items) {
       const str = (it.str || '').trim();
-      if (!str) return;
-      const m = str.match(/^(\d{1,3}(?:[,\.]\d{1,2})?)$/);
-      if (!m) return;
-      const num = parseFloat(m[1].replace(',', '.'));
-      if (isNaN(num) || num < 0 || num > 100) return;
-
       const x = it.transform[4];
       const y = it.transform[5];
 
-      // Điều kiện nghiêm ngặt: Phải nằm trong cột ĐIỂM (+/- 10px từ scoreColX)
-      // Loại bỏ hoàn toàn cột trạng thái (x=455), cột số link (x=60), cột STT (x=30)...
-      const inScoreColumn = scoreColX !== null ? Math.abs(x - scoreColX) <= 10 : (x >= viewport.width * 0.65);
-      if (inScoreColumn) {
-        candidateScores.push({ x: x, y: y, score: num, rawText: str });
+      if (x >= scoreColMinX) {
+        const cleanScoreStr = str.replace(',', '.');
+        const m = cleanScoreStr.match(/^(\d{1,3}(?:\.\d{1,2})?)$/);
+        if (m) {
+          const num = parseFloat(m[1]);
+          if (!isNaN(num) && num >= 0 && num <= 100) {
+            candidateScores.push({ x, y, score: num, rawText: str });
+          }
+        }
       }
-    });
+    }
 
-    // B. Gom nhóm các chuỗi văn bản theo dòng trục Y (TOLERANCE_Y = 8px)
+    // 3. Gom nhóm text theo dòng Y (để tìm tên đơn vị)
     const lineBuckets = [];
     const TOLERANCE_Y = 8;
-
-    items.forEach(it => {
+    for (const it of items) {
       const str = (it.str || '').trim();
-      if (!str) return;
+      if (!str) continue;
       const x = it.transform[4];
       const y = it.transform[5];
-
-      let bucket = lineBuckets.find(b => Math.abs(b.y - y) <= TOLERANCE_Y);
-      if (!bucket) {
-        bucket = { y: y, items: [] };
-        lineBuckets.push(bucket);
+      let b = lineBuckets.find(bucket => Math.abs(bucket.y - y) <= TOLERANCE_Y);
+      if (!b) {
+        b = { y: y, items: [] };
+        lineBuckets.push(b);
       }
-      bucket.items.push({ x: x, y: y, str: str });
-    });
+      b.items.push({ x, y, str });
+    }
+    lineBuckets.sort((a, b) => b.y - a.y); // Từ trên xuống dưới theo Y
 
-    // Sắp xếp các dòng từ trên xuống dưới
-    lineBuckets.sort((a, b) => b.y - a.y);
-
-    lineBuckets.forEach(b => {
+    // 4. Phát hiện các cơ sở Đoàn xuất hiện trên trang
+    const detectedUnitsOnPage = [];
+    for (const b of lineBuckets) {
       b.items.sort((a, b) => a.x - b.x);
       const lineText = b.items.map(it => it.str).join(' ');
-      const rawTokens = b.items.map(it => it.str);
-      const hasUrl = /https?:\/\/|facebook\.com/i.test(lineText);
+      const match = matchUnitByName(lineText, activeUnits);
+      if (match) {
+        // Tránh trùng nếu cùng 1 đơn vị chiếm nhiều dòng liên tiếp
+        const last = detectedUnitsOnPage[detectedUnitsOnPage.length - 1];
+        if (!last || last.unit.id !== match.unit.id || Math.abs(last.y - b.y) > 30) {
+          detectedUnitsOnPage.push({
+            unit: match.unit,
+            confidence: match.confidence,
+            confidenceLabel: match.confidenceLabel,
+            y: b.y,
+            lineText: lineText
+          });
+        }
+      }
+    }
 
-      // Tìm điểm số thuộc dòng này từ candidateScores (khoảng cách Y <= 25px)
-      let colScore = null;
-      const validCands = candidateScores.filter(cand => Math.abs(cand.y - b.y) <= 25);
-      if (validCands.length > 0) {
-        validCands.sort((c1, c2) => Math.abs(c1.y - b.y) - Math.abs(c2.y - b.y));
-        colScore = validCands[0].score;
+    // 5. Gán điểm từ cột ĐIỂM cho từng khối đơn vị theo khoảng Y
+    for (let uIdx = 0; uIdx < detectedUnitsOnPage.length; uIdx++) {
+      const uInfo = detectedUnitsOnPage[uIdx];
+      const topY = uInfo.y + 20;
+      const bottomY = (uIdx + 1 < detectedUnitsOnPage.length) ? (detectedUnitsOnPage[uIdx + 1].y + 10) : 0;
+
+      // Tìm điểm trong candidateScores nằm trong phạm vi dòng của đơn vị này
+      let assignedScore = null;
+      const scoresInRange = candidateScores.filter(cs => cs.y <= topY && cs.y >= bottomY);
+      if (scoresInRange.length > 0) {
+        // Ưu tiên điểm gần tọa độ Y của đơn vị nhất
+        scoresInRange.sort((a, b) => Math.abs(a.y - uInfo.y) - Math.abs(b.y - uInfo.y));
+        assignedScore = scoresInRange[0].score;
       }
 
       rows.push({
-        lineText: lineText,
-        rawTokens: rawTokens,
-        colScore: colScore,
-        y: b.y,
-        hasUrl: hasUrl,
-        items: b.items
+        lineText: uInfo.lineText,
+        rawTokens: [uInfo.lineText],
+        colScore: assignedScore,
+        hasUrl: false,
+        unitCellText: uInfo.unit.unit_name
       });
-    });
+    }
+
+    // Nếu không tìm thấy khối đơn vị theo format bảng, đẩy các dòng bình thường
+    if (detectedUnitsOnPage.length === 0) {
+      for (const b of lineBuckets) {
+        b.items.sort((a, b) => a.x - b.x);
+        const lineText = b.items.map(it => it.str).join(' ');
+        rows.push({
+          lineText: lineText,
+          rawTokens: b.items.map(it => it.str),
+          colScore: parseScoreFromText(lineText),
+          hasUrl: /https?:\/\/|facebook\.com/i.test(lineText),
+          unitCellText: null
+        });
+      }
+    }
   }
 
   return rows;
 }
 
+// =========================================================================
+// BỘ BÓC TÁCH TỆP EXCEL (.XLSX, .XLS, .CSV) CHUẨN XÁC
+// =========================================================================
 async function parseExcelFileToRows(file) {
   if (typeof XLSX === 'undefined') {
     throw new Error('Thư viện đọc Excel chưa sẵn sàng!');
@@ -32648,7 +32800,7 @@ async function parseExcelFileToRows(file) {
   const sheetName = workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
 
-  // 1. Tự động bung các ô bị gộp (Merged Cells) nếu có
+  // 1. Bung các ô gộp (Merged Cells)
   if (sheet['!merges']) {
     sheet['!merges'].forEach(range => {
       const startCellRef = XLSX.utils.encode_cell(range.s);
@@ -32671,7 +32823,7 @@ async function parseExcelFileToRows(file) {
   let scoreColIdx = -1;
   let unitColIdx = -1;
 
-  // 2. Tìm vị trí cột ĐIỂM và cột ĐƠN VỊ trong 10 dòng đầu
+  // 2. Tìm vị trí cột ĐƠN VỊ và cột ĐIỂM
   for (let r = 0; r < Math.min(sheetData.length, 10); r++) {
     const row = sheetData[r];
     if (Array.isArray(row)) {
@@ -32688,28 +32840,26 @@ async function parseExcelFileToRows(file) {
     }
   }
 
+  // Nếu không thấy cột ĐIỂM theo header, tìm cột chứa các số điểm ở các cột cuối
+  if (scoreColIdx === -1 && sheetData.length > 2) {
+    const maxCols = Math.max(...sheetData.slice(0, 5).map(r => (Array.isArray(r) ? r.length : 0)));
+    scoreColIdx = maxCols - 1;
+  }
+
+  let lastUnitCellText = '';
   sheetData.forEach((row, rowIdx) => {
     if (!Array.isArray(row) || row.length === 0) return;
-    
+
+    let unitCell = (unitColIdx >= 0 && row[unitColIdx] !== undefined) ? String(row[unitColIdx]).trim() : '';
+    if (unitCell) lastUnitCellText = unitCell;
+    else unitCell = lastUnitCellText;
+
     let colScore = null;
     if (scoreColIdx >= 0 && row[scoreColIdx] !== undefined && row[scoreColIdx] !== null) {
       const cleanNum = String(row[scoreColIdx]).replace(',', '.').trim();
       const num = parseFloat(cleanNum);
       if (!isNaN(num) && num >= 0 && num <= 100) {
         colScore = num;
-      }
-    }
-
-    if (colScore === null && row.length > 2) {
-      for (let c = row.length - 1; c >= 0; c--) {
-        const valStr = String(row[c] || '').trim();
-        if (!valStr || /https?:\/\/|facebook\.com/i.test(valStr)) continue;
-        const cleanNum = valStr.replace(',', '.');
-        const num = parseFloat(cleanNum);
-        if (!isNaN(num) && num >= 0 && num <= 100 && /^\d+([,\.]\d+)?$/.test(valStr)) {
-          colScore = num;
-          break;
-        }
       }
     }
 
@@ -32723,34 +32873,30 @@ async function parseExcelFileToRows(file) {
       rawTokens: tokens,
       colScore: colScore,
       hasUrl: hasUrl,
-      unitCellText: unitColIdx >= 0 && row[unitColIdx] ? String(row[unitColIdx]).trim() : null
+      unitCellText: unitCell || null
     });
   });
 
   return rows;
 }
 
+// =========================================================================
+// KHỚP DỮ LIỆU ĐÃ BÓC TÁCH VỚI 40 CƠ SỞ ĐOÀN HỆ THỐNG
+// =========================================================================
 function matchExtractedRowsWithUnits(rows, activeUnits) {
   const unitScoreMap = {};
 
   for (const r of rows) {
     const hasUrl = r.hasUrl || /https?:\/\/|facebook\.com/i.test(r.lineText);
 
-    // 1. Dò đúng tên cơ sở Đoàn (theo tên, không theo số thứ tự)
     let match = null;
     if (r.unitCellText) {
-      match = fuzzyMatchUnitName(r.unitCellText, activeUnits);
+      match = matchUnitByName(r.unitCellText, activeUnits);
     }
-    if (!match) {
-      match = fuzzyMatchUnitName(r.lineText, activeUnits);
-    }
-
-    // 2. Nếu dòng link thuần túy không có tên cơ sở Đoàn, bỏ qua hoàn toàn
-    if (hasUrl && !match) {
-      continue;
+    if (!match && !hasUrl) {
+      match = matchUnitByName(r.lineText, activeUnits);
     }
 
-    // 3. Nếu dòng này khớp với một đơn vị cụ thể
     if (match) {
       const unit = match.unit;
       let score = null;
@@ -32760,26 +32906,32 @@ function matchExtractedRowsWithUnits(rows, activeUnits) {
         score = parseScoreFromText(r.lineText);
       }
 
-      // Lưu điểm cho đơn vị này
       if (score !== null) {
-        // Chỉ lưu nếu đơn vị chưa có điểm, hoặc điểm này đến từ colScore chính xác
-        if (!unitScoreMap[unit.id] || r.colScore !== null) {
+        if (!unitScoreMap[unit.id] || unitScoreMap[unit.id].score === null) {
           unitScoreMap[unit.id] = {
             unit: unit,
             score: score,
-            rawFoundText: r.lineText,
+            rawFoundText: r.unitCellText || r.lineText,
             confidence: match.confidence,
             confidenceLabel: match.confidenceLabel
           };
         }
+      } else if (!unitScoreMap[unit.id]) {
+        unitScoreMap[unit.id] = {
+          unit: unit,
+          score: null,
+          rawFoundText: r.unitCellText || r.lineText,
+          confidence: match.confidence,
+          confidenceLabel: match.confidenceLabel
+        };
       }
     }
   }
 
-  // 4. Tạo kết quả cho toàn bộ 40 cơ sở Đoàn trên hệ thống (dò đúng tên theo ID từng đơn vị)
+  // Kết quả đối soát hiển thị đầy đủ 40 đơn vị
   const results = activeUnits.map((u, idx) => {
     const found = unitScoreMap[u.id];
-    if (found) {
+    if (found && found.score !== null) {
       return {
         unitId: u.id,
         stt: idx + 1,
@@ -32796,7 +32948,7 @@ function matchExtractedRowsWithUnits(rows, activeUnits) {
         unitId: u.id,
         stt: idx + 1,
         systemUnitName: u.unit_name,
-        rawFoundText: '(Không tìm thấy trong tệp)',
+        rawFoundText: found ? found.rawFoundText : '(Không tìm thấy trong tệp)',
         detectedScore: null,
         matched: false,
         confidence: 0,
@@ -32851,7 +33003,7 @@ function renderAutoScorePreview(criterionId) {
         <button type="button" class="btn btn-sm btn-outline" onclick="selectAllAutoScoreRows(false)" style="font-size:11.5px; font-weight:700;">
           ✕ Bỏ chọn tất cả
         </button>
-        <button type="button" class="btn btn-sm btn-outline" onclick="fillZeroForUnmatched()" style="font-size:11.5px; font-weight:700; color:#b45309;" title="Gán 0 điểm cho các đơn vị không nộp bài hoặc không có tên trong file">
+        <button type="button" class="btn btn-sm btn-outline" onclick="fillZeroForUnmatched()" style="font-size:11.5px; font-weight:700; color:#b45309;" title="Gán 0 điểm cho các đơn vị không có tên trong file">
           ⚡ Điền 0 điểm cho đơn vị vắng
         </button>
       </div>
@@ -32885,7 +33037,7 @@ function renderAutoScorePreview(criterionId) {
                 <div style="font-weight:700; color:#0f172a; font-size:13px;">${escapeHtml(r.systemUnitName)}</div>
                 ${r.rawFoundText && r.matched ? `
                   <div style="font-size:11px; color:#64748b; margin-top:2px; display:flex; align-items:center; gap:4px;">
-                    <span style="color:#059669;">🔎 Đã quét:</span> <span style="font-style:italic;">"${escapeHtml(r.rawFoundText.slice(0, 75))}${r.rawFoundText.length > 75 ? '...' : ''}"</span>
+                    <span style="color:#059669;">🔎 Đã khớp:</span> <span style="font-style:italic;">"${escapeHtml(r.rawFoundText.slice(0, 75))}${r.rawFoundText.length > 75 ? '...' : ''}"</span>
                   </div>
                 ` : ''}
               </td>
@@ -32907,13 +33059,13 @@ function renderAutoScorePreview(criterionId) {
     </div>
   `;
 
-  // Render Footer action button
   footerActions.innerHTML = `
     <button type="button" class="btn btn-primary" onclick="executeSaveAutoScore(${criterionId})" style="font-weight:700; font-size:13.5px; padding:8px 22px; background:#0052cc; box-shadow:0 3px 8px rgba(0,82,204,0.3);">
       💾 Xác Nhận & Lưu Điểm Tự Động (${selectedList.length} đơn vị)
     </button>
   `;
 }
+
 
 window.toggleAutoScoreRow = function(unitId, isChecked) {
   const data = state._currentAutoScoreData;
