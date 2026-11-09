@@ -1981,87 +1981,51 @@ function getScoreObj(unitId, criterionId) {
 
 
 function getRankingMonthGroups() {
-
   const groups = [];
-
   const deletedKeys = state.deletedMonthKeys || [];
 
-  // 12 Tháng chuẩn năm 2026 (bỏ qua tháng đã xóa)
-
+  // 12 Tháng chuẩn năm 2026 (chỉ hiển thị những tháng chưa bị xóa)
   for (let m = 1; m <= 12; m++) {
-
     if (!deletedKeys.includes(String(m))) {
-
       const lbl = (state.monthLabels && state.monthLabels[String(m)]) || `Tháng ${m}`;
-
       groups.push({ key: m, label: lbl });
-
     }
-
   }
 
-  // Nhóm 13: Thường xuyên & Cuối năm
+  // Nhóm 13: Thường xuyên & Cuối năm (TUYỆT ĐỐI KHÔNG HIỂN THỊ NẾU ĐÃ BỊ XÓA)
+  if (!deletedKeys.includes('13')) {
+    const lbl13 = (state.monthLabels && state.monthLabels['13']) || 'Cuối năm / TX';
+    groups.push({ key: 13, label: lbl13 });
+  }
 
-  groups.push({ key: 13, label: 'Cuối năm / TX' });
-
-
-
-  // Nhóm chuyên đề chuẩn (14, 15, 16) nếu có tiêu chí
-
+  // Nhóm chuyên đề chuẩn (14, 15, 16) nếu có tiêu chí và chưa bị xóa
   const specialGroups = [
-
     { key: 14, label: 'Tháng TN (T3)' },
-
     { key: 15, label: 'Chiến dịch Hè' },
-
     { key: 16, label: 'Đợt 26/3' },
-
   ];
-
   specialGroups.forEach(sg => {
-
-    if (state.criteria.some(c => Number(c.month_group) === sg.key)) {
-
+    if (!deletedKeys.includes(String(sg.key)) && state.criteria.some(c => Number(c.month_group) === sg.key)) {
       groups.push(sg);
-
     }
-
   });
 
-
-
-  // Các nhóm kỳ hạn / tháng tự tạo của Admin (> 16)
-
+  // Các nhóm kỳ hạn / tháng tự tạo của Admin (> 16) mà CHƯA BỊ XÓA
   const knownKeys = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
-
   const customKeys = new Set();
-
   (state.criteria || []).forEach(c => {
-
     const k = Number(c.month_group);
-
-    if (!knownKeys.includes(k) && k > 0) customKeys.add(k);
-
+    if (!knownKeys.includes(k) && k > 0 && !deletedKeys.includes(String(k))) customKeys.add(k);
   });
-
   if (state.monthLabels) {
-
     Object.keys(state.monthLabels).forEach(k => {
-
       const numK = Number(k);
-
-      if (!knownKeys.includes(numK) && numK > 0) customKeys.add(numK);
-
+      if (!knownKeys.includes(numK) && numK > 0 && !deletedKeys.includes(String(k))) customKeys.add(numK);
     });
-
   }
-
   Array.from(customKeys).sort((a, b) => a - b).forEach(k => {
-
     const customLabel = (state.monthLabels && state.monthLabels[String(k)]) || `Kỳ ${k}`;
-
     groups.push({ key: k, label: customLabel });
-
   });
 
   // Di chuyển nhóm "Bộ tiêu chí sao (*)" lên ĐẦU TIÊN (trước Tháng 1)
@@ -2073,7 +2037,6 @@ function getRankingMonthGroups() {
   const otherGroups = groups.filter(g => !isStar(g));
 
   return [...starGroups, ...otherGroups];
-
 }
 
 
@@ -5840,42 +5803,33 @@ function renderUnitSubmitTab() {
 
 
 
+  const deletedKeys = state.deletedMonthKeys || [];
   const monthButtons = [
-
     { val: 0, label: 'Tất cả các tháng' },
-
   ];
 
   for (let m = 1; m <= 12; m++) {
-
-    const cnt = state.criteria.filter(c => Number(c.month_group) === m).length;
-
-    monthButtons.push({ val: m, label: `Tháng ${m}${cnt > 0 ? ` (${cnt})` : ''}` });
-
+    if (!deletedKeys.includes(String(m))) {
+      const lbl = (state.monthLabels && state.monthLabels[String(m)]) || `Tháng ${m}`;
+      const cnt = state.criteria.filter(c => Number(c.month_group) === m).length;
+      monthButtons.push({ val: m, label: `${lbl}${cnt > 0 ? ` (${cnt})` : ''}` });
+    }
   }
 
-  const cntTx = state.criteria.filter(c => Number(c.month_group) === 13).length;
-
-  monthButtons.push({ val: 13, label: `Thường xuyên & Cuối năm${cntTx > 0 ? ` (${cntTx})` : ''}` });
-
-
+  if (!deletedKeys.includes('13')) {
+    const lbl13 = (state.monthLabels && state.monthLabels['13']) || 'Thường xuyên & Cuối năm';
+    const cntTx = state.criteria.filter(c => Number(c.month_group) === 13).length;
+    monthButtons.push({ val: 13, label: `${lbl13}${cntTx > 0 ? ` (${cntTx})` : ''}` });
+  }
 
   if (state.monthLabels) {
-
     Object.entries(state.monthLabels).forEach(([k, v]) => {
-
       const numKey = Number(k);
-
-      if (numKey > 13) {
-
+      if (numKey > 13 && !deletedKeys.includes(String(k))) {
         const cnt = state.criteria.filter(c => Number(c.month_group) === numKey).length;
-
         monthButtons.push({ val: numKey, label: `${v}${cnt > 0 ? ` (${cnt})` : ''}` });
-
       }
-
     });
-
   }
 
 
@@ -10706,15 +10660,25 @@ function renderAdminCriteriaTab() {
 
           <option value="0" ${mf === 0 ? 'selected' : ''}>-- Tất cả các kỳ hạn / tháng (${state.criteria.length} tiêu chí) --</option>
 
-          ${[
-
-            ...Array.from({length: 12}, (_, i) => [String(i+1), `Tháng ${String(i+1).padStart(2, '0')}`]),
-
-            ['13', 'Thường xuyên & Cuối năm'],
-
-            ...Object.entries(state.monthLabels || {}).filter(([k]) => Number(k) > 13)
-
-          ].map(([k, v]) => {
+          ${(() => {
+            const delKeys = state.deletedMonthKeys || [];
+            const list = [];
+            for (let i = 1; i <= 12; i++) {
+              if (!delKeys.includes(String(i))) {
+                const lbl = (state.monthLabels && state.monthLabels[String(i)]) || `Tháng ${String(i).padStart(2, '0')}`;
+                list.push([String(i), lbl]);
+              }
+            }
+            if (!delKeys.includes('13')) {
+              list.push(['13', (state.monthLabels && state.monthLabels['13']) || 'Thường xuyên & Cuối năm']);
+            }
+            Object.entries(state.monthLabels || {}).forEach(([k, v]) => {
+              if (Number(k) > 13 && !delKeys.includes(String(k))) {
+                list.push([k, v]);
+              }
+            });
+            return list;
+          })().map(([k, v]) => {
 
             const count = state.criteria.filter(c => Number(c.month_group) === Number(k)).length;
 
@@ -11966,11 +11930,20 @@ window.saveNewCriterion = async function () {
     }
 
     if (monthVal === '__NEW_CUSTOM__' && customGroupName) {
-      const keys = Object.keys(db.month_labels).map(k => Number(k)).filter(n => !isNaN(n));
-      const nextKey = Math.max(16, ...(keys.length > 0 ? keys : [16])) + 1;
+      db.deleted_month_keys = Array.isArray(db.deleted_month_keys) ? db.deleted_month_keys : [];
+      const usedKeys = new Set([
+        ...Object.keys(db.month_labels).map(Number),
+        ...db.deleted_month_keys.map(Number),
+        ...(db.criteria || []).map(c => Number(c.month_group))
+      ]);
+      let nextKey = 21;
+      while (usedKeys.has(nextKey)) {
+        nextKey++;
+      }
       mGroup = nextKey;
       mLabel = customGroupName;
       db.month_labels[String(nextKey)] = customGroupName;
+      db.deleted_month_keys = db.deleted_month_keys.filter(k => String(k) !== String(nextKey));
     } else {
       mGroup = Number(monthVal);
       mLabel = db.month_labels[String(mGroup)] || defaultMonthLabels[String(mGroup)] || `Kỳ hạn ${mGroup}`;
@@ -13984,15 +13957,24 @@ window.createMonthGroupFromModal = async function () {
   showToast('Đang tạo nhóm mới...', 'info');
 
   const res = await mutateCloudDB((db) => {
-
     db.month_labels = db.month_labels || {};
+    db.deleted_month_keys = Array.isArray(db.deleted_month_keys) ? db.deleted_month_keys : [];
 
-    const keys = Object.keys(db.month_labels).map(k => Number(k)).filter(n => !isNaN(n));
+    // Tìm mã key mới hoàn toàn chưa dùng và không nằm trong deleted_month_keys
+    const usedKeys = new Set([
+      ...Object.keys(db.month_labels).map(Number),
+      ...db.deleted_month_keys.map(Number),
+      ...(db.criteria || []).map(c => Number(c.month_group))
+    ]);
 
-    const nextKey = Math.max(16, ...(keys.length > 0 ? keys : [16])) + 1;
+    let nextKey = 21;
+    while (usedKeys.has(nextKey)) {
+      nextKey++;
+    }
 
     db.month_labels[String(nextKey)] = name;
-
+    // Đảm bảo loại bỏ key này khỏi danh sách đã xóa nếu từng bị xóa
+    db.deleted_month_keys = db.deleted_month_keys.filter(k => String(k) !== String(nextKey));
   }, `Create month group ${name}`);
 
 
