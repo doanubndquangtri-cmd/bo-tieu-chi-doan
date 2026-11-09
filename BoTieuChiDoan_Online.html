@@ -11774,49 +11774,7 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
 
           <div class="form-group">
 
-            <label>Điểm tự kê khai theo tiêu chí (Tối đa ${crit.max_score} điểm):</label>
-
-            <input
-
-              type="number"
-
-              id="sub-score"
-
-              step="0.01"
-
-              min="${crit.min_score}"
-
-              max="${crit.max_score}"
-
-              value="${curScore}"
-
-            />
-
-          </div>
-
-
-
-          <div class="form-group">
-
-            <label>Nội dung báo cáo / Tóm tắt kết quả thực hiện:</label>
-
-            <textarea
-
-              id="sub-content"
-
-              rows="3"
-
-              placeholder="Nhập số báo cáo, ngày ban hành, số lượng đoàn viên tham gia hoặc tóm tắt kết quả..."
-
-            >${escapeHtml(sc ? sc.report_content : '')}</textarea>
-
-          </div>
-
-
-
-          <div class="form-group">
-
-            <label>Link minh chứng (Google Drive / Bài viết Fanpage / Cổng thông tin - nếu có):</label>
+            <label style="font-weight:700; color:#0f172a;">Link minh chứng tại trang Facebook “Đoàn TNCS Hồ Chí Minh UBND tỉnh Quảng Trị”:</label>
 
             <input
 
@@ -11824,7 +11782,7 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
 
               id="sub-link"
 
-              placeholder="https://..."
+              placeholder="https://www.facebook.com/... (Dán đường link bài viết minh chứng)"
 
               value="${escapeHtml(sc ? sc.evidence_link : '')}"
 
@@ -12180,7 +12138,9 @@ window.onSubQuantityChange = function (stepScore, maxScore) {
 
   const calc = Math.min(qty * stepScore, maxScore);
 
-  document.getElementById('sub-score').value = calc;
+  const scoreEl = document.getElementById('sub-score');
+
+  if (scoreEl) scoreEl.value = calc;
 
 };
 
@@ -12268,23 +12228,34 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
 
 
 
+  const scExisting = getScoreObj(unitId, criterionId);
+
   const qtyEl = document.getElementById('sub-quantity');
 
   const quantity = qtyEl ? Number(qtyEl.value || 1) : 1;
 
-  let requestedScore = Number(document.getElementById('sub-score').value || 0);
+  const isMulti = Number(crit.is_multi_step) === 1;
 
-  // Tự động chấm điểm tối đa cho Hoạt động / Phong trào nếu chưa điền điểm
+  const scoreEl = document.getElementById('sub-score');
 
-  if (isActivityCrit && (!requestedScore || requestedScore <= 0)) {
+  let requestedScore = scoreEl ? Number(scoreEl.value || 0) : 0;
 
-    requestedScore = Number(crit.max_score);
-
+  // Tự động cộng điểm đầy đủ theo tiêu chí (hoặc theo số lượng nhân bậc điểm)
+  if (!requestedScore || requestedScore <= 0) {
+    if (isMulti) {
+      requestedScore = Math.min(quantity * Number(crit.unit_step_score || 1), Number(crit.max_score || 5));
+    } else {
+      requestedScore = Number(crit.max_score || 5);
+    }
   }
 
-  const reportContent = document.getElementById('sub-content').value.trim();
+  const contentEl = document.getElementById('sub-content');
 
-  const evidenceLink = document.getElementById('sub-link').value.trim();
+  const reportContent = contentEl ? contentEl.value.trim() : (scExisting && scExisting.report_content ? scExisting.report_content : '');
+
+  const linkEl = document.getElementById('sub-link');
+
+  const evidenceLink = linkEl ? linkEl.value.trim() : (scExisting && scExisting.evidence_link ? scExisting.evidence_link : '');
 
 
 
@@ -13506,7 +13477,7 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
 
             <div class="form-group" style="margin-bottom:12px;">
 
-              <label style="font-weight:700; color:#0f172a;">🔗 Link minh chứng (Google Drive / Fanpage / Cổng thông tin):</label>
+              <label style="font-weight:700; color:#0f172a;">🔗 Link minh chứng tại trang Facebook “Đoàn TNCS Hồ Chí Minh UBND tỉnh Quảng Trị”:</label>
 
               ${
 
