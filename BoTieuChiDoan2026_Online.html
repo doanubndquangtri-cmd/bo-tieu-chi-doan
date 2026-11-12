@@ -19775,11 +19775,11 @@ function renderAdminDocsTab() {
 
                 <th style="width:105px; text-align:center;">Ngày ban hành</th>
 
-                <th style="width:26%; min-width:170px; max-width:300px;">Trích yếu nội dung văn bản</th>
+                <th style="min-width:320px;">Trích yếu nội dung văn bản</th>
 
-                <th style="width:115px; text-align:center;">Loại văn bản</th>
+                <th style="width:110px; text-align:center;">Loại văn bản</th>
 
-                <th style="min-width:280px; text-align:left; padding-left:12px;">Tệp đính kèm</th>
+                <th style="width:190px; text-align:left; padding-left:12px;">Tệp đính kèm</th>
 
                 <th style="width:160px; text-align:center;">Thao tác</th>
 
@@ -19819,24 +19819,19 @@ function renderAdminDocsTab() {
 
                   <td style="text-align:center;" class="doc-type-cell"><span class="badge badge-info">${escapeHtml(d.doc_type || 'Văn bản')}</span></td>
 
-                  <td style="text-align:left; padding:8px 12px;">
+                  <td style="text-align:left; padding:8px 12px; width:190px; max-width:210px;">
                     ${(() => {
                       const fileList = (d.files && Array.isArray(d.files) && d.files.length > 0)
                         ? d.files
                         : [{ name: d.file_name || 'Xem tệp', url: d.file_url || ADMIN_DOCS_GDRIVE_URL, download_url: d.download_url }];
                       return fileList.map(f => {
                         const fInfo = getFileIconAndBadge(f.name);
-                        const dlUrl = f.download_url || (f.url && f.url.includes('/file/d/') ? 'https://drive.google.com/uc?export=download&id=' + f.url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/)[1] : f.url);
                         return `
-                          <div style="margin-bottom:4px; display:flex; align-items:center; justify-content:space-between; gap:6px; background:#f8fafc; padding:3px 8px; border-radius:5px; border:1px solid #e2e8f0;">
-                            <a href="${escapeHtml(f.url || ADMIN_DOCS_GDRIVE_URL)}" target="_blank" style="font-weight:700; color:#0284c7; text-decoration:none; display:inline-flex; align-items:center; gap:5px; line-height:1.3; word-break:break-word; max-width:260px;" title="Bấm để xem trực tuyến">
+                          <div style="margin-bottom:4px; display:inline-flex; align-items:center; background:#f8fafc; padding:3px 8px; border-radius:5px; border:1px solid #e2e8f0; max-width:100%; box-sizing:border-box;">
+                            <a href="${escapeHtml(f.url || ADMIN_DOCS_GDRIVE_URL)}" target="_blank" style="font-weight:700; color:#0284c7; text-decoration:none; display:inline-flex; align-items:center; gap:5px; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:170px;" title="${escapeHtml(f.name)} (Bấm để xem trực tuyến)">
                               <span style="font-size:14px; flex-shrink:0;">${fInfo.icon}</span>
                               <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(f.name)}</span>
                             </a>
-                            <div style="display:inline-flex; gap:4px; flex-shrink:0;">
-                              <a href="${escapeHtml(f.url || ADMIN_DOCS_GDRIVE_URL)}" target="_blank" style="padding:1px 5px; font-size:11px; color:#0284c7; text-decoration:none; font-weight:700;" title="Xem trực tuyến">👁️</a>
-                              <a href="${escapeHtml(dlUrl)}" target="_blank" download="${escapeHtml(f.name)}" style="padding:1px 5px; font-size:11px; color:#16a34a; text-decoration:none; font-weight:700;" title="Tải về máy">⬇️</a>
-                            </div>
                           </div>
                         `;
                       }).join('');
