@@ -19497,10 +19497,10 @@ function renderFloatingChatWidget() {
               ${unreadPrivate > 0 ? `<span class="chat-badge" style="background:#ef4444; color:#fff; font-size:9px; font-weight:800; padding:0 4px; border-radius:8px; margin-left:1px;">${unreadPrivate}</span>` : ''}
             </button>
           ` : ''}
-          <button type="button" class="chat-tab-btn ai-tab ${state.chatTab === 'ai' ? 'active' : ''}" onclick="switchChatTab('ai')" style="width:100%; min-width:0; padding:6px 1px; font-size:11px; font-weight:700; text-align:center; white-space:nowrap; border-radius:6px; display:flex; align-items:center; justify-content:center; gap:2px; border:1px solid ${state.chatTab === 'ai' ? '#7c3aed' : '#cbd5e1'}; background:${state.chatTab === 'ai' ? '#7c3aed' : '#ffffff'}; color:${state.chatTab === 'ai' ? '#ffffff' : '#6d28d9'}; cursor:pointer; box-sizing:border-box; height:32px;" title="Hỏi Đáp Trí Tuệ Nhân Tạo Google Gemini (Trợ Lý AI Đoàn Khối)">
+          <button type="button" class="chat-tab-btn ai-tab ${state.chatTab === 'ai' ? 'active' : ''}" onclick="switchChatTab('ai')" style="width:100%; min-width:0; padding:6px 1px; font-size:11px; font-weight:700; text-align:center; white-space:nowrap; border-radius:6px; display:flex; align-items:center; justify-content:center; gap:2px; border:1px solid ${state.chatTab === 'ai' ? '#7c3aed' : '#cbd5e1'}; background:${state.chatTab === 'ai' ? '#7c3aed' : '#ffffff'}; color:${state.chatTab === 'ai' ? '#ffffff' : '#6d28d9'} !important; cursor:pointer; box-sizing:border-box; height:32px;" title="Hỏi Đáp Trí Tuệ Nhân Tạo Google Gemini (Trợ Lý AI Đoàn Khối)">
             <span>🤖</span>
-            <span class="tab-label-full">Hỏi Đáp AI</span>
-            <span class="tab-label-short">Hỏi AI</span>
+            <span class="tab-label-full" style="color:${state.chatTab === 'ai' ? '#ffffff' : '#6d28d9'} !important; font-weight:800; display:inline !important;">Hỏi Đáp AI</span>
+            <span class="tab-label-short" style="color:${state.chatTab === 'ai' ? '#ffffff' : '#6d28d9'} !important; font-weight:800;">Hỏi AI</span>
           </button>
           <button type="button" class="chat-tab-btn tts-tab ${state.chatTab === 'tts' ? 'active' : ''}" onclick="switchChatTab('tts')" style="width:100%; min-width:0; padding:6px 1px; font-size:11px; font-weight:700; text-align:center; white-space:nowrap; border-radius:6px; display:flex; align-items:center; justify-content:center; gap:2px; border:1px solid ${state.chatTab === 'tts' ? '#0284c7' : '#cbd5e1'}; background:${state.chatTab === 'tts' ? '#0284c7' : '#ffffff'}; color:${state.chatTab === 'tts' ? '#ffffff' : '#0369a1'}; cursor:pointer; box-sizing:border-box; height:32px;" title="Tạo Giọng Nói AI & Tải Về (AI Text-to-Speech Studio)">
             <span>🎙️</span>
@@ -21402,6 +21402,43 @@ window.askAiAssistant = async function(promptText) {
     scrollChatToBottom();
 
   }, 40);
+
+  // =========================================================================
+  // PHẢN HỒI SIÊU TỐC TỨC THÌ (TỐC ĐỘ < 0.35 GIÂY) CHO TRUY VẤN DỮ LIỆU THỰC
+  // Kiểm tra ngay trong cơ sở dữ liệu nội bộ: Tìm văn bản, thống kê, tiêu chí, điểm số, hạn nộp
+  // =========================================================================
+  const pLow = cleanPrompt.toLowerCase();
+  const isDirectDataQuery = (
+    pLow.includes('tìm') || pLow.includes('văn bản') || pLow.includes('tài liệu') ||
+    pLow.includes('kiểm điểm') || pLow.includes('bao nhiêu') || pLow.includes('tiêu chí') ||
+    pLow.includes('hạn nộp') || pLow.includes('đứng thứ') || pLow.includes('xếp hạng') ||
+    pLow.includes('bảng điểm') || pLow.includes('thiếu minh chứng') || pLow.includes('chưa nộp') ||
+    pLow.includes('đưa file') || pLow.includes('gửi file') || pLow.includes('kế hoạch') ||
+    pLow.includes('hướng dẫn') || pLow.includes('báo cáo')
+  );
+
+  if (isDirectDataQuery && typeof generateAiAssistantResponse === 'function') {
+    const instantReply = generateAiAssistantResponse(cleanPrompt);
+    // Nếu có câu trả lời tra cứu chuyên sâu từ cơ sở dữ liệu thực (không phải câu fallback chung chung)
+    if (instantReply && !instantReply.startsWith('🤖 Chào đồng chí! Về nội dung "')) {
+      setTimeout(() => {
+        state.aiIsTyping = false;
+        const aiMsg = {
+          sender: 'ai',
+          text: instantReply,
+          time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+        };
+        state.aiChatHistory.push(aiMsg);
+        if (typeof saveAiChatHistoryForActiveUser === 'function') {
+          saveAiChatHistoryForActiveUser(state.aiChatHistory);
+        }
+        if (window.playNotificationChime) window.playNotificationChime();
+        renderApp();
+        setTimeout(scrollChatToBottom, 40);
+      }, 350); // Phản hồi lập tức sau 350ms, không cần chờ mạng!
+      return;
+    }
+  }
 
 
 
