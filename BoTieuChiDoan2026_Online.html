@@ -5658,6 +5658,124 @@ window.addEventListener('resize', updateMasterHeaderTops);
 
 
 
+
+function getCriterionDeadlineEndDate(deadlineStr) {
+  if (!deadlineStr) return null;
+  const str = String(deadlineStr).trim();
+  let year, month, day;
+  if (str.includes('-')) {
+    const parts = str.split('T')[0].split(' ')[0].split('-');
+    year = parseInt(parts[0], 10);
+    month = parseInt(parts[1], 10);
+    day = parseInt(parts[2], 10);
+  } else if (str.includes('/')) {
+    const parts = str.split(' ')[0].split('/');
+    if (parts[0].length === 4) {
+      year = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10);
+      day = parseInt(parts[2], 10);
+    } else {
+      day = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10);
+      year = parseInt(parts[2], 10);
+    }
+  } else {
+    const d = new Date(deadlineStr);
+    if (isNaN(d.getTime())) return null;
+    year = d.getFullYear();
+    month = d.getMonth() + 1;
+    day = d.getDate();
+  }
+  if (!year || !month || !day) return null;
+  // Mốc hạn nộp chốt là 0h00 ngày hôm sau (Ví dụ hạn 15/11/2026 thì mốc kết thúc là 0h00 ngày 16/11/2026)
+  return new Date(year, month - 1, day + 1, 0, 0, 0, 0);
+}
+
+function renderCriterionDeadlineBadge(deadlineStr) {
+  const endDate = getCriterionDeadlineEndDate(deadlineStr);
+  if (!endDate) {
+    return '<span style="color:#94a3b8; font-style:italic;">—</span>';
+  }
+  const endTs = endDate.getTime();
+  const now = Date.now();
+  const diff = endTs - now;
+
+  let content = '';
+  let isGreen = true;
+  let isTimer = false;
+
+  if (diff > 0) {
+    isGreen = true;
+    if (diff <= 86400000) {
+      // Còn <= 1 ngày: Tự động chạy giờ, phút, giây đếm ngược về 0
+      isTimer = true;
+      const totalSec = Math.floor(diff / 1000);
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      const pad = (n) => String(n).padStart(2, '0');
+      content = '⏱️ Còn ' + pad(h) + ':' + pad(m) + ':' + pad(s);
+    } else {
+      const days = Math.ceil(diff / 86400000);
+      content = '🟢 Còn ' + days + ' ngày';
+    }
+  } else {
+    isGreen = false;
+    const overdueMs = Math.abs(diff);
+    const overdueDays = Math.floor(overdueMs / 86400000) + 1;
+    content = '🔴 Đã quá ' + overdueDays + ' ngày';
+  }
+
+  const badgeStyle = isGreen
+    ? ('background:#ecfdf5; color:#15803d; border:1px solid ' + (isTimer ? '#22c55e' : '#86efac') + '; font-weight:' + (isTimer ? '800' : '700') + '; font-size:12px; padding:3px 8px; border-radius:5px; white-space:nowrap; display:inline-flex; align-items:center; gap:3px; font-variant-numeric:tabular-nums;')
+    : 'background:#fef2f2; color:#b91c1c; border:1px solid #fca5a5; font-weight:700; font-size:12px; padding:3px 8px; border-radius:5px; white-space:nowrap; display:inline-flex; align-items:center; gap:3px;';
+
+  return '<span class="criterion-deadline-badge" data-deadline-end="' + endTs + '" style="' + badgeStyle + '">' + escapeHtml(content) + '</span>';
+}
+
+function updateLiveDeadlineCountdowns() {
+  const elements = document.querySelectorAll('.criterion-deadline-badge');
+  if (!elements || elements.length === 0) return;
+  const now = Date.now();
+
+  elements.forEach((el) => {
+    const endTs = Number(el.getAttribute('data-deadline-end'));
+    if (!endTs || isNaN(endTs)) return;
+    const diff = endTs - now;
+
+    if (diff > 0) {
+      if (diff <= 86400000) {
+        // Còn <= 1 ngày: đếm ngược Giờ, Phút, Giây về 0
+        const totalSec = Math.floor(diff / 1000);
+        const h = Math.floor(totalSec / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
+        const s = totalSec % 60;
+        const pad = (n) => String(n).padStart(2, '0');
+        el.textContent = '⏱️ Còn ' + pad(h) + ':' + pad(m) + ':' + pad(s);
+        el.style.background = '#ecfdf5';
+        el.style.color = '#15803d';
+        el.style.borderColor = '#22c55e';
+        el.style.fontWeight = '800';
+      } else {
+        const days = Math.ceil(diff / 86400000);
+        el.textContent = '🟢 Còn ' + days + ' ngày';
+        el.style.background = '#ecfdf5';
+        el.style.color = '#15803d';
+        el.style.borderColor = '#86efac';
+        el.style.fontWeight = '700';
+      }
+    } else {
+      const overdueMs = Math.abs(diff);
+      const overdueDays = Math.floor(overdueMs / 86400000) + 1;
+      el.textContent = '🔴 Đã quá ' + overdueDays + ' ngày';
+      el.style.background = '#fef2f2';
+      el.style.color = '#b91c1c';
+      el.style.borderColor = '#fca5a5';
+      el.style.fontWeight = '700';
+    }
+  });
+}
+
 function startRealtimeClock() {
 
   if (window._clockInterval) return;
@@ -5673,6 +5791,11 @@ function startRealtimeClock() {
     const loginClock = document.getElementById('login-realtime-clock');
 
     if (loginClock) loginClock.textContent = timeStr;
+
+    // Cập nhật bộ đếm ngược Thời hạn thời gian thực từng giây
+    if (typeof updateLiveDeadlineCountdowns === 'function') {
+      updateLiveDeadlineCountdowns();
+    }
 
   }, 1000);
 
@@ -10895,6 +11018,8 @@ function renderUnitSubmitTab() {
 
               <th style="width:145px; text-align:center; position:sticky; top:0; z-index:20; background:#f1f5f9;">Trạng thái hạn</th>
 
+              <th style="width:135px; text-align:center; position:sticky; top:0; z-index:20; background:#f1f5f9;">Thời hạn</th>
+
               <th style="width:90px; text-align:center; position:sticky; top:0; z-index:20; background:#f1f5f9;">Điểm đạt</th>
 
               <th style="width:130px; text-align:center; position:sticky; top:0; z-index:20; background:#f1f5f9;">Thao tác</th>
@@ -11046,6 +11171,12 @@ function renderUnitSubmitTab() {
                             : `<span class="badge ${st.badgeClass}">${st.label}</span>`)
 
                     }
+
+                  </td>
+
+                  <td style="text-align:center; white-space:nowrap;">
+
+                    ${renderCriterionDeadlineBadge(c.deadline)}
 
                   </td>
 
@@ -11270,6 +11401,12 @@ function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rank
               <div class="meta-item">
                 <span class="meta-label">⏰ Hạn nộp chót:</span>
                 <b class="meta-value deadline-val">${formatDateVN(c.deadline)}</b>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">⏳ Thời hạn:</span>
+                <div style="margin-top:2px;">
+                  ${renderCriterionDeadlineBadge(c.deadline)}
+                </div>
               </div>
               <div class="meta-item">
                 <span class="meta-label">🟢 Ngày mở nộp:</span>
