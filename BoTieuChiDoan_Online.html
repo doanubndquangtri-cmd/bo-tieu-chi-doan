@@ -6870,6 +6870,31 @@ window.syncFromCloudNow = async function (silent = false) {
     ingestCloudDB(db);
 
     if (changed || !silent || hasNewMsgs) {
+      if (silent) {
+        // A. Tuyệt đối không re-render nếu có bất kỳ modal nào đang mở
+        const modalRoot = document.getElementById('modal-root');
+        if (modalRoot && modalRoot.children.length > 0) {
+          return;
+        }
+
+        // B. Tuyệt đối không re-render nếu đang ở tab 'admin_docs' và có dữ liệu đang soạn thảo hoặc tệp đã chọn
+        if (state.activeTab === 'admin_docs') {
+          const docTitle = document.getElementById('admin-doc-title');
+          const docNum = document.getElementById('admin-doc-number');
+          const hasFiles = window._adminDocChosenFiles && window._adminDocChosenFiles.length > 0;
+          const hasTyped = (docTitle && docTitle.value.trim() !== '') || (docNum && docNum.value.trim() !== '');
+          if (hasFiles || hasTyped) {
+            return; // Đang trong quy trình soạn thảo/chọn tệp: KHÔNG làm mới cho đến khi đăng tải xong hoặc tắt/chuyển tab!
+          }
+        }
+
+        // C. Tuyệt đối không re-render nếu con trỏ chuột đang focus vào bất kỳ thẻ input, textarea, select nào
+        const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
+        if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT')) {
+          return;
+        }
+      }
+
       // Bảo toàn chính xác con trỏ & văn bản đang gõ (không bao giờ bị mất chữ hay mất tiêu điểm)
       const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
       const activeId = activeEl ? activeEl.id : null;
@@ -9988,7 +10013,7 @@ function renderMiniDashboard() {
 
 
 function renderMasterTableTab() {
-  const isAdmin = (state.user && state.user.role === 'admin') || Boolean(state.isAdminSession) || localStorage.getItem('doan2026_admin_authenticated') === '1';
+  const isAdmin = Boolean(state.user && state.user.role === 'admin');
   const filteredCriteria = getFilteredCriteria();
   const filteredUnits = getFilteredUnits();
 
@@ -10391,6 +10416,10 @@ window.onSortByChange = function (val) {
 
 
 window.onAdminInlineScoreChange = async function (inputEl) {
+  if (!state.user || state.user.role !== 'admin') {
+    showToast('Chỉ Quản trị viên (Admin) mới có quyền sửa điểm!', 'error');
+    return;
+  }
   const unitId = Number(inputEl.getAttribute('data-unit'));
   const critId = Number(inputEl.getAttribute('data-crit'));
   const crit = (state.criteria || []).find(c => c.id === critId);
@@ -10636,7 +10665,7 @@ window.handleLoadSampleScores = async function () {
 
 function renderUnitSubmitTab() {
 
-  const isAdmin = (state.user && state.user.role === 'admin') || Boolean(state.isAdminSession) || localStorage.getItem('doan2026_admin_authenticated') === '1';
+  const isAdmin = Boolean(state.user && state.user.role === 'admin');
 
   const unit = state.user;
 
@@ -11125,7 +11154,7 @@ window.setMobileUnitSubmitViewMode = function (mode) {
 };
 
 function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rankings, monthButtons, monthFilter, isAdmin = null) {
-  const isAdminUser = isAdmin !== null ? isAdmin : ((state.user && state.user.role === 'admin') || Boolean(state.isAdminSession) || localStorage.getItem('doan2026_admin_authenticated') === '1');
+  const isAdminUser = isAdmin !== null ? isAdmin : (Boolean(state.user && state.user.role === 'admin'));
   return `
     <div class="mobile-view-toggle-bar">
       <button class="mobile-toggle-btn active" onclick="setMobileUnitSubmitViewMode('cards')">
@@ -11538,7 +11567,7 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
 
 
 
-  const isAdmin = (state.user && state.user.role === 'admin') || Boolean(state.isAdminSession) || localStorage.getItem('doan2026_admin_authenticated') === '1';
+  const isAdmin = Boolean(state.user && state.user.role === 'admin');
 
   const isAdminScore = Number(crit.is_report) === 2;
 
@@ -14232,6 +14261,10 @@ window.saveAdminSubmissionDetail = async function (unitId, critId) {
    ========================================================================= */
 
 window.openBatchFillModal = function (criterionId) {
+  if (!state.user || state.user.role !== 'admin') {
+    showToast('Chỉ Quản trị viên (Admin) mới có quyền thực hiện thao tác này!', 'error');
+    return;
+  }
 
   const crit = state.criteria.find((c) => c.id === criterionId);
 
@@ -14363,7 +14396,7 @@ window.executeBatchFillColumn = async function (criterionId) {
    ========================================================================= */
 
 function renderReportsMatrixTableComponent(targetCriteria, allCriteria, reportCriteria, activityCriteria, adminCriteria, activeUnits) {
-  const isAdmin = (state.user && state.user.role === 'admin') || Boolean(state.isAdminSession) || localStorage.getItem('doan2026_admin_authenticated') === '1';
+  const isAdmin = Boolean(state.user && state.user.role === 'admin');
   return `
     <div class="panel reports-table-panel fullscreen-table-panel" style="display:flex; flex-direction:column; min-height:540px; flex:1 1 auto; margin-bottom:4px; border-radius:6px; border:1px solid #cbd5e1; overflow:hidden;">
       <div class="panel-header" style="flex-wrap:wrap; gap:8px; padding:6px 12px; flex-shrink:0;">
@@ -19607,6 +19640,11 @@ function renderAdminDocsTab() {
 
   const docs = uniqueDocs;
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+  const draft = window._adminDocDraft || {};
+  const draftNum = draft.docNumber !== undefined ? draft.docNumber : '';
+  const draftDate = draft.docDate || todayISO();
+  const draftType = draft.docType || 'Hướng dẫn';
+  const draftTitle = draft.title !== undefined ? draft.title : '';
   setTimeout(() => { if (typeof window.renderAdminDocChosenFiles === 'function') window.renderAdminDocChosenFiles(); }, 50);
 
   return `
@@ -19639,7 +19677,7 @@ function renderAdminDocsTab() {
 
               <label style="font-size:12px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Số / Ký hiệu văn bản:</label>
 
-              <input type="text" id="admin-doc-number" placeholder="VD: 15-HD/ĐTN, 02-KH/ĐTN..." style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;" />
+              <input type="text" id="admin-doc-number" placeholder="VD: 15-HD/ĐTN, 02-KH/ĐTN..." value="${escapeHtml(draftNum)}" oninput="window._adminDocDraft=window._adminDocDraft||{};window._adminDocDraft.docNumber=this.value;" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;" />
 
             </div>
 
@@ -19647,7 +19685,7 @@ function renderAdminDocsTab() {
 
               <label style="font-size:12px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Ngày ban hành:</label>
 
-              <input type="date" id="admin-doc-date" value="${todayISO()}" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;" />
+              <input type="date" id="admin-doc-date" value="${escapeHtml(draftDate)}" oninput="window._adminDocDraft=window._adminDocDraft||{};window._adminDocDraft.docDate=this.value;" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;" />
 
             </div>
 
@@ -19655,21 +19693,21 @@ function renderAdminDocsTab() {
 
               <label style="font-size:12px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Loại văn bản:</label>
 
-              <select id="admin-doc-type" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+              <select id="admin-doc-type" onchange="window._adminDocDraft=window._adminDocDraft||{};window._adminDocDraft.docType=this.value;" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
 
-                <option value="Hướng dẫn">Hướng dẫn</option>
+                <option value="Hướng dẫn" ${draftType === 'Hướng dẫn' ? 'selected' : ''}>Hướng dẫn</option>
 
-                <option value="Kế hoạch">Kế hoạch</option>
+                <option value="Kế hoạch" ${draftType === 'Kế hoạch' ? 'selected' : ''}>Kế hoạch</option>
 
-                <option value="Báo cáo">Báo cáo</option>
+                <option value="Báo cáo" ${draftType === 'Báo cáo' ? 'selected' : ''}>Báo cáo</option>
 
-                <option value="Thông báo">Thông báo</option>
+                <option value="Thông báo" ${draftType === 'Thông báo' ? 'selected' : ''}>Thông báo</option>
 
-                <option value="Quyết định">Quyết định</option>
+                <option value="Quyết định" ${draftType === 'Quyết định' ? 'selected' : ''}>Quyết định</option>
 
-                <option value="Công văn">Công văn</option>
+                <option value="Công văn" ${draftType === 'Công văn' ? 'selected' : ''}>Công văn</option>
 
-                <option value="Tài liệu khác">Tài liệu khác</option>
+                <option value="Tài liệu khác" ${draftType === 'Tài liệu khác' ? 'selected' : ''}>Tài liệu khác</option>
 
               </select>
 
@@ -19681,7 +19719,7 @@ function renderAdminDocsTab() {
 
             <label style="font-size:12px; font-weight:700; color:#475569; display:block; margin-bottom:4px;">Trích yếu / Tên nội dung văn bản (*):</label>
 
-            <input type="text" id="admin-doc-title" placeholder="VD: Hướng dẫn thực hiện Bộ tiêu chí đánh giá công tác Đoàn năm 2026..." style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;" />
+            <input type="text" id="admin-doc-title" placeholder="VD: Hướng dẫn thực hiện Bộ tiêu chí đánh giá công tác Đoàn năm 2026..." value="${escapeHtml(draftTitle)}" oninput="window._adminDocDraft=window._adminDocDraft||{};window._adminDocDraft.title=this.value;" style="width:100%; padding:8px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;" />
 
           </div>
 
@@ -19705,6 +19743,9 @@ function renderAdminDocsTab() {
             </div>
             <button class="btn btn-primary" id="btn-upload-admin-doc" onclick="uploadAdminDocument()" style="font-weight:700; padding:9px 20px; display:inline-flex; align-items:center; gap:6px; background:#0284c7; border-color:#0284c7;">
               🚀 Đăng Tải Lên Google Drive
+            </button>
+            <button type="button" class="btn btn-outline" onclick="window._adminDocDraft={};window._adminDocChosenFiles=[];if(typeof window.renderAdminDocChosenFiles==='function')window.renderAdminDocChosenFiles();renderApp();" style="font-weight:700; padding:9px 16px; color:#64748b; border-color:#cbd5e1; margin-left:8px;" title="Xóa nội dung đang soạn và các tệp đính kèm đã chọn">
+              🔄 Đặt lại form
             </button>
           </div>
 
@@ -20079,6 +20120,7 @@ window.uploadAdminDocument = async function () {
       // Reset form sạch sẽ để Admin có thể tiếp tục thêm văn bản khác ngay lập tức
       if (titleInput) titleInput.value = '';
       if (numberInput) numberInput.value = '';
+      window._adminDocDraft = {};
       window._adminDocChosenFiles = [];
       if (typeof window.renderAdminDocChosenFiles === 'function') window.renderAdminDocChosenFiles();
 
@@ -32257,6 +32299,10 @@ function parseScoreFromText(text) {
 }
 
 window.openAutoScoreModal = function(criterionId) {
+  if (!state.user || state.user.role !== 'admin') {
+    showToast('Chỉ Quản trị viên (Admin) mới có quyền thực hiện thao tác này!', 'error');
+    return;
+  }
   const crit = (state.criteria || []).find(c => c.id === criterionId);
   if (!crit) {
     showToast('Không tìm thấy thông tin tiêu chí!', 'error');
