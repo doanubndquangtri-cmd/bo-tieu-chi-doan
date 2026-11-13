@@ -25161,6 +25161,184 @@ window.generateAiAssistantResponse = function(promptText) {
 
   const unitName = unit ? unit.unit_name : 'Chi đoàn cơ sở';
 
+  // =========================================================================
+  // CÂU HỎI VỀ HỆ THỐNG VĂN BẢN & TÀI LIỆU CHỈ ĐẠO (state.admin_docs)
+  // Truy xuất, tìm kiếm theo từ khóa (kiểm điểm, báo cáo, kế hoạch...) hoặc thống kê số lượng văn bản
+  // =========================================================================
+  const allDocs = state.admin_docs || [];
+
+  // A. Thống kê số lượng văn bản (ví dụ: "có bao nhiêu văn bản báo cáo", "bao nhiêu kế hoạch", "có bao nhiêu văn bản")
+  if (p.includes('bao nhiêu văn bản') || p.includes('mấy văn bản') || p.includes('số lượng văn bản') || p.includes('thống kê văn bản') || p.includes('danh sách văn bản') || (p.includes('bao nhiêu') && (p.includes('báo cáo') || p.includes('kế hoạch') || p.includes('hướng dẫn')) && p.includes('văn bản'))) {
+    const docStats = {};
+    allDocs.forEach(d => {
+      const t = d.doc_type || 'Tài liệu khác';
+      docStats[t] = (docStats[t] || 0) + 1;
+    });
+
+    // Nếu hỏi cụ thể về một loại văn bản:
+    let specificType = null;
+    if (p.includes('báo cáo')) specificType = 'Báo cáo';
+    else if (p.includes('kế hoạch')) specificType = 'Kế hoạch';
+    else if (p.includes('hướng dẫn')) specificType = 'Hướng dẫn';
+    else if (p.includes('thông báo')) specificType = 'Thông báo';
+    else if (p.includes('quyết định')) specificType = 'Quyết định';
+    else if (p.includes('công văn')) specificType = 'Công văn';
+
+    if (specificType) {
+      const filtered = allDocs.filter(d => (d.doc_type || '').toLowerCase() === specificType.toLowerCase());
+      const count = filtered.length;
+      let listStr = '';
+      if (filtered.length > 0) {
+        listStr = filtered.map((d, i) => {
+          const fileLink = d.file_url || d.download_url || '';
+          const linkStr = fileLink ? ` [📄 ${d.file_name || 'Xem / Tải file'}](${fileLink})` : (d.file_name ? ` (Tệp: ${d.file_name})` : '');
+          return `${i + 1}. **${d.doc_number || 'Chưa số'}** (${formatDateVN(d.doc_date || d.created_at)}): ${d.title}${linkStr}`;
+        }).join('\n\n');
+      }
+
+      return `📂 **THỐNG KÊ VĂN BẢN LOẠI "${specificType.toUpperCase()}":**\n\n` +
+        `Hiện tại trong **Hệ thống Văn bản & Chỉ đạo**, Ban Thường vụ đã ban hành tổng cộng **${count} văn bản ${specificType.toLowerCase()}**:\n\n` +
+        (listStr || '*(Chưa có văn bản nào thuộc loại này)*') +
+        `\n\n💡 *Tổng số toàn bộ văn bản trong hệ thống hiện có:* **${allDocs.length} văn bản**. Đồng chí có thể bấm trực tiếp vào liên kết tệp để tải hoặc xem tài liệu!`;
+    }
+
+    // Thống kê tổng quan tất cả các loại văn bản
+    const statLines = Object.keys(docStats).map(k => `• **${k}:** **${docStats[k]}** văn bản`).join('\n');
+    return `📂 **THỐNG KÊ HỆ THỐNG VĂN BẢN & CHỈ ĐẠO ĐOÀN CẤP TRÊN:**\n\n` +
+      `Toàn bộ hệ thống hiện có **${allDocs.length} văn bản & tài liệu chỉ đạo** chính thức, được phân loại cụ thể như sau:\n\n` +
+      `${statLines}\n\n` +
+      `💡 Đồng chí có thể yêu cầu tôi tìm kiếm văn bản theo nội dung cụ thể (Ví dụ: *"tìm văn bản về kiểm điểm"*, *"văn bản tình nguyện mùa đông"*...) để tôi gửi kèm tệp tải về ngay nhé!`;
+  }
+
+  // B. Tìm kiếm văn bản theo từ khóa nội dung (ví dụ: "tìm văn bản kiểm điểm", "văn bản về...", "đưa file", "file kiểm điểm"...)
+  if (p.includes('tìm') && (p.includes('văn bản') || p.includes('tài liệu') || p.includes('kế hoạch') || p.includes('hướng dẫn') || p.includes('file')) ||
+      p.includes('kiểm điểm') || p.includes('văn bản về') || p.includes('đưa file') || p.includes('tài liệu về') || p.includes('cho tôi file') || p.includes('gửi file') || p.includes('có văn bản nào')) {
+    
+    // Trích xuất các từ khóa tìm kiếm nổi bật
+    let searchTerms = [];
+    if (p.includes('kiểm điểm')) searchTerms.push('kiểm điểm', 'kiem diem');
+    if (p.includes('tuyên truyền')) searchTerms.push('tuyên truyền', 'tuyen truyen');
+    if (p.includes('tình nguyện') || p.includes('mùa đông') || p.includes('xuân tình nguyện')) searchTerms.push('tình nguyện', 'mùa đông', 'xuân');
+    if (p.includes('chỉ thị 07') || p.includes('chỉ thị')) searchTerms.push('chỉ thị', '07');
+    if (p.includes('tổng kết')) searchTerms.push('tổng kết');
+    if (p.includes('nông thôn mới') || p.includes('chuyển đổi số')) searchTerms.push('nông thôn mới', 'chuyển đổi số');
+    if (p.includes('đoàn viên')) searchTerms.push('đoàn viên');
+    if (p.includes('đánh giá') || p.includes('xếp loại')) searchTerms.push('đánh giá', 'xếp loại');
+
+    // Nếu không khớp từ khóa chuyên biệt, lấy chuỗi từ sau "về", "tìm", "văn bản"
+    if (searchTerms.length === 0) {
+      const cleanQ = p.replace(/tìm|tôi|văn bản|nội dung|về|trong|hệ thống|đưa|file|cho|biết|có|tài liệu|không|\?/g, ' ').trim();
+      if (cleanQ.length >= 2) searchTerms.push(cleanQ);
+    }
+
+    const matchedDocs = allDocs.filter(d => {
+      const fullText = `${d.doc_number || ''} ${d.title || ''} ${d.doc_type || ''} ${d.file_name || ''}`.toLowerCase();
+      return searchTerms.some(term => fullText.includes(term.toLowerCase()));
+    });
+
+    if (matchedDocs.length > 0) {
+      const docList = matchedDocs.map((d, i) => {
+        const fileLink = d.file_url || d.download_url || '';
+        const linkStr = fileLink ? ` [📄 ${d.file_name || 'Bấm Xem / Tải Tệp Về'}](${fileLink})` : (d.file_name ? ` (Tệp: ${d.file_name})` : '');
+        return `### ${i + 1}. ${d.title}\n` +
+          `- **Số / Ký hiệu:** **${d.doc_number || 'Chưa số'}**\n` +
+          `- **Ngày ban hành:** ${formatDateVN(d.doc_date || d.created_at)} | **Loại:** ${d.doc_type || 'Văn bản'}\n` +
+          `- **Tệp văn bản đính kèm:** ${linkStr}`;
+      }).join('\n\n');
+
+      return `📄 **KẾT QUẢ TÌM KIẾM VĂN BẢN TRONG HỆ THỐNG:**\n\n` +
+        `Tôi đã tìm thấy **${matchedDocs.length} văn bản** liên quan đến yêu cầu của đồng chí:\n\n` +
+        `${docList}\n\n` +
+        `💡 Đồng chí có thể bấm trực tiếp vào tên tệp có biểu tượng 📄 ở trên để mở hoặc tải văn bản về máy tính/điện thoại ngay!`;
+    } else if (p.includes('kiểm điểm') || p.includes('tìm')) {
+      return `📄 **KẾT QUẢ TÌM KIẾM VĂN BẢN:**\n\n` +
+        `Hiện tại trong **Hệ thống Văn bản & Chỉ đạo** (gồm ${allDocs.length} văn bản), chưa có văn bản nào có tiêu đề chứa chính xác cụm từ tìm kiếm.\n\n` +
+        `💡 Đồng chí có thể vào tab **"📂 Hệ Thống Văn Bản"** để xem toàn bộ danh sách hoặc thử tìm với các từ khóa phổ biến như: *Kế hoạch, Hướng dẫn, Báo cáo, Đánh giá xếp loại, Tuyên truyền...*`;
+    }
+  }
+
+  // =========================================================================
+  // CÂU HỎI VỀ BỘ TIÊU CHÍ THI ĐUA (state.criteria)
+  // Truy xuất số lượng tiêu chí, hạn nộp, thời gian nộp, quy định điểm, trạng thái
+  // =========================================================================
+  const allCriteria = state.criteria || [];
+
+  // A. Thống kê số lượng tiêu chí (ví dụ: "có bao nhiêu tiêu chí", "bao nhiêu tiêu chí báo cáo", "thống kê tiêu chí")
+  if (p.includes('bao nhiêu tiêu chí') || p.includes('mấy tiêu chí') || p.includes('số lượng tiêu chí') || p.includes('thống kê tiêu chí') || (p.includes('bao nhiêu') && p.includes('tiêu chí'))) {
+    const repCnt = allCriteria.filter(c => Number(c.is_report) === 1).length;
+    const actCnt = allCriteria.filter(c => Number(c.is_report) === 0).length;
+    const admCnt = allCriteria.filter(c => Number(c.is_report) === 2).length;
+    const blankCnt = allCriteria.filter(c => Number(c.is_report) === 3).length;
+
+    // Đếm tiêu chí còn hạn và quá hạn
+    const nowTs = Date.now();
+    let openCnt = 0;
+    let expiredCnt = 0;
+    allCriteria.forEach(c => {
+      const endD = typeof getCriterionDeadlineEndDate === 'function' ? getCriterionDeadlineEndDate(c.deadline) : null;
+      if (endD) {
+        if (endD.getTime() > nowTs) openCnt++;
+        else expiredCnt++;
+      }
+    });
+
+    return `📋 **THỐNG KÊ BỘ TIÊU CHÍ THI ĐUA TOÀN HỆ THỐNG:**\n\n` +
+      `Bộ Tiêu chí đánh giá công tác Đoàn năm 2026 hiện có tổng cộng **${allCriteria.length} tiêu chí**, được phân loại chi tiết như sau:\n\n` +
+      `• **Báo cáo định kỳ:** **${repCnt}** tiêu chí (cơ sở Đoàn nộp báo cáo minh chứng trực tiếp).\n` +
+      `• **Hoạt động / Phong trào:** **${actCnt}** tiêu chí (tự động tính điểm thi đua).\n` +
+      `• **Admin tự chấm điểm:** **${admCnt}** tiêu chí (Ban Thường vụ trực tiếp đánh giá và chấm điểm).\n` +
+      `• **Triển khai theo nội dung / ghi chú:** **${blankCnt}** tiêu chí.\n\n` +
+      `⏱️ **Về tiến độ thời hạn:**\n` +
+      `- **Còn trong thời hạn nộp:** **${openCnt}** tiêu chí.\n` +
+      `- **Đã kết thúc / quá hạn nộp:** **${expiredCnt}** tiêu chí (mốc hạn nộp chốt là 0h00 ngày hôm sau).\n\n` +
+      `💡 Đồng chí có thể hỏi chi tiết tiêu chí của từng tháng (ví dụ: *"tiêu chí tháng 11 gồm những gì"*, *"hạn nộp tiêu chí Cột 1"*...) để tôi giải đáp ngay nhé!`;
+  }
+
+  // B. Tra cứu tiêu chí theo tháng hoặc theo từ khóa (ví dụ: "tiêu chí tháng 11", "tiêu chí kiểm điểm", "hạn nộp tiêu chí...")
+  if ((p.includes('tiêu chí') && (p.includes('tháng') || p.includes('kỳ') || p.includes('hạn') || p.includes('điểm') || p.includes('nộp'))) || p.includes('hạn nộp')) {
+    // Kiểm tra xem có nhắc đến tháng cụ thể không (Tháng 1..12)
+    const mMatch = p.match(/tháng\s*(\d+)/i);
+    let matchedCrits = [];
+
+    if (mMatch && mMatch[1]) {
+      const mNum = parseInt(mMatch[1], 10);
+      matchedCrits = allCriteria.filter(c => Number(c.month_group) === mNum || (c.month_label && c.month_label.toLowerCase().includes(`tháng ${mNum}`)));
+    } else {
+      // Tìm theo từ khóa trong tiêu đề tiêu chí
+      const cleanK = p.replace(/tiêu chí|bộ tiêu chí|cho tôi|biết|hạn nộp|thời gian|điểm|nộp|của|trong|về|gồm|những|gì|\?/g, ' ').trim();
+      if (cleanK.length >= 2) {
+        matchedCrits = allCriteria.filter(c => (c.title || '').toLowerCase().includes(cleanK) || (c.col_label || '').toLowerCase().includes(cleanK));
+      }
+    }
+
+    if (matchedCrits.length > 0) {
+      const critList = matchedCrits.slice(0, 10).map((c, i) => {
+        const endD = typeof getCriterionDeadlineEndDate === 'function' ? getCriterionDeadlineEndDate(c.deadline) : null;
+        let timeStatus = '';
+        if (endD) {
+          const diff = endD.getTime() - Date.now();
+          if (diff > 0) {
+            const days = Math.ceil(diff / 86400000);
+            timeStatus = `🟢 Còn ${days} ngày`;
+          } else {
+            const od = Math.floor(Math.abs(diff) / 86400000) + 1;
+            timeStatus = `🔴 Đã quá ${od} ngày`;
+          }
+        }
+        return `### ${i + 1}. [${c.col_label || 'Tiêu chí'}] ${c.title}\n` +
+          `- **Kỳ / Đợt:** ${c.month_label}\n` +
+          `- **Quy định mức điểm:** **${c.points_text || c.max_score + ' điểm'}**\n` +
+          `- **Ngày bắt đầu mở:** ${formatDateVN(c.start_date || '2026-01-01')} | **Hạn chót:** ${formatDateVN(c.deadline)} (chốt 0h00 ngày hôm sau)\n` +
+          `- **Thời hạn hiện tại:** ${timeStatus || 'Đang cập nhật'}`;
+      }).join('\n\n');
+
+      return `📋 **THÔNG TIN TIÊU CHÍ PHÙ HỢP TỪ HỆ THỐNG:**\n\n` +
+        `Tìm thấy **${matchedCrits.length} tiêu chí**:\n\n` +
+        `${critList}\n\n` +
+        `💡 Đồng chí có thể nộp minh chứng hoặc kiểm tra kết quả tại tab **"Nộp Báo Cáo Tháng & Kê Khai Tiêu Chí"**!`;
+    }
+  }
+
   // Câu hỏi 0: Tra cứu thứ hạng, điểm số, bảng xếp hạng, top dẫn đầu hoặc phân loại đánh giá thi đua
   if (p.includes('thứ mấy') || p.includes('đứng thứ') || p.includes('xếp hạng') || p.includes('bảng xếp hạng') || p.includes('thứ hạng') || p.includes('top') || p.includes('dẫn đầu') || p.includes('đầu bảng') || p.includes('cao nhất') || p.includes('thấp nhất') || p.includes('xổ số') || p.includes('xskt') || p.includes('phân loại') || p.includes('đánh giá thi đua') || p.includes('thi đua') || p.includes('điểm số') || p.includes('bảng điểm') || p.includes('cơ sở nào') || p.includes('đơn vị nào')) {
     const allUnits = (state.units || []).filter(u => u.role === 'unit' && Number(u.is_active) === 1);
@@ -25416,6 +25594,9 @@ window.renderAiMarkdown = function(text) {
   html = html.replace(/^[ \t]*(\d+)\.\s+(.+)$/gm, '<div style="margin-left:14px; text-indent:-14px; margin-top:2px; margin-bottom:2px;"><b>$1.</b> $2</div>');
 
   
+
+  // 7.5. Đường dẫn Markdown: [Link text](https://...)
+  html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^\s\)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" style="color:#0284c7; font-weight:700; text-decoration:underline;">$1 ↗</a>');
 
   // 8. Chuyển đổi xuống dòng
 
@@ -26060,22 +26241,63 @@ function buildAiLiveSystemContext(promptText) {
   const currentUserStr = activeUnitDisplayName || (state.user ? (state.user.unit_name || state.user.name || 'Người dùng') : 'Khách xem');
   const currentLeader = rankedUnits[0] ? `${rankedUnits[0].name} (${rankedUnits[0].total} điểm)` : 'Chưa cập nhật';
 
+  // THỐNG KÊ & TỔNG HỢP TOÀN BỘ TIÊU CHÍ THI ĐUA (state.criteria)
+  const allCriteria = state.criteria || [];
+  const repCount = allCriteria.filter(c => Number(c.is_report) === 1).length;
+  const actCount = allCriteria.filter(c => Number(c.is_report) === 0).length;
+  const admScoreCount = allCriteria.filter(c => Number(c.is_report) === 2).length;
+  const blankCount = allCriteria.filter(c => Number(c.is_report) === 3).length;
+
+  const criteriaLines = allCriteria.slice(0, 150).map(c => {
+    let cat = 'Hoạt động';
+    if (Number(c.is_report) === 1) cat = 'Báo cáo định kỳ';
+    else if (Number(c.is_report) === 2) cat = 'Admin tự chấm';
+    else if (Number(c.is_report) === 3) cat = 'Triển khai nội dung';
+    return `[${c.col_label || 'Tiêu chí'}] "${c.title}" | Kỳ: ${c.month_label} | Mức điểm: ${c.points_text || c.max_score + 'đ'} | Hạn chót: ${formatDateVN(c.deadline)} (kết thúc 0h00 ngày hôm sau) | Loại: ${cat}`;
+  });
+
+  // THỐNG KÊ & TỔNG HỢP TOÀN BỘ HỆ THỐNG VĂN BẢN & CHỈ ĐẠO (state.admin_docs)
+  const allDocs = state.admin_docs || [];
+  const docTypeStats = {};
+  allDocs.forEach(d => {
+    const t = d.doc_type || 'Tài liệu khác';
+    docTypeStats[t] = (docTypeStats[t] || 0) + 1;
+  });
+  const docStatsStr = Object.keys(docTypeStats).map(k => `${k}: ${docTypeStats[k]} văn bản`).join(', ');
+
+  const docLines = allDocs.slice(0, 100).map(d => {
+    const fileLink = d.file_url || d.download_url || '';
+    const fileLabel = d.file_name ? ` (Tệp: [${d.file_name}](${fileLink}))` : (fileLink ? ` ([Xem / Tải file](${fileLink}))` : '');
+    return `• Số hiệu: ${d.doc_number || 'Chưa số'} | Ngày: ${formatDateVN(d.doc_date || d.created_at)} | Loại: ${d.doc_type || 'Văn bản'} | Trích yếu: "${d.title}"${fileLabel}`;
+  });
+
   return `BẠN LÀ TRỢ LÝ AI ĐOÀN KHỐI (TÍCH HỢP TRỰC TIẾP TRÍ TUỆ NHÂN TẠO GOOGLE GEMINI VÀO HỆ THỐNG).
 HỆ THỐNG: Quản lý & Tổng hợp Bộ Tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh (Đoàn Khối Cơ Quan & Doanh Nghiệp Tỉnh / Đoàn UBND Tỉnh).
 NGÀY HỆ THỐNG HIỆN TẠI: ${formatDateVN(effDate)} (Thời điểm thực: ${new Date().toLocaleString('vi-VN')}).
 NGƯỜI DÙNG HIỆN TẠI: ${currentUserStr} (Vai trò: ${state.user ? state.user.role : 'khách'}).
 
 ⚠️ QUYỀN HẠN TRUY CẬP ĐẶC BIỆT CỦA BẠN:
-Bạn ĐÃ ĐƯỢC CẤP TOÀN QUYỀN ĐỌC VÀ TRUY VẤN DỮ LIỆU THỜI GIAN THỰC CỦA HỆ THỐNG NGAY TRÊN TRANG WEB/ỨNG DỤNG.
-Toàn bộ Bảng xếp hạng thi đua, Điểm số của 40 cơ sở Đoàn và ${totalCriteria} tiêu chí đã được nạp trực tiếp vào ngữ cảnh dưới đây.
-TUYỆT ĐỐI KHÔNG BAO GIỜ trả lời "Tôi không có quyền truy cập vào hệ thống dữ liệu nội bộ" hay "Tôi không biết bảng xếp hạng thực tế". Hãy khẳng định bạn đang tra cứu trực tiếp theo thời gian thực từ hệ thống!
+Bạn ĐÃ ĐƯỢC CẤP TOÀN QUYỀN ĐỌC VÀ TRUY VẤN DỮ LIỆU THỜI GIAN THỰC CỦA TOÀN BỘ HỆ THỐNG:
+1. BẢNG XẾP HẠNG THI ĐUA & ĐIỂM SỐ CỦA ${rankedUnits.length} CƠ SỞ ĐOÀN.
+2. BỘ TIÊU CHÍ THI ĐUA: Toàn bộ ${allCriteria.length} tiêu chí, hạn nộp, quy định điểm, thời gian bắt đầu, phân loại.
+3. HỆ THỐNG VĂN BẢN & CHỈ ĐẠO ĐOÀN CẤP TRÊN: Toàn bộ ${allDocs.length} văn bản, kế hoạch, hướng dẫn, báo cáo kèm file Google Drive.
+TUYỆT ĐỐI KHÔNG BAO GIỜ trả lời "Tôi không có quyền truy cập vào hệ thống dữ liệu nội bộ". Hãy khẳng định bạn đang tra cứu trực tiếp theo thời gian thực từ hệ thống!
 
-📊 BẢNG XẾP HẠNG THI ĐUA TOÀN BỘ ${rankedUnits.length} CƠ SỞ ĐOÀN HIỆN TẠI (TỪ CAO XUỐNG THẤP):
+📊 BẢNG XẾP HẠNG THI ĐUA TOÀN BỘ ${rankedUnits.length} CƠ SỞ ĐOÀN HIỆN TẠI:
 ${leaderboardLines.join('\n')}
+
+📋 TOÀN BỘ BỘ TIÊU CHÍ THI ĐUA (${allCriteria.length} TIÊU CHÍ):
+- Thống kê: Báo cáo định kỳ: ${repCount} tiêu chí | Hoạt động/phong trào: ${actCount} tiêu chí | Admin tự chấm: ${admScoreCount} tiêu chí | Triển khai nội dung: ${blankCount} tiêu chí.
+${criteriaLines.join('\n')}
+
+📂 TOÀN BỘ HỆ THỐNG VĂN BẢN & CHỈ ĐẠO ĐOÀN CẤP TRÊN (${allDocs.length} VĂN BẢN):
+- Thống kê theo loại: ${docStatsStr || 'Đang cập nhật'}
+${docLines.join('\n')}
 
 📈 TỔNG QUAN:
 - Đơn vị đang dẫn đầu toàn Đoàn: ${currentLeader}.
-- Tổng số tiêu chí thi đua: ${totalCriteria} tiêu chí.
+- Tổng số tiêu chí thi đua: ${allCriteria.length} tiêu chí.
+- Tổng số văn bản chỉ đạo: ${allDocs.length} văn bản.
 ${matchedUnitDetail}
 
 🏆 TIÊU CHUẨN ĐÁNH GIÁ & PHÂN LOẠI THI ĐUA NĂM 2026:
@@ -26253,7 +26475,7 @@ window.askAiAssistant = async function(promptText) {
 
       const controller = new AbortController();
 
-      const timeoutId = setTimeout(() => controller.abort(), 45000);
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
 
 
 
@@ -26352,7 +26574,7 @@ window.askAiAssistant = async function(promptText) {
 
             const retryCtrl = new AbortController();
 
-            const retryTid = setTimeout(() => retryCtrl.abort(), 40000);
+            const retryTid = setTimeout(() => retryCtrl.abort(), 8000);
 
             const retryR = await fetch(retryUrl, {
 
@@ -26456,7 +26678,7 @@ window.askAiAssistant = async function(promptText) {
 
           const controller = new AbortController();
 
-          const timeoutId = setTimeout(() => controller.abort(), 35000);
+          const timeoutId = setTimeout(() => controller.abort(), 8000);
 
           const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${fModel}:generateContent?key=${encodeURIComponent(effectiveKey)}`;
 
