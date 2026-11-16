@@ -706,7 +706,7 @@ window.addEventListener('resize', updateMasterHeaderTops);
 
 
 
-function getCriterionDeadlineEndDate(deadlineStr) {
+function getCriterionDeadlineEndDate(deadlineStr, deadlineTime) {
   if (!deadlineStr) return null;
   const str = String(deadlineStr).trim();
   let year, month, day;
@@ -734,12 +734,19 @@ function getCriterionDeadlineEndDate(deadlineStr) {
     day = d.getDate();
   }
   if (!year || !month || !day) return null;
-  // Mốc hạn nộp chốt là 0h00 ngày hôm sau (Ví dụ hạn 15/11/2026 thì mốc kết thúc là 0h00 ngày 16/11/2026)
+  // Nếu có giờ chốt nộp trong ngày (ví dụ 16:00 hoặc 23:59)
+  if (deadlineTime && String(deadlineTime).includes(':')) {
+    const tParts = String(deadlineTime).trim().split(':');
+    const h = parseInt(tParts[0], 10) || 0;
+    const m = parseInt(tParts[1], 10) || 0;
+    return new Date(year, month - 1, day, h, m, 0, 0);
+  }
+  // Mốc hạn nộp chốt mặc định là 0h00 ngày hôm sau (Ví dụ hạn 15/11/2026 thì mốc kết thúc là 0h00 ngày 16/11/2026)
   return new Date(year, month - 1, day + 1, 0, 0, 0, 0);
 }
 
-function renderCriterionDeadlineBadge(deadlineStr) {
-  const endDate = getCriterionDeadlineEndDate(deadlineStr);
+function renderCriterionDeadlineBadge(deadlineStr, deadlineTime) {
+  const endDate = getCriterionDeadlineEndDate(deadlineStr, deadlineTime);
   if (!endDate) {
     return '<span style="color:#94a3b8; font-style:italic;">—</span>';
   }
@@ -1065,6 +1072,15 @@ function todayISO() {
 }
 
 
+
+function formatDeadlineWithTime(dateStr, timeStr) {
+  if (!dateStr) return '';
+  const d = formatDateVN(dateStr);
+  if (timeStr && timeStr !== '23:59' && timeStr !== '00:00') {
+    return `${d} (${timeStr})`;
+  }
+  return d;
+}
 
 function formatDateVN(isoDate) {
 
@@ -4927,10 +4943,10 @@ function renderNavTabs() {
 
   const twoReportsTabs = `
     <div class="nav-tab ${isMatrixActive ? 'active' : ''}" onclick="setReportsSubSection('matrix')" title="Bảng 1: Theo Dõi Nộp Báo Cáo & Hoạt Động Của Các Đơn Vị">
-      📊 Theo Dõi Nộp Báo Cáo & Hoạt Động
+      📊 Tiến Độ Nộp Báo Cáo
     </div>
     <div class="nav-tab ${isLogActive ? 'active' : ''}" onclick="setReportsSubSection('log')" title="Bảng 2: Nhật Ký Đơn Vị Nộp Báo Cáo & Minh Chứng Gần Đây">
-      🕒 Nhật Ký Nộp Báo Cáo & Minh Chứng
+      🕒 Nhật Ký Nộp Báo Cáo
     </div>
   `;
 
@@ -4945,10 +4961,10 @@ function renderNavTabs() {
         </div>
         ${twoReportsTabs}
         <div class="nav-tab ${state.activeTab === 'units' ? 'active' : ''}" onclick="setTab('units')">
-          👥 Quản Lý Đơn Vị & Tài Khoản (${state.units.length})
+          👥 Quản Lý Đơn Vị (${state.units.length})
         </div>
         <div class="nav-tab ${state.activeTab === 'criteria' ? 'active' : ''}" onclick="setTab('criteria')">
-          ⚙️ Quản Lý Bộ Tiêu Chí & Hạn Nộp (${state.criteria.length})
+          ⚙️ Quản Lý Tiêu Chí (${state.criteria.length})
         </div>
         <div class="nav-tab ${state.activeTab === 'admin_docs' ? 'active' : ''}" onclick="setTab('admin_docs')">
           📂 Hệ Thống Văn Bản
@@ -4965,7 +4981,7 @@ function renderNavTabs() {
           🏆 Bảng Xếp Hạng Toàn Khối
         </div>
         <div class="nav-tab ${state.activeTab === 'master' ? 'active' : ''}" onclick="setTab('master')">
-          📋 Bảng Tổng Hợp Chấm Điểm (Chỉ Xem)
+          📋 Bảng Tổng Hợp (Chỉ Xem)
         </div>
         ${twoReportsTabs}
         <div class="nav-tab ${state.activeTab === 'admin_docs' ? 'active' : ''}" onclick="setTab('admin_docs')">
@@ -4980,10 +4996,10 @@ function renderNavTabs() {
           🏆 Bảng Xếp Hạng Toàn Khối
         </div>
         <div class="nav-tab ${state.activeTab === 'unit_submit' ? 'active' : ''}" onclick="setTab('unit_submit')">
-          📤 Nộp Báo Cáo Tháng & Kê Khai Tiêu Chí
+          📤 Nộp Báo Cáo & Tiêu Chí
         </div>
         <div class="nav-tab ${state.activeTab === 'master' ? 'active' : ''}" onclick="setTab('master')">
-          📋 Xem Bảng Tổng Hợp (Chấm Điểm)
+          📋 Bảng Tổng Hợp Chấm Điểm
         </div>
         ${twoReportsTabs}
         <div class="nav-tab ${state.activeTab === 'admin_docs' ? 'active' : ''}" onclick="setTab('admin_docs')">
@@ -5311,7 +5327,7 @@ function renderMasterTableTab() {
                       ${c.points_text ? `<span style="color:#b45309; font-weight:700;">⭐ ${escapeHtml(c.points_text)}</span>` : ''}
                       <span style="color:#059669; font-weight:700;">🟢 Mở: ${formatShortDateVN(c.start_date || '2026-01-01')}</span>
                       <span style="color:${open ? '#15803d' : '#b45309'}; font-weight:700;">
-                        ⏰ Hạn: ${formatShortDateVN(c.deadline)}
+                        ⏰ Hạn: ${formatShortDateVN(c.deadline)}${(c.deadline_time && c.deadline_time !== '23:59') ? ' (' + c.deadline_time + ')' : ((function(){ const m = (c.title||'').match(/(?:hạn\s*)?(\d{1,2})[h:](\d{2})/i); return m ? (' (' + m[1] + 'h' + m[2] + ')') : ''; })())}
                         ${
                           isAdmin
                             ? `<span style="cursor:pointer; margin-left:4px; color:#0052cc; text-decoration:underline; font-weight:700;" onclick="openBatchFillModal(${c.id})" title="Chấm đồng loạt 1 mức điểm cho cột này">⚡Chấm</span>
@@ -6223,7 +6239,7 @@ function renderUnitSubmitTab() {
 
                   <td style="text-align:center; white-space:nowrap;">
 
-                    ${renderCriterionDeadlineBadge(c.deadline)}
+                    ${renderCriterionDeadlineBadge(c.deadline, c.deadline_time)}
 
                   </td>
 
@@ -6452,7 +6468,7 @@ function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rank
               <div class="meta-item">
                 <span class="meta-label">⏳ Thời hạn:</span>
                 <div style="margin-top:2px;">
-                  ${renderCriterionDeadlineBadge(c.deadline)}
+                  ${renderCriterionDeadlineBadge(c.deadline, c.deadline_time)}
                 </div>
               </div>
               <div class="meta-item">
@@ -6875,7 +6891,7 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
 
               <div>Ngày bắt đầu nộp: <b style="color:#059669;">${formatDateVN(crit.start_date || '2026-01-01')}</b></div>
 
-              <div>Hạn nộp chót: <b style="color:#dc2626;">${formatDateVN(crit.deadline)}</b></div>
+              <div>Hạn nộp chót: <b style="color:#dc2626;">${formatDateVN(crit.deadline)}${crit.deadline_time && crit.deadline_time !== '23:59' ? ' (' + crit.deadline_time + ')' : ''}</b></div>
 
             </div>
 
@@ -10106,7 +10122,7 @@ function renderAdminReportsTab() {
                                   </div>
                                   <div class="mobile-crit-title">${escapeHtml(c.title)}</div>
                                   <div style="font-size:10.5px; color:#64748b; margin-top:2px;">
-                                    ⏰ Hạn: ${formatShortDateVN(c.deadline)} (${getCriterionTargetPoints(c)}đ)
+                                    ⏰ Hạn: ${formatShortDateVN(c.deadline)}${(c.deadline_time && c.deadline_time !== '23:59') ? ' (' + c.deadline_time + ')' : ((function(){ const m = (c.title||'').match(/(?:hạn\s*)?(\d{1,2})[h:](\d{2})/i); return m ? (' (' + m[1] + 'h' + m[2] + ')') : ''; })())} (${getCriterionTargetPoints(c)}đ)
                                   </div>
                                   ${sc && (sc.report_content || sc.file_name || sc.evidence_link) ? `
                                     <div style="font-size:11.5px; color:#0369a1; background:#f0f9ff; padding:4px 8px; border-radius:5px; border:1px solid #bae6fd; margin-top:5px; line-height:1.4;">
@@ -11260,6 +11276,7 @@ window.saveCriterionEdit = async function (critId) {
   const startDate = document.getElementById('edit-crit-start-date').value || '2026-01-01';
 
   const deadline = document.getElementById('edit-crit-deadline').value;
+  const deadlineTime = (document.getElementById('edit-crit-deadline-time') ? document.getElementById('edit-crit-deadline-time').value : '') || '23:59';
 
   const keywords = (document.getElementById('edit-crit-keywords') ? document.getElementById('edit-crit-keywords').value : '').trim();
   const pointsText = document.getElementById('edit-crit-points').value.trim();
@@ -11831,6 +11848,7 @@ window.saveNewCriterion = async function () {
   const startDate = document.getElementById('new-crit-start-date').value || '2026-01-01';
 
   const deadline = document.getElementById('new-crit-deadline').value || '2026-10-20';
+  const deadlineTime = (document.getElementById('new-crit-deadline-time') ? document.getElementById('new-crit-deadline-time').value : '') || '23:59';
 
   const isReportSelectVal = document.getElementById('new-crit-is-report') ? document.getElementById('new-crit-is-report').value : '0';
   const customTypeName = document.getElementById('new-crit-custom-type') ? document.getElementById('new-crit-custom-type').value.trim() : '';
@@ -14570,7 +14588,7 @@ function renderMasterMobileCardsView(activeUnits, filteredCriteria, isAdmin, mon
 
                           <div style="font-size:10.5px; color:#64748b; margin-top:2px;">
 
-                            🟢 Mở: ${formatShortDateVN(c.start_date || '2026-01-01')} | ⏰ Hạn: ${formatShortDateVN(c.deadline)} (Tối đa: ${c.max_score}đ)
+                            🟢 Mở: ${formatShortDateVN(c.start_date || '2026-01-01')} | ⏰ Hạn: ${formatShortDateVN(c.deadline)}${(c.deadline_time && c.deadline_time !== '23:59') ? ' (' + c.deadline_time + ')' : ((function(){ const m = (c.title||'').match(/(?:hạn\s*)?(\d{1,2})[h:](\d{2})/i); return m ? (' (' + m[1] + 'h' + m[2] + ')') : ''; })())} (Tối đa: ${c.max_score}đ)
 
                           </div>
 
