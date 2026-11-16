@@ -28856,7 +28856,7 @@ function convertToDirectAudioUrl(url) {
   url = String(url).trim();
   const driveMatch = url.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=)([a-zA-Z0-9_-]+)/);
   if (driveMatch && driveMatch[1]) {
-    return 'https://docs.google.com/uc?export=download&id=' + driveMatch[1];
+    return 'https://drive.google.com/uc?export=download&id=' + driveMatch[1];
   }
   if (url.includes('dropbox.com') && url.includes('?dl=0')) {
     return url.replace('?dl=0', '?raw=1');
@@ -28868,6 +28868,8 @@ window.BgMusicManager = {
   audio: null,
   currentTrackUrl: '',
   isPlaying: false,
+  hasLoadError: false,
+  _triedFallback: false,
   hasSetupInteractionListener: false,
   isCollapsed: false,
 
@@ -28909,7 +28911,10 @@ window.BgMusicManager = {
   syncWithSettings() {
     const settings = this.getSettings();
     const isEnabled = settings.bg_music_enabled === '1';
-    const rawUrl = settings.bg_music_url || '';
+    let rawUrl = settings.bg_music_url || '';
+    if (isEnabled && !rawUrl) {
+      rawUrl = 'https://drive.google.com/uc?export=download&id=1Hz6-QTMJ3KgEI11s49hUtUly0ezuPzhu';
+    }
     const audioUrl = convertToDirectAudioUrl(rawUrl);
 
     if (!isEnabled || !audioUrl) {
@@ -28917,6 +28922,7 @@ window.BgMusicManager = {
         this.audio.pause();
       }
       this.isPlaying = false;
+      this.hasLoadError = false;
       this.updateUI();
       return;
     }
@@ -28928,6 +28934,13 @@ window.BgMusicManager = {
 
       this.audio.addEventListener('play', () => {
         this.isPlaying = true;
+        this.hasLoadError = false;
+        this.updateUI();
+      });
+      this.audio.addEventListener('playing', () => {
+        this.isPlaying = true;
+        this.hasLoadError = false;
+        this._triedFallback = false;
         this.updateUI();
       });
       this.audio.addEventListener('pause', () => {
@@ -28941,8 +28954,31 @@ window.BgMusicManager = {
         }
       });
       this.audio.addEventListener('error', (e) => {
-        console.warn('[BgMusic] Audio error:', e);
+        console.warn('[BgMusic] Audio error:', e, this.audio ? this.audio.error : null);
         this.isPlaying = false;
+
+        // Auto fallback between raw.githubusercontent and relative path
+        if (this.currentTrackUrl && !this._triedFallback) {
+          this._triedFallback = true;
+          let fallbackUrl = '';
+          if (this.currentTrackUrl.includes('raw.githubusercontent.com') && this.currentTrackUrl.includes('/assets/')) {
+            const filename = this.currentTrackUrl.split('/assets/').pop();
+            fallbackUrl = './assets/' + filename;
+          } else if (this.currentTrackUrl.startsWith('./assets/') || this.currentTrackUrl.startsWith('assets/')) {
+            const filename = this.currentTrackUrl.replace(/^\.?\/?assets\//, '');
+            fallbackUrl = 'https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/assets/' + filename;
+          }
+          if (fallbackUrl && fallbackUrl !== this.currentTrackUrl) {
+            console.log('[BgMusic] Trying fallback audio URL:', fallbackUrl);
+            this.currentTrackUrl = fallbackUrl;
+            this.audio.src = fallbackUrl;
+            this.audio.load();
+            this.tryPlay();
+            return;
+          }
+        }
+
+        this.hasLoadError = true;
         this.updateUI();
       });
     }
@@ -28956,6 +28992,8 @@ window.BgMusicManager = {
 
     if (this.currentTrackUrl !== audioUrl) {
       this.currentTrackUrl = audioUrl;
+      this._triedFallback = false;
+      this.hasLoadError = false;
       this.audio.src = audioUrl;
       this.audio.currentTime = 0;
     }
@@ -28976,9 +29014,11 @@ window.BgMusicManager = {
       playPromise
         .then(() => {
           this.isPlaying = true;
+          this.hasLoadError = false;
           this.updateUI();
         })
-        .catch(() => {
+        .catch((err) => {
+          console.log('[BgMusic] Play deferred or blocked:', err && err.message);
           this.isPlaying = false;
           this.updateUI();
           this.setupAutoplayOnInteraction();
@@ -28994,12 +29034,14 @@ window.BgMusicManager = {
       if (this.audio && !this.isLocallyPaused() && this.audio.paused) {
         this.audio.play().then(() => {
           this.isPlaying = true;
+          this.hasLoadError = false;
           this.updateUI();
         }).catch(() => {});
       }
       ['click', 'touchstart', 'keydown'].forEach((evt) => {
         document.removeEventListener(evt, onUserInteraction);
       });
+      this.hasSetupInteractionListener = false;
     };
 
     ['click', 'touchstart', 'keydown'].forEach((evt) => {
@@ -29008,7 +29050,10 @@ window.BgMusicManager = {
   },
 
   togglePlay() {
-    if (!this.audio) {
+    if (!this.audio || this.hasLoadError) {
+      this.hasLoadError = false;
+      this._triedFallback = false;
+      localStorage.setItem('doan2026_bg_music_paused', '0');
       this.syncWithSettings();
       return;
     }
@@ -29016,8 +29061,21 @@ window.BgMusicManager = {
       localStorage.setItem('doan2026_bg_music_paused', '0');
       this.audio.play().then(() => {
         this.isPlaying = true;
+        this.hasLoadError = false;
         this.updateUI();
-      }).catch(err => console.warn(err));
+      }).catch(err => {
+        console.warn('[BgMusic] togglePlay failed:', err);
+        // Retry with reload
+        this.audio.load();
+        this.audio.play().then(() => {
+          this.isPlaying = true;
+          this.hasLoadError = false;
+          this.updateUI();
+        }).catch(() => {
+          this.hasLoadError = true;
+          this.updateUI();
+        });
+      });
     } else {
       localStorage.setItem('doan2026_bg_music_paused', '1');
       this.audio.pause();
@@ -29108,7 +29166,7 @@ window.BgMusicManager = {
               ${escapeHtml(title)}
             </div>
             <div style="font-size:9px; color:#cbd5e1; font-weight:600;">
-              ${paused ? 'Đã tạm dừng' : (muted ? 'Đang tắt tiếng' : ('Âm lượng: ' + vol + '%'))}
+              ${this.hasLoadError ? '<span style="color:#f87171; font-weight:700;">⚠️ Lỗi phát (kiểm tra link)</span>' : (paused ? 'Đã tạm dừng' : (muted ? 'Đang tắt tiếng' : ('Âm lượng: ' + vol + '%')))}
             </div>
           </div>
         </div>
@@ -29140,7 +29198,7 @@ window.BgMusicManager = {
 
 function renderFloatingBgMusicWidget() {
   const settings = (state && state.settings) ? state.settings : {};
-  if (settings.bg_music_enabled !== '1' || !settings.bg_music_url) {
+  if (settings.bg_music_enabled !== '1') {
     return '<div id="bg-music-floating-widget" style="display:none;"></div>';
   }
   return `
@@ -29157,35 +29215,27 @@ function openBgMusicSettingsModal() {
   const settings = state.settings || {};
   const isEnabled = settings.bg_music_enabled === '1';
   const startMuted = settings.bg_music_start_muted === '1';
-  const currentTitle = settings.bg_music_title || 'Khát Vọng Tuổi Trẻ (Nhạc nền Đoàn)';
-  const currentUrl = settings.bg_music_url || 'https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/assets/khat-vong-tuoi-tre.mp3';
+  const currentTitle = settings.bg_music_title || 'Khát Vọng Tuổi Trẻ (Vũ Hoàng)';
+  const currentUrl = settings.bg_music_url || 'https://drive.google.com/uc?export=download&id=1Hz6-QTMJ3KgEI11s49hUtUly0ezuPzhu';
   const currentVol = settings.bg_music_volume !== undefined ? settings.bg_music_volume : '35';
   const isLoop = settings.bg_music_loop !== '0';
 
   const sampleSongs = [
     {
       title: 'Khát Vọng Tuổi Trẻ (Vũ Hoàng)',
-      url: 'https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/assets/khat-vong-tuoi-tre.mp3'
+      url: 'https://drive.google.com/uc?export=download&id=1Hz6-QTMJ3KgEI11s49hUtUly0ezuPzhu'
     },
     {
       title: 'Thanh Niên Làm Theo Lời Bác (Đoàn Ca)',
-      url: 'https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/assets/doan-ca.mp3'
+      url: 'https://drive.google.com/uc?export=download&id=15bdDOqa3AsP0kHSMZl4iEJOOVQIzwUSq'
     },
     {
-      title: 'Lên Đàng (Lưu Hữu Phước)',
-      url: 'https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/assets/len-dang.mp3'
+      title: 'Tiến Quân Ca (Quốc Ca Việt Nam)',
+      url: 'https://drive.google.com/uc?export=download&id=1PYhB_0tGcqtla3TaAtuLvuDMMQRIQdkJ'
     },
     {
-      title: 'Áo Xanh Tình Nguyện (Thế Hiển)',
-      url: 'https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/assets/ao-xanh-tinh-nguyen.mp3'
-    },
-    {
-      title: 'Dấu Chân Tình Nguyện (Vũ Hoàng)',
-      url: 'https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/assets/dau-chan-tinh-nguyen.mp3'
-    },
-    {
-      title: 'Giai Điệu Tự Hào Tuổi Trẻ (Hòa tấu không lời hào hùng)',
-      url: 'https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/assets/hoa-tau-tuoi-tre.mp3'
+      title: 'Tiến Quân Ca (Bản hòa tấu Quốc tế)',
+      url: 'https://upload.wikimedia.org/wikipedia/commons/8/8e/National_Anthem_of_Vietnam.ogg'
     }
   ];
 
@@ -29239,19 +29289,40 @@ function openBgMusicSettingsModal() {
             </div>
           </div>
 
-          <!-- THƯ VIỆN BÀI HÁT MẪU (CHỌN NHANH) -->
+          <!-- THƯ VIỆN BÀI HÁT CÓ SẴN (CHỌN NHANH) -->
           <div style="margin-bottom: 16px;">
             <label style="font-weight: 700; font-size: 13px; color: #1e293b; display: block; margin-bottom: 6px;">
-              🎼 Thư viện nhạc truyền thống Đoàn mẫu (Bấm để chọn nhanh):
+              🎼 Thư viện nhạc Đoàn & Đất nước có sẵn (Bấm để chọn bài hát chuẩn):
             </label>
-            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:8px;">
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:8px;">
               ${sampleSongs.map((s) => `
-                <div onclick="selectSampleBgSong('${escapeHtml(s.title)}', '${escapeHtml(s.url)}')" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:6px; padding:8px 10px; cursor:pointer; transition:all 0.15s; font-size:12px; font-weight:600; color:#334155; display:flex; align-items:center; gap:6px;" onmouseover="this.style.background='#e0e7ff'; this.style.borderColor='#818cf8';" onmouseout="this.style.background='#f1f5f9'; this.style.borderColor='#cbd5e1';">
-                  <span style="color:#7c3aed; font-size:14px;">🎵</span>
+                <div onclick="selectSampleBgSong('${escapeHtml(s.title)}', '${escapeHtml(s.url)}')" style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:7px; padding:9px 12px; cursor:pointer; transition:all 0.15s; font-size:12.5px; font-weight:700; color:#334155; display:flex; align-items:center; gap:8px;" onmouseover="this.style.background='#f3e8ff'; this.style.borderColor='#a855f7';" onmouseout="this.style.background='#f8fafc'; this.style.borderColor='#cbd5e1';">
+                  <span style="color:#7c3aed; font-size:16px;">🎵</span>
                   <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(s.title)}</span>
                 </div>
               `).join('')}
             </div>
+          </div>
+
+          <!-- TẢI FILE NHẠC TỪ MÁY TÍNH CỦA ADMIN LÊN ĐÁM MÂY -->
+          <div style="background: #fdf4ff; border: 1.5px dashed #c084fc; border-radius: 8px; padding: 12px 14px; margin-bottom: 16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+              <div>
+                <span style="font-weight:700; color:#7e22ce; font-size:13px; display:inline-flex; align-items:center; gap:5px;">
+                  📁 Tải file bài hát từ máy tính của bạn:
+                </span>
+                <div style="font-size:11.5px; color:#6b21a8; margin-top:2px;">
+                  Tải file MP3 từ máy Admin lên Google Drive đám mây ➔ <b>Tất cả người dùng trên các máy tính khác (Máy A, Máy B...) đều nghe được bài hát này!</b>
+                </div>
+              </div>
+              <div>
+                <input type="file" id="bg-music-file-upload-input" accept="audio/*,.mp3,.ogg,.wav,.m4a" style="display:none;" onchange="handleBgMusicFileUpload(this)" />
+                <button type="button" class="btn btn-sm" onclick="document.getElementById('bg-music-file-upload-input').click()" style="background:#9333ea; color:#fff; font-weight:700; font-size:12px; padding:6px 14px; border-radius:6px; box-shadow:0 2px 6px rgba(147,51,234,0.3); border:none; cursor:pointer;">
+                  📤 Chọn File MP3 Từ Máy
+                </button>
+              </div>
+            </div>
+            <div id="bg-music-upload-status" style="margin-top:8px; font-size:12px; font-weight:700; display:none;"></div>
           </div>
 
           <!-- TÊN BÀI HÁT & ĐƯỜNG DẪN LINK MP3 -->
@@ -29267,13 +29338,13 @@ function openBgMusicSettingsModal() {
               🔗 Đường dẫn âm thanh (Link file MP3 hoặc link Google Drive công khai) (*):
             </label>
             <div style="display:flex; gap:8px;">
-              <input type="text" id="bg-music-url-input" value="${escapeHtml(currentUrl)}" style="flex:1; border:1.5px solid #cbd5e1; border-radius:6px; padding:8px 12px; font-size:12.5px; font-family:monospace; box-sizing:border-box;" placeholder="https://example.com/bai-hat.mp3 hoặc dán link Google Drive chia sẻ..." />
-              <button type="button" class="btn btn-outline btn-sm" id="btn-preview-bg-music" onclick="togglePreviewBgMusic()" style="font-size:12px; font-weight:700; white-space:nowrap; padding:6px 12px; background:#f8fafc; border:1.5px solid #8b5cf6; color:#7c3aed;">
+              <input type="text" id="bg-music-url-input" value="${escapeHtml(currentUrl)}" style="flex:1; border:1.5px solid #cbd5e1; border-radius:6px; padding:8px 12px; font-size:12.5px; font-family:monospace; box-sizing:border-box;" placeholder="./assets/khat-vong-tuoi-tre.mp3 hoặc dán link Google Drive chia sẻ..." />
+              <button type="button" class="btn btn-outline btn-sm" id="btn-preview-bg-music" onclick="togglePreviewBgMusic()" style="font-size:12px; font-weight:700; white-space:nowrap; padding:6px 14px; background:#f8fafc; border:1.5px solid #8b5cf6; color:#7c3aed;">
                 🎧 Nghe thử
               </button>
             </div>
             <div style="font-size:11.5px; color:#64748b; margin-top:4px; line-height:1.4;">
-              💡 <b>Mẹo dùng Google Drive:</b> Bạn tải file MP3 lên Google Drive ➔ Chọn 'Chia sẻ' ➔ Đổi quyền thành 'Bất kỳ ai có đường liên kết đều xem được' ➔ Dán link vào ô này, hệ thống sẽ tự động phát trực tiếp!
+              💡 <b>Cách hoạt động đa máy:</b> Bất cứ bài hát nào được lưu ở đây (từ thư viện có sẵn, tải file lên từ máy Admin, hoặc dán link Google Drive chia sẻ) đều được lưu trữ trên đám mây để phát đồng bộ cho toàn bộ người dùng khi mở ứng dụng.
             </div>
           </div>
 
@@ -29331,7 +29402,56 @@ window.selectSampleBgSong = function(title, url) {
   const urlInput = document.getElementById('bg-music-url-input');
   if (titleInput) titleInput.value = title;
   if (urlInput) urlInput.value = url;
-  showToast('Đã chọn bài: ' + title, 'info');
+  showToast('Đã chọn bài: ' + title + ' - Bấm "Nghe thử" để kiểm tra âm thanh!', 'info');
+};
+
+window.handleBgMusicFileUpload = async function(input) {
+  if (!input || !input.files || !input.files[0]) return;
+  const file = input.files[0];
+  const statusEl = document.getElementById('bg-music-upload-status');
+  const titleInput = document.getElementById('bg-music-title-input');
+  const urlInput = document.getElementById('bg-music-url-input');
+
+  if (file.size > 25 * 1024 * 1024) {
+    showToast('File nhạc quá lớn! Vui lòng chọn file nhỏ hơn 25MB.', 'error');
+    return;
+  }
+
+  if (statusEl) {
+    statusEl.style.display = 'block';
+    statusEl.style.color = '#7c3aed';
+    statusEl.innerHTML = `⏳ Đang tải file <b>${escapeHtml(file.name)}</b> (${(file.size / (1024*1024)).toFixed(1)}MB) lên Google Drive đám mây... Vui lòng chờ vài giây!`;
+  }
+
+  try {
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+      const b64 = e.target.result;
+      const res = await uploadFileToCloud(b64, file.name, 0, 0);
+      if (res && res.fileUrl) {
+        if (urlInput) urlInput.value = res.fileUrl;
+        if (titleInput) {
+          const cleanTitle = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+          titleInput.value = cleanTitle;
+        }
+        if (statusEl) {
+          statusEl.style.color = '#15803d';
+          statusEl.innerHTML = `✅ Đã tải file lên đám mây Google Drive thành công! Mọi máy tính khác đều nghe được bài này. Bấm <b>'Lưu Lên Đám Mây'</b> bên dưới để áp dụng!`;
+        }
+        showToast('Đã tải nhạc lên đám mây thành công!', 'success');
+      } else {
+        throw new Error('Không nhận được liên kết tải về từ Google Drive');
+      }
+    };
+    reader.readAsDataURL(file);
+  } catch (err) {
+    console.error('Lỗi upload file nhạc:', err);
+    if (statusEl) {
+      statusEl.style.color = '#dc2626';
+      statusEl.innerHTML = `❌ Lỗi khi tải lên: ${err.message || 'Thử lại sau'}`;
+    }
+    showToast('Lỗi khi tải file nhạc lên đám mây: ' + err.message, 'error');
+  }
 };
 
 window.togglePreviewBgMusic = function() {
@@ -29341,7 +29461,7 @@ window.togglePreviewBgMusic = function() {
     showToast('Vui lòng nhập đường dẫn bài hát trước khi nghe thử!', 'error');
     return;
   }
-  const directUrl = convertToDirectAudioUrl(urlInput.value.trim());
+  let directUrl = convertToDirectAudioUrl(urlInput.value.trim());
 
   if (window._previewAudio && !window._previewAudio.paused) {
     window._previewAudio.pause();
@@ -29358,24 +29478,56 @@ window.togglePreviewBgMusic = function() {
   }
   window._previewAudio = new Audio(directUrl);
   const volInput = document.getElementById('bg-music-vol-input');
-  window._previewAudio.volume = volInput ? (Number(volInput.value) / 100) : 0.35;
+  window._previewAudio.volume = volInput ? (Number(volInput.value) / 100) : 0.4;
 
   if (btn) {
     btn.innerHTML = '⏳ Đang tải...';
   }
 
-  window._previewAudio.play().then(() => {
-    if (btn) {
-      btn.innerHTML = '⏹ Dừng nghe thử';
-      btn.style.background = '#ede9fe';
-    }
-  }).catch(() => {
-    showToast('Không thể phát file audio này. Vui lòng kiểm tra lại link!', 'error');
-    if (btn) {
-      btn.innerHTML = '🎧 Nghe thử';
-      btn.style.background = '#f8fafc';
-    }
-  });
+  const playPromise = window._previewAudio.play();
+  if (playPromise !== undefined) {
+    playPromise.then(() => {
+      if (btn) {
+        btn.innerHTML = '⏹ Dừng nghe thử';
+        btn.style.background = '#ede9fe';
+      }
+      showToast('Đang phát nghe thử bài hát!', 'info');
+    }).catch((err) => {
+      console.warn('[PreviewAudio] Direct play failed, attempting fallback:', err);
+      let fallback = '';
+      if (directUrl.includes('raw.githubusercontent.com') && directUrl.includes('/assets/')) {
+        const fn = directUrl.split('/assets/').pop();
+        fallback = './assets/' + fn;
+      } else if (directUrl.startsWith('./assets/') || directUrl.startsWith('assets/')) {
+        const fn = directUrl.replace(/^\.?\/?assets\//, '');
+        fallback = 'https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/assets/' + fn;
+      }
+
+      if (fallback && fallback !== directUrl) {
+        window._previewAudio.src = fallback;
+        window._previewAudio.play().then(() => {
+          if (btn) {
+            btn.innerHTML = '⏹ Dừng nghe thử';
+            btn.style.background = '#ede9fe';
+          }
+          showToast('Đang phát nghe thử bài hát (dự phòng)!', 'info');
+        }).catch(() => {
+          if (btn) {
+            btn.innerHTML = '🎧 Nghe thử';
+            btn.style.background = '#f8fafc';
+          }
+          showToast('Không thể phát file audio này. Vui lòng kiểm tra lại link!', 'error');
+        });
+        return;
+      }
+
+      if (btn) {
+        btn.innerHTML = '🎧 Nghe thử';
+        btn.style.background = '#f8fafc';
+      }
+      showToast('Không thể phát file audio này. Vui lòng kiểm tra lại link!', 'error');
+    });
+  }
 
   window._previewAudio.addEventListener('ended', () => {
     if (btn) {
