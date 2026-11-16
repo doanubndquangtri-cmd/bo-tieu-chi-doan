@@ -11213,57 +11213,43 @@ window.openCriterionEditModal = function (critId) {
             const deadTimeStr = getCriterionDeadlineTime(c);
             const deadHM = parseHourMinute(deadTimeStr, 16, 0);
             return `
-          <div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:10px; padding:12px 14px; margin-bottom:14px;">
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+          <div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:8px; padding:10px 12px; margin-bottom:14px; box-sizing:border-box; overflow:hidden;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; width:100%; box-sizing:border-box;">
               <!-- Bắt đầu mở nộp -->
-              <div>
-                <label style="display:block; font-weight:700; color:#15803d; font-size:13.5px; margin-bottom:6px; white-space:nowrap;">
+              <div style="min-width:0;">
+                <label style="display:block; font-weight:700; color:#15803d; font-size:13px; margin-bottom:5px; white-space:nowrap;">
                   🟢 Bắt đầu mở nộp:
                 </label>
-                <div style="display:flex; align-items:center; gap:6px;">
-                  <input type="date" id="edit-crit-start-date" value="${c.start_date || '2026-01-01'}" style="flex:1.2; font-weight:600; padding:7px 8px; border:1.5px solid #86efac; border-radius:6px; background:#fff; font-size:13px;" />
-                  <div style="display:inline-flex; align-items:center; gap:2px; background:#ecfdf5; border:1.5px solid #86efac; border-radius:6px; padding:4px 6px;">
-                    <select id="edit-crit-start-hour" style="border:none; background:transparent; font-weight:700; color:#166534; font-size:13px; cursor:pointer; outline:none;">
+                <div style="display:flex; align-items:center; gap:5px; width:100%; box-sizing:border-box;">
+                  <input type="date" id="edit-crit-start-date" value="${c.start_date || '2026-01-01'}" style="min-width:0; width:100%; flex:1 1 auto; font-weight:600; padding:5px 6px; border:1.5px solid #86efac; border-radius:6px; background:#fff; font-size:12px; box-sizing:border-box;" />
+                  <div style="display:inline-flex; align-items:center; gap:2px; background:#ecfdf5; border:1.5px solid #86efac; border-radius:6px; padding:2px 4px; flex-shrink:0; box-sizing:border-box;">
+                    <select id="edit-crit-start-hour" style="border:none; background:transparent; font-weight:700; color:#166534; font-size:12px; cursor:pointer; outline:none; padding:2px 0;">
                       ${renderHourSelectOptions(startHM.h)}
                     </select>
-                    <span style="font-weight:800; color:#166534;">:</span>
-                    <select id="edit-crit-start-min" style="border:none; background:transparent; font-weight:700; color:#166534; font-size:13px; cursor:pointer; outline:none;">
+                    <span style="font-weight:800; color:#166534; font-size:12px; line-height:1;">:</span>
+                    <select id="edit-crit-start-min" style="border:none; background:transparent; font-weight:700; color:#166534; font-size:12px; cursor:pointer; outline:none; padding:2px 0;">
                       ${renderMinuteSelectOptions(startHM.m)}
                     </select>
                   </div>
                 </div>
-                <div style="display:flex; gap:4px; align-items:center; margin-top:6px; flex-wrap:wrap;">
-                  <span style="font-size:11px; color:#64748b;">Nhanh:</span>
-                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritStartTime('edit', '00', '00')" style="font-size:11px; padding:1px 6px;">00:00</button>
-                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritStartTime('edit', '07', '00')" style="font-size:11px; padding:1px 6px;">07:00</button>
-                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritStartTime('edit', '08', '00')" style="font-size:11px; padding:1px 6px;">08:00</button>
-                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritStartTime('edit', '13', '30')" style="font-size:11px; padding:1px 6px;">13:30</button>
-                </div>
               </div>
 
-              <!-- Hạn nộp chót (Xóa dòng chữ Deadline) -->
-              <div>
-                <label style="display:block; font-weight:700; color:#dc2626; font-size:13.5px; margin-bottom:6px; white-space:nowrap;">
+              <!-- Hạn nộp chót -->
+              <div style="min-width:0;">
+                <label style="display:block; font-weight:700; color:#dc2626; font-size:13px; margin-bottom:5px; white-space:nowrap;">
                   ⏰ Hạn nộp chót:
                 </label>
-                <div style="display:flex; align-items:center; gap:6px;">
-                  <input type="date" id="edit-crit-deadline" value="${c.deadline || '2026-01-31'}" style="flex:1.2; font-weight:600; padding:7px 8px; border:1.5px solid #fca5a5; border-radius:6px; background:#fff; font-size:13px;" />
-                  <div style="display:inline-flex; align-items:center; gap:2px; background:#fef2f2; border:1.5px solid #fca5a5; border-radius:6px; padding:4px 6px;">
-                    <select id="edit-crit-deadline-hour" style="border:none; background:transparent; font-weight:800; color:#b91c1c; font-size:13px; cursor:pointer; outline:none;">
+                <div style="display:flex; align-items:center; gap:5px; width:100%; box-sizing:border-box;">
+                  <input type="date" id="edit-crit-deadline" value="${c.deadline || '2026-01-31'}" style="min-width:0; width:100%; flex:1 1 auto; font-weight:600; padding:5px 6px; border:1.5px solid #fca5a5; border-radius:6px; background:#fff; font-size:12px; box-sizing:border-box;" />
+                  <div style="display:inline-flex; align-items:center; gap:2px; background:#fef2f2; border:1.5px solid #fca5a5; border-radius:6px; padding:2px 4px; flex-shrink:0; box-sizing:border-box;">
+                    <select id="edit-crit-deadline-hour" style="border:none; background:transparent; font-weight:800; color:#b91c1c; font-size:12px; cursor:pointer; outline:none; padding:2px 0;">
                       ${renderHourSelectOptions(deadHM.h)}
                     </select>
-                    <span style="font-weight:800; color:#b91c1c;">:</span>
-                    <select id="edit-crit-deadline-min" style="border:none; background:transparent; font-weight:800; color:#b91c1c; font-size:13px; cursor:pointer; outline:none;">
+                    <span style="font-weight:800; color:#b91c1c; font-size:12px; line-height:1;">:</span>
+                    <select id="edit-crit-deadline-min" style="border:none; background:transparent; font-weight:800; color:#b91c1c; font-size:12px; cursor:pointer; outline:none; padding:2px 0;">
                       ${renderMinuteSelectOptions(deadHM.m)}
                     </select>
                   </div>
-                </div>
-                <div style="display:flex; gap:4px; align-items:center; margin-top:6px; flex-wrap:wrap;">
-                  <span style="font-size:11px; color:#64748b;">Nhanh:</span>
-                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritDeadlineTime('edit', '11', '30')" style="font-size:11px; padding:1px 6px;">11:30</button>
-                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritDeadlineTime('edit', '16', '00')" style="font-size:11px; padding:1px 6px; font-weight:700; color:#dc2626; border-color:#fca5a5;">16:00</button>
-                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritDeadlineTime('edit', '17', '00')" style="font-size:11px; padding:1px 6px;">17:00</button>
-                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritDeadlineTime('edit', '23', '59')" style="font-size:11px; padding:1px 6px;">23:59</button>
                 </div>
               </div>
             </div>
@@ -11789,57 +11775,43 @@ window.openCriterionCreateModal = function () {
 
 
 
-          <div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:10px; padding:12px 14px; margin-bottom:14px;">
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+          <div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:8px; padding:10px 12px; margin-bottom:14px; box-sizing:border-box; overflow:hidden;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; width:100%; box-sizing:border-box;">
               <!-- Bắt đầu mở nộp -->
-              <div>
-                <label style="display:block; font-weight:700; color:#15803d; font-size:13.5px; margin-bottom:6px; white-space:nowrap;">
+              <div style="min-width:0;">
+                <label style="display:block; font-weight:700; color:#15803d; font-size:13px; margin-bottom:5px; white-space:nowrap;">
                   🟢 Bắt đầu mở nộp:
                 </label>
-                <div style="display:flex; align-items:center; gap:6px;">
-                  <input type="date" id="new-crit-start-date" value="2026-01-01" style="flex:1.2; font-weight:600; padding:7px 8px; border:1.5px solid #86efac; border-radius:6px; background:#fff; font-size:13px;" />
-                  <div style="display:inline-flex; align-items:center; gap:2px; background:#ecfdf5; border:1.5px solid #86efac; border-radius:6px; padding:4px 6px;">
-                    <select id="new-crit-start-hour" style="border:none; background:transparent; font-weight:700; color:#166534; font-size:13px; cursor:pointer; outline:none;">
+                <div style="display:flex; align-items:center; gap:5px; width:100%; box-sizing:border-box;">
+                  <input type="date" id="new-crit-start-date" value="2026-01-01" style="min-width:0; width:100%; flex:1 1 auto; font-weight:600; padding:5px 6px; border:1.5px solid #86efac; border-radius:6px; background:#fff; font-size:12px; box-sizing:border-box;" />
+                  <div style="display:inline-flex; align-items:center; gap:2px; background:#ecfdf5; border:1.5px solid #86efac; border-radius:6px; padding:2px 4px; flex-shrink:0; box-sizing:border-box;">
+                    <select id="new-crit-start-hour" style="border:none; background:transparent; font-weight:700; color:#166534; font-size:12px; cursor:pointer; outline:none; padding:2px 0;">
                       ${renderHourSelectOptions(0)}
                     </select>
-                    <span style="font-weight:800; color:#166534;">:</span>
-                    <select id="new-crit-start-min" style="border:none; background:transparent; font-weight:700; color:#166534; font-size:13px; cursor:pointer; outline:none;">
+                    <span style="font-weight:800; color:#166534; font-size:12px; line-height:1;">:</span>
+                    <select id="new-crit-start-min" style="border:none; background:transparent; font-weight:700; color:#166534; font-size:12px; cursor:pointer; outline:none; padding:2px 0;">
                       ${renderMinuteSelectOptions(0)}
                     </select>
                   </div>
-                </div>
-                <div style="display:flex; gap:4px; align-items:center; margin-top:6px; flex-wrap:wrap;">
-                  <span style="font-size:11px; color:#64748b;">Nhanh:</span>
-                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritStartTime('new', '00', '00')" style="font-size:11px; padding:1px 6px;">00:00</button>
-                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritStartTime('new', '07', '00')" style="font-size:11px; padding:1px 6px;">07:00</button>
-                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritStartTime('new', '08', '00')" style="font-size:11px; padding:1px 6px;">08:00</button>
-                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritStartTime('new', '13', '30')" style="font-size:11px; padding:1px 6px;">13:30</button>
                 </div>
               </div>
 
-              <!-- Hạn nộp chót (Xóa dòng chữ Deadline) -->
-              <div>
-                <label style="display:block; font-weight:700; color:#dc2626; font-size:13.5px; margin-bottom:6px; white-space:nowrap;">
+              <!-- Hạn nộp chót -->
+              <div style="min-width:0;">
+                <label style="display:block; font-weight:700; color:#dc2626; font-size:13px; margin-bottom:5px; white-space:nowrap;">
                   ⏰ Hạn nộp chót:
                 </label>
-                <div style="display:flex; align-items:center; gap:6px;">
-                  <input type="date" id="new-crit-deadline" value="2026-10-20" style="flex:1.2; font-weight:600; padding:7px 8px; border:1.5px solid #fca5a5; border-radius:6px; background:#fff; font-size:13px;" />
-                  <div style="display:inline-flex; align-items:center; gap:2px; background:#fef2f2; border:1.5px solid #fca5a5; border-radius:6px; padding:4px 6px;">
-                    <select id="new-crit-deadline-hour" style="border:none; background:transparent; font-weight:800; color:#b91c1c; font-size:13px; cursor:pointer; outline:none;">
+                <div style="display:flex; align-items:center; gap:5px; width:100%; box-sizing:border-box;">
+                  <input type="date" id="new-crit-deadline" value="2026-10-20" style="min-width:0; width:100%; flex:1 1 auto; font-weight:600; padding:5px 6px; border:1.5px solid #fca5a5; border-radius:6px; background:#fff; font-size:12px; box-sizing:border-box;" />
+                  <div style="display:inline-flex; align-items:center; gap:2px; background:#fef2f2; border:1.5px solid #fca5a5; border-radius:6px; padding:2px 4px; flex-shrink:0; box-sizing:border-box;">
+                    <select id="new-crit-deadline-hour" style="border:none; background:transparent; font-weight:800; color:#b91c1c; font-size:12px; cursor:pointer; outline:none; padding:2px 0;">
                       ${renderHourSelectOptions(16)}
                     </select>
-                    <span style="font-weight:800; color:#b91c1c;">:</span>
-                    <select id="new-crit-deadline-min" style="border:none; background:transparent; font-weight:800; color:#b91c1c; font-size:13px; cursor:pointer; outline:none;">
+                    <span style="font-weight:800; color:#b91c1c; font-size:12px; line-height:1;">:</span>
+                    <select id="new-crit-deadline-min" style="border:none; background:transparent; font-weight:800; color:#b91c1c; font-size:12px; cursor:pointer; outline:none; padding:2px 0;">
                       ${renderMinuteSelectOptions(0)}
                     </select>
                   </div>
-                </div>
-                <div style="display:flex; gap:4px; align-items:center; margin-top:6px; flex-wrap:wrap;">
-                  <span style="font-size:11px; color:#64748b;">Nhanh:</span>
-                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritDeadlineTime('new', '11', '30')" style="font-size:11px; padding:1px 6px;">11:30</button>
-                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritDeadlineTime('new', '16', '00')" style="font-size:11px; padding:1px 6px; font-weight:700; color:#dc2626; border-color:#fca5a5;">16:00</button>
-                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritDeadlineTime('new', '17', '00')" style="font-size:11px; padding:1px 6px;">17:00</button>
-                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritDeadlineTime('new', '23', '59')" style="font-size:11px; padding:1px 6px;">23:59</button>
                 </div>
               </div>
             </div>
