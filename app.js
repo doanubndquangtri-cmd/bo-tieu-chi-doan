@@ -28855,7 +28855,9 @@ const DEFAULT_BG_PLAYLIST = [
   {
     id: 'khat-vong-tuoi-tre',
     title: 'Khát Vọng Tuổi Trẻ (Vũ Hoàng)',
-    url: 'https://github.com/doanubndquangtri-cmd/bo-tieu-chi-doan/releases/download/v-audio-assets/khat-vong-tuoi-tre.mp3',
+    url: './assets/khat-vong-tuoi-tre.mp3',
+    fallbackUrl: 'https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/assets/khat-vong-tuoi-tre.mp3',
+    videoId: '8gvtAeGTNZQ',
     gdriveUrl: 'https://drive.google.com/file/d/1Hz6-QTMJ3KgEI11s49hUtUly0ezuPzhu/view',
     size: '3.1 MB',
     isPreset: true
@@ -28863,7 +28865,9 @@ const DEFAULT_BG_PLAYLIST = [
   {
     id: 'doan-ca',
     title: 'Thanh Niên Làm Theo Lời Bác (Đoàn Ca)',
-    url: 'https://github.com/doanubndquangtri-cmd/bo-tieu-chi-doan/releases/download/v-audio-assets/doan-ca.mp3',
+    url: './assets/doan-ca.mp3',
+    fallbackUrl: 'https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/assets/doan-ca.mp3',
+    videoId: 'xpywMmWws0U',
     gdriveUrl: 'https://drive.google.com/file/d/15bdDOqa3AsP0kHSMZl4iEJOOVQIzwUSq/view',
     size: '1.1 MB',
     isPreset: true
@@ -28871,7 +28875,9 @@ const DEFAULT_BG_PLAYLIST = [
   {
     id: 'tien-quan-ca',
     title: 'Tiến Quân Ca (Quốc Ca Việt Nam)',
-    url: 'https://github.com/doanubndquangtri-cmd/bo-tieu-chi-doan/releases/download/v-audio-assets/tien-quan-ca.mp3',
+    url: './assets/tien-quan-ca.mp3',
+    fallbackUrl: 'https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/assets/tien-quan-ca.mp3',
+    videoId: 'gy7_kS8PJHo',
     gdriveUrl: 'https://drive.google.com/file/d/1PYhB_0tGcqtla3TaAtuLvuDMMQRIQdkJ/view',
     size: '1.6 MB',
     isPreset: true
@@ -28879,18 +28885,28 @@ const DEFAULT_BG_PLAYLIST = [
 ];
 
 function getBgMusicPlaylist() {
+  let list = DEFAULT_BG_PLAYLIST;
   const localCustom = localStorage.getItem('doan2026_local_playlist');
   if (localCustom) {
     try {
       const parsed = JSON.parse(localCustom);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) list = parsed;
     } catch(e) {}
+  } else {
+    const settings = (state && state.settings) ? state.settings : {};
+    if (Array.isArray(settings.bg_music_playlist) && settings.bg_music_playlist.length > 0) {
+      list = settings.bg_music_playlist;
+    }
   }
-  const settings = (state && state.settings) ? state.settings : {};
-  if (Array.isArray(settings.bg_music_playlist) && settings.bg_music_playlist.length > 0) {
-    return settings.bg_music_playlist;
-  }
-  return DEFAULT_BG_PLAYLIST;
+
+  // Luôn ghi đè thông số chuẩn cho 3 bài preset (tránh lỗi cache link cũ)
+  return list.map(item => {
+    const preset = DEFAULT_BG_PLAYLIST.find(p => p.id === item.id);
+    if (preset) {
+      return { ...item, ...preset };
+    }
+    return item;
+  });
 }
 
 function saveLocalPlaylist(list) {
@@ -28909,15 +28925,15 @@ function convertToDirectAudioUrl(url) {
   if (!url) return '';
   url = String(url).trim();
 
-  // Khớp bài chuẩn CDN tốc độ cao
+  // Khớp bài chuẩn assets trực tiếp
   if (url.includes('1Hz6-QTMJ3KgEI11s49hUtUly0ezuPzhu') || url.includes('khat-vong-tuoi-tre')) {
-    return 'https://github.com/doanubndquangtri-cmd/bo-tieu-chi-doan/releases/download/v-audio-assets/khat-vong-tuoi-tre.mp3';
+    return './assets/khat-vong-tuoi-tre.mp3';
   }
   if (url.includes('15bdDOqa3AsP0kHSMZl4iEJOOVQIzwUSq') || url.includes('doan-ca')) {
-    return 'https://github.com/doanubndquangtri-cmd/bo-tieu-chi-doan/releases/download/v-audio-assets/doan-ca.mp3';
+    return './assets/doan-ca.mp3';
   }
   if (url.includes('1PYhB_0tGcqtla3TaAtuLvuDMMQRIQdkJ') || url.includes('1PYhB_0tGcqtla3TaAtuLvul') || url.includes('tien-quan-ca')) {
-    return 'https://github.com/doanubndquangtri-cmd/bo-tieu-chi-doan/releases/download/v-audio-assets/tien-quan-ca.mp3';
+    return './assets/tien-quan-ca.mp3';
   }
 
   const pl = getBgMusicPlaylist();
@@ -29093,20 +29109,20 @@ window.BgMusicManager = {
         this.handleTrackEnded();
       });
       this.audio.addEventListener('error', (e) => {
-        console.warn('[BgMusic] Audio error:', e);
+        console.warn('[BgMusic] Audio error on src:', this.audio ? this.audio.src : '', e);
         this.isPlaying = false;
 
-        // Tự động chuyển đổi dự phòng
+        // 1. Thử URL dự phòng trực tiếp nếu chưa thử
         if (this.currentTrackUrl && !this._triedFallback) {
           this._triedFallback = true;
           let fallbackUrl = '';
-          if (this.currentTrackUrl.includes('/v-audio-assets/') || this.currentTrackUrl.includes('/assets/')) {
-            const filename = this.currentTrackUrl.split('/').pop();
-            fallbackUrl = './assets/' + filename;
+          if (this.currentTrack && this.currentTrack.fallbackUrl) {
+            fallbackUrl = this.currentTrack.fallbackUrl;
           } else if (this.currentTrackUrl.startsWith('./assets/') || this.currentTrackUrl.startsWith('assets/')) {
-            const filename = this.currentTrackUrl.replace(/^\.?\/?assets\//, '');
-            fallbackUrl = 'https://github.com/doanubndquangtri-cmd/bo-tieu-chi-doan/releases/download/v-audio-assets/' + filename;
+            const filename = this.currentTrackUrl.split('/').pop();
+            fallbackUrl = 'https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/assets/' + filename;
           }
+
           if (fallbackUrl && fallbackUrl !== this.currentTrackUrl) {
             console.log('[BgMusic] Trying fallback audio URL:', fallbackUrl);
             this.currentTrackUrl = fallbackUrl;
@@ -29117,8 +29133,16 @@ window.BgMusicManager = {
           }
         }
 
-        // Tự động chuyển bài tiếp theo nếu bài hiện tại gặp lỗi mạng
-        setTimeout(() => { this.playNext(false); }, 1000);
+        // 2. Nếu HTML5 thất bại hoàn toàn và bài có videoId YouTube, chuyển sang phát YouTube cho CHÍNH BÀI ĐÓ
+        if (this.currentTrack && (this.currentTrack.videoId || extractYouTubeId(this.currentTrack.url))) {
+          console.log('[BgMusic] HTML5 failed, switching to YouTube audio for track:', this.currentTrack.title);
+          this.playYouTubeTrack(this.currentTrack);
+          return;
+        }
+
+        // 3. Đánh dấu lỗi và DỪNG LẠI, TUYỆT ĐỐI KHÔNG tự động nhảy bài liên tục gây khó chịu
+        this.hasLoadError = true;
+        this.updateUI();
       });
     }
 
@@ -29199,7 +29223,9 @@ window.BgMusicManager = {
             },
             onError: (e) => {
               console.warn('[BgMusic] YouTube Player Error:', e);
-              this.playNext(false);
+              this.isPlaying = false;
+              this.hasLoadError = true;
+              this.updateUI();
             }
           }
         });
