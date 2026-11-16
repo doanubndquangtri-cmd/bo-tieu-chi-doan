@@ -7339,7 +7339,17 @@ function ingestCloudDB(db) {
 
 
 
+  const oldFeaturedUrl = (state.settings && state.settings.admin_featured_youtube_url) || '';
   state.settings = settings;
+
+  // Nếu Admin cập nhật/xóa bài hát cố định trên đám mây, tự động đồng bộ tức thì cho mọi máy
+  if (typeof window !== 'undefined' && window.BgMusicManager) {
+    const newFeaturedUrl = settings.admin_featured_youtube_url || '';
+    if (newFeaturedUrl !== oldFeaturedUrl && !window.BgMusicManager.isLocallyPaused()) {
+      window.BgMusicManager.syncWithSettings(true);
+    }
+  }
+
   if (window.WebPushManager) window.WebPushManager.init();
   if (window.initRealtimeLiveBridge) window.initRealtimeLiveBridge();
 
@@ -34336,29 +34346,45 @@ const DEFAULT_BG_PLAYLIST = [
   }
 ];
 
-function getBgMusicPlaylist() {
-  let list = DEFAULT_BG_PLAYLIST;
-  const localCustom = localStorage.getItem('doan2026_local_playlist');
-  if (localCustom) {
-    try {
-      const parsed = JSON.parse(localCustom);
-      if (Array.isArray(parsed) && parsed.length > 0) list = parsed;
-    } catch(e) {}
-  } else {
-    const settings = (state && state.settings) ? state.settings : {};
-    if (Array.isArray(settings.bg_music_playlist) && settings.bg_music_playlist.length > 0) {
-      list = settings.bg_music_playlist;
+function getAdminFeaturedTrack() {
+  const settings = (state && state.settings) ? state.settings : {};
+  if (settings.admin_featured_track && (settings.admin_featured_track.videoId || settings.admin_featured_track.url)) {
+    return settings.admin_featured_track;
+  }
+  if (settings.admin_featured_youtube_url) {
+    const vId = extractYouTubeId(settings.admin_featured_youtube_url);
+    if (vId) {
+      return {
+        id: 'admin_featured',
+        title: settings.admin_featured_youtube_title || 'Bài hát cố định bởi Admin',
+        type: 'youtube',
+        videoId: vId,
+        url: 'https://www.youtube.com/watch?v=' + vId,
+        size: 'Cố định bởi Admin',
+        isFeaturedByAdmin: true,
+        isPreset: false
+      };
     }
   }
+  return null;
+}
 
-  // Luôn ghi đè thông số chuẩn cho 3 bài preset (tránh lỗi cache link cũ)
-  return list.map(item => {
-    const preset = DEFAULT_BG_PLAYLIST.find(p => p.id === item.id);
-    if (preset) {
-      return { ...item, ...preset };
-    }
-    return item;
-  });
+window._tempSessionTracks = [];
+
+function getBgMusicPlaylist() {
+  let list = [];
+  const adminFeatured = getAdminFeaturedTrack();
+  if (adminFeatured) {
+    list.push(adminFeatured);
+  }
+  list = list.concat(DEFAULT_BG_PLAYLIST);
+
+  // Nếu người dùng có dán link tự nghe tạm thời trong phiên này (không lưu khi thoát)
+  if (Array.isArray(window._tempSessionTracks) && window._tempSessionTracks.length > 0) {
+    list = [...window._tempSessionTracks, ...list];
+  }
+
+  return list;
 }
 
 function saveLocalPlaylist(list) {
@@ -34436,12 +34462,10 @@ window.BgMusicManager = {
 
   init() {
     if (typeof window === 'undefined') return;
-    const savedIdx = localStorage.getItem('doan2026_bg_music_idx');
-    if (savedIdx !== null && !isNaN(Number(savedIdx))) {
-      this.currentIndex = Number(savedIdx);
-    }
+    // Mỗi khi vào app/mở ứng dụng: luôn phát bài đầu tiên (bài cố định của Admin nếu có, hoặc bài 1 Đoàn)
+    this.currentIndex = 0;
     this.setupAutoplayOnInteraction();
-    this.syncWithSettings();
+    this.syncWithSettings(true);
   },
 
   getSettings() {
@@ -34495,7 +34519,7 @@ window.BgMusicManager = {
     return localStorage.getItem('doan2026_bg_music_paused') === '1';
   },
 
-  syncWithSettings() {
+  syncWithSettings(forceFreshStart = false) {
     const settings = this.getSettings();
     const isEnabled = settings.bg_music_enabled !== '0';
 
@@ -34504,6 +34528,14 @@ window.BgMusicManager = {
       this.isPlaying = false;
       this.hasLoadError = false;
       this.updateUI();
+      return;
+    }
+
+    const adminFeatured = getAdminFeaturedTrack();
+    // Cứ mỗi lần vào app/mở ứng dụng là phát bài cố định của Admin trước tiên
+    if (adminFeatured && (!this.currentTrack || forceFreshStart)) {
+      this.currentIndex = 0;
+      this.playTrack(adminFeatured, false);
       return;
     }
 
@@ -34904,25 +34936,25 @@ function openBgMusicSettingsModal() {
   const isAdmin = (state.user && (state.user.role === 'admin' || state.user.id === 0 || state.user.id === '0'));
   const settings = state.settings || {};
   const isEnabled = settings.bg_music_enabled !== '0';
-  const startMuted = settings.bg_music_start_muted === '1';
   const currentVol = Math.round(window.BgMusicManager.getLocalVolume() * 100);
   const isMuted = window.BgMusicManager.isLocallyMuted();
   const isPlaying = window.BgMusicManager.isPlaying;
   const currentTitle = window.BgMusicManager.getCurrentTitle();
   const playbackMode = window.BgMusicManager.getPlaybackMode();
 
+  const adminFeaturedTrack = getAdminFeaturedTrack();
   const playlist = getBgMusicPlaylist();
   const currentIdx = window.BgMusicManager.currentIndex;
 
   modalRoot.innerHTML = `
     <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
-      <div class="modal-box" style="max-width: 760px; border-radius:12px; overflow:hidden; box-shadow:0 14px 35px rgba(0,0,0,0.35);">
+      <div class="modal-box" style="max-width: 780px; border-radius:12px; overflow:hidden; box-shadow:0 14px 35px rgba(0,0,0,0.35);">
         <div class="modal-header" style="background: linear-gradient(135deg, #6d28d9 0%, #4f46e5 100%); color: #fff; padding: 14px 20px; display:flex; justify-content:space-between; align-items:center;">
           <div style="display:flex; align-items:center; gap:10px;">
             <span style="font-size:22px;">🎵</span>
             <div>
-              <div style="font-weight: 800; font-size:15px; text-transform:uppercase; letter-spacing:0.3px;">Quản Lý & Chọn Nhạc Nền</div>
-              <div style="font-size:11px; opacity:0.9; font-weight:600;">Hỗ trợ phát nối tiếp 3 bài hát Đoàn • Dán link YouTube chỉ nghe âm thanh</div>
+              <div style="font-weight: 800; font-size:15px; text-transform:uppercase; letter-spacing:0.3px;">Quản Lý & Chọn Nhạc Nền Ứng Dụng</div>
+              <div style="font-size:11px; opacity:0.9; font-weight:600;">Hỗ trợ Admin gán link phát mặc định toàn hệ thống • Đoàn cơ sở tự nghe tùy chọn</div>
             </div>
           </div>
           <button class="btn btn-sm btn-outline" onclick="closeModal()" style="color: #fff; border-color: rgba(255,255,255,0.4); font-size:14px; padding:2px 8px;">✕</button>
@@ -34930,7 +34962,7 @@ function openBgMusicSettingsModal() {
 
         <div class="modal-body" style="padding: 18px 20px; max-height: calc(85vh - 120px); overflow-y:auto; background:#fff;">
           
-          <!-- THANH ĐIỀU KHIỂN BÀI HÁT TRỰC QUAN (PHẢN HỒI TỨC THÌ 0.1S) -->
+          <!-- THANH ĐIỀU KHIỂN BÀI HÁT HIỆN TẠI -->
           <div style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); color:#fff; border-radius: 10px; padding: 14px 18px; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(30,27,75,0.25);">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
               <div style="min-width:0; flex:1;">
@@ -34970,23 +35002,66 @@ function openBgMusicSettingsModal() {
               <div>
                 <div style="font-size:12px; font-weight:700; margin-bottom:4px;">🔁 Chế độ phát:</div>
                 <select onchange="window.BgMusicManager.setPlaybackMode(this.value); showToast('Đã đổi chế độ: ' + this.options[this.selectedIndex].text, 'info');" style="width:100%; border:1px solid rgba(255,255,255,0.4); background:#fff; color:#1e1b4b; border-radius:5px; padding:4px 8px; font-size:12px; font-weight:800; cursor:pointer;">
-                  <option value="sequence" ${playbackMode === 'sequence' ? 'selected' : ''}>🔁 Phát nối tiếp lần lượt (Bài 1 ➔ 2 ➔ 3 ➔ 1...)</option>
+                  <option value="sequence" ${playbackMode === 'sequence' ? 'selected' : ''}>🔁 Phát nối tiếp lần lượt (Bài 1 ➔ 2 ➔ 3...)</option>
                   <option value="repeat_one" ${playbackMode === 'repeat_one' ? 'selected' : ''}>🔂 Lặp lại 1 bài hiện tại</option>
                 </select>
               </div>
             </div>
           </div>
 
-          <!-- PHẦN DÁN LINK YOUTUBE ĐỂ PHÁT NHẠC (CHỈ NGHE ÂM THANH) - HỖ TRỢ CẢ ĐOÀN CƠ SỞ & ADMIN -->
+          <!-- PHẦN DÀNH RIÊNG CHO ADMIN: ĐĂNG LINK CỐ ĐỊNH PHÁT CHO TOÀN BỘ HỆ THỐNG KHI VÀO APP -->
+          ${isAdmin ? `
+            <div style="background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%); border: 2px solid #3b82f6; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; box-shadow: 0 4px 12px rgba(59,130,246,0.12);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <span style="font-weight: 800; color: #1d4ed8; font-size: 13.5px; display: inline-flex; align-items: center; gap: 7px;">
+                  👑 GẮN LINK PHÁT MẶC ĐỊNH TOÀN HỆ THỐNG (DÀNH CHO ADMIN)
+                </span>
+                <span style="font-size: 10px; background: #2563eb; color: #fff; padding: 2px 8px; border-radius: 10px; font-weight: 800;">Tự động phát khi mọi người vào app</span>
+              </div>
+              <div style="font-size: 12px; color: #1e40af; margin-bottom: 10px; line-height: 1.45;">
+                Khi Admin gắn link YouTube tại đây và Lưu: <b>Tất cả các máy tính của Đoàn cơ sở khi mở ứng dụng sẽ tự động phát bài hát này trước tiên</b>. Link được lưu vĩnh viễn trên đám mây cho đến khi Admin đổi hoặc xóa.
+              </div>
+
+              ${adminFeaturedTrack ? `
+                <div style="background:#fff; border:1.5px solid #93c5fd; border-radius:8px; padding:10px 14px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                  <div style="min-width:0; flex:1;">
+                    <div style="font-size:10.5px; font-weight:800; color:#2563eb; text-transform:uppercase;">📌 Link đang được cố định toàn hệ thống hiện tại:</div>
+                    <div style="font-size:13.5px; font-weight:800; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                      📺 ${escapeHtml(adminFeaturedTrack.title)}
+                    </div>
+                    <div style="font-size:11px; color:#64748b; word-break:break-all;">${escapeHtml(adminFeaturedTrack.url)}</div>
+                  </div>
+                  <div style="display:flex; gap:6px; align-items:center;">
+                    <button type="button" class="btn btn-sm" onclick="window.BgMusicManager.playTrack(getAdminFeaturedTrack(), true)" style="background:#15803d; color:#fff; font-weight:700; font-size:11px; padding:5px 10px; border:none; border-radius:5px; cursor:pointer;">
+                      ▶ Nghe thử
+                    </button>
+                    <button type="button" class="btn btn-sm" onclick="window.deleteAdminFeaturedMusic()" style="background:#fee2e2; color:#b91c1c; border:1px solid #f87171; font-weight:800; font-size:11px; padding:5px 11px; border-radius:5px; cursor:pointer;" title="Xóa bỏ link cố định, quay về phát 3 bài Đoàn truyền thống">
+                      🗑️ Xóa link cố định
+                    </button>
+                  </div>
+                </div>
+              ` : ''}
+
+              <div style="display:flex; gap: 8px;">
+                <input type="text" id="admin-featured-youtube-input" placeholder="${adminFeaturedTrack ? 'Dán link YouTube mới để thay thế bài cố định...' : 'Dán đường link YouTube muốn phát tự động cho toàn hệ thống...'}" style="flex:1; border:1.5px solid #3b82f6; border-radius:6px; padding:7px 12px; font-size:12.5px; outline:none; box-sizing:border-box;" onkeydown="if(event.key==='Enter') window.saveAdminFeaturedMusic()" />
+                <button type="button" class="btn btn-sm" onclick="window.saveAdminFeaturedMusic()" style="background:#2563eb; color:#fff; font-weight:800; font-size:12px; padding:7px 16px; border-radius:6px; border:none; white-space:nowrap; cursor:pointer; box-shadow:0 2px 6px rgba(37,99,235,0.3);">
+                  📌 ${adminFeaturedTrack ? 'Đổi Link Cố Định' : 'Cố Định Link Này'}
+                </button>
+              </div>
+              <div id="admin-featured-status-msg" style="margin-top:6px; font-size:12px; font-weight:700; display:none;"></div>
+            </div>
+          ` : ''}
+
+          <!-- PHẦN DÀNH CHO ĐOÀN CƠ SỞ (VÀ ADMIN): DÁN LINK YOUTUBE TỰ NGHE (TẠM THỜI TRONG PHIÊN) -->
           <div style="background: linear-gradient(135deg, #fff1f2 0%, #fdf2f8 100%); border: 1.5px solid #fbcfe8; border-radius: 8px; padding: 14px; margin-bottom: 16px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
               <span style="font-weight: 800; color: #be185d; font-size: 13.5px; display: inline-flex; align-items: center; gap: 6px;">
-                📺 Dán Link YouTube để phát nhạc (Chỉ nghe âm thanh):
+                🎧 Dán Link YouTube Tự Nghe (Tùy chọn riêng cho máy này):
               </span>
-              <span style="font-size: 10px; background: #be185d; color: #fff; padding: 2px 7px; border-radius: 10px; font-weight: 800;">Dành cho cả Đoàn cơ sở & Admin</span>
+              <span style="font-size: 10px; background: #be185d; color: #fff; padding: 2px 7px; border-radius: 10px; font-weight: 800;">Chỉ nghe âm thanh • Không lưu khi thoát</span>
             </div>
             <div style="font-size: 12px; color: #831843; margin-bottom: 10px; line-height: 1.4;">
-              Dán đường link YouTube bài hát bất kỳ (VD: <i>https://www.youtube.com/watch?v=...</i> hoặc <i>https://youtu.be/...</i>). Hệ thống sẽ phát âm thanh trực tiếp ngầm, không video, không làm chậm máy!
+              Đoàn cơ sở có thể dán link bài hát YouTube bất kỳ để nghe riêng cho máy này. <b>Khi thoát ứng dụng hoặc làm mới trang (F5), link tự nghe sẽ tự hủy và trở về bài nhạc cố định của hệ thống.</b>
             </div>
             <div style="display:flex; gap: 8px;">
               <input type="text" id="youtube-url-input" placeholder="Dán link bài hát YouTube vào đây..." style="flex:1; border:1.5px solid #f472b6; border-radius:6px; padding:7px 12px; font-size:12.5px; outline:none; box-sizing:border-box;" onkeydown="if(event.key==='Enter') window.handlePasteYouTubeLink()" />
@@ -34997,7 +35072,7 @@ function openBgMusicSettingsModal() {
             <div id="youtube-status-msg" style="margin-top:6px; font-size:12px; font-weight:700; display:none;"></div>
           </div>
 
-          <!-- DANH SÁCH 3 BÀI HÁT ĐOÀN CÓ SẴN & CÁC BÀI ĐÃ THÊM (PLAYLIST) -->
+          <!-- DANH SÁCH BÀI HÁT (PLAYLIST) -->
           <div style="margin-bottom: 16px;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
               <label style="font-weight: 700; font-size: 13.5px; color: #1e293b;">
@@ -35015,8 +35090,8 @@ function openBgMusicSettingsModal() {
                     <tr style="background:#f3e8ff; color:#6b21a8; font-weight:800; border-bottom:1.5px solid #e9d5ff; text-align:left;">
                       <th style="padding:8px 10px; width:30px; text-align:center;">#</th>
                       <th style="padding:8px 10px;">Tên bài hát</th>
-                      <th style="padding:8px 10px; width:110px;">Thể loại / Nguồn</th>
-                      <th style="padding:8px 10px; text-align:right; width:160px;">Thao tác</th>
+                      <th style="padding:8px 10px; width:135px;">Thể loại / Phân loại</th>
+                      <th style="padding:8px 10px; text-align:right; width:140px;">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -35027,21 +35102,21 @@ function openBgMusicSettingsModal() {
                           <td style="padding:8px 10px; text-align:center; font-weight:800; color:${isCurrent ? '#6d28d9' : '#64748b'};">${idx + 1}</td>
                           <td style="padding:8px 10px;">
                             <div style="font-weight:700; color:${isCurrent ? '#6d28d9' : '#1e293b'}; display:flex; align-items:center; gap:6px;">
-                              <span>${isCurrent ? '🎵' : (s.type === 'youtube' ? '📺' : '🎼')}</span>
+                              <span>${isCurrent ? '🎵' : (s.isFeaturedByAdmin ? '👑' : (s.type === 'youtube' ? '📺' : '🎼'))}</span>
                               <span>${escapeHtml(s.title)}</span>
                               ${isCurrent ? '<span style="background:#15803d; color:#fff; font-size:9.5px; padding:1px 5px; border-radius:3px; font-weight:800;">ĐANG PHÁT</span>' : ''}
                             </div>
                           </td>
                           <td style="padding:8px 10px; font-size:11.5px; color:#64748b; font-weight:600;">
-                            ${escapeHtml(s.type === 'youtube' ? 'YouTube Audio' : (s.size || 'Bài hát chuẩn'))}
+                            ${s.isFeaturedByAdmin ? '<span style="background:#dbeafe; color:#1d4ed8; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:800;">👑 Admin cố định</span>' : (s.isTemp ? '<span style="background:#fce7f3; color:#be185d; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:800;">🎧 Tự nghe</span>' : escapeHtml(s.size || 'Bài hát chuẩn'))}
                           </td>
                           <td style="padding:8px 10px; text-align:right;">
                             <div style="display:inline-flex; gap:4px; align-items:center;">
                               <button type="button" onclick="window.BgMusicManager.playIndex(${idx})" class="btn btn-sm" style="background:${isCurrent ? '#15803d' : '#7c3aed'}; color:#fff; font-size:11px; padding:3px 9px; font-weight:700; border-radius:4px; border:none; cursor:pointer;" title="Chuyển sang bài này">
                                 ${isCurrent ? '✓ Đang phát' : '▶ Phát ngay'}
                               </button>
-                              ${!s.isPreset ? `
-                                <button type="button" onclick="window.deleteBgMusicSong('${escapeHtml(s.id)}')" class="btn btn-sm btn-outline" style="font-size:11px; padding:3px 6px; color:#dc2626; border-color:#fca5a5; font-weight:700; background:#fff; cursor:pointer;" title="Xóa bài hát này khỏi danh sách">
+                              ${s.isTemp ? `
+                                <button type="button" onclick="window._tempSessionTracks = []; openBgMusicSettingsModal(); window.BgMusicManager.syncWithSettings(true);" class="btn btn-sm btn-outline" style="font-size:11px; padding:3px 6px; color:#dc2626; border-color:#fca5a5; font-weight:700; background:#fff; cursor:pointer;" title="Hủy bài tự nghe này">
                                   🗑️
                                 </button>
                               ` : ''}
@@ -35056,7 +35131,7 @@ function openBgMusicSettingsModal() {
             </div>
           </div>
 
-          <!-- PHẦN DÀNH CHO ADMIN (NẾU ĐĂNG NHẬP ADMIN THÌ HIỂN THỊ CÀI ĐẶT HỆ THỐNG) -->
+          <!-- CÀI ĐẶT BẬT/TẮT TỰ ĐỘNG CHUNG (ADMIN) -->
           ${isAdmin ? `
             <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 12px 14px; margin-bottom: 8px;">
               <div style="font-weight: 700; font-size: 13px; color: #1e293b; margin-bottom: 6px;">
@@ -35068,7 +35143,7 @@ function openBgMusicSettingsModal() {
                   Bật phát nhạc nền tự động khi người dùng mở ứng dụng
                 </label>
                 <button type="button" class="btn btn-sm btn-primary" onclick="saveAdminBgMusicSettings()" style="background:#4f46e5; border:none; font-weight:700; font-size:11.5px; padding:5px 14px;">
-                  💾 Lưu Cấu Hình Hệ Thống Lên Đám Mây
+                  💾 Lưu Cài Đặt Hệ Thống
                 </button>
               </div>
             </div>
@@ -35086,6 +35161,7 @@ function openBgMusicSettingsModal() {
   `;
 }
 
+// XỬ LÝ DÁN LINK YOUTUBE TỰ NGHE CHO ĐOÀN CƠ SỞ (CHỈ LƯU TRONG PHIÊN, THOÁT RA KHÔNG LƯU)
 window.handlePasteYouTubeLink = async function() {
   const input = document.getElementById('youtube-url-input');
   const statusMsg = document.getElementById('youtube-status-msg');
@@ -35112,7 +35188,6 @@ window.handlePasteYouTubeLink = async function() {
     statusMsg.textContent = '⏳ Đang kết nối âm thanh YouTube...';
   }
 
-  // Tự động lấy tên video qua oEmbed API (nhanh tức thì)
   let title = 'YouTube Track (' + videoId + ')';
   try {
     const oembedUrl = 'https://www.youtube.com/oembed?url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + videoId) + '&format=json';
@@ -35126,75 +35201,149 @@ window.handlePasteYouTubeLink = async function() {
   } catch(e) {}
 
   const ytTrack = {
-    id: 'yt_' + videoId + '_' + Date.now(),
+    id: 'temp_yt_' + videoId + '_' + Date.now(),
     title: title,
     type: 'youtube',
     videoId: videoId,
     url: 'https://www.youtube.com/watch?v=' + videoId,
-    size: 'YouTube Audio',
+    size: 'Tự nghe (Tạm thời)',
+    isTemp: true,
     isPreset: false
   };
 
-  const currentPlaylist = getBgMusicPlaylist();
-  // Tránh trùng lặp
-  const exists = currentPlaylist.find(s => s.videoId === videoId);
-  let updatedPlaylist = currentPlaylist;
-  if (!exists) {
-    updatedPlaylist = [ytTrack, ...currentPlaylist];
-    saveLocalPlaylist(updatedPlaylist);
-  }
+  // Chỉ lưu tạm thời vào phiên làm việc hiện tại, TUYỆT ĐỐI không lưu vĩnh viễn
+  window._tempSessionTracks = [ytTrack];
+  try { localStorage.removeItem('doan2026_local_playlist'); } catch(e) {}
 
-  // Chuyển sang phát bài YouTube ngay lập tức!
-  window.BgMusicManager.currentIndex = exists ? currentPlaylist.indexOf(exists) : 0;
-  window.BgMusicManager.playTrack(exists || ytTrack, true);
+  window.BgMusicManager.currentIndex = 0;
+  window.BgMusicManager.playTrack(ytTrack, true);
 
   input.value = '';
   if (statusMsg) {
     statusMsg.style.display = 'block';
     statusMsg.style.color = '#15803d';
-    statusMsg.textContent = '✅ Đang phát âm thanh YouTube: ' + title;
+    statusMsg.textContent = '✅ Đang phát âm thanh: ' + title + ' (Tạm thời phiên này)';
   }
 
   openBgMusicSettingsModal();
-  showToast('🎉 Đang phát âm thanh từ YouTube: "' + title + '"!', 'success');
+  showToast('🎧 Đang phát bài tự nghe: "' + title + '" (Chỉ nghe phiên này, thoát app sẽ tự hủy)!', 'success');
 };
 
-window.deleteBgMusicSong = function(songId) {
-  const playlist = getBgMusicPlaylist();
-  const updated = playlist.filter(s => s.id !== songId);
-  saveLocalPlaylist(updated);
-
-  // Nếu là Admin, có thể lưu vào db
-  if (state.settings && Array.isArray(state.settings.bg_music_playlist)) {
-    state.settings.bg_music_playlist = updated;
-    mutateCloudDB((db) => {
-      db.settings = db.settings || {};
-      db.settings.bg_music_playlist = updated;
-    }, 'Delete bg music: ' + songId);
+// ADMIN: GẮN VÀ CỐ ĐỊNH LINK CHO TOÀN BỘ HỆ THỐNG
+window.saveAdminFeaturedMusic = async function() {
+  const input = document.getElementById('admin-featured-youtube-input');
+  const statusMsg = document.getElementById('admin-featured-status-msg');
+  if (!input || !input.value.trim()) {
+    showToast('Vui lòng nhập link YouTube muốn cố định cho toàn bộ hệ thống!', 'warning');
+    if (input) input.focus();
+    return;
   }
 
-  if (window.BgMusicManager.currentIndex >= updated.length) {
+  const url = input.value.trim();
+  const videoId = extractYouTubeId(url);
+  if (!videoId) {
+    showToast('⚠️ Link YouTube không hợp lệ!', 'error');
+    if (statusMsg) {
+      statusMsg.style.display = 'block';
+      statusMsg.style.color = '#dc2626';
+      statusMsg.textContent = '❌ Không nhận diện được Video ID YouTube từ đường link này!';
+    }
+    return;
+  }
+
+  if (statusMsg) {
+    statusMsg.style.display = 'block';
+    statusMsg.style.color = '#2563eb';
+    statusMsg.textContent = '⏳ Đang lưu cấu hình và kết nối âm thanh...';
+  }
+
+  showToast('Đang lưu link cố định toàn hệ thống lên đám mây...', 'info');
+
+  let title = 'YouTube Track (' + videoId + ')';
+  try {
+    const oembedUrl = 'https://www.youtube.com/oembed?url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + videoId) + '&format=json';
+    const res = await fetch(oembedUrl);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.title) title = data.title;
+    }
+  } catch(e) {}
+
+  const featuredTrack = {
+    id: 'admin_featured',
+    title: title,
+    type: 'youtube',
+    videoId: videoId,
+    url: 'https://www.youtube.com/watch?v=' + videoId,
+    size: 'Cố định bởi Admin',
+    isFeaturedByAdmin: true,
+    isPreset: false
+  };
+
+  const res = await mutateCloudDB((db) => {
+    db.settings = db.settings || {};
+    db.settings.admin_featured_youtube_url = 'https://www.youtube.com/watch?v=' + videoId;
+    db.settings.admin_featured_youtube_title = title;
+    db.settings.admin_featured_track = featuredTrack;
+
+    state.settings = state.settings || {};
+    state.settings.admin_featured_youtube_url = db.settings.admin_featured_youtube_url;
+    state.settings.admin_featured_youtube_title = db.settings.admin_featured_youtube_title;
+    state.settings.admin_featured_track = db.settings.admin_featured_track;
+  }, 'Admin set featured system music: ' + title);
+
+  if (res.ok) {
     window.BgMusicManager.currentIndex = 0;
+    window.BgMusicManager.playTrack(featuredTrack, true);
+    openBgMusicSettingsModal();
+    showToast('👑 Đã cố định bài hát "' + title + '" cho toàn bộ hệ thống! Khi các đơn vị mở app sẽ tự động phát bài này.', 'success');
+  } else {
+    showToast('Lỗi khi lưu lên đám mây: ' + (res.error || 'Vui lòng thử lại'), 'error');
   }
-  openBgMusicSettingsModal();
-  showToast('Đã xóa bài hát khỏi danh sách!', 'info');
+};
+
+// ADMIN: XÓA LINK CỐ ĐỊNH CHO TOÀN BỘ HỆ THỐNG
+window.deleteAdminFeaturedMusic = async function() {
+  if (!confirm('Bạn có chắc chắn muốn xóa bài hát cố định này? Toàn bộ hệ thống sẽ quay về phát tự động 3 bài hát Đoàn truyền thống.')) {
+    return;
+  }
+
+  showToast('Đang xóa link cố định trên đám mây...', 'info');
+
+  const res = await mutateCloudDB((db) => {
+    db.settings = db.settings || {};
+    db.settings.admin_featured_youtube_url = '';
+    db.settings.admin_featured_youtube_title = '';
+    db.settings.admin_featured_track = null;
+
+    state.settings = state.settings || {};
+    state.settings.admin_featured_youtube_url = '';
+    state.settings.admin_featured_youtube_title = '';
+    state.settings.admin_featured_track = null;
+  }, 'Admin delete featured system music');
+
+  if (res.ok) {
+    window.BgMusicManager.currentIndex = 0;
+    window.BgMusicManager.playTrack(DEFAULT_BG_PLAYLIST[0], true);
+    openBgMusicSettingsModal();
+    showToast('Đã xóa link cố định! Hệ thống trở lại phát 3 bài hát Đoàn truyền thống.', 'success');
+  } else {
+    showToast('Lỗi khi xóa: ' + (res.error || 'Thử lại'), 'error');
+  }
 };
 
 window.saveAdminBgMusicSettings = async function() {
   const chk = document.getElementById('admin-bg-music-enabled');
   const isEnabled = (chk && chk.checked) ? '1' : '0';
-  const playlist = getBgMusicPlaylist();
 
-  showToast('Đang lưu cấu hình nhạc nền lên đám mây...', 'info');
+  showToast('Đang lưu cài đặt hệ thống lên đám mây...', 'info');
 
   const res = await mutateCloudDB((db) => {
     db.settings = db.settings || {};
     db.settings.bg_music_enabled = isEnabled;
-    db.settings.bg_music_playlist = playlist;
     state.settings = state.settings || {};
     state.settings.bg_music_enabled = isEnabled;
-    state.settings.bg_music_playlist = playlist;
-  }, 'Admin update bg music settings');
+  }, 'Admin update bg music enabled: ' + isEnabled);
 
   if (res.ok) {
     showToast('Đã lưu cấu hình nhạc nền toàn hệ thống thành công!', 'success');
