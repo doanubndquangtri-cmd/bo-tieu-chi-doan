@@ -28917,7 +28917,79 @@ function getAdminFeaturedTrack() {
   return null;
 }
 
-window._tempSessionTracks = [];
+// LẤY ALBUM BÀI HÁT ĐÃ GẮN (CHO CẢ ADMIN VÀ CƠ SỞ ĐOÀN)
+function getMusicAlbum() {
+  const isAdmin = (state.user && (state.user.role === 'admin' || state.user.id === 0 || state.user.id === '0'));
+  let album = [];
+  if (isAdmin && state.settings && Array.isArray(state.settings.admin_music_album)) {
+    album = state.settings.admin_music_album;
+  } else {
+    try {
+      const local = localStorage.getItem('doan2026_music_album');
+      if (local) {
+        const parsed = JSON.parse(local);
+        if (Array.isArray(parsed)) album = parsed;
+      }
+    } catch(e) {}
+  }
+  return album;
+}
+
+// LƯU BÀI VÀO ALBUM ĐÃ GẮN ĐỂ KHÔNG PHẢI TÌM LẠI LINK
+async function addTrackToAlbum(track) {
+  if (!track || !track.videoId) return;
+  const isAdmin = (state.user && (state.user.role === 'admin' || state.user.id === 0 || state.user.id === '0'));
+  
+  if (isAdmin) {
+    const currentAlbum = (state.settings && Array.isArray(state.settings.admin_music_album)) ? state.settings.admin_music_album : [];
+    const filtered = currentAlbum.filter(s => s.videoId !== track.videoId);
+    const updated = [track, ...filtered];
+    state.settings = state.settings || {};
+    state.settings.admin_music_album = updated;
+    await mutateCloudDB((db) => {
+      db.settings = db.settings || {};
+      db.settings.admin_music_album = updated;
+    }, 'Add track to admin album: ' + track.title);
+  } else {
+    let currentAlbum = [];
+    try {
+      const local = localStorage.getItem('doan2026_music_album');
+      if (local) currentAlbum = JSON.parse(local) || [];
+    } catch(e) {}
+    const filtered = currentAlbum.filter(s => s.videoId !== track.videoId);
+    const updated = [track, ...filtered];
+    try {
+      localStorage.setItem('doan2026_music_album', JSON.stringify(updated));
+    } catch(e) {}
+  }
+}
+
+// XÓA BÀI KHỎI ALBUM ĐÃ GẮN
+window.deleteTrackFromAlbum = async function(videoId) {
+  const isAdmin = (state.user && (state.user.role === 'admin' || state.user.id === 0 || state.user.id === '0'));
+  if (isAdmin) {
+    const currentAlbum = (state.settings && Array.isArray(state.settings.admin_music_album)) ? state.settings.admin_music_album : [];
+    const updated = currentAlbum.filter(s => s.videoId !== videoId);
+    state.settings = state.settings || {};
+    state.settings.admin_music_album = updated;
+    await mutateCloudDB((db) => {
+      db.settings = db.settings || {};
+      db.settings.admin_music_album = updated;
+    }, 'Delete track from admin album');
+  } else {
+    let currentAlbum = [];
+    try {
+      const local = localStorage.getItem('doan2026_music_album');
+      if (local) currentAlbum = JSON.parse(local) || [];
+    } catch(e) {}
+    const updated = currentAlbum.filter(s => s.videoId !== videoId);
+    try {
+      localStorage.setItem('doan2026_music_album', JSON.stringify(updated));
+    } catch(e) {}
+  }
+  openBgMusicSettingsModal();
+  showToast('Đã xóa bài hát khỏi Album!', 'info');
+};
 
 function getBgMusicPlaylist() {
   let list = [];
@@ -28925,12 +28997,19 @@ function getBgMusicPlaylist() {
   if (adminFeatured) {
     list.push(adminFeatured);
   }
-  list = list.concat(DEFAULT_BG_PLAYLIST);
 
-  // Nếu người dùng có dán link tự nghe tạm thời trong phiên này (không lưu khi thoát)
-  if (Array.isArray(window._tempSessionTracks) && window._tempSessionTracks.length > 0) {
-    list = [...window._tempSessionTracks, ...list];
+  // Thêm các bài từ Album đã gắn (để dễ dàng chọn lại mà không phải dán lại link)
+  const album = getMusicAlbum();
+  if (Array.isArray(album) && album.length > 0) {
+    album.forEach(item => {
+      if (!adminFeatured || adminFeatured.videoId !== item.videoId) {
+        list.push({ ...item, isFromAlbum: true });
+      }
+    });
   }
+
+  // 3 bài Đoàn truyền thống có sẵn
+  list = list.concat(DEFAULT_BG_PLAYLIST);
 
   return list;
 }
@@ -29079,11 +29158,21 @@ window.BgMusicManager = {
       return;
     }
 
+    const playlist = getBgMusicPlaylist();
+    if (!playlist || playlist.length === 0) return;
+
+    // 1. Mới vào app: BẮT BUỘC nghe link cố định của Admin nếu có!
     const adminFeatured = getAdminFeaturedTrack();
-    // Cứ mỗi lần vào app/mở ứng dụng là phát bài cố định của Admin trước tiên
     if (adminFeatured && (!this.currentTrack || forceFreshStart)) {
       this.currentIndex = 0;
       this.playTrack(adminFeatured, false);
+      return;
+    }
+
+    // 2. Nếu không có link cố định: phát bài đầu tiên trong danh sách (từ Album hoặc bài 1 Đoàn)
+    if (!this.currentTrack || forceFreshStart) {
+      this.currentIndex = 0;
+      this.playTrack(playlist[0], false);
       return;
     }
 
@@ -29620,26 +29709,25 @@ function openBgMusicSettingsModal() {
             <div id="youtube-status-msg" style="margin-top:6px; font-size:12px; font-weight:700; display:none;"></div>
           </div>
 
-          <!-- DANH SÁCH BÀI HÁT (PLAYLIST) -->
+          <!-- DANH SÁCH BÀI HÁT & ALBUM ĐÃ GẮN (ĐÃ XÓA CỘT THỂ LOẠI, TÊN DÀI RỘNG RÃI DỄ CHỌN) -->
           <div style="margin-bottom: 16px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-              <label style="font-weight: 700; font-size: 13.5px; color: #1e293b;">
-                📂 Danh sách bài hát đang phát (${playlist.length} bài):
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:8px;">
+              <label style="font-weight: 800; font-size: 13.5px; color: #1e293b;">
+                📂 Album & Danh sách bài hát (${playlist.length} bài):
               </label>
-              <span style="font-size:11.5px; color:#6d28d9; font-weight:700;">
-                Bấm "▶ Phát ngay" để chuyển bài tức thì
+              <span style="font-size:11px; color:#6d28d9; font-weight:700;">
+                Bấm "▶ Phát" để nghe ngay • Tự động lưu Album các link đã gắn
               </span>
             </div>
             
             <div style="border:1.5px solid #e2e8f0; border-radius:8px; overflow:hidden; background:#faf5ff;">
-              <div style="max-height:220px; overflow-y:auto;">
+              <div style="max-height:260px; overflow-y:auto;">
                 <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
                   <thead>
                     <tr style="background:#f3e8ff; color:#6b21a8; font-weight:800; border-bottom:1.5px solid #e9d5ff; text-align:left;">
-                      <th style="padding:8px 10px; width:30px; text-align:center;">#</th>
-                      <th style="padding:8px 10px;">Tên bài hát</th>
-                      <th style="padding:8px 10px; width:135px;">Thể loại / Phân loại</th>
-                      <th style="padding:8px 10px; text-align:right; width:140px;">Thao tác</th>
+                      <th style="padding:8px 6px; width:28px; text-align:center;">#</th>
+                      <th style="padding:8px 8px;">Tên bài hát</th>
+                      <th style="padding:8px 8px; text-align:right; width:125px;">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -29647,24 +29735,30 @@ function openBgMusicSettingsModal() {
                       const isCurrent = (currentIdx === idx || currentTitle === s.title);
                       return `
                         <tr style="border-bottom:1px solid #f1f5f9; background:${isCurrent ? '#ede9fe' : '#fff'};">
-                          <td style="padding:8px 10px; text-align:center; font-weight:800; color:${isCurrent ? '#6d28d9' : '#64748b'};">${idx + 1}</td>
-                          <td style="padding:8px 10px;">
-                            <div style="font-weight:700; color:${isCurrent ? '#6d28d9' : '#1e293b'}; display:flex; align-items:center; gap:6px;">
-                              <span>${isCurrent ? '🎵' : (s.isFeaturedByAdmin ? '👑' : (s.type === 'youtube' ? '📺' : '🎼'))}</span>
+                          <td style="padding:8px 6px; text-align:center; font-weight:800; color:${isCurrent ? '#6d28d9' : '#64748b'}; vertical-align:middle;">
+                            ${idx + 1}
+                          </td>
+                          <td style="padding:8px 8px; vertical-align:middle;">
+                            <div style="font-weight:700; font-size:13px; color:${isCurrent ? '#6d28d9' : '#0f172a'}; line-height:1.45; word-break:break-word;">
+                              <span style="font-size:14px; margin-right:4px;">${isCurrent ? '🎵' : (s.isFeaturedByAdmin ? '👑' : (s.type === 'youtube' ? '📺' : '🎼'))}</span>
                               <span>${escapeHtml(s.title)}</span>
-                              ${isCurrent ? '<span style="background:#15803d; color:#fff; font-size:9.5px; padding:1px 5px; border-radius:3px; font-weight:800;">ĐANG PHÁT</span>' : ''}
+                              ${isCurrent ? '<span style="background:#15803d; color:#fff; font-size:9.5px; padding:1px 6px; border-radius:3px; font-weight:800; margin-left:6px; display:inline-block; vertical-align:middle;">ĐANG PHÁT</span>' : ''}
+                              ${s.isFeaturedByAdmin ? '<span style="background:#dbeafe; color:#1d4ed8; font-size:9.5px; padding:1px 5px; border-radius:3px; font-weight:800; margin-left:4px; display:inline-block; vertical-align:middle;">👑 Cố định</span>' : ''}
+                              ${s.isFromAlbum ? '<span style="background:#fef3c7; color:#b45309; font-size:9.5px; padding:1px 5px; border-radius:3px; font-weight:800; margin-left:4px; display:inline-block; vertical-align:middle;">📂 Album</span>' : ''}
                             </div>
                           </td>
-                          <td style="padding:8px 10px; font-size:11.5px; color:#64748b; font-weight:600;">
-                            ${s.isFeaturedByAdmin ? '<span style="background:#dbeafe; color:#1d4ed8; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:800;">👑 Admin cố định</span>' : (s.isTemp ? '<span style="background:#fce7f3; color:#be185d; font-size:10px; padding:2px 6px; border-radius:4px; font-weight:800;">🎧 Tự nghe</span>' : escapeHtml(s.size || 'Bài hát chuẩn'))}
-                          </td>
-                          <td style="padding:8px 10px; text-align:right;">
-                            <div style="display:inline-flex; gap:4px; align-items:center;">
-                              <button type="button" onclick="window.BgMusicManager.playIndex(${idx})" class="btn btn-sm" style="background:${isCurrent ? '#15803d' : '#7c3aed'}; color:#fff; font-size:11px; padding:3px 9px; font-weight:700; border-radius:4px; border:none; cursor:pointer;" title="Chuyển sang bài này">
-                                ${isCurrent ? '✓ Đang phát' : '▶ Phát ngay'}
+                          <td style="padding:8px 8px; text-align:right; vertical-align:middle; white-space:nowrap;">
+                            <div style="display:inline-flex; gap:4px; align-items:center; justify-content:flex-end;">
+                              <button type="button" onclick="window.BgMusicManager.playIndex(${idx})" class="btn btn-sm" style="background:${isCurrent ? '#15803d' : '#7c3aed'}; color:#fff; font-size:11px; padding:4px 8px; font-weight:700; border-radius:5px; border:none; cursor:pointer;" title="Phát bài này ngay">
+                                ${isCurrent ? '✓ Đang phát' : '▶ Phát'}
                               </button>
-                              ${s.isTemp ? `
-                                <button type="button" onclick="window._tempSessionTracks = []; openBgMusicSettingsModal(); window.BgMusicManager.syncWithSettings(true);" class="btn btn-sm btn-outline" style="font-size:11px; padding:3px 6px; color:#dc2626; border-color:#fca5a5; font-weight:700; background:#fff; cursor:pointer;" title="Hủy bài tự nghe này">
+                              ${isAdmin && s.videoId && !s.isFeaturedByAdmin ? `
+                                <button type="button" onclick="window.setAsFeaturedFromAlbum('${escapeHtml(s.videoId)}', '${escapeHtml(s.title)}')" class="btn btn-sm" style="background:#eff6ff; color:#1d4ed8; border:1px solid #93c5fd; font-size:11px; padding:4px 7px; font-weight:700; border-radius:5px; cursor:pointer;" title="Cố định làm bài mặc định toàn hệ thống">
+                                  📌 Cố định
+                                </button>
+                              ` : ''}
+                              ${s.isFromAlbum ? `
+                                <button type="button" onclick="window.deleteTrackFromAlbum('${escapeHtml(s.videoId)}')" class="btn btn-sm btn-outline" style="font-size:11px; padding:4px 7px; color:#dc2626; border-color:#fca5a5; font-weight:700; background:#fff; cursor:pointer;" title="Xóa khỏi Album">
                                   🗑️
                                 </button>
                               ` : ''}
@@ -29733,7 +29827,7 @@ window.handlePasteYouTubeLink = async function() {
   if (statusMsg) {
     statusMsg.style.display = 'block';
     statusMsg.style.color = '#be185d';
-    statusMsg.textContent = '⏳ Đang kết nối âm thanh YouTube...';
+    statusMsg.textContent = '⏳ Đang kết nối âm thanh và lưu vào Album...';
   }
 
   let title = 'YouTube Track (' + videoId + ')';
@@ -29749,32 +29843,74 @@ window.handlePasteYouTubeLink = async function() {
   } catch(e) {}
 
   const ytTrack = {
-    id: 'temp_yt_' + videoId + '_' + Date.now(),
+    id: 'yt_' + videoId,
     title: title,
     type: 'youtube',
     videoId: videoId,
     url: 'https://www.youtube.com/watch?v=' + videoId,
-    size: 'Tự nghe (Tạm thời)',
-    isTemp: true,
+    size: 'YouTube Audio',
+    isFromAlbum: true,
     isPreset: false
   };
 
-  // Chỉ lưu tạm thời vào phiên làm việc hiện tại, TUYỆT ĐỐI không lưu vĩnh viễn
-  window._tempSessionTracks = [ytTrack];
-  try { localStorage.removeItem('doan2026_local_playlist'); } catch(e) {}
+  // Tự động lưu vào Album để không phải tìm lại link
+  await addTrackToAlbum(ytTrack);
 
-  window.BgMusicManager.currentIndex = 0;
+  const playlist = getBgMusicPlaylist();
+  const foundIdx = playlist.findIndex(s => s.videoId === videoId);
+  window.BgMusicManager.currentIndex = foundIdx >= 0 ? foundIdx : 0;
   window.BgMusicManager.playTrack(ytTrack, true);
 
   input.value = '';
   if (statusMsg) {
     statusMsg.style.display = 'block';
     statusMsg.style.color = '#15803d';
-    statusMsg.textContent = '✅ Đang phát âm thanh: ' + title + ' (Tạm thời phiên này)';
+    statusMsg.textContent = '✅ Đã lưu vào Album và đang phát: ' + title;
   }
 
   openBgMusicSettingsModal();
-  showToast('🎧 Đang phát bài tự nghe: "' + title + '" (Chỉ nghe phiên này, thoát app sẽ tự hủy)!', 'success');
+  showToast('🎉 Đã thêm vào Album và đang phát: "' + title + '"!', 'success');
+};
+
+// ADMIN CHỌN BÀI TỪ ALBUM LÀM CỐ ĐỊNH TOÀN HỆ THỐNG
+window.setAsFeaturedFromAlbum = async function(videoId, title) {
+  if (!videoId) return;
+  showToast('Đang đặt bài hát làm cố định toàn hệ thống...', 'info');
+
+  const featuredTrack = {
+    id: 'admin_featured',
+    title: title,
+    type: 'youtube',
+    videoId: videoId,
+    url: 'https://www.youtube.com/watch?v=' + videoId,
+    size: 'Cố định bởi Admin',
+    isFeaturedByAdmin: true,
+    isPreset: false
+  };
+
+  // Lưu vào album của Admin
+  await addTrackToAlbum(featuredTrack);
+
+  const res = await mutateCloudDB((db) => {
+    db.settings = db.settings || {};
+    db.settings.admin_featured_youtube_url = 'https://www.youtube.com/watch?v=' + videoId;
+    db.settings.admin_featured_youtube_title = featuredTrack.title;
+    db.settings.admin_featured_track = featuredTrack;
+
+    state.settings = state.settings || {};
+    state.settings.admin_featured_youtube_url = db.settings.admin_featured_youtube_url;
+    state.settings.admin_featured_youtube_title = db.settings.admin_featured_youtube_title;
+    state.settings.admin_featured_track = db.settings.admin_featured_track;
+  }, 'Admin set featured from album: ' + featuredTrack.title);
+
+  if (res.ok) {
+    window.BgMusicManager.currentIndex = 0;
+    window.BgMusicManager.playTrack(featuredTrack, true);
+    openBgMusicSettingsModal();
+    showToast('👑 Đã đặt bài "' + featuredTrack.title + '" làm cố định toàn hệ thống!', 'success');
+  } else {
+    showToast('Lỗi khi lưu: ' + (res.error || 'Thử lại'), 'error');
+  }
 };
 
 // ADMIN: GẮN VÀ CỐ ĐỊNH LINK CHO TOÀN BỘ HỆ THỐNG
@@ -29827,6 +29963,9 @@ window.saveAdminFeaturedMusic = async function() {
     isFeaturedByAdmin: true,
     isPreset: false
   };
+
+  // Lưu vào album của Admin
+  await addTrackToAlbum(featuredTrack);
 
   const res = await mutateCloudDB((db) => {
     db.settings = db.settings || {};
