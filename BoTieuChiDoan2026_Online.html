@@ -16311,6 +16311,29 @@ window.toggleMonthLock = async function (monthGroup, lockVal) {
 
 
 
+function renderHourSelectOptions(selectedHour) {
+  const selH = parseInt(selectedHour, 10) || 0;
+  let html = '';
+  for (let i = 0; i <= 23; i++) {
+    const s = String(i).padStart(2, '0');
+    html += `<option value="${s}" ${selH === i ? 'selected' : ''}>${s}h</option>`;
+  }
+  return html;
+}
+
+function renderMinuteSelectOptions(selectedMin) {
+  const selM = parseInt(selectedMin, 10) || 0;
+  let html = '';
+  for (let m = 0; m <= 59; m++) {
+    const s = String(m).padStart(2, '0');
+    html += `<option value="${s}" ${selM === m ? 'selected' : ''}>${s}'</option>`;
+  }
+  return html;
+}
+
+window.renderHourSelectOptions = renderHourSelectOptions;
+window.renderMinuteSelectOptions = renderMinuteSelectOptions;
+
 window.openCriterionEditModal = function (critId) {
 
   const c = state.criteria.find((x) => x.id === critId);
