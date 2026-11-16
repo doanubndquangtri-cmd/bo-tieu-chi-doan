@@ -4978,42 +4978,42 @@ function renderNavTabs() {
 
   const twoReportsTabs = `
     <div class="nav-tab ${isMatrixActive ? 'active' : ''}" onclick="setReportsSubSection('matrix')" title="Bảng 1: Theo Dõi Nộp Báo Cáo & Hoạt Động Của Các Đơn Vị">
-      📊 Tiến Độ Nộp Báo Cáo
+      📊 Theo Dõi Báo Cáo
     </div>
     <div class="nav-tab ${isLogActive ? 'active' : ''}" onclick="setReportsSubSection('log')" title="Bảng 2: Nhật Ký Đơn Vị Nộp Báo Cáo & Minh Chứng Gần Đây">
-      🕒 Nhật Ký Nộp Báo Cáo
+      🕒 Nhật Ký Minh Chứng
     </div>
   `;
 
   if (isAdmin) {
     return `
-      <nav class="nav-tabs">
-        <div class="nav-tab ${state.activeTab === 'ranking' ? 'active' : ''}" onclick="setTab('ranking')">
-          🏆 Bảng Xếp Hạng Thi Đua
+      <nav class="nav-tabs" style="scrollbar-width:none !important; -ms-overflow-style:none !important; overflow-x:auto;">
+        <div class="nav-tab ${state.activeTab === 'ranking' ? 'active' : ''}" onclick="setTab('ranking')" title="Bảng Xếp Hạng Thi Đua Toàn Khối">
+          🏆 Bảng Xếp Hạng
         </div>
-        <div class="nav-tab ${state.activeTab === 'master' ? 'active' : ''}" onclick="setTab('master')">
-          📋 Bảng Tổng Hợp (Chấm Điểm)
+        <div class="nav-tab ${state.activeTab === 'master' ? 'active' : ''}" onclick="setTab('master')" title="Bảng Tổng Hợp Chấm Điểm 40 Cơ Sở Đoàn">
+          📋 Bảng Tổng Hợp
         </div>
         ${twoReportsTabs}
-        <div class="nav-tab ${state.activeTab === 'units' ? 'active' : ''}" onclick="setTab('units')">
-          👥 Quản Lý Đơn Vị (${state.units.length})
+        <div class="nav-tab ${state.activeTab === 'units' ? 'active' : ''}" onclick="setTab('units')" title="Quản Lý Danh Sách 40 Cơ Sở Đoàn & Tài Khoản">
+          👥 Quản Lý Đơn Vị (${state.units ? state.units.length : 40})
         </div>
-        <div class="nav-tab ${state.activeTab === 'criteria' ? 'active' : ''}" onclick="setTab('criteria')">
-          ⚙️ Quản Lý Tiêu Chí (${state.criteria.length})
+        <div class="nav-tab ${state.activeTab === 'criteria' ? 'active' : ''}" onclick="setTab('criteria')" title="Quản Lý Bộ Tiêu Chí & Hạn Nộp Chi Tiết">
+          ⚙️ Quản Lý Tiêu Chí (${state.criteria ? state.criteria.length : 127})
         </div>
-        <div class="nav-tab ${state.activeTab === 'admin_docs' ? 'active' : ''}" onclick="setTab('admin_docs')">
+        <div class="nav-tab ${state.activeTab === 'admin_docs' ? 'active' : ''}" onclick="setTab('admin_docs')" title="Kho Văn Bản, Chỉ Đạo & Hướng Dẫn">
           📂 Hệ Thống Văn Bản
         </div>
-        <div class="nav-tab ${state.activeTab === 'admin_password' ? 'active' : ''}" onclick="setTab('admin_password')">
-          🔐 Đổi Mật Khẩu Admin
+        <div class="nav-tab ${state.activeTab === 'admin_password' ? 'active' : ''}" onclick="setTab('admin_password')" title="Đổi Mật Khẩu Quản Trị Viên">
+          🔐 Đổi Mật Khẩu
         </div>
       </nav>
     `;
   } else if (isGuest) {
     return `
-      <nav class="nav-tabs">
+      <nav class="nav-tabs" style="scrollbar-width:none !important; -ms-overflow-style:none !important; overflow-x:auto;">
         <div class="nav-tab ${state.activeTab === 'ranking' ? 'active' : ''}" onclick="setTab('ranking')">
-          🏆 Bảng Xếp Hạng Toàn Khối
+          🏆 Bảng Xếp Hạng
         </div>
         <div class="nav-tab ${state.activeTab === 'master' ? 'active' : ''}" onclick="setTab('master')">
           📋 Bảng Tổng Hợp (Chỉ Xem)
@@ -5026,9 +5026,9 @@ function renderNavTabs() {
     `;
   } else {
     return `
-      <nav class="nav-tabs">
+      <nav class="nav-tabs" style="scrollbar-width:none !important; -ms-overflow-style:none !important; overflow-x:auto;">
         <div class="nav-tab ${state.activeTab === 'ranking' ? 'active' : ''}" onclick="setTab('ranking')">
-          🏆 Bảng Xếp Hạng Toàn Khối
+          🏆 Bảng Xếp Hạng
         </div>
         <div class="nav-tab ${state.activeTab === 'unit_submit' ? 'active' : ''}" onclick="setTab('unit_submit')">
           📤 Nộp Báo Cáo & Tiêu Chí
@@ -10929,16 +10929,13 @@ function renderAdminCriteriaTab() {
 
                 <td style="text-align:center; font-weight:700; color:#0052cc;">${c.max_score}</td>
 
-                <td style="text-align:center; font-weight:600; color:#059669;">
-
+                <td style="text-align:center; font-weight:600; color:#059669; white-space:nowrap;">
                   ${formatDateVN(c.start_date || '2026-01-01')}
-
+                  ${(c.start_time && c.start_time !== '00:00') ? `<div style="font-size:11px; color:#047857; font-weight:700; margin-top:2px;">🕒 ${c.start_time}</div>` : ''}
                 </td>
-
-                <td style="text-align:center; font-weight:700; color:#dc2626;">
-
+                <td style="text-align:center; font-weight:700; color:#dc2626; white-space:nowrap;">
                   ${formatDateVN(c.deadline)}
-
+                  ${(c.deadline_time && c.deadline_time !== '23:59') ? `<div style="font-size:11px; color:#b91c1c; font-weight:800; margin-top:2px;">⏰ ${c.deadline_time}</div>` : ((function(){ const m = (c.title||'').match(/(?:hạn\s*)?(\d{1,2})[h:](\d{2})/i); return m ? `<div style="font-size:11px; color:#b91c1c; font-weight:800; margin-top:2px;">⏰ ${m[1]}h${m[2]}</div>` : ''; })())}
                 </td>
 
                 <td style="text-align:center;">
