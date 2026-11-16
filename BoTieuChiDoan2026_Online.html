@@ -6014,6 +6014,58 @@ function getCriterionStartDateTime(startDateStr, startTimeStr) {
   return new Date(year, month - 1, day, h, m, 0, 0);
 }
 
+
+function getCriterionDeadlineTime(c) {
+  if (!c) return '23:59';
+  if (c.deadline_time && String(c.deadline_time).trim()) {
+    return String(c.deadline_time).trim();
+  }
+  const title = String(c.title || '');
+  const m = title.match(/(?:hạn\s*)?(\d{1,2})[h:](\d{2})/i);
+  if (m) {
+    const h = m[1].padStart(2, '0');
+    const min = m[2];
+    return `${h}:${min}`;
+  }
+  return '23:59';
+}
+
+function getCriterionStartTime(c) {
+  if (!c) return '00:00';
+  if (c.start_time && String(c.start_time).trim()) {
+    return String(c.start_time).trim();
+  }
+  return '00:00';
+}
+
+window.setCritStartTime = function(prefix, h, m) {
+  const hEl = document.getElementById(prefix + '-crit-start-hour');
+  const mEl = document.getElementById(prefix + '-crit-start-min');
+  if (hEl) hEl.value = String(h).padStart(2, '0');
+  if (mEl) mEl.value = String(m).padStart(2, '0');
+};
+
+window.setCritDeadlineTime = function(prefix, h, m) {
+  const hEl = document.getElementById(prefix + '-crit-deadline-hour');
+  const mEl = document.getElementById(prefix + '-crit-deadline-min');
+  if (hEl) hEl.value = String(h).padStart(2, '0');
+  if (mEl) mEl.value = String(m).padStart(2, '0');
+};
+
+function parseHourMinute(timeStr, defaultH = 0, defaultM = 0) {
+  if (!timeStr || typeof timeStr !== 'string' || !timeStr.includes(':')) {
+    return { h: defaultH, m: defaultM };
+  }
+  const parts = timeStr.trim().split(':');
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  return {
+    h: isNaN(h) ? defaultH : h,
+    m: isNaN(m) ? defaultM : m
+  };
+}
+
+
 function getCriterionDeadlineEndDate(deadlineStr, deadlineTime) {
   if (!deadlineStr) return null;
   const str = String(deadlineStr).trim();
@@ -6042,15 +6094,17 @@ function getCriterionDeadlineEndDate(deadlineStr, deadlineTime) {
     day = d.getDate();
   }
   if (!year || !month || !day) return null;
+
   // Nếu có giờ chốt nộp trong ngày (ví dụ 16:00 hoặc 23:59)
   if (deadlineTime && String(deadlineTime).includes(':')) {
     const tParts = String(deadlineTime).trim().split(':');
-    const h = parseInt(tParts[0], 10) || 0;
-    const m = parseInt(tParts[1], 10) || 0;
-    return new Date(year, month - 1, day, h, m, 0, 0);
+    const h = parseInt(tParts[0], 10);
+    const m = parseInt(tParts[1], 10);
+    return new Date(year, month - 1, day, isNaN(h) ? 23 : h, isNaN(m) ? 59 : m, 0, 0);
   }
-  // Mốc hạn nộp chốt mặc định là 0h00 ngày hôm sau (Ví dụ hạn 15/11/2026 thì mốc kết thúc là 0h00 ngày 16/11/2026)
-  return new Date(year, month - 1, day + 1, 0, 0, 0, 0);
+
+  // Mốc hạn nộp chốt mặc định vào 23:59:59 của ngày hạn nộp
+  return new Date(year, month - 1, day, 23, 59, 59, 999);
 }
 
 function renderCriterionDeadlineBadge(deadlineStr, deadlineTime) {
@@ -11506,7 +11560,7 @@ function renderUnitSubmitTab() {
 
                   <td style="text-align:center; white-space:nowrap;">
 
-                    ${renderCriterionDeadlineBadge(c.deadline, c.deadline_time)}
+                    ${renderCriterionDeadlineBadge(c.deadline, getCriterionDeadlineTime(c))}
 
                   </td>
 
@@ -11735,7 +11789,7 @@ function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rank
               <div class="meta-item">
                 <span class="meta-label">⏳ Thời hạn:</span>
                 <div style="margin-top:2px;">
-                  ${renderCriterionDeadlineBadge(c.deadline, c.deadline_time)}
+                  ${renderCriterionDeadlineBadge(c.deadline, getCriterionDeadlineTime(c))}
                 </div>
               </div>
               <div class="meta-item">
@@ -16401,37 +16455,68 @@ window.openCriterionEditModal = function (critId) {
             </div>
           </div>
 
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom: 14px;">
-
-            <div class="form-group" style="margin-bottom:0;">
-              <label style="display:flex; justify-content:space-between; align-items:center;">
-                <span>🟢 Bắt đầu mở nộp:</span>
-                <span style="font-size:11px; color:#059669; font-weight:700;">(Từ mấy giờ - Ngày)</span>
-              </label>
-              <div style="display:flex; gap:8px; align-items:center;">
-                <input type="date" id="edit-crit-start-date" value="${c.start_date || '2026-01-01'}" style="flex:1.2; font-weight:600;" />
-                <input type="time" id="edit-crit-start-time" value="${c.start_time || '00:00'}" style="flex:0.9; min-width:95px; font-weight:700; color:#047857; background:#ecfdf5; border:1.5px solid #a7f3d0;" title="Giờ bắt đầu mở nộp trong ngày (00:00 đến 23:59)" />
+          ${(() => {
+            const startHM = parseHourMinute(c.start_time, 0, 0);
+            const deadTimeStr = getCriterionDeadlineTime(c);
+            const deadHM = parseHourMinute(deadTimeStr, 16, 0);
+            return `
+          <div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:10px; padding:12px 14px; margin-bottom:14px;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+              <!-- Bắt đầu mở nộp -->
+              <div>
+                <label style="display:block; font-weight:700; color:#15803d; font-size:13.5px; margin-bottom:6px; white-space:nowrap;">
+                  🟢 Bắt đầu mở nộp:
+                </label>
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <input type="date" id="edit-crit-start-date" value="${c.start_date || '2026-01-01'}" style="flex:1.2; font-weight:600; padding:7px 8px; border:1.5px solid #86efac; border-radius:6px; background:#fff; font-size:13px;" />
+                  <div style="display:inline-flex; align-items:center; gap:2px; background:#ecfdf5; border:1.5px solid #86efac; border-radius:6px; padding:4px 6px;">
+                    <select id="edit-crit-start-hour" style="border:none; background:transparent; font-weight:700; color:#166534; font-size:13px; cursor:pointer; outline:none;">
+                      ${renderHourSelectOptions(startHM.h)}
+                    </select>
+                    <span style="font-weight:800; color:#166534;">:</span>
+                    <select id="edit-crit-start-min" style="border:none; background:transparent; font-weight:700; color:#166534; font-size:13px; cursor:pointer; outline:none;">
+                      ${renderMinuteSelectOptions(startHM.m)}
+                    </select>
+                  </div>
+                </div>
+                <div style="display:flex; gap:4px; align-items:center; margin-top:6px; flex-wrap:wrap;">
+                  <span style="font-size:11px; color:#64748b;">Nhanh:</span>
+                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritStartTime('edit', '00', '00')" style="font-size:11px; padding:1px 6px;">00:00</button>
+                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritStartTime('edit', '07', '00')" style="font-size:11px; padding:1px 6px;">07:00</button>
+                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritStartTime('edit', '08', '00')" style="font-size:11px; padding:1px 6px;">08:00</button>
+                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritStartTime('edit', '13', '30')" style="font-size:11px; padding:1px 6px;">13:30</button>
+                </div>
               </div>
-              <div style="font-size:11px; color:#64748b; margin-top:3px;">
-                Mở nộp từ: <b>Giờ : Phút</b> (vd <i>00:00</i> hoặc <i>08:00</i>)
+
+              <!-- Hạn nộp chót (Xóa dòng chữ Deadline) -->
+              <div>
+                <label style="display:block; font-weight:700; color:#dc2626; font-size:13.5px; margin-bottom:6px; white-space:nowrap;">
+                  ⏰ Hạn nộp chót:
+                </label>
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <input type="date" id="edit-crit-deadline" value="${c.deadline || '2026-01-31'}" style="flex:1.2; font-weight:600; padding:7px 8px; border:1.5px solid #fca5a5; border-radius:6px; background:#fff; font-size:13px;" />
+                  <div style="display:inline-flex; align-items:center; gap:2px; background:#fef2f2; border:1.5px solid #fca5a5; border-radius:6px; padding:4px 6px;">
+                    <select id="edit-crit-deadline-hour" style="border:none; background:transparent; font-weight:800; color:#b91c1c; font-size:13px; cursor:pointer; outline:none;">
+                      ${renderHourSelectOptions(deadHM.h)}
+                    </select>
+                    <span style="font-weight:800; color:#b91c1c;">:</span>
+                    <select id="edit-crit-deadline-min" style="border:none; background:transparent; font-weight:800; color:#b91c1c; font-size:13px; cursor:pointer; outline:none;">
+                      ${renderMinuteSelectOptions(deadHM.m)}
+                    </select>
+                  </div>
+                </div>
+                <div style="display:flex; gap:4px; align-items:center; margin-top:6px; flex-wrap:wrap;">
+                  <span style="font-size:11px; color:#64748b;">Nhanh:</span>
+                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritDeadlineTime('edit', '11', '30')" style="font-size:11px; padding:1px 6px;">11:30</button>
+                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritDeadlineTime('edit', '16', '00')" style="font-size:11px; padding:1px 6px; font-weight:700; color:#dc2626; border-color:#fca5a5;">16:00</button>
+                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritDeadlineTime('edit', '17', '00')" style="font-size:11px; padding:1px 6px;">17:00</button>
+                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritDeadlineTime('edit', '23', '59')" style="font-size:11px; padding:1px 6px;">23:59</button>
+                </div>
               </div>
             </div>
-
-            <div class="form-group" style="margin-bottom:0;">
-              <label style="display:flex; justify-content:space-between; align-items:center;">
-                <span>⏰ Hạn nộp chót (Deadline):</span>
-                <span style="font-size:11px; color:#dc2626; font-weight:700;">(Đến mấy giờ - Ngày)</span>
-              </label>
-              <div style="display:flex; gap:8px; align-items:center;">
-                <input type="date" id="edit-crit-deadline" value="${c.deadline || '2026-01-31'}" style="flex:1.2; font-weight:600;" />
-                <input type="time" id="edit-crit-deadline-time" value="${c.deadline_time || (function(){ const m = (c.title||'').match(/(?:hạn\s*)?(\d{1,2})[h:](\d{2})/i); return m ? (m[1].padStart(2,'0') + ':' + m[2]) : '23:59'; })()}" style="flex:0.9; min-width:95px; font-weight:700; color:#b91c1c; background:#fef2f2; border:1.5px solid #fecaca;" title="Giờ hết hạn trong ngày (00:00 đến 23:59)" />
-              </div>
-              <div style="font-size:11px; color:#64748b; margin-top:3px;">
-                Khóa nộp lúc: <b>Giờ : Phút</b> (vd <i>16:00</i> hoặc <i>23:59</i>)
-              </div>
-            </div>
-
           </div>
+            `;
+          })()}
 
 
 
@@ -16550,10 +16635,14 @@ window.saveCriterionEdit = async function (critId) {
   const gdriveFolderName = title;
 
   const startDate = document.getElementById('edit-crit-start-date').value || '2026-01-01';
-  const startTime = (document.getElementById('edit-crit-start-time') ? document.getElementById('edit-crit-start-time').value : '') || '00:00';
+  const sHour = (document.getElementById('edit-crit-start-hour') ? document.getElementById('edit-crit-start-hour').value : '00').padStart(2, '0');
+  const sMin = (document.getElementById('edit-crit-start-min') ? document.getElementById('edit-crit-start-min').value : '00').padStart(2, '0');
+  const startTime = `${sHour}:${sMin}`;
 
-  const deadline = document.getElementById('edit-crit-deadline').value;
-  const deadlineTime = (document.getElementById('edit-crit-deadline-time') ? document.getElementById('edit-crit-deadline-time').value : '') || '23:59';
+  const deadline = document.getElementById('edit-crit-deadline').value || '2026-01-31';
+  const dHour = (document.getElementById('edit-crit-deadline-hour') ? document.getElementById('edit-crit-deadline-hour').value : '23').padStart(2, '0');
+  const dMin = (document.getElementById('edit-crit-deadline-min') ? document.getElementById('edit-crit-deadline-min').value : '59').padStart(2, '0');
+  const deadlineTime = `${dHour}:${dMin}`;
 
   const keywords = (document.getElementById('edit-crit-keywords') ? document.getElementById('edit-crit-keywords').value : '').trim();
   const pointsText = document.getElementById('edit-crit-points').value.trim();
@@ -16734,6 +16823,9 @@ window.saveCriterionEdit = async function (critId) {
     }
 
     c.deadline = deadline;
+    c.deadline_time = deadlineTime;
+    c.start_date = startDate;
+    c.start_time = startTime;
 
     c.is_report = isReport;
 
@@ -16944,36 +17036,60 @@ window.openCriterionCreateModal = function () {
 
 
 
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom: 14px;">
-
-            <div class="form-group" style="margin-bottom:0;">
-              <label style="display:flex; justify-content:space-between; align-items:center;">
-                <span>🟢 Bắt đầu mở nộp:</span>
-                <span style="font-size:11px; color:#059669; font-weight:700;">(Từ mấy giờ - Ngày)</span>
-              </label>
-              <div style="display:flex; gap:8px; align-items:center;">
-                <input type="date" id="new-crit-start-date" value="2026-01-01" style="flex:1.2; font-weight:600;" />
-                <input type="time" id="new-crit-start-time" value="00:00" style="flex:0.9; min-width:95px; font-weight:700; color:#047857; background:#ecfdf5; border:1.5px solid #a7f3d0;" title="Giờ bắt đầu mở nộp trong ngày (00:00 đến 23:59)" />
+          <div style="background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:10px; padding:12px 14px; margin-bottom:14px;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+              <!-- Bắt đầu mở nộp -->
+              <div>
+                <label style="display:block; font-weight:700; color:#15803d; font-size:13.5px; margin-bottom:6px; white-space:nowrap;">
+                  🟢 Bắt đầu mở nộp:
+                </label>
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <input type="date" id="new-crit-start-date" value="2026-01-01" style="flex:1.2; font-weight:600; padding:7px 8px; border:1.5px solid #86efac; border-radius:6px; background:#fff; font-size:13px;" />
+                  <div style="display:inline-flex; align-items:center; gap:2px; background:#ecfdf5; border:1.5px solid #86efac; border-radius:6px; padding:4px 6px;">
+                    <select id="new-crit-start-hour" style="border:none; background:transparent; font-weight:700; color:#166534; font-size:13px; cursor:pointer; outline:none;">
+                      ${renderHourSelectOptions(0)}
+                    </select>
+                    <span style="font-weight:800; color:#166534;">:</span>
+                    <select id="new-crit-start-min" style="border:none; background:transparent; font-weight:700; color:#166534; font-size:13px; cursor:pointer; outline:none;">
+                      ${renderMinuteSelectOptions(0)}
+                    </select>
+                  </div>
+                </div>
+                <div style="display:flex; gap:4px; align-items:center; margin-top:6px; flex-wrap:wrap;">
+                  <span style="font-size:11px; color:#64748b;">Nhanh:</span>
+                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritStartTime('new', '00', '00')" style="font-size:11px; padding:1px 6px;">00:00</button>
+                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritStartTime('new', '07', '00')" style="font-size:11px; padding:1px 6px;">07:00</button>
+                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritStartTime('new', '08', '00')" style="font-size:11px; padding:1px 6px;">08:00</button>
+                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritStartTime('new', '13', '30')" style="font-size:11px; padding:1px 6px;">13:30</button>
+                </div>
               </div>
-              <div style="font-size:11px; color:#64748b; margin-top:3px;">
-                Mở nộp từ: <b>Giờ : Phút</b> (vd <i>00:00</i> hoặc <i>08:00</i>)
+
+              <!-- Hạn nộp chót (Xóa dòng chữ Deadline) -->
+              <div>
+                <label style="display:block; font-weight:700; color:#dc2626; font-size:13.5px; margin-bottom:6px; white-space:nowrap;">
+                  ⏰ Hạn nộp chót:
+                </label>
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <input type="date" id="new-crit-deadline" value="2026-10-20" style="flex:1.2; font-weight:600; padding:7px 8px; border:1.5px solid #fca5a5; border-radius:6px; background:#fff; font-size:13px;" />
+                  <div style="display:inline-flex; align-items:center; gap:2px; background:#fef2f2; border:1.5px solid #fca5a5; border-radius:6px; padding:4px 6px;">
+                    <select id="new-crit-deadline-hour" style="border:none; background:transparent; font-weight:800; color:#b91c1c; font-size:13px; cursor:pointer; outline:none;">
+                      ${renderHourSelectOptions(16)}
+                    </select>
+                    <span style="font-weight:800; color:#b91c1c;">:</span>
+                    <select id="new-crit-deadline-min" style="border:none; background:transparent; font-weight:800; color:#b91c1c; font-size:13px; cursor:pointer; outline:none;">
+                      ${renderMinuteSelectOptions(0)}
+                    </select>
+                  </div>
+                </div>
+                <div style="display:flex; gap:4px; align-items:center; margin-top:6px; flex-wrap:wrap;">
+                  <span style="font-size:11px; color:#64748b;">Nhanh:</span>
+                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritDeadlineTime('new', '11', '30')" style="font-size:11px; padding:1px 6px;">11:30</button>
+                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritDeadlineTime('new', '16', '00')" style="font-size:11px; padding:1px 6px; font-weight:700; color:#dc2626; border-color:#fca5a5;">16:00</button>
+                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritDeadlineTime('new', '17', '00')" style="font-size:11px; padding:1px 6px;">17:00</button>
+                  <button type="button" class="btn btn-xs btn-outline" onclick="setCritDeadlineTime('new', '23', '59')" style="font-size:11px; padding:1px 6px;">23:59</button>
+                </div>
               </div>
             </div>
-
-            <div class="form-group" style="margin-bottom:0;">
-              <label style="display:flex; justify-content:space-between; align-items:center;">
-                <span>⏰ Hạn nộp chót (Deadline):</span>
-                <span style="font-size:11px; color:#dc2626; font-weight:700;">(Đến mấy giờ - Ngày)</span>
-              </label>
-              <div style="display:flex; gap:8px; align-items:center;">
-                <input type="date" id="new-crit-deadline" value="2026-10-20" style="flex:1.2; font-weight:600;" />
-                <input type="time" id="new-crit-deadline-time" value="23:59" style="flex:0.9; min-width:95px; font-weight:700; color:#b91c1c; background:#fef2f2; border:1.5px solid #fecaca;" title="Giờ hết hạn trong ngày (00:00 đến 23:59)" />
-              </div>
-              <div style="font-size:11px; color:#64748b; margin-top:3px;">
-                Khóa nộp lúc: <b>Giờ : Phút</b> (vd <i>16:00</i> hoặc <i>23:59</i>)
-              </div>
-            </div>
-
           </div>
 
           
@@ -17136,10 +17252,14 @@ window.saveNewCriterion = async function () {
   }
 
   const startDate = document.getElementById('new-crit-start-date').value || '2026-01-01';
-  const startTime = (document.getElementById('new-crit-start-time') ? document.getElementById('new-crit-start-time').value : '') || '00:00';
+  const sHour = (document.getElementById('new-crit-start-hour') ? document.getElementById('new-crit-start-hour').value : '00').padStart(2, '0');
+  const sMin = (document.getElementById('new-crit-start-min') ? document.getElementById('new-crit-start-min').value : '00').padStart(2, '0');
+  const startTime = `${sHour}:${sMin}`;
 
   const deadline = document.getElementById('new-crit-deadline').value || '2026-10-20';
-  const deadlineTime = (document.getElementById('new-crit-deadline-time') ? document.getElementById('new-crit-deadline-time').value : '') || '23:59';
+  const dHour = (document.getElementById('new-crit-deadline-hour') ? document.getElementById('new-crit-deadline-hour').value : '23').padStart(2, '0');
+  const dMin = (document.getElementById('new-crit-deadline-min') ? document.getElementById('new-crit-deadline-min').value : '59').padStart(2, '0');
+  const deadlineTime = `${dHour}:${dMin}`;
 
   const isReportSelectVal = document.getElementById('new-crit-is-report') ? document.getElementById('new-crit-is-report').value : '0';
   const customTypeName = document.getElementById('new-crit-custom-type') ? document.getElementById('new-crit-custom-type').value.trim() : '';
