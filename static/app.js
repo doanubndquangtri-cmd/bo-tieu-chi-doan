@@ -6055,8 +6055,8 @@ function renderUnitSubmitTab() {
       const sc = getScoreObj(unit.id, c.id);
       const st = getCriterionStatus(c);
       const scoreVal = sc && sc.score !== null && sc.score !== '' ? Number(sc.score) : null;
-      const isReport = Number(c.is_report) === 1;
-      const isAdminScore = Number(c.is_report) === 2;
+      const isReport = Number(c.is_report) === 1 || (!Number(c.is_report) && c.title && c.title.toLowerCase().includes('báo cáo'));
+      const isAdminScore = Number(c.is_report) === 2 || (c.title && c.title.toLowerCase().includes('admin tự chấm'));
       const isBlankContent = Number(c.is_report) === 3;
       const isActivity = !isReport && !isAdminScore && !isBlankContent;
       const isRejected = sc && sc.approval_status === 'rejected';
@@ -6203,9 +6203,9 @@ function renderUnitSubmitTab() {
 
       </div>
 
-      <div class="filter-bar" style="flex-shrink:0; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; padding:8px 12px; background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+      <div class="filter-bar" style="flex-shrink:0; padding:8px 12px; background:#f8fafc; border-bottom:1px solid #e2e8f0;">
 
-        <div class="month-pills" style="margin-bottom:0; flex:1 1 auto;">
+        <div class="month-pills" style="width:100%; display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:0;">
 
           ${monthButtons
 
@@ -6225,21 +6225,6 @@ function renderUnitSubmitTab() {
 
             .join('')}
 
-        </div>
-
-        <div style="display:flex; align-items:center; gap:8px; margin-left:auto; flex-shrink:0;">
-          <span style="font-size:12.5px; font-weight:700; color:#334155;">⚡ Lọc thao tác:</span>
-          <select id="unit-submit-action-filter-bar" onchange="window.setUnitActionFilter(this.value)" style="padding:6px 12px; font-size:13px; font-weight:600; border:1.5px solid #cbd5e1; border-radius:6px; background:#fff; color:#334155; cursor:pointer; outline:none; box-shadow:0 1px 2px rgba(0,0,0,0.06);">
-            <option value="" ${!actionFilter ? 'selected' : ''}>📁 Tất cả thao tác (${(state.criteria || []).length})</option>
-            <option value="nop_bao_cao" ${actionFilter === 'nop_bao_cao' ? 'selected' : ''}>📤 Nộp báo cáo</option>
-            <option value="nop_minh_chung" ${actionFilter === 'nop_minh_chung' ? 'selected' : ''}>📸 Nộp minh chứng</option>
-            <option value="bao_cao_noi_dung" ${actionFilter === 'bao_cao_noi_dung' ? 'selected' : ''}>📝 Báo cáo nội dung</option>
-            <option value="admin_cham" ${actionFilter === 'admin_cham' ? 'selected' : ''}>👑 Chờ Admin chấm</option>
-            <option value="da_nop" ${actionFilter === 'da_nop' ? 'selected' : ''}>✅ Đã nộp / Chờ duyệt</option>
-            <option value="con_han" ${actionFilter === 'con_han' ? 'selected' : ''}>🟢 Đang mở nộp (Còn hạn)</option>
-            <option value="chua_den_han" ${actionFilter === 'chua_den_han' ? 'selected' : ''}>⏳ Chưa đến hạn nộp</option>
-            <option value="qua_han" ${actionFilter === 'qua_han' ? 'selected' : ''}>⛔ Quá hạn / Đã khóa</option>
-          </select>
         </div>
 
       </div>
@@ -6276,11 +6261,11 @@ function renderUnitSubmitTab() {
                 <div style="display:flex; flex-direction:column; align-items:center; gap:3px;">
                   <span style="font-weight:700; color:#1e293b; font-size:12.5px;">Thao tác</span>
                   <select id="unit-submit-action-filter-header" onchange="window.setUnitActionFilter(this.value)" style="width:100%; max-width:140px; padding:3px 6px; font-size:11.5px; font-weight:700; border:1.5px solid #0052cc; border-radius:5px; background:#fff; color:#0052cc; cursor:pointer; outline:none; box-shadow:0 1px 2px rgba(0,82,204,0.12);">
-                    <option value="" ${!actionFilter ? 'selected' : ''}>📁 Tất cả thao tác ⌵</option>
-                    <option value="nop_bao_cao" ${actionFilter === 'nop_bao_cao' ? 'selected' : ''}>📤 Nộp báo cáo</option>
-                    <option value="nop_minh_chung" ${actionFilter === 'nop_minh_chung' ? 'selected' : ''}>📸 Nộp minh chứng</option>
-                    <option value="bao_cao_noi_dung" ${actionFilter === 'bao_cao_noi_dung' ? 'selected' : ''}>📝 Báo cáo nội dung</option>
-                    <option value="admin_cham" ${actionFilter === 'admin_cham' ? 'selected' : ''}>👑 Chờ Admin chấm</option>
+                    <option value="" ${!actionFilter ? 'selected' : ''}>📁 Tất cả thao tác (${(state.criteria || []).length}) ⌵</option>
+                    <option value="nop_bao_cao" ${actionFilter === 'nop_bao_cao' ? 'selected' : ''}>📤 Nộp báo cáo (${(state.criteria || []).filter(x => Number(x.is_report) === 1).length})</option>
+                    <option value="nop_minh_chung" ${actionFilter === 'nop_minh_chung' ? 'selected' : ''}>📸 Nộp minh chứng (${(state.criteria || []).filter(x => !x.is_report || Number(x.is_report) === 0).length})</option>
+                    <option value="admin_cham" ${actionFilter === 'admin_cham' ? 'selected' : ''}>👑 Chờ Admin chấm (${(state.criteria || []).filter(x => Number(x.is_report) === 2).length})</option>
+                    <option value="bao_cao_noi_dung" ${actionFilter === 'bao_cao_noi_dung' ? 'selected' : ''}>📝 Báo cáo nội dung (${(state.criteria || []).filter(x => Number(x.is_report) === 3).length})</option>
                     <option value="da_nop" ${actionFilter === 'da_nop' ? 'selected' : ''}>✅ Đã nộp</option>
                     <option value="con_han" ${actionFilter === 'con_han' ? 'selected' : ''}>🟢 Đang mở nộp</option>
                     <option value="chua_den_han" ${actionFilter === 'chua_den_han' ? 'selected' : ''}>⏳ Chưa đến hạn</option>
@@ -6542,6 +6527,11 @@ function renderUnitSubmitTab() {
 }
 
 
+
+window.setUnitActionFilter = function (val) {
+  state.unitActionFilter = val || '';
+  renderApp();
+};
 
 window.setUnitMonthFilter = function (val) {
 
