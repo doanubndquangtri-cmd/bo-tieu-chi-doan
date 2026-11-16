@@ -2136,9 +2136,31 @@ window.syncFromCloudNow = async function (silent = false) {
     const newMsgCount = (db.chat_messages || []).length;
     const hasNewMsgs = newMsgCount > prevMsgCount;
 
+    // Kiểm tra xem dữ liệu cốt lõi (tiêu chí, điểm số, văn bản, thông báo, settings) có thực sự thay đổi không
+    const isSubstantiveChange = !state._lastIngestedDBSignature || 
+      state._lastIngestedDBSignature !== JSON.stringify({
+        c: (db.criteria || []).map(x => [x.id, x.title, x.deadline, x.start_date, x.deadline_time, x.is_report]),
+        s: (db.scores || []).length,
+        d: (db.admin_docs || []).length,
+        u: (db.units || []).length,
+        n: (db.notifications || []).length,
+        m: db.marquee_text || '',
+        st: db.settings || {}
+      });
+
+    state._lastIngestedDBSignature = JSON.stringify({
+      c: (db.criteria || []).map(x => [x.id, x.title, x.deadline, x.start_date, x.deadline_time, x.is_report]),
+      s: (db.scores || []).length,
+      d: (db.admin_docs || []).length,
+      u: (db.units || []).length,
+      n: (db.notifications || []).length,
+      m: db.marquee_text || '',
+      st: db.settings || {}
+    });
+
     ingestCloudDB(db);
 
-    if (changed || !silent || hasNewMsgs) {
+    if (hasNewMsgs || !silent || (changed && isSubstantiveChange)) {
       if (silent) {
         // A. Tuyệt đối không re-render nếu có bất kỳ modal nào đang mở
         const modalRoot = document.getElementById('modal-root');
@@ -2768,6 +2790,45 @@ function renderApp() {
 
 
 
+  // 1. TỰ ĐỘNG BẢO TOÀN VỊ TRÍ CUỘN CỦA TOÀN BỘ TRANG VÀ MỌI BẢNG DỮ LIỆU (CHỐNG NHẢY VỀ ĐẦU TRANG KHI ĐANG ĐỌC)
+  const savedWindowScroll = {
+    x: typeof window !== 'undefined' ? (window.scrollX || window.pageXOffset || 0) : 0,
+    y: typeof window !== 'undefined' ? (window.scrollY || window.pageYOffset || 0) : 0
+  };
+
+  const savedScrollPositions = [];
+  const scrollSelectors = [
+    '.criteria-table-container',
+    '.unit-submit-table-container',
+    '.ranking-table-container',
+    '.accounts-table-container',
+    '.table-container',
+    '.admin-docs-table-container',
+    '#reports-spreadsheet-wrapper',
+    '#reports-bottom-section',
+    '.main-container',
+    '.panel-body',
+    '.fullscreen-table-panel'
+  ];
+
+  if (typeof document !== 'undefined') {
+    scrollSelectors.forEach(sel => {
+      try {
+        const els = document.querySelectorAll(sel);
+        els.forEach((el, idx) => {
+          if (el && (el.scrollTop > 0 || el.scrollLeft > 0)) {
+            savedScrollPositions.push({
+              selector: sel,
+              index: idx,
+              top: el.scrollTop,
+              left: el.scrollLeft
+            });
+          }
+        });
+      } catch (e) {}
+    });
+  }
+
   appEl.innerHTML = `
 
     ${renderHeader()}
@@ -2852,6 +2913,28 @@ function renderApp() {
     }, 30);
 
   }
+
+  // 2. PHỤC HỒI CHÍNH XÁC VỊ TRÍ CUỘN (GIỮ NGUYÊN VỊ TRÍ ĐANG ĐỌC, KHÔNG BAO GIỜ BỊ NHẢY)
+  const restoreScrollPositions = () => {
+    if (typeof window !== 'undefined' && (savedWindowScroll.x > 0 || savedWindowScroll.y > 0)) {
+      window.scrollTo(savedWindowScroll.x, savedWindowScroll.y);
+    }
+    savedScrollPositions.forEach(item => {
+      try {
+        const els = document.querySelectorAll(item.selector);
+        if (els && els[item.index]) {
+          els[item.index].scrollTop = item.top;
+          els[item.index].scrollLeft = item.left;
+        }
+      } catch (e) {}
+    });
+  };
+
+  restoreScrollPositions();
+  if (typeof requestAnimationFrame !== 'undefined') {
+    requestAnimationFrame(restoreScrollPositions);
+  }
+  setTimeout(restoreScrollPositions, 30);
 
 }
 
@@ -5965,6 +6048,44 @@ function renderUnitSubmitTab() {
 
 
 
+  const actionFilter = state.unitActionFilter || '';
+
+  if (actionFilter) {
+    unitCriteriaList = unitCriteriaList.filter((c) => {
+      const sc = getScoreObj(unit.id, c.id);
+      const st = getCriterionStatus(c);
+      const scoreVal = sc && sc.score !== null && sc.score !== '' ? Number(sc.score) : null;
+      const isReport = Number(c.is_report) === 1;
+      const isAdminScore = Number(c.is_report) === 2;
+      const isBlankContent = Number(c.is_report) === 3;
+      const isActivity = !isReport && !isAdminScore && !isBlankContent;
+      const isRejected = sc && sc.approval_status === 'rejected';
+      const hasScoreVal = sc && sc.score !== null && sc.score !== undefined && sc.score !== '' && !isNaN(Number(sc.score)) && !isRejected;
+      const hasProof = sc && Boolean((sc.files && sc.files.length > 0) || sc.file_path || sc.report_content || sc.evidence_link);
+
+      switch (actionFilter) {
+        case 'nop_bao_cao':
+          return isReport;
+        case 'nop_minh_chung':
+          return isActivity;
+        case 'bao_cao_noi_dung':
+          return isBlankContent;
+        case 'admin_cham':
+          return isAdminScore;
+        case 'da_nop':
+          return Boolean(hasProof || hasScoreVal || (sc && sc.submitted_date));
+        case 'con_han':
+          return Boolean(st.canSubmit && !hasProof && !hasScoreVal);
+        case 'chua_den_han':
+          return st.status === 'not_started';
+        case 'qua_han':
+          return Boolean((st.status === 'overdue' || st.status === 'deadline_passed') && !hasProof && !hasScoreVal);
+        default:
+          return true;
+      }
+    });
+  }
+
   // SẮP XẾP TIÊU CHÍ: TUÂN THỦ 100% TRÌNH TỰ THỜI GIAN VÀ SỐ CỘT (CỘT 1 -> CỘT 129, TỪ SỚM ĐẾN MUỘN)
   unitCriteriaList.sort((a, b) => {
     const da = a.deadline || '9999-99-99';
@@ -6082,9 +6203,9 @@ function renderUnitSubmitTab() {
 
       </div>
 
-      <div class="filter-bar" style="flex-shrink:0;">
+      <div class="filter-bar" style="flex-shrink:0; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; padding:8px 12px; background:#f8fafc; border-bottom:1px solid #e2e8f0;">
 
-        <div class="month-pills">
+        <div class="month-pills" style="margin-bottom:0; flex:1 1 auto;">
 
           ${monthButtons
 
@@ -6104,6 +6225,21 @@ function renderUnitSubmitTab() {
 
             .join('')}
 
+        </div>
+
+        <div style="display:flex; align-items:center; gap:8px; margin-left:auto; flex-shrink:0;">
+          <span style="font-size:12.5px; font-weight:700; color:#334155;">⚡ Lọc thao tác:</span>
+          <select id="unit-submit-action-filter-bar" onchange="window.setUnitActionFilter(this.value)" style="padding:6px 12px; font-size:13px; font-weight:600; border:1.5px solid #cbd5e1; border-radius:6px; background:#fff; color:#334155; cursor:pointer; outline:none; box-shadow:0 1px 2px rgba(0,0,0,0.06);">
+            <option value="" ${!actionFilter ? 'selected' : ''}>📁 Tất cả thao tác (${(state.criteria || []).length})</option>
+            <option value="nop_bao_cao" ${actionFilter === 'nop_bao_cao' ? 'selected' : ''}>📤 Nộp báo cáo</option>
+            <option value="nop_minh_chung" ${actionFilter === 'nop_minh_chung' ? 'selected' : ''}>📸 Nộp minh chứng</option>
+            <option value="bao_cao_noi_dung" ${actionFilter === 'bao_cao_noi_dung' ? 'selected' : ''}>📝 Báo cáo nội dung</option>
+            <option value="admin_cham" ${actionFilter === 'admin_cham' ? 'selected' : ''}>👑 Chờ Admin chấm</option>
+            <option value="da_nop" ${actionFilter === 'da_nop' ? 'selected' : ''}>✅ Đã nộp / Chờ duyệt</option>
+            <option value="con_han" ${actionFilter === 'con_han' ? 'selected' : ''}>🟢 Đang mở nộp (Còn hạn)</option>
+            <option value="chua_den_han" ${actionFilter === 'chua_den_han' ? 'selected' : ''}>⏳ Chưa đến hạn nộp</option>
+            <option value="qua_han" ${actionFilter === 'qua_han' ? 'selected' : ''}>⛔ Quá hạn / Đã khóa</option>
+          </select>
         </div>
 
       </div>
@@ -6136,7 +6272,22 @@ function renderUnitSubmitTab() {
 
               <th style="width:90px; text-align:center; position:sticky; top:0; z-index:20; background:#f1f5f9;">Điểm đạt</th>
 
-              <th style="width:130px; text-align:center; position:sticky; top:0; z-index:20; background:#f1f5f9;">Thao tác</th>
+              <th style="min-width:145px; width:155px; text-align:center; position:sticky; top:0; z-index:20; background:#f1f5f9; padding:5px 6px;">
+                <div style="display:flex; flex-direction:column; align-items:center; gap:3px;">
+                  <span style="font-weight:700; color:#1e293b; font-size:12.5px;">Thao tác</span>
+                  <select id="unit-submit-action-filter-header" onchange="window.setUnitActionFilter(this.value)" style="width:100%; max-width:140px; padding:3px 6px; font-size:11.5px; font-weight:700; border:1.5px solid #0052cc; border-radius:5px; background:#fff; color:#0052cc; cursor:pointer; outline:none; box-shadow:0 1px 2px rgba(0,82,204,0.12);">
+                    <option value="" ${!actionFilter ? 'selected' : ''}>📁 Tất cả thao tác ⌵</option>
+                    <option value="nop_bao_cao" ${actionFilter === 'nop_bao_cao' ? 'selected' : ''}>📤 Nộp báo cáo</option>
+                    <option value="nop_minh_chung" ${actionFilter === 'nop_minh_chung' ? 'selected' : ''}>📸 Nộp minh chứng</option>
+                    <option value="bao_cao_noi_dung" ${actionFilter === 'bao_cao_noi_dung' ? 'selected' : ''}>📝 Báo cáo nội dung</option>
+                    <option value="admin_cham" ${actionFilter === 'admin_cham' ? 'selected' : ''}>👑 Chờ Admin chấm</option>
+                    <option value="da_nop" ${actionFilter === 'da_nop' ? 'selected' : ''}>✅ Đã nộp</option>
+                    <option value="con_han" ${actionFilter === 'con_han' ? 'selected' : ''}>🟢 Đang mở nộp</option>
+                    <option value="chua_den_han" ${actionFilter === 'chua_den_han' ? 'selected' : ''}>⏳ Chưa đến hạn</option>
+                    <option value="qua_han" ${actionFilter === 'qua_han' ? 'selected' : ''}>⛔ Quá hạn</option>
+                  </select>
+                </div>
+              </th>
 
             </tr>
 
@@ -6144,7 +6295,17 @@ function renderUnitSubmitTab() {
 
           <tbody>
 
-            ${unitCriteriaList
+            ${unitCriteriaList.length === 0 ? `
+              <tr>
+                <td colspan="10" style="text-align:center; padding:35px 20px; color:#64748b; font-size:13.5px;">
+                  <div style="font-size:26px; margin-bottom:6px;">🔍</div>
+                  <b>Không tìm thấy tiêu chí nào phù hợp với bộ lọc đã chọn.</b>
+                  <div style="margin-top:8px;">
+                    <button class="btn btn-sm btn-outline" onclick="window.setUnitActionFilter('')" style="font-size:12px; font-weight:600;">❌ Xóa bộ lọc thao tác</button>
+                  </div>
+                </td>
+              </tr>
+            ` : unitCriteriaList
 
               .map((c) => {
 
@@ -6440,6 +6601,21 @@ function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rank
           </button>
         `).join('')}
       </div>
+    </div>
+
+    <div style="margin-bottom:12px;">
+      <div style="font-size:12px; font-weight:700; color:#475569; margin-bottom:4px;">⚡ Lọc theo Thao tác & Phân loại:</div>
+      <select onchange="window.setUnitActionFilter(this.value)" style="width:100%; padding:8px 12px; font-size:13px; font-weight:600; border:1.5px solid #0052cc; border-radius:8px; background:#fff; color:#0052cc; box-shadow:0 1px 3px rgba(0,82,204,0.1);">
+        <option value="" ${!(state.unitActionFilter || '') ? 'selected' : ''}>📁 Tất cả thao tác (${state.criteria ? state.criteria.length : 129})</option>
+        <option value="nop_bao_cao" ${(state.unitActionFilter || '') === 'nop_bao_cao' ? 'selected' : ''}>📤 Nộp báo cáo</option>
+        <option value="nop_minh_chung" ${(state.unitActionFilter || '') === 'nop_minh_chung' ? 'selected' : ''}>📸 Nộp minh chứng</option>
+        <option value="bao_cao_noi_dung" ${(state.unitActionFilter || '') === 'bao_cao_noi_dung' ? 'selected' : ''}>📝 Báo cáo nội dung</option>
+        <option value="admin_cham" ${(state.unitActionFilter || '') === 'admin_cham' ? 'selected' : ''}>👑 Chờ Admin chấm</option>
+        <option value="da_nop" ${(state.unitActionFilter || '') === 'da_nop' ? 'selected' : ''}>✅ Đã nộp / Chờ duyệt</option>
+        <option value="con_han" ${(state.unitActionFilter || '') === 'con_han' ? 'selected' : ''}>🟢 Đang mở nộp (Còn hạn)</option>
+        <option value="chua_den_han" ${(state.unitActionFilter || '') === 'chua_den_han' ? 'selected' : ''}>⏳ Chưa đến hạn nộp</option>
+        <option value="qua_han" ${(state.unitActionFilter || '') === 'qua_han' ? 'selected' : ''}>⛔ Quá hạn / Đã khóa</option>
+      </select>
     </div>
 
     <div class="mobile-cards-list" style="padding-bottom: 60px;">
@@ -10803,7 +10979,7 @@ function renderAdminCriteriaTab() {
 
 
 
-      <div class="filter-bar" style="flex-shrink:0; margin-bottom:4px;">
+      <div class="filter-bar" style="flex-shrink:0; margin-bottom:4px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
 
         <select onchange="state.criteriaMonthFilter = Number(this.value); renderApp();">
 
@@ -10819,6 +10995,14 @@ function renderAdminCriteriaTab() {
 
           }).join('')}
 
+        </select>
+
+        <select onchange="state.criteriaCategoryFilter = this.value; renderApp();" style="padding:6px 10px; font-size:13px; font-weight:600; border:1px solid #cbd5e1; border-radius:6px; background:#fff; color:#334155; cursor:pointer;">
+          <option value="" ${!state.criteriaCategoryFilter ? 'selected' : ''}>📁 Tất cả phân loại tiêu chí</option>
+          <option value="activity" ${state.criteriaCategoryFilter === 'activity' ? 'selected' : ''}>🎯 Hoạt động / Phong trào</option>
+          <option value="report" ${state.criteriaCategoryFilter === 'report' ? 'selected' : ''}>📋 Báo cáo định kỳ</option>
+          <option value="admin" ${state.criteriaCategoryFilter === 'admin' ? 'selected' : ''}>👑 Admin tự chấm điểm</option>
+          <option value="blank" ${state.criteriaCategoryFilter === 'blank' ? 'selected' : ''}>📝 Triển khai theo nội dung</option>
         </select>
 
         <input
