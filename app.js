@@ -2921,7 +2921,10 @@ function renderApp() {
 
 
 function renderLoginView() {
-  if (window.BgMusicManager) window.BgMusicManager.syncWithSettings();
+  if (window.BgMusicManager) {
+    window.BgMusicManager.syncWithSettings(true);
+    window.BgMusicManager.tryPlay();
+  }
 
   const activeUnits = state.units.filter((u) => Number(u.is_active) === 1);
 
@@ -2941,7 +2944,7 @@ function renderLoginView() {
 
   return `
 
-    <div class="login-screen" style="position:relative; overflow:hidden;">
+    <div class="login-screen" onclick="if(window.BgMusicManager) window.BgMusicManager.unlockAndPlay();" ontouchstart="if(window.BgMusicManager) window.BgMusicManager.unlockAndPlay();" style="position:relative; overflow:hidden;">
 
       <!-- VIDEO NỀN CHUYỂN ĐỘNG FULLSCREEN GỐC 1080P SÁNG ĐẸP KHÔNG DẤU VẾT -->
       <div class="login-video-bg">
@@ -29089,10 +29092,17 @@ window.BgMusicManager = {
 
   init() {
     if (typeof window === 'undefined') return;
-    // Mỗi khi vào app/mở ứng dụng: luôn phát bài đầu tiên (bài cố định của Admin nếu có, hoặc bài 1 Đoàn)
+    // Yêu cầu: Vào app là tự chạy nhạc luôn và nghe được luôn
+    // Luôn xóa mọi cờ tắt tiếng hoặc tạm dừng cũ để âm thanh phát ngay lập tức
+    try {
+      localStorage.removeItem('doan2026_bg_music_paused');
+      localStorage.removeItem('doan2026_bg_music_muted');
+    } catch(e) {}
+
     this.currentIndex = 0;
     this.setupAutoplayOnInteraction();
     this.syncWithSettings(true);
+    this.tryPlay();
   },
 
   getSettings() {
@@ -29124,13 +29134,14 @@ window.BgMusicManager = {
   getLocalVolume() {
     const saved = localStorage.getItem('doan2026_bg_music_volume');
     if (saved !== null && !isNaN(Number(saved))) {
-      return Math.max(0, Math.min(1, Number(saved)));
+      const v = Number(saved);
+      if (v > 0) return Math.max(0.1, Math.min(1, v));
     }
     const settings = this.getSettings();
     if (settings.bg_music_volume !== undefined && settings.bg_music_volume !== '') {
-      return Math.max(0, Math.min(1, Number(settings.bg_music_volume) / 100));
+      return Math.max(0.1, Math.min(1, Number(settings.bg_music_volume) / 100));
     }
-    return 0.35;
+    return 0.45;
   },
 
   isLocallyMuted() {
@@ -29138,8 +29149,7 @@ window.BgMusicManager = {
     if (localMute !== null) {
       return localMute === '1';
     }
-    const settings = this.getSettings();
-    return settings.bg_music_start_muted === '1';
+    return false;
   },
 
   isLocallyPaused() {
@@ -29366,13 +29376,23 @@ window.BgMusicManager = {
   tryPlay() {
     if (this.currentType === 'youtube') {
       if (this.ytPlayer && typeof this.ytPlayer.playVideo === 'function') {
-        this.ytPlayer.playVideo();
+        try {
+          if (!this.isLocallyMuted()) this.ytPlayer.unMute();
+          this.ytPlayer.setVolume(Math.round(this.getLocalVolume() * 100));
+          this.ytPlayer.playVideo();
+        } catch(e) {}
         this.isPlaying = true;
         this.updateUI();
       }
       return;
     }
+
     if (!this.audio || !this.audio.src) return;
+
+    // Cố gắng phát có tiếng ngay lập tức
+    this.audio.volume = this.getLocalVolume();
+    this.audio.muted = this.isLocallyMuted();
+
     const playPromise = this.audio.play();
     if (playPromise !== undefined) {
       playPromise
@@ -29382,12 +29402,35 @@ window.BgMusicManager = {
           this.updateUI();
         })
         .catch((err) => {
-          console.log('[BgMusic] Play deferred by browser:', err && err.message);
-          this.isPlaying = false;
-          this.updateUI();
+          console.log('[BgMusic] Direct unmuted autoplay deferred, starting muted background stream and instant unmute:', err && err.message);
+          // 1. Phát ngầm ngay lập tức ở chế độ tắt tiếng (Trình duyệt luôn cho phép 100%)
+          this.audio.muted = true;
+          this.audio.play().then(() => {
+            this.isPlaying = true;
+            this.updateUI();
+          }).catch(() => {});
+
+          // 2. Kích hoạt mở tiếng tức thì tại bất kỳ tương tác nào (chuột, chạm, phím, cuộn)
           this.setupAutoplayOnInteraction();
         });
     }
+  },
+
+  unlockAndPlay() {
+    if (this.audio) {
+      this.audio.muted = false;
+      this.audio.volume = this.getLocalVolume();
+      this.audio.play().catch(() => {});
+    }
+    if (this.ytPlayer && typeof this.ytPlayer.unMute === 'function') {
+      try {
+        this.ytPlayer.unMute();
+        this.ytPlayer.setVolume(Math.round(this.getLocalVolume() * 100));
+        if (typeof this.ytPlayer.playVideo === 'function') this.ytPlayer.playVideo();
+      } catch(e) {}
+    }
+    this.isPlaying = true;
+    this.updateUI();
   },
 
   pauseAll() {
@@ -29447,26 +29490,27 @@ window.BgMusicManager = {
   },
 
   setupAutoplayOnInteraction() {
-    if (this.hasSetupInteractionListener) return;
-    this.hasSetupInteractionListener = true;
-
-    const onUserInteraction = () => {
+    const unlock = () => {
       if (!this.isLocallyPaused()) {
-        if (this.currentType === 'youtube') {
-          if (this.ytPlayer && typeof this.ytPlayer.playVideo === 'function') this.ytPlayer.playVideo();
-        } else if (this.audio && this.audio.paused) {
-          this.audio.play().catch(() => {});
-        }
+        this.unlockAndPlay();
       }
-      ['click', 'touchstart', 'keydown'].forEach((evt) => {
-        document.removeEventListener(evt, onUserInteraction);
+
+      const events = ['touchstart', 'touchend', 'click', 'pointerdown', 'mousedown', 'mouseup', 'keydown', 'wheel', 'scroll', 'mousemove', 'pointermove'];
+      events.forEach((evt) => {
+        window.removeEventListener(evt, unlock, true);
+        document.removeEventListener(evt, unlock, true);
       });
       this.hasSetupInteractionListener = false;
     };
 
-    ['click', 'touchstart', 'keydown'].forEach((evt) => {
-      document.addEventListener(evt, onUserInteraction, { once: true, passive: true });
-    });
+    if (!this.hasSetupInteractionListener) {
+      this.hasSetupInteractionListener = true;
+      const events = ['touchstart', 'touchend', 'click', 'pointerdown', 'mousedown', 'mouseup', 'keydown', 'wheel', 'scroll', 'mousemove', 'pointermove'];
+      events.forEach((evt) => {
+        window.addEventListener(evt, unlock, { once: true, passive: true, capture: true });
+        document.addEventListener(evt, unlock, { once: true, passive: true, capture: true });
+      });
+    }
   },
 
   togglePlay() {
@@ -30040,3 +30084,18 @@ window.saveAdminBgMusicSettings = async function() {
     showToast('Lỗi khi lưu lên đám mây: ' + (res.error || 'Thử lại'), 'error');
   }
 };
+
+// TỰ ĐỘNG MỞ TIẾNG VÀ PHÁT NHẠC NGAY TỨC THÌ KHI VÀO ỨNG DỤNG (CHO CẢ IPHONE, IPAD, ANDROID VÀ MÁY TÍNH)
+if (typeof window !== 'undefined') {
+  const triggerAppInstantAudio = () => {
+    if (window._globalAudioUnlocked) return;
+    window._globalAudioUnlocked = true;
+    if (window.BgMusicManager && !window.BgMusicManager.isLocallyPaused()) {
+      window.BgMusicManager.unlockAndPlay();
+    }
+  };
+  ['touchstart', 'touchend', 'pointerdown', 'mousedown', 'click', 'keydown', 'scroll', 'wheel', 'mousemove'].forEach((evt) => {
+    window.addEventListener(evt, triggerAppInstantAudio, { once: true, passive: true, capture: true });
+    document.addEventListener(evt, triggerAppInstantAudio, { once: true, passive: true, capture: true });
+  });
+}
