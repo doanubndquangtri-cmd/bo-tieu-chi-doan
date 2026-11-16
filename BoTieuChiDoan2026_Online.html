@@ -7032,37 +7032,27 @@ function mutateCloudDB(mutatorFn, commitMsg = 'Update data') {
 
 
 function sortCriteriaChronologically(list) {
-
   if (!Array.isArray(list)) return [];
-
   list.sort((a, b) => {
-
     const da = a.deadline || '9999-99-99';
-
     const db = b.deadline || '9999-99-99';
-
     if (da !== db) return da.localeCompare(db);
 
+    const dta = a.deadline_time || ((function(){ const m = (a.title||'').match(/(?:hạn\s*)?(\d{1,2})[h:](\d{2})/i); return m ? (m[1].padStart(2,'0') + ':' + m[2]) : '23:59'; })());
+    const dtb = b.deadline_time || ((function(){ const m = (b.title||'').match(/(?:hạn\s*)?(\d{1,2})[h:](\d{2})/i); return m ? (m[1].padStart(2,'0') + ':' + m[2]) : '23:59'; })());
+    if (dta !== dtb) return dta.localeCompare(dtb);
+
     const sa = a.start_date || '';
-
     const sb = b.start_date || '';
-
     if (sa !== sb) return sa.localeCompare(sb);
 
     return (a.id || 0) - (b.id || 0);
-
   });
-
   list.forEach((c, idx) => {
-
     c.col_number = idx + 1;
-
     c.col_label = `Cột ${idx + 1}`;
-
   });
-
   return list;
-
 }
 
 
@@ -7200,6 +7190,7 @@ function ingestCloudDB(db) {
 
     .sort((a, b) => (a.display_order || a.id) - (b.display_order || b.id));
 
+  sortCriteriaChronologically(db.criteria || []);
   state.criteria = (db.criteria || []).sort((a, b) => a.col_number - b.col_number);
 
   state.sampleScores = db.sample_scores || [];
@@ -11190,50 +11181,21 @@ function renderUnitSubmitTab() {
 
 
 
-  // SẮP XẾP TIÊU CHÍ: CÁC TIÊU CHÍ ĐANG CÒN HẠN NỘP LÊN TRÊN CÙNG & THEO TRÌNH TỰ THỜI GIAN
+  // SẮP XẾP TIÊU CHÍ: TUÂN THỦ 100% TRÌNH TỰ THỜI GIAN VÀ SỐ CỘT (CỘT 1 -> CỘT 129, TỪ SỚM ĐẾN MUỘN)
   unitCriteriaList.sort((a, b) => {
-    const stA = getCriterionStatus(a);
-    const stB = getCriterionStatus(b);
+    const da = a.deadline || '9999-99-99';
+    const db = b.deadline || '9999-99-99';
+    if (da !== db) return da.localeCompare(db);
 
-    const isBlankA = Number(a.is_report) === 3;
-    const isBlankB = Number(b.is_report) === 3;
+    const dta = a.deadline_time || ((function(){ const m = (a.title||'').match(/(?:hạn\s*)?(\d{1,2})[h:](\d{2})/i); return m ? (m[1].padStart(2,'0') + ':' + m[2]) : '23:59'; })());
+    const dtb = b.deadline_time || ((function(){ const m = (b.title||'').match(/(?:hạn\s*)?(\d{1,2})[h:](\d{2})/i); return m ? (m[1].padStart(2,'0') + ':' + m[2]) : '23:59'; })());
+    if (dta !== dtb) return dta.localeCompare(dtb);
 
-    // Nhóm 1: Đang còn hạn nộp (canSubmit) -> LÊN TRÊN CÙNG
-    // Nhóm 2: Chưa đến ngày mở nộp (upcoming)
-    // Nhóm 3: Đã quá hạn (expired / khóa)
-    // Nhóm 4: Tiêu chí nội dung trống / ghi chú (isBlank)
-    const getPrio = (c, st, isBlank) => {
-      if (isBlank) return 4;
-      if (st.canSubmit) return 1;
-      if (st.status === 'upcoming') return 2;
-      return 3;
-    };
+    const sa = a.start_date || '9999-99-99';
+    const sb = b.start_date || '9999-99-99';
+    if (sa !== sb) return sa.localeCompare(sb);
 
-    const prioA = getPrio(a, stA, isBlankA);
-    const prioB = getPrio(b, stB, isBlankB);
-
-    if (prioA !== prioB) {
-      return prioA - prioB;
-    }
-
-    // Trong cùng một nhóm: sắp xếp theo trình tự thời gian (hạn nộp gần nhất trước)
-    const dlA = a.deadline || '9999-12-31';
-    const dlB = b.deadline || '9999-12-31';
-    if (dlA !== dlB) {
-      return dlA.localeCompare(dlB);
-    }
-
-    const sdA = a.start_date || '9999-12-31';
-    const sdB = b.start_date || '9999-12-31';
-    if (sdA !== sdB) {
-      return sdA.localeCompare(sdB);
-    }
-
-    const mgA = Number(a.month_group) || 999;
-    const mgB = Number(b.month_group) || 999;
-    if (mgA !== mgB) return mgA - mgB;
-
-    return (Number(a.id) || 0) - (Number(b.id) || 0);
+    return (Number(a.col_number) || 0) - (Number(b.col_number) || 0);
   });
 
 
