@@ -5712,6 +5712,44 @@ window.addEventListener('resize', updateMasterHeaderTops);
 
 
 
+function getCriterionStartDateTime(startDateStr, startTimeStr) {
+  if (!startDateStr) return null;
+  const str = String(startDateStr).trim();
+  let year, month, day;
+  if (str.includes('-')) {
+    const parts = str.split('T')[0].split(' ')[0].split('-');
+    year = parseInt(parts[0], 10);
+    month = parseInt(parts[1], 10);
+    day = parseInt(parts[2], 10);
+  } else if (str.includes('/')) {
+    const parts = str.split(' ')[0].split('/');
+    if (parts[0].length === 4) {
+      year = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10);
+      day = parseInt(parts[2], 10);
+    } else {
+      day = parseInt(parts[0], 10);
+      month = parseInt(parts[1], 10);
+      year = parseInt(parts[2], 10);
+    }
+  } else {
+    const d = new Date(startDateStr);
+    if (isNaN(d.getTime())) return null;
+    year = d.getFullYear();
+    month = d.getMonth() + 1;
+    day = d.getDate();
+  }
+  if (!year || !month || !day) return null;
+
+  let h = 0, m = 0;
+  if (startTimeStr && String(startTimeStr).includes(':')) {
+    const tParts = String(startTimeStr).trim().split(':');
+    h = parseInt(tParts[0], 10) || 0;
+    m = parseInt(tParts[1], 10) || 0;
+  }
+  return new Date(year, month - 1, day, h, m, 0, 0);
+}
+
 function getCriterionDeadlineEndDate(deadlineStr, deadlineTime) {
   if (!deadlineStr) return null;
   const str = String(deadlineStr).trim();
@@ -7360,49 +7398,46 @@ function getUnitMonthScore(unitId, monthGroup) {
 
 
 function getCriterionStatus(crit) {
-
   if (crit.score_type === 'penalty') {
-
     return { status: 'penalty', label: 'Admin điểm danh', badgeClass: 'badge-warning', canSubmit: false };
-
   }
-
   if (Number(crit.lock_override) === 1) {
-
     return { status: 'extended', label: '🔓 Admin mở gia hạn', badgeClass: 'badge-info', canSubmit: true };
-
   }
-
-  const strict = state.settings.strict_deadline !== '0';
-
+  const strict = state.settings && state.settings.strict_deadline !== '0';
   if (!strict) {
-
     return { status: 'open', label: '🟢 Mở tự do', badgeClass: 'badge-success', canSubmit: true };
-
   }
 
   const effDate = (state.settings && state.settings.effective_date) || todayISO();
-
   const startDate = crit.start_date || '2026-01-01';
+  const startTime = crit.start_time || '00:00';
+  const startDateTime = getCriterionStartDateTime(startDate, startTime);
 
-  const deadline = crit.deadline || '2026-12-31';
+  const autoTime = crit.deadline_time || (function(){ const m = (crit.title||'').match(/(?:hạn\s*)?(\d{1,2})[h:](\d{2})/i); return m ? (m[1].padStart(2,'0') + ':' + m[2]) : '23:59'; })();
+  const endDateTime = getCriterionDeadlineEndDate(crit.deadline, autoTime);
 
+  const nowTs = Date.now();
 
-
+  // Kiểm tra chưa đến giờ mở nộp
   if (effDate < startDate) {
-
     return { status: 'upcoming', label: '⏳ Chưa đến hạn nộp', badgeClass: 'badge-warning', canSubmit: false };
-
+  }
+  if (effDate === startDate && startDateTime && nowTs < startDateTime.getTime()) {
+    const timeLabel = (startTime && startTime !== '00:00') ? ` (từ ${startTime})` : '';
+    return { status: 'upcoming', label: `⏳ Chưa mở nộp${timeLabel}`, badgeClass: 'badge-warning', canSubmit: false };
   }
 
-  if (effDate > deadline) {
-
+  // Kiểm tra đã quá hạn nộp
+  if (endDateTime) {
+    if (effDate > (crit.deadline || '2026-12-31') || (effDate === (crit.deadline || '2026-12-31') && nowTs > endDateTime.getTime())) {
+      return { status: 'expired', label: '🔴 Đã quá hạn', badgeClass: 'badge-danger', canSubmit: false };
+    }
+  } else if (effDate > (crit.deadline || '2026-12-31')) {
     return { status: 'expired', label: '🔴 Đã quá hạn', badgeClass: 'badge-danger', canSubmit: false };
-
   }
 
   return { status: 'open', label: '🟢 Còn hạn nộp', badgeClass: 'badge-success', canSubmit: true };
-
 }
 
 
@@ -10331,7 +10366,7 @@ function renderMasterTableTab() {
                     </div>
                     <div style="display:flex; flex-direction:column; gap:1px; margin-top:2px; font-size:10px; background:rgba(255,255,255,0.7); padding:2px 4px; border-radius:3px;">
                       ${c.points_text ? `<span style="color:#b45309; font-weight:700;">⭐ ${escapeHtml(c.points_text)}</span>` : ''}
-                      <span style="color:#059669; font-weight:700;">🟢 Mở: ${formatShortDateVN(c.start_date || '2026-01-01')}</span>
+                      <span style="color:#059669; font-weight:700;">🟢 Mở: ${formatShortDateVN(c.start_date || '2026-01-01')}${c.start_time && c.start_time !== '00:00' ? ' (' + c.start_time + ')' : ''}</span>
                       <span style="color:${open ? '#15803d' : '#b45309'}; font-weight:700;">
                         ⏰ Hạn: ${formatShortDateVN(c.deadline)}${(c.deadline_time && c.deadline_time !== '23:59') ? ' (' + c.deadline_time + ')' : ((function(){ const m = (c.title||'').match(/(?:hạn\s*)?(\d{1,2})[h:](\d{2})/i); return m ? (' (' + m[1] + 'h' + m[2] + ')') : ''; })())}
                         ${
@@ -11895,7 +11930,7 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
 
               <div>Quy định điểm: <b>${escapeHtml((crit.points_text || (crit.max_score ? crit.max_score + ' điểm' : '') || '').replace(/\n/g, ' - '))}</b></div>
 
-              <div>Ngày bắt đầu nộp: <b style="color:#059669;">${formatDateVN(crit.start_date || '2026-01-01')}</b></div>
+              <div>Ngày bắt đầu nộp: <b style="color:#059669;">${formatDateVN(crit.start_date || '2026-01-01')}${crit.start_time && crit.start_time !== '00:00' ? ' (' + crit.start_time + ')' : ''}</b></div>
 
               <div>Hạn nộp chót: <b style="color:#dc2626;">${formatDateVN(crit.deadline)}${crit.deadline_time && crit.deadline_time !== '23:59' ? ' (' + crit.deadline_time + ')' : ''}</b></div>
 
@@ -16143,22 +16178,34 @@ window.openCriterionEditModal = function (critId) {
             </div>
           </div>
 
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom: 14px;">
 
-            <div class="form-group">
-
-              <label>Ngày bắt đầu nộp:</label>
-
-              <input type="date" id="edit-crit-start-date" value="${c.start_date || '2026-01-01'}" />
-
+            <div class="form-group" style="margin-bottom:0;">
+              <label style="display:flex; justify-content:space-between; align-items:center;">
+                <span>🟢 Bắt đầu mở nộp:</span>
+                <span style="font-size:11px; color:#059669; font-weight:700;">(Từ mấy giờ - Ngày)</span>
+              </label>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <input type="date" id="edit-crit-start-date" value="${c.start_date || '2026-01-01'}" style="flex:1.2; font-weight:600;" />
+                <input type="time" id="edit-crit-start-time" value="${c.start_time || '00:00'}" style="flex:0.9; min-width:95px; font-weight:700; color:#047857; background:#ecfdf5; border:1.5px solid #a7f3d0;" title="Giờ bắt đầu mở nộp trong ngày (00:00 đến 23:59)" />
+              </div>
+              <div style="font-size:11px; color:#64748b; margin-top:3px;">
+                Mở nộp từ: <b>Giờ : Phút</b> (vd <i>00:00</i> hoặc <i>08:00</i>)
+              </div>
             </div>
 
-            <div class="form-group">
-
-              <label>Hạn nộp chót (Deadline):</label>
-
-              <input type="date" id="edit-crit-deadline" value="${c.deadline || '2026-01-31'}" />
-
+            <div class="form-group" style="margin-bottom:0;">
+              <label style="display:flex; justify-content:space-between; align-items:center;">
+                <span>⏰ Hạn nộp chót (Deadline):</span>
+                <span style="font-size:11px; color:#dc2626; font-weight:700;">(Đến mấy giờ - Ngày)</span>
+              </label>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <input type="date" id="edit-crit-deadline" value="${c.deadline || '2026-01-31'}" style="flex:1.2; font-weight:600;" />
+                <input type="time" id="edit-crit-deadline-time" value="${c.deadline_time || (function(){ const m = (c.title||'').match(/(?:hạn\s*)?(\d{1,2})[h:](\d{2})/i); return m ? (m[1].padStart(2,'0') + ':' + m[2]) : '23:59'; })()}" style="flex:0.9; min-width:95px; font-weight:700; color:#b91c1c; background:#fef2f2; border:1.5px solid #fecaca;" title="Giờ hết hạn trong ngày (00:00 đến 23:59)" />
+              </div>
+              <div style="font-size:11px; color:#64748b; margin-top:3px;">
+                Khóa nộp lúc: <b>Giờ : Phút</b> (vd <i>16:00</i> hoặc <i>23:59</i>)
+              </div>
             </div>
 
           </div>
@@ -16280,6 +16327,7 @@ window.saveCriterionEdit = async function (critId) {
   const gdriveFolderName = title;
 
   const startDate = document.getElementById('edit-crit-start-date').value || '2026-01-01';
+  const startTime = (document.getElementById('edit-crit-start-time') ? document.getElementById('edit-crit-start-time').value : '') || '00:00';
 
   const deadline = document.getElementById('edit-crit-deadline').value;
   const deadlineTime = (document.getElementById('edit-crit-deadline-time') ? document.getElementById('edit-crit-deadline-time').value : '') || '23:59';
@@ -16449,6 +16497,7 @@ window.saveCriterionEdit = async function (critId) {
     c.month_label = (db.month_labels && db.month_labels[String(mGroup)]) || defaultMonthLabels[String(mGroup)] || calculatedMonthLabel;
 
     c.start_date = startDate;
+    c.start_time = startTime;
 
     db.criterion_categories = db.criterion_categories || {};
     if (editTypeSelectVal === '__NEW_CUSTOM_TYPE__' && editCustomTypeName) {
@@ -16672,22 +16721,34 @@ window.openCriterionCreateModal = function () {
 
 
 
-          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom: 14px;">
 
-            <div class="form-group">
-
-              <label>Ngày bắt đầu nộp:</label>
-
-              <input type="date" id="new-crit-start-date" value="2026-01-01" />
-
+            <div class="form-group" style="margin-bottom:0;">
+              <label style="display:flex; justify-content:space-between; align-items:center;">
+                <span>🟢 Bắt đầu mở nộp:</span>
+                <span style="font-size:11px; color:#059669; font-weight:700;">(Từ mấy giờ - Ngày)</span>
+              </label>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <input type="date" id="new-crit-start-date" value="2026-01-01" style="flex:1.2; font-weight:600;" />
+                <input type="time" id="new-crit-start-time" value="00:00" style="flex:0.9; min-width:95px; font-weight:700; color:#047857; background:#ecfdf5; border:1.5px solid #a7f3d0;" title="Giờ bắt đầu mở nộp trong ngày (00:00 đến 23:59)" />
+              </div>
+              <div style="font-size:11px; color:#64748b; margin-top:3px;">
+                Mở nộp từ: <b>Giờ : Phút</b> (vd <i>00:00</i> hoặc <i>08:00</i>)
+              </div>
             </div>
 
-            <div class="form-group">
-
-              <label>Hạn nộp chót (Deadline):</label>
-
-              <input type="date" id="new-crit-deadline" value="2026-10-20" />
-
+            <div class="form-group" style="margin-bottom:0;">
+              <label style="display:flex; justify-content:space-between; align-items:center;">
+                <span>⏰ Hạn nộp chót (Deadline):</span>
+                <span style="font-size:11px; color:#dc2626; font-weight:700;">(Đến mấy giờ - Ngày)</span>
+              </label>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <input type="date" id="new-crit-deadline" value="2026-10-20" style="flex:1.2; font-weight:600;" />
+                <input type="time" id="new-crit-deadline-time" value="23:59" style="flex:0.9; min-width:95px; font-weight:700; color:#b91c1c; background:#fef2f2; border:1.5px solid #fecaca;" title="Giờ hết hạn trong ngày (00:00 đến 23:59)" />
+              </div>
+              <div style="font-size:11px; color:#64748b; margin-top:3px;">
+                Khóa nộp lúc: <b>Giờ : Phút</b> (vd <i>16:00</i> hoặc <i>23:59</i>)
+              </div>
             </div>
 
           </div>
@@ -16852,6 +16913,7 @@ window.saveNewCriterion = async function () {
   }
 
   const startDate = document.getElementById('new-crit-start-date').value || '2026-01-01';
+  const startTime = (document.getElementById('new-crit-start-time') ? document.getElementById('new-crit-start-time').value : '') || '00:00';
 
   const deadline = document.getElementById('new-crit-deadline').value || '2026-10-20';
   const deadlineTime = (document.getElementById('new-crit-deadline-time') ? document.getElementById('new-crit-deadline-time').value : '') || '23:59';
@@ -17021,6 +17083,7 @@ window.saveNewCriterion = async function () {
       month_group: mGroup,
       month_label: mLabel,
       start_date: startDate,
+      start_time: startTime,
       deadline: deadline,
       score_type: 'fixed',
       default_score: maxS,
@@ -19594,7 +19657,7 @@ function renderMasterMobileCardsView(activeUnits, filteredCriteria, isAdmin, mon
 
                           <div style="font-size:10.5px; color:#64748b; margin-top:2px;">
 
-                            🟢 Mở: ${formatShortDateVN(c.start_date || '2026-01-01')} | ⏰ Hạn: ${formatShortDateVN(c.deadline)}${(c.deadline_time && c.deadline_time !== '23:59') ? ' (' + c.deadline_time + ')' : ((function(){ const m = (c.title||'').match(/(?:hạn\s*)?(\d{1,2})[h:](\d{2})/i); return m ? (' (' + m[1] + 'h' + m[2] + ')') : ''; })())} (Tối đa: ${c.max_score}đ)
+                            🟢 Mở: ${formatShortDateVN(c.start_date || '2026-01-01')}${c.start_time && c.start_time !== '00:00' ? ' (' + c.start_time + ')' : ''} | ⏰ Hạn: ${formatShortDateVN(c.deadline)}${(c.deadline_time && c.deadline_time !== '23:59') ? ' (' + c.deadline_time + ')' : ((function(){ const m = (c.title||'').match(/(?:hạn\s*)?(\d{1,2})[h:](\d{2})/i); return m ? (' (' + m[1] + 'h' + m[2] + ')') : ''; })())} (Tối đa: ${c.max_score}đ)
 
                           </div>
 
