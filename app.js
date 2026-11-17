@@ -17940,11 +17940,11 @@ window.scrollChatToBottom = function() {
 
 
 window.toggleChatWidget = function() {
-  const isGuest = state.user && state.user.role === 'guest';
+  const isGuest = Boolean(state.user && state.user.role === 'guest');
   state.chatOpen = !state.chatOpen;
   if (state.chatOpen && isGuest) {
-    if (state.chatTab === 'public' || state.chatTab === 'private' || state.chatTab === 'video') {
-      state.chatTab = 'ai';
+    if (state.chatTab === 'private' || state.chatTab === 'video') {
+      state.chatTab = 'public';
     }
   }
 
@@ -18053,9 +18053,9 @@ window.openQrGenerator = function() {
 };
 
 window.switchChatTab = function(tab) {
-  const isGuest = state.user && state.user.role === 'guest';
-  if (isGuest && (tab === 'public' || tab === 'private' || tab === 'video')) {
-    tab = 'ai';
+  const isGuest = Boolean(state.user && state.user.role === 'guest');
+  if (isGuest && (tab === 'private' || tab === 'video')) {
+    tab = 'public';
   }
   if (tab === 'video') tab = 'public';
 
@@ -19740,9 +19740,9 @@ function renderFloatingChatWidget() {
 
   if (!state.user) return '';
 
-  const isGuest = state.user.role === 'guest';
-  if (isGuest && (state.chatTab === 'public' || state.chatTab === 'private' || state.chatTab === 'video')) {
-    state.chatTab = 'ai';
+  const isGuest = Boolean(state.user && state.user.role === 'guest');
+  if (isGuest && (state.chatTab === 'private' || state.chatTab === 'video')) {
+    state.chatTab = 'public';
   }
 
   if (state.chatOpen) {
@@ -19948,15 +19948,15 @@ function renderFloatingChatWidget() {
           </div>
         </div>
 
-        <!-- THANH CHUYỂN TAB: CHAT CHUNG, CHAT RIÊNG TƯ, HỎI ĐÁP AI, GIỌNG NÓI AI & TẠO QR (GUEST CHỈ HIỆN 3 TAB AI & TIỆN ÍCH) -->
-        <div class="chat-tabs-bar" style="display:grid; grid-template-columns:${isGuest ? 'repeat(3, 1fr)' : 'repeat(5, 1fr)'}; gap:2px; padding:4px 3px; background:#f1f5f9; border-bottom:1px solid #cbd5e1; width:100%; box-sizing:border-box; flex-shrink:0;">
+        <!-- THANH CHUYỂN TAB: CHAT CHUNG, CHAT RIÊNG TƯ, HỎI ĐÁP AI, GIỌNG NÓI AI & TẠO QR -->
+        <div class="chat-tabs-bar" style="display:grid; grid-template-columns:${isGuest ? 'repeat(4, 1fr)' : 'repeat(5, 1fr)'}; gap:2px; padding:4px 3px; background:#f1f5f9; border-bottom:1px solid #cbd5e1; width:100%; box-sizing:border-box; flex-shrink:0;">
+          <button type="button" class="chat-tab-btn ${state.chatTab === 'public' ? 'active' : ''}" onclick="switchChatTab('public')" style="width:100%; min-width:0; padding:6px 1px; font-size:11px; font-weight:700; text-align:center; white-space:nowrap; border-radius:6px; display:flex; align-items:center; justify-content:center; gap:2px; border:1px solid ${state.chatTab === 'public' ? '#0052cc' : '#cbd5e1'}; background:${state.chatTab === 'public' ? '#0052cc' : '#ffffff'}; color:${state.chatTab === 'public' ? '#ffffff' : '#334155'}; cursor:pointer; box-sizing:border-box; height:32px;" title="Kênh trao đổi chung toàn Khối">
+            <span>🌐</span>
+            <span class="tab-label-full">Toàn Khối</span>
+            <span class="tab-label-short">Chung</span>
+            ${(!isGuest && unreadPublic > 0) ? `<span class="chat-badge" style="background:#ef4444; color:#fff; font-size:9px; font-weight:800; padding:0 4px; border-radius:8px; margin-left:1px;">${unreadPublic}</span>` : ''}
+          </button>
           ${!isGuest ? `
-            <button type="button" class="chat-tab-btn ${state.chatTab === 'public' ? 'active' : ''}" onclick="switchChatTab('public')" style="width:100%; min-width:0; padding:6px 1px; font-size:11px; font-weight:700; text-align:center; white-space:nowrap; border-radius:6px; display:flex; align-items:center; justify-content:center; gap:2px; border:1px solid ${state.chatTab === 'public' ? '#0052cc' : '#cbd5e1'}; background:${state.chatTab === 'public' ? '#0052cc' : '#ffffff'}; color:${state.chatTab === 'public' ? '#ffffff' : '#334155'}; cursor:pointer; box-sizing:border-box; height:32px;" title="Kênh trao đổi chung toàn Khối">
-              <span>🌐</span>
-              <span class="tab-label-full">Toàn Khối</span>
-              <span class="tab-label-short">Chung</span>
-              ${unreadPublic > 0 ? `<span class="chat-badge" style="background:#ef4444; color:#fff; font-size:9px; font-weight:800; padding:0 4px; border-radius:8px; margin-left:1px;">${unreadPublic}</span>` : ''}
-            </button>
             <button type="button" class="chat-tab-btn ${state.chatTab === 'private' ? 'active' : ''}" onclick="switchChatTab('private')" style="width:100%; min-width:0; padding:6px 1px; font-size:11px; font-weight:700; text-align:center; white-space:nowrap; border-radius:6px; display:flex; align-items:center; justify-content:center; gap:2px; border:1px solid ${state.chatTab === 'private' ? '#0052cc' : '#cbd5e1'}; background:${state.chatTab === 'private' ? '#0052cc' : '#ffffff'}; color:${state.chatTab === 'private' ? '#ffffff' : '#334155'}; cursor:pointer; box-sizing:border-box; height:32px;" title="Kênh trao đổi riêng tư 1 - 1">
               <span>🔒</span>
               <span class="tab-label-full">Riêng Tư</span>
@@ -20244,7 +20244,19 @@ function renderFloatingChatWidget() {
 
           <div class="chat-input-row" style="position:relative; gap:6px; padding-bottom:calc(8px + env(safe-area-inset-bottom, 0px));">
 
-            ${state.chatTab === 'ai' ? `
+            ${isGuest ? `
+              <input
+                type="text"
+                id="chat-input-field"
+                class="chat-input-field"
+                disabled
+                placeholder="🔒 Chế độ Khách: Chỉ có quyền xem trao đổi, không thể gửi tin nhắn"
+                style="background:#f1f5f9; cursor:not-allowed; color:#64748b; font-size:12px;"
+              />
+              <button class="chat-send-btn" disabled style="opacity:0.5; cursor:not-allowed; background:#94a3b8;" title="Chế độ Khách không thể gửi tin nhắn">
+                🔒 Chỉ Xem
+              </button>
+            ` : (state.chatTab === 'ai' ? `
 
               <button type="button" class="chat-attach-btn" onclick="openGeminiApiKeyModal()" style="color:#7c3aed; border-color:#c4b5fd; background:#f5f3ff;" title="Cài đặt hoặc thay đổi Google Gemini API Key">
 
@@ -20255,6 +20267,30 @@ function renderFloatingChatWidget() {
               <button type="button" class="chat-emoji-btn" onclick="openClearAiChatModal()" style="color:#7c3aed; border-color:#c4b5fd;" title="Làm mới cuộc trò chuyện với AI">
 
                 🔄
+
+              </button>
+
+              <input
+
+                type="text"
+
+                id="chat-input-field"
+
+                class="chat-input-field"
+
+                value="${escapeHtml(state.chatDraft || '')}"
+
+                oninput="state.chatDraft = this.value;"
+
+                placeholder="Hỏi Trợ lý AI về Điều lệ Đoàn, tiêu chí, kế hoạch... (Enter để gửi)"
+
+                onkeydown="onChatKeydown(event)"
+
+              />
+
+              <button class="chat-send-btn" onclick="sendChatMessage()" style="background:linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);">
+
+                Gửi AI 🤖
 
               </button>
 
@@ -20286,31 +20322,31 @@ function renderFloatingChatWidget() {
 
               </button>
 
-            `}
+              <input
 
-            <input
+                type="text"
 
-              type="text"
+                id="chat-input-field"
 
-              id="chat-input-field"
+                class="chat-input-field"
 
-              class="chat-input-field"
+                value="${escapeHtml(state.chatDraft || '')}"
 
-              value="${escapeHtml(state.chatDraft || '')}"
+                oninput="state.chatDraft = this.value;"
 
-              oninput="state.chatDraft = this.value;"
+                placeholder="Nhập nội dung tin nhắn trao đổi... (Enter để gửi)"
 
-              placeholder="${state.chatTab === 'ai' ? 'Hỏi Trợ lý AI về Điều lệ Đoàn, tiêu chí, kế hoạch... (Enter để gửi)' : 'Nhập nội dung tin nhắn trao đổi... (Enter để gửi)'}"
+                onkeydown="onChatKeydown(event)"
 
-              onkeydown="onChatKeydown(event)"
+              />
 
-            />
+              <button class="chat-send-btn" onclick="sendChatMessage()">
 
-            <button class="chat-send-btn" onclick="sendChatMessage()" style="${state.chatTab === 'ai' ? 'background:linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);' : ''}">
+                Gửi 📤
 
-              ${state.chatTab === 'ai' ? 'Gửi AI 🤖' : 'Gửi 📤'}
+              </button>
 
-            </button>
+            `)}
 
           </div>
 
@@ -31904,6 +31940,7 @@ window.exportProgramDonationsToExcel = function(targetKeyword) {
 function renderDonationsTab() {
   const donations = getDonationsList();
   const isAdmin = state.user && state.user.role === 'admin';
+  const isGuest = Boolean(state.user && state.user.role === 'guest');
   const programs = getDonationPrograms();
   const bank = getDonationBankInfo();
   
