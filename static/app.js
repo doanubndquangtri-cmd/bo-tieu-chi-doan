@@ -2001,6 +2001,10 @@ function ingestCloudDB(db) {
   state.admin_docs = db.admin_docs || [];
 
   state.notifications = Array.isArray(db.notifications) ? db.notifications : [];
+  if (Array.isArray(db.deleted_donation_ids)) {
+    if (!state.deletedDonationIds) state.deletedDonationIds = new Set();
+    db.deleted_donation_ids.forEach(id => state.deletedDonationIds.add(String(id)));
+  }
   state.donations = typeof deduplicateDonations === 'function' ? deduplicateDonations(Array.isArray(db.donations) ? db.donations : []) : (Array.isArray(db.donations) ? db.donations : []);
 
   state.cloudDB = db;
@@ -30875,13 +30879,37 @@ window.handleDeleteDonationProgram = function(progId) {
   renderApp();
 };
 
-// 3. DANH SÁCH LƯỢT ỦNG HỘ & BỘ LỌC CHỐNG TRÙNG LẶP ID
+// 3. DANH SÁCH LƯỢT ỦNG HỘ, BỘ LỌC CHỐNG TRÙNG LẶP & DANH SÁCH XÓA VĨNH VIỄN
+function getDeletedDonationIds() {
+  const ids = new Set();
+  if (state.deletedDonationIds && typeof state.deletedDonationIds.forEach === 'function') {
+    state.deletedDonationIds.forEach(id => ids.add(String(id)));
+  }
+  if (state.cloudDB && Array.isArray(state.cloudDB.deleted_donation_ids)) {
+    state.cloudDB.deleted_donation_ids.forEach(id => ids.add(String(id)));
+  }
+  try {
+    const raw = localStorage.getItem('doan2026_deleted_donation_ids');
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) arr.forEach(id => ids.add(String(id)));
+    }
+  } catch(e) {}
+  return ids;
+}
+window.getDeletedDonationIds = getDeletedDonationIds;
+
 function deduplicateDonations(list) {
   if (!Array.isArray(list)) return [];
+  const deletedIds = getDeletedDonationIds();
   const map = new Map();
   list.forEach(item => {
     if (!item) return;
     const key = String(item.id || (item.unit_name + '_' + item.created_at + '_' + item.amount));
+    // Nếu bản ghi nằm trong danh sách đã bị Admin xóa / hủy -> TUYỆT ĐỐI KHÔNG HIỂN THỊ LẠI
+    if (deletedIds.has(key) || (item.id && deletedIds.has(String(item.id)))) {
+      return;
+    }
     if (!map.has(key)) {
       map.set(key, item);
     } else {
@@ -30898,7 +30926,7 @@ window.deduplicateDonations = deduplicateDonations;
 
 function getDonationsList() {
   let list = [];
-  if (Array.isArray(state.donations) && state.donations.length > 0) {
+  if (Array.isArray(state.donations)) {
     list = state.donations;
   } else if (state.cloudDB && Array.isArray(state.cloudDB.donations)) {
     list = state.cloudDB.donations;
@@ -30922,10 +30950,23 @@ function saveDonationsList(list) {
   try {
     localStorage.setItem('doan2026_local_donations', JSON.stringify(cleanList));
     localStorage.setItem('doan2026_donations_list', JSON.stringify(cleanList));
+    // Đồng bộ lập tức vào doan2026_cloud_cache để F5 trong 0ms không bao giờ bị nhảy lại dữ liệu cũ
+    const cachedRaw = localStorage.getItem('doan2026_cloud_cache');
+    if (cachedRaw) {
+      const cachedDb = JSON.parse(cachedRaw);
+      cachedDb.donations = cleanList;
+      const delArr = Array.from(getDeletedDonationIds());
+      if (delArr.length > 0) cachedDb.deleted_donation_ids = delArr;
+      localStorage.setItem('doan2026_cloud_cache', JSON.stringify(cachedDb));
+    }
   } catch(e) {}
   if (typeof mutateCloudDB === 'function') {
     mutateCloudDB(db => {
       db.donations = cleanList;
+      const delArr = Array.from(getDeletedDonationIds());
+      if (delArr.length > 0) {
+        db.deleted_donation_ids = Array.from(new Set([...(db.deleted_donation_ids || []), ...delArr]));
+      }
       if (Array.isArray(state.chatMessages)) {
         db.chat_messages = state.chatMessages;
       }
@@ -31651,15 +31692,39 @@ window.rejectDonationByAdmin = function(donId) {
   if (!confirm('Bạn có chắc chắn muốn HỦY lượt này do tiền CHƯA vào tài khoản ngân hàng không?')) {
     return;
   }
-  let list = deduplicateDonations(getDonationsList()).filter(d => d.id !== donId && String(d.id) !== String(donId));
+  const targetId = String(donId);
+
+  // 1. Thêm vào danh sách ID xóa vĩnh viễn
+  if (!state.deletedDonationIds) state.deletedDonationIds = new Set();
+  state.deletedDonationIds.add(targetId);
+  try {
+    const rawDel = localStorage.getItem('doan2026_deleted_donation_ids');
+    const delList = rawDel ? JSON.parse(rawDel) : [];
+    if (!delList.includes(targetId)) delList.push(targetId);
+    localStorage.setItem('doan2026_deleted_donation_ids', JSON.stringify(delList));
+  } catch(e) {}
+
+  // 2. Lọc bỏ khỏi danh sách hiện tại
+  let list = deduplicateDonations(getDonationsList()).filter(d => String(d.id) !== targetId);
   if (Array.isArray(state.notifications)) {
-    state.notifications.forEach(n => {
-      if (n.donation_id === donId || String(n.donation_id) === String(donId)) {
-        n.read = true;
-      }
-    });
+    state.notifications = state.notifications.filter(n => String(n.donation_id) !== targetId);
   }
   saveDonationsList(list);
+
+  // 3. Xóa và cập nhật ngay lập tức lên Cloud DB
+  if (typeof mutateCloudDB === 'function') {
+    mutateCloudDB(db => {
+      db.deleted_donation_ids = db.deleted_donation_ids || [];
+      if (!db.deleted_donation_ids.includes(targetId)) {
+        db.deleted_donation_ids.push(targetId);
+      }
+      db.donations = (db.donations || []).filter(d => String(d.id) !== targetId && !db.deleted_donation_ids.includes(String(d.id)));
+      if (Array.isArray(db.notifications)) {
+        db.notifications = db.notifications.filter(n => String(n.donation_id) !== targetId);
+      }
+    }, 'Admin hủy lượt ủng hộ ' + targetId);
+  }
+
   if (typeof showToast === 'function') {
     showToast('Đã hủy bỏ lượt ghi nhận chưa có tiền.', 'info');
   }
@@ -31668,9 +31733,40 @@ window.rejectDonationByAdmin = function(donId) {
 
 window.deleteDonationRecord = function(donId) {
   if (!confirm('Bạn có chắc chắn muốn xóa lượt ủng hộ này khỏi Bảng Vàng không?')) return;
-  let list = deduplicateDonations(getDonationsList()).filter(d => d.id !== donId && String(d.id) !== String(donId));
+  const targetId = String(donId);
+
+  // 1. Thêm vào danh sách ID xóa vĩnh viễn (chống F5 nhảy lại)
+  if (!state.deletedDonationIds) state.deletedDonationIds = new Set();
+  state.deletedDonationIds.add(targetId);
+  try {
+    const rawDel = localStorage.getItem('doan2026_deleted_donation_ids');
+    const delList = rawDel ? JSON.parse(rawDel) : [];
+    if (!delList.includes(targetId)) delList.push(targetId);
+    localStorage.setItem('doan2026_deleted_donation_ids', JSON.stringify(delList));
+  } catch(e) {}
+
+  // 2. Lọc bỏ khỏi danh sách hiện tại
+  let list = deduplicateDonations(getDonationsList()).filter(d => String(d.id) !== targetId);
+  if (Array.isArray(state.notifications)) {
+    state.notifications = state.notifications.filter(n => String(n.donation_id) !== targetId);
+  }
   saveDonationsList(list);
-  showToast('Đã xóa lượt ghi nhận khỏi Bảng Vàng.', 'info');
+
+  // 3. Xóa và cập nhật ngay lập tức lên Cloud DB
+  if (typeof mutateCloudDB === 'function') {
+    mutateCloudDB(db => {
+      db.deleted_donation_ids = db.deleted_donation_ids || [];
+      if (!db.deleted_donation_ids.includes(targetId)) {
+        db.deleted_donation_ids.push(targetId);
+      }
+      db.donations = (db.donations || []).filter(d => String(d.id) !== targetId && !db.deleted_donation_ids.includes(String(d.id)));
+      if (Array.isArray(db.notifications)) {
+        db.notifications = db.notifications.filter(n => String(n.donation_id) !== targetId);
+      }
+    }, 'Admin xóa lượt ủng hộ ' + targetId);
+  }
+
+  showToast('Đã xóa vĩnh viễn lượt ghi nhận khỏi Bảng Vàng.', 'info');
   renderApp();
 };
 
