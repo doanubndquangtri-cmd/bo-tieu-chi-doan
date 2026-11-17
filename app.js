@@ -1892,11 +1892,13 @@ function ingestCloudDB(db) {
   const oldFeaturedUrl = (state.settings && state.settings.admin_featured_youtube_url) || '';
   state.settings = settings;
 
-  // Nếu Admin cập nhật/xóa bài hát cố định trên đám mây, tự động đồng bộ tức thì cho mọi máy
+  // Nếu Admin cập nhật bài hát cố định trên đám mây, chỉ đổi khi là tệp âm thanh trực tiếp để không làm gián đoạn nhạc đang nghe
   if (typeof window !== 'undefined' && window.BgMusicManager) {
     const newFeaturedUrl = settings.admin_featured_youtube_url || '';
     if (newFeaturedUrl !== oldFeaturedUrl && !window.BgMusicManager.isLocallyPaused()) {
-      window.BgMusicManager.syncWithSettings(true);
+      if (!extractYouTubeId(newFeaturedUrl)) {
+        window.BgMusicManager.syncWithSettings(true);
+      }
     }
   }
 
@@ -2598,7 +2600,10 @@ async function initApp() {
   // - Người dùng cũ: Đã đăng nhập -> Giữ nguyên đăng nhập, hiển thị ngay giao diện chính!
   // - Người dùng mới: Chưa đăng nhập -> Hiển thị bảng đăng nhập ngay lập tức!
   renderApp();
-  if (window.BgMusicManager) window.BgMusicManager.init();
+  if (window.BgMusicManager) {
+    window.BgMusicManager.init();
+    window.BgMusicManager.tryPlay();
+  }
 
   if (state.user && window.WebPushManager) {
     window.WebPushManager.syncUser(state.user);
@@ -2613,6 +2618,9 @@ async function initApp() {
   syncFromCloudNow(true).then(() => {
     // Nếu có dữ liệu mới từ máy chủ đám mây, tự động cập nhật mượt mà
     renderApp();
+    if (window.BgMusicManager && !window.BgMusicManager.isPlaying && !window.BgMusicManager.isLocallyPaused()) {
+      window.BgMusicManager.tryPlay();
+    }
   }).catch(() => {});
 
   // TỰ ĐỘNG ĐỒNG BỘ THỜI GIAN THỰC ĐỘ TRỄ CỰC THẤP (TỨC THÌ)
@@ -12859,7 +12867,17 @@ window.unitChangePassword = async function () {
 
 
 
-window.addEventListener('DOMContentLoaded', initApp);
+function startAppLifecycle() {
+  if (window._appLifecycleStarted) return;
+  window._appLifecycleStarted = true;
+  initApp();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', startAppLifecycle);
+} else {
+  startAppLifecycle();
+}
 
 
 
@@ -29059,6 +29077,7 @@ window.BgMusicManager = {
   isPlaying: false,
   hasLoadError: false,
   _triedFallback: false,
+  _audioListenersAttached: false,
   hasSetupInteractionListener: false,
 
   init() {
@@ -29070,9 +29089,17 @@ window.BgMusicManager = {
       localStorage.removeItem('doan2026_bg_music_muted');
     } catch(e) {}
 
+    // Tiếp nhận đối tượng âm thanh đã nạp sớm (nếu có từ index.html)
+    if (window._preloadedBgAudio && !this.audio) {
+      this.audio = window._preloadedBgAudio;
+      this.currentTrackUrl = './assets/khat-vong-tuoi-tre.mp3';
+      this.currentType = 'html5';
+      this.setupAudioListeners();
+    }
+
     this.currentIndex = 0;
     this.setupAutoplayOnInteraction();
-    this.syncWithSettings(true);
+    this.syncWithSettings(false);
     this.tryPlay();
   },
 
@@ -29112,7 +29139,7 @@ window.BgMusicManager = {
     if (settings.bg_music_volume !== undefined && settings.bg_music_volume !== '') {
       return Math.max(0.1, Math.min(1, Number(settings.bg_music_volume) / 100));
     }
-    return 0.45;
+    return 0.5;
   },
 
   isLocallyMuted() {
@@ -29142,23 +29169,24 @@ window.BgMusicManager = {
     const playlist = getBgMusicPlaylist();
     if (!playlist || playlist.length === 0) return;
 
-    // 1. Mới vào app: BẮT BUỘC nghe link cố định của Admin nếu có!
+    if (this.currentTrack && !forceFreshStart) {
+      return;
+    }
+
+    // ƯU TIÊN TUYỆT ĐỐI CHO TỰ ĐỘNG PHÁT KHI MỞ ỨNG DỤNG:
+    // Các tệp MP3 HTML5 Audio chạy được 100% trên mọi nền tảng (iPhone, iPad, Android, Máy tính)
     const adminFeatured = getAdminFeaturedTrack();
-    if (adminFeatured && (!this.currentTrack || forceFreshStart)) {
+    if (adminFeatured && adminFeatured.type !== 'youtube' && !extractYouTubeId(adminFeatured.url)) {
       this.currentIndex = 0;
       this.playTrack(adminFeatured, false);
       return;
     }
 
-    // 2. Nếu không có link cố định: phát bài đầu tiên trong danh sách (từ Album hoặc bài 1 Đoàn)
-    if (!this.currentTrack || forceFreshStart) {
-      this.currentIndex = 0;
-      this.playTrack(playlist[0], false);
-      return;
-    }
-
-    const track = this.getCurrentTrack();
-    this.playTrack(track, false);
+    // Nếu không có tệp MP3 gán cố định, tự động phát bài hát truyền thống Đoàn (Khát Vọng Tuổi Trẻ / Đoàn Ca)
+    const defaultHtml5Track = playlist.find(t => t.type !== 'youtube' && !extractYouTubeId(t.url)) || DEFAULT_BG_PLAYLIST[0];
+    const foundIdx = playlist.findIndex(t => t.id === defaultHtml5Track.id);
+    this.currentIndex = foundIdx >= 0 ? foundIdx : 0;
+    this.playTrack(defaultHtml5Track, false);
   },
 
   playTrack(track, forceUserPlay = true) {
@@ -29181,6 +29209,65 @@ window.BgMusicManager = {
     }
   },
 
+  setupAudioListeners() {
+    if (!this.audio || this._audioListenersAttached) return;
+    this._audioListenersAttached = true;
+
+    this.audio.addEventListener('play', () => {
+      this.isPlaying = true;
+      this.hasLoadError = false;
+      this.updateUI();
+    });
+    this.audio.addEventListener('playing', () => {
+      this.isPlaying = true;
+      this.hasLoadError = false;
+      this._triedFallback = false;
+      this.updateUI();
+    });
+    this.audio.addEventListener('pause', () => {
+      this.isPlaying = false;
+      this.updateUI();
+    });
+    this.audio.addEventListener('ended', () => {
+      this.handleTrackEnded();
+    });
+    this.audio.addEventListener('error', (e) => {
+      console.warn('[BgMusic] Audio error on src:', this.audio ? this.audio.src : '', e);
+      this.isPlaying = false;
+
+      // 1. Thử URL dự phòng trực tiếp nếu chưa thử
+      if (this.currentTrackUrl && !this._triedFallback) {
+        this._triedFallback = true;
+        let fallbackUrl = '';
+        if (this.currentTrack && this.currentTrack.fallbackUrl) {
+          fallbackUrl = this.currentTrack.fallbackUrl;
+        } else if (this.currentTrackUrl.startsWith('./assets/') || this.currentTrackUrl.startsWith('assets/')) {
+          const filename = this.currentTrackUrl.split('/').pop();
+          fallbackUrl = 'https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/assets/' + filename;
+        }
+
+        if (fallbackUrl && fallbackUrl !== this.currentTrackUrl) {
+          console.log('[BgMusic] Trying fallback audio URL:', fallbackUrl);
+          this.currentTrackUrl = fallbackUrl;
+          this.audio.src = fallbackUrl;
+          this.audio.load();
+          this.tryPlay();
+          return;
+        }
+      }
+
+      // 2. Nếu HTML5 thất bại hoàn toàn và bài có videoId YouTube, chuyển sang phát YouTube cho CHÍNH BÀI ĐÓ
+      if (this.currentTrack && (this.currentTrack.videoId || extractYouTubeId(this.currentTrack.url))) {
+        console.log('[BgMusic] HTML5 failed, switching to YouTube audio for track:', this.currentTrack.title);
+        this.playYouTubeTrack(this.currentTrack);
+        return;
+      }
+
+      this.hasLoadError = true;
+      this.updateUI();
+    });
+  },
+
   playHtml5Track(track) {
     if (this.ytPlayer && typeof this.ytPlayer.pauseVideo === 'function') {
       try { this.ytPlayer.pauseVideo(); } catch(e){}
@@ -29189,73 +29276,22 @@ window.BgMusicManager = {
     const audioUrl = convertToDirectAudioUrl(track.url);
 
     if (!this.audio) {
-      this.audio = new Audio();
+      this.audio = window._preloadedBgAudio || new Audio();
       this.audio.preload = 'auto';
-
-      this.audio.addEventListener('play', () => {
-        this.isPlaying = true;
-        this.hasLoadError = false;
-        this.updateUI();
-      });
-      this.audio.addEventListener('playing', () => {
-        this.isPlaying = true;
-        this.hasLoadError = false;
-        this._triedFallback = false;
-        this.updateUI();
-      });
-      this.audio.addEventListener('pause', () => {
-        this.isPlaying = false;
-        this.updateUI();
-      });
-      this.audio.addEventListener('ended', () => {
-        this.handleTrackEnded();
-      });
-      this.audio.addEventListener('error', (e) => {
-        console.warn('[BgMusic] Audio error on src:', this.audio ? this.audio.src : '', e);
-        this.isPlaying = false;
-
-        // 1. Thử URL dự phòng trực tiếp nếu chưa thử
-        if (this.currentTrackUrl && !this._triedFallback) {
-          this._triedFallback = true;
-          let fallbackUrl = '';
-          if (this.currentTrack && this.currentTrack.fallbackUrl) {
-            fallbackUrl = this.currentTrack.fallbackUrl;
-          } else if (this.currentTrackUrl.startsWith('./assets/') || this.currentTrackUrl.startsWith('assets/')) {
-            const filename = this.currentTrackUrl.split('/').pop();
-            fallbackUrl = 'https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/assets/' + filename;
-          }
-
-          if (fallbackUrl && fallbackUrl !== this.currentTrackUrl) {
-            console.log('[BgMusic] Trying fallback audio URL:', fallbackUrl);
-            this.currentTrackUrl = fallbackUrl;
-            this.audio.src = fallbackUrl;
-            this.audio.load();
-            this.tryPlay();
-            return;
-          }
-        }
-
-        // 2. Nếu HTML5 thất bại hoàn toàn và bài có videoId YouTube, chuyển sang phát YouTube cho CHÍNH BÀI ĐÓ
-        if (this.currentTrack && (this.currentTrack.videoId || extractYouTubeId(this.currentTrack.url))) {
-          console.log('[BgMusic] HTML5 failed, switching to YouTube audio for track:', this.currentTrack.title);
-          this.playYouTubeTrack(this.currentTrack);
-          return;
-        }
-
-        // 3. Đánh dấu lỗi và DỪNG LẠI, TUYỆT ĐỐI KHÔNG tự động nhảy bài liên tục gây khó chịu
-        this.hasLoadError = true;
-        this.updateUI();
-      });
     }
+    this.setupAudioListeners();
 
     this.audio.loop = (this.getPlaybackMode() === 'repeat_one');
     this.audio.volume = this.getLocalVolume();
     this.audio.muted = this.isLocallyMuted();
 
-    if (this.currentTrackUrl !== audioUrl) {
+    const isSameSrc = (this.audio.src && (this.audio.src === audioUrl || this.audio.src.endsWith(audioUrl.replace('./', '/'))));
+    if (!isSameSrc) {
       this.currentTrackUrl = audioUrl;
       this.audio.src = audioUrl;
       this.audio.currentTime = 0;
+    } else {
+      this.currentTrackUrl = audioUrl;
     }
 
     if (!this.isLocallyPaused()) {
@@ -29357,9 +29393,14 @@ window.BgMusicManager = {
       return;
     }
 
-    if (!this.audio || !this.audio.src) return;
+    if (!this.audio) {
+      this.audio = window._preloadedBgAudio || new Audio('./assets/khat-vong-tuoi-tre.mp3');
+      this.setupAudioListeners();
+    }
+    if (!this.audio.src) {
+      this.audio.src = './assets/khat-vong-tuoi-tre.mp3';
+    }
 
-    // Cố gắng phát có tiếng ngay lập tức
     this.audio.volume = this.getLocalVolume();
     this.audio.muted = this.isLocallyMuted();
 
@@ -29372,7 +29413,7 @@ window.BgMusicManager = {
           this.updateUI();
         })
         .catch((err) => {
-          console.log('[BgMusic] Direct unmuted autoplay deferred, starting muted background stream and instant unmute:', err && err.message);
+          console.log('[BgMusic] Direct unmuted autoplay deferred, starting muted background stream and instant unmute on touch');
           // 1. Phát ngầm ngay lập tức ở chế độ tắt tiếng (Trình duyệt luôn cho phép 100%)
           this.audio.muted = true;
           this.audio.play().then(() => {
@@ -30094,4 +30135,9 @@ if (typeof window !== 'undefined') {
     window.addEventListener(evt, triggerAppInstantAudio, { passive: true, capture: true });
     document.addEventListener(evt, triggerAppInstantAudio, { passive: true, capture: true });
   });
+
+  // Đảm bảo khởi chạy tức thì 0ms nếu script chạy xong và DOM đã sẵn sàng
+  if (typeof startAppLifecycle === 'function' && !window._appLifecycleStarted) {
+    startAppLifecycle();
+  }
 }
