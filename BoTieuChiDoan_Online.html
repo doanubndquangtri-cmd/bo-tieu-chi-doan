@@ -6617,15 +6617,11 @@ function formatShortDateVN(isoDate) {
 
 
 function formatScore(val) {
-
   if (val === null || val === undefined || val === '') return '';
-
   const num = Number(val);
-
   if (isNaN(num)) return '';
-
+  if (num === 0) return '';
   return Number.isInteger(num) ? String(num) : String(Number(num.toFixed(2)));
-
 }
 
 
@@ -11713,11 +11709,6 @@ function renderUnitSubmitTab() {
                     <option value="nop_bao_cao" ${actionFilter === 'nop_bao_cao' ? 'selected' : ''}>📤 Nộp báo cáo (${(state.criteria || []).filter(x => Number(x.is_report) === 1).length})</option>
                     <option value="nop_minh_chung" ${actionFilter === 'nop_minh_chung' ? 'selected' : ''}>📸 Nộp minh chứng (${(state.criteria || []).filter(x => !x.is_report || Number(x.is_report) === 0).length})</option>
                     <option value="admin_cham" ${actionFilter === 'admin_cham' ? 'selected' : ''}>👑 Chờ Admin chấm (${(state.criteria || []).filter(x => Number(x.is_report) === 2).length})</option>
-                    <option value="bao_cao_noi_dung" ${actionFilter === 'bao_cao_noi_dung' ? 'selected' : ''}>📝 Báo cáo nội dung (${(state.criteria || []).filter(x => Number(x.is_report) === 3).length})</option>
-                    <option value="da_nop" ${actionFilter === 'da_nop' ? 'selected' : ''}>✅ Đã nộp</option>
-                    <option value="con_han" ${actionFilter === 'con_han' ? 'selected' : ''}>🟢 Đang mở nộp</option>
-                    <option value="chua_den_han" ${actionFilter === 'chua_den_han' ? 'selected' : ''}>⏳ Chưa đến hạn</option>
-                    <option value="qua_han" ${actionFilter === 'qua_han' ? 'selected' : ''}>⛔ Quá hạn</option>
                   </select>
                 </div>
               </th>
@@ -11898,7 +11889,7 @@ function renderUnitSubmitTab() {
 
                         : scoreVal !== null
 
-                        ? (Number(scoreVal) <= 0 ? '-' : formatScore(scoreVal) + ' đ')
+                        ? (Number(scoreVal) <= 0 ? '' : formatScore(scoreVal) + ' đ')
 
                         : isPending
                         ? `<span style="font-size:11.5px; color:#d97706; font-weight:700;">(+${formatScore(sc.self_score)}đ chờ duyệt)</span>`
@@ -12047,12 +12038,7 @@ function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rank
         <option value="" ${!(state.unitActionFilter || '') ? 'selected' : ''}>📁 Tất cả thao tác (${state.criteria ? state.criteria.length : 129})</option>
         <option value="nop_bao_cao" ${(state.unitActionFilter || '') === 'nop_bao_cao' ? 'selected' : ''}>📤 Nộp báo cáo</option>
         <option value="nop_minh_chung" ${(state.unitActionFilter || '') === 'nop_minh_chung' ? 'selected' : ''}>📸 Nộp minh chứng</option>
-        <option value="bao_cao_noi_dung" ${(state.unitActionFilter || '') === 'bao_cao_noi_dung' ? 'selected' : ''}>📝 Báo cáo nội dung</option>
         <option value="admin_cham" ${(state.unitActionFilter || '') === 'admin_cham' ? 'selected' : ''}>👑 Chờ Admin chấm</option>
-        <option value="da_nop" ${(state.unitActionFilter || '') === 'da_nop' ? 'selected' : ''}>✅ Đã nộp / Chờ duyệt</option>
-        <option value="con_han" ${(state.unitActionFilter || '') === 'con_han' ? 'selected' : ''}>🟢 Đang mở nộp (Còn hạn)</option>
-        <option value="chua_den_han" ${(state.unitActionFilter || '') === 'chua_den_han' ? 'selected' : ''}>⏳ Chưa đến hạn nộp</option>
-        <option value="qua_han" ${(state.unitActionFilter || '') === 'qua_han' ? 'selected' : ''}>⛔ Quá hạn / Đã khóa</option>
       </select>
     </div>
 
@@ -20365,7 +20351,7 @@ function renderMasterMobileCardsView(activeUnits, filteredCriteria, isAdmin, mon
                             </div>
                           ` : (hasScore ? `
 
-                            <div class="mobile-crit-score">+${scoreVal}đ</div>
+                            ${Number(scoreVal) <= 0 ? '' : `<div class="mobile-crit-score">+${scoreVal}đ</div>`}
 
                           ` : `
 
@@ -34762,7 +34748,7 @@ window.BgMusicManager = {
     if (!container) {
       container = document.createElement('div');
       container.id = 'yt-audio-container';
-      container.style.cssText = 'position:fixed; width:1px; height:1px; left:-9999px; bottom:-9999px; opacity:0; pointer-events:none; z-index:-1;';
+      container.style.cssText = 'position:fixed; width:2px; height:2px; left:0; bottom:0; opacity:0.01; pointer-events:none; z-index:-9999; overflow:hidden;';
       document.body.appendChild(container);
     }
 
@@ -34805,10 +34791,9 @@ window.BgMusicManager = {
               }
             },
             onError: (e) => {
-              console.warn('[BgMusic] YouTube Player Error:', e);
-              this.isPlaying = false;
-              this.hasLoadError = true;
-              this.updateUI();
+              console.warn('[BgMusic] YouTube Player Error:', e, 'Auto-falling back to standard track');
+              this.currentType = 'html5';
+              this.playTrack(DEFAULT_BG_PLAYLIST[0], true);
             }
           }
         });
@@ -34868,11 +34853,32 @@ window.BgMusicManager = {
     }
   },
 
+  isGenuinelyAudible() {
+    if (this.currentType === 'youtube') {
+      return Boolean(this.ytPlayer && typeof this.ytPlayer.getPlayerState === 'function' &&
+             this.ytPlayer.getPlayerState() === 1 &&
+             (typeof this.ytPlayer.isMuted === 'function' ? !this.ytPlayer.isMuted() : true));
+    }
+    return Boolean(this.audio && !this.audio.paused && !this.audio.muted && this.audio.volume > 0);
+  },
+
   unlockAndPlay() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) {
+        if (!window._appAudioCtx) window._appAudioCtx = new AudioCtx();
+        if (window._appAudioCtx.state === 'suspended') {
+          window._appAudioCtx.resume();
+        }
+      }
+    } catch(e) {}
+
     if (this.audio) {
       this.audio.muted = false;
       this.audio.volume = this.getLocalVolume();
-      this.audio.play().catch(() => {});
+      if (this.audio.paused) {
+        this.audio.play().catch(() => {});
+      }
     }
     if (this.ytPlayer && typeof this.ytPlayer.unMute === 'function') {
       try {
@@ -34942,25 +34948,25 @@ window.BgMusicManager = {
   },
 
   setupAutoplayOnInteraction() {
-    const unlock = () => {
+    const realActivationEvents = ['click', 'touchstart', 'touchend', 'pointerdown', 'mousedown', 'keydown'];
+    const handleUserActivation = () => {
       if (!this.isLocallyPaused()) {
         this.unlockAndPlay();
       }
-
-      const events = ['touchstart', 'touchend', 'click', 'pointerdown', 'mousedown', 'mouseup', 'keydown', 'wheel', 'scroll', 'mousemove', 'pointermove'];
-      events.forEach((evt) => {
-        window.removeEventListener(evt, unlock, true);
-        document.removeEventListener(evt, unlock, true);
-      });
-      this.hasSetupInteractionListener = false;
+      if (this.isGenuinelyAudible()) {
+        realActivationEvents.forEach((evt) => {
+          window.removeEventListener(evt, handleUserActivation, true);
+          document.removeEventListener(evt, handleUserActivation, true);
+        });
+        this.hasSetupInteractionListener = false;
+      }
     };
 
     if (!this.hasSetupInteractionListener) {
       this.hasSetupInteractionListener = true;
-      const events = ['touchstart', 'touchend', 'click', 'pointerdown', 'mousedown', 'mouseup', 'keydown', 'wheel', 'scroll', 'mousemove', 'pointermove'];
-      events.forEach((evt) => {
-        window.addEventListener(evt, unlock, { once: true, passive: true, capture: true });
-        document.addEventListener(evt, unlock, { once: true, passive: true, capture: true });
+      realActivationEvents.forEach((evt) => {
+        window.addEventListener(evt, handleUserActivation, { passive: true, capture: true });
+        document.addEventListener(evt, handleUserActivation, { passive: true, capture: true });
       });
     }
   },
@@ -35543,15 +35549,20 @@ window.saveAdminBgMusicSettings = async function() {
 
 // TỰ ĐỘNG MỞ TIẾNG VÀ PHÁT NHẠC NGAY TỨC THÌ KHI VÀO ỨNG DỤNG (CHO CẢ IPHONE, IPAD, ANDROID VÀ MÁY TÍNH)
 if (typeof window !== 'undefined') {
+  const realActivationEvents = ['click', 'touchstart', 'touchend', 'pointerdown', 'mousedown', 'keydown'];
   const triggerAppInstantAudio = () => {
-    if (window._globalAudioUnlocked) return;
-    window._globalAudioUnlocked = true;
     if (window.BgMusicManager && !window.BgMusicManager.isLocallyPaused()) {
       window.BgMusicManager.unlockAndPlay();
     }
+    if (window.BgMusicManager && window.BgMusicManager.isGenuinelyAudible()) {
+      realActivationEvents.forEach((evt) => {
+        window.removeEventListener(evt, triggerAppInstantAudio, true);
+        document.removeEventListener(evt, triggerAppInstantAudio, true);
+      });
+    }
   };
-  ['touchstart', 'touchend', 'pointerdown', 'mousedown', 'click', 'keydown', 'scroll', 'wheel', 'mousemove'].forEach((evt) => {
-    window.addEventListener(evt, triggerAppInstantAudio, { once: true, passive: true, capture: true });
-    document.addEventListener(evt, triggerAppInstantAudio, { once: true, passive: true, capture: true });
+  realActivationEvents.forEach((evt) => {
+    window.addEventListener(evt, triggerAppInstantAudio, { passive: true, capture: true });
+    document.addEventListener(evt, triggerAppInstantAudio, { passive: true, capture: true });
   });
 }
