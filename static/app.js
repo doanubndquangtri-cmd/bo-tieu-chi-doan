@@ -3593,6 +3593,9 @@ window.switchAccountQuick = function (val) {
 function isNotificationForUser(n, user) {
   if (!user || !n || user.role === 'guest') return false;
   const isAdmin = user.role === 'admin';
+  if (!isAdmin && n.target_role === 'admin') {
+    return false; // Chỉ máy đang đăng nhập Admin mới nhận thông báo riêng của Admin
+  }
   if (isAdmin) {
     // Admin receives all submissions, approvals, rejections, and broadcasts
     return true;
@@ -4727,6 +4730,11 @@ function renderHeader() {
         <button class="hub-btn hub-btn-gold ${isDonationsActive ? 'active' : ''}" onclick="setTab('donations')" title="Bảng Vàng Vinh Danh & Quét Mã Ủng Hộ Đoàn UBND Tỉnh">
           <span style="font-size:14px;">💛</span>
           <span>Bảng Vàng Ủng Hộ</span>
+          ${(isAdmin && typeof getDonationsList === 'function' && getDonationsList().filter(d => d.status === 'pending').length > 0) ? `
+            <span class="badge" style="background:#ef4444; color:#fff; font-size:10px; font-weight:900; margin-left:4px; padding:2px 7px; border-radius:10px; box-shadow:0 0 8px rgba(239,68,68,0.8); animation:pulse 1.5s infinite; white-space:nowrap;">
+              ⏳ ${getDonationsList().filter(d => d.status === 'pending').length} chờ duyệt
+            </span>
+          ` : ''}
         </button>
 
         <button class="hub-btn hub-btn-chat" onclick="toggleChatWidget()" title="Bấm để mở ô Trao Đổi Đoàn giữa các đơn vị và Ban Thường vụ Tỉnh">
@@ -16650,6 +16658,14 @@ window.openNotificationDetail = async function(notifId) {
     }
     return;
   }
+  if (notif.type === 'donation_pending' || notif.type === 'donation') {
+    setTab('donations');
+    setTimeout(() => {
+      const el = document.getElementById('donation-pending-section') || document.querySelector('.table-donations');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 250);
+    return;
+  }
   if (notif.type === 'admin_doc') {
     setTab('admin_docs');
     return;
@@ -26985,6 +27001,19 @@ window.initRealtimeLiveBridge = function() {
 
         if (evt.type === 'CHAT_MSG' && evt.payload) {
           handleIncomingRealtimeChat(evt.payload);
+        } else if (evt.type === 'DONATION_PENDING_SUBMITTED') {
+          // CHỈ MÁY NÀO ĐANG ĐĂNG NHẬP ADMIN MỚI NHẬN THÔNG BÁO NÀY
+          if (state.user && state.user.role === 'admin') {
+            if (window.playNotificationChime) window.playNotificationChime();
+            const uName = (evt.payload && evt.payload.unitName) || 'Một đơn vị';
+            const uAmt = (evt.payload && evt.payload.amount) ? (typeof formatMoneyVN === 'function' ? formatMoneyVN(evt.payload.amount) : evt.payload.amount) : '0';
+            if (typeof showToast === 'function') {
+              showToast(`💰 <b>${escapeHtml(uName)}</b> vừa nộp ${uAmt}đ! <button type="button" onclick="setTab('donations')" style="color:#fde047; font-weight:800; background:none; border:none; text-decoration:underline; cursor:pointer; margin-left:6px;">👉 Xem duyệt ngay</button>`, 'info');
+            }
+            if (typeof window.syncFromCloudNow === 'function') {
+              window.syncFromCloudNow(true);
+            }
+          }
         } else if (evt.type === 'REPORT_SUBMITTED' || evt.type === 'NEW_CRITERIA' || evt.type === 'ADMIN_DOC' || evt.type === 'PROOF_APPROVED' || evt.type === 'PROOF_REJECTED' || evt.type === 'MARQUEE_ANNOUNCEMENT' || evt.type === 'DONATION_RECEIVED') {
           if (window.playNotificationChime) window.playNotificationChime();
           if (typeof window.syncFromCloudNow === 'function') {
@@ -30457,6 +30486,60 @@ function saveDonationPrograms(programs) {
   }
 }
 
+// HÀM CHUẨN HÓA VÀ ĐỐI CHIẾU THỜI HẠN CHƯƠNG TRÌNH KÊU GỌI
+function parseDateStrToDate(dStr, isEnd) {
+  if (!dStr || typeof dStr !== 'string') return null;
+  const s = dStr.trim();
+  if (!s) return null;
+  const dmyMatch = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{4})$/);
+  if (dmyMatch) {
+    const day = parseInt(dmyMatch[1], 10);
+    const month = parseInt(dmyMatch[2], 10) - 1;
+    const year = parseInt(dmyMatch[3], 10);
+    const d = new Date(year, month, day);
+    if (isEnd) d.setHours(23, 59, 59, 999);
+    else d.setHours(0, 0, 0, 0);
+    return d;
+  }
+  const ymdMatch = s.match(/^(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})$/);
+  if (ymdMatch) {
+    const year = parseInt(ymdMatch[1], 10);
+    const month = parseInt(ymdMatch[2], 10) - 1;
+    const day = parseInt(ymdMatch[3], 10);
+    const d = new Date(year, month, day);
+    if (isEnd) d.setHours(23, 59, 59, 999);
+    else d.setHours(0, 0, 0, 0);
+    return d;
+  }
+  const parsed = new Date(s);
+  if (!isNaN(parsed.getTime())) {
+    if (isEnd) parsed.setHours(23, 59, 59, 999);
+    else parsed.setHours(0, 0, 0, 0);
+    return parsed;
+  }
+  return null;
+}
+window.parseDateStrToDate = parseDateStrToDate;
+
+function getSystemEffectiveDate() {
+  const effDateStr = (state.settings && state.settings.effective_date) ? state.settings.effective_date : null;
+  if (effDateStr) {
+    const d = parseDateStrToDate(effDateStr, false);
+    if (d) return d;
+  }
+  return new Date();
+}
+window.getSystemEffectiveDate = getSystemEffectiveDate;
+
+function isProgramExpired(p) {
+  if (!p || !p.end_date) return false;
+  const endDate = parseDateStrToDate(p.end_date, true);
+  if (!endDate) return false;
+  const sysDate = getSystemEffectiveDate();
+  return sysDate.getTime() > endDate.getTime();
+}
+window.isProgramExpired = isProgramExpired;
+
 let _editingProgramId = null;
 
 window.openDonationProgramsModal = function() {
@@ -30551,6 +30634,15 @@ function renderDonationProgramsModalContent() {
                     <span style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-size:11px; font-weight:700; padding:2px 7px; border-radius:4px;">
                       📅 Thời gian: ${escapeHtml(p.start_date || '01/01/2026')} - ${escapeHtml(p.end_date || '31/12/2026')}
                     </span>
+                    ${isProgramExpired(p) ? `
+                      <span style="background:#fee2e2; color:#b91c1c; border:1px solid #f87171; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px;">
+                        ⛔ Đã hết hạn
+                      </span>
+                    ` : `
+                      <span style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px;">
+                        🟢 Đang kêu gọi
+                      </span>
+                    `}
                   </div>
                 </div>
                 <div style="display:flex; gap:4px; flex-shrink:0;">
@@ -30758,6 +30850,9 @@ window.openDonationModal = function() {
   const defaultAmount = 50000;
   const presetAmounts = [50000, 100000, 200000, 500000, 1000000, 2000000, 5000000];
   const programs = getDonationPrograms();
+  const availablePrograms = programs.filter(p => !isProgramExpired(p));
+  const defaultProg = availablePrograms.length > 0 ? availablePrograms[0] : (programs[0] || null);
+  const isAllExpired = programs.length > 0 && availablePrograms.length === 0;
   const bank = getDonationBankInfo();
 
   modalRoot.innerHTML = `
@@ -30851,32 +30946,60 @@ window.openDonationModal = function() {
                 </button>
               ` : ''}
             </div>
+            ${isAllExpired ? `
+              <div style="background:#fee2e2; border:1.5px solid #f87171; border-radius:8px; padding:10px 14px; margin-bottom:10px; color:#991b1b; font-weight:800; font-size:12.5px; text-align:center;">
+                ⛔ TẤT CẢ CÁC CHƯƠNG TRÌNH KÊU GỌI ĐỀU ĐÃ HẾT THỜI HẠN TIẾP NHẬN ỦNG HỘ!
+                <div style="font-weight:600; font-size:11.5px; margin-top:2px; color:#b91c1c;">Hệ thống tạm khóa tính năng nộp tiền cho đến khi có chương trình mới.</div>
+              </div>
+            ` : ''}
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:6px; margin-bottom:8px;">
-              ${programs.map((p, idx) => `
-                <div class="donation-prog-card ${idx === 0 ? 'selected' : ''}" onclick="selectDonationProgram('${escapeHtml(p.keyword)}', '${escapeHtml(p.purpose)}', '${escapeHtml(p.start_date || '')}', '${escapeHtml(p.end_date || '')}', this)" style="border:1.5px solid ${idx === 0 ? '#4338ca' : '#cbd5e1'}; background:${idx === 0 ? '#e0e7ff' : '#f8fafc'}; border-radius:7px; padding:8px 10px; cursor:pointer; transition:all 0.15s;">
-                  <div style="font-weight:800; font-size:12.5px; color:#1e1b4b;">
-                    ${idx + 1}. ${escapeHtml(p.name)}
+              ${programs.map((p, idx) => {
+                const isExp = isProgramExpired(p);
+                const isSelected = (!isExp && defaultProg && defaultProg.id === p.id);
+                return `
+                  <div class="donation-prog-card ${isSelected ? 'selected' : ''}" 
+                       onclick="selectDonationProgram('${escapeHtml(p.keyword)}', '${escapeHtml(p.purpose)}', '${escapeHtml(p.start_date || '')}', '${escapeHtml(p.end_date || '')}', this, ${isExp ? 'true' : 'false'})" 
+                       style="border:1.5px solid ${isSelected ? '#4338ca' : (isExp ? '#fca5a5' : '#cbd5e1')}; 
+                              background:${isSelected ? '#e0e7ff' : (isExp ? '#fef2f2' : '#f8fafc')}; 
+                              border-radius:7px; padding:8px 10px; 
+                              cursor:${isExp ? 'not-allowed' : 'pointer'}; 
+                              opacity:${isExp ? '0.6' : '1'}; 
+                              transition:all 0.15s; position:relative;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:4px;">
+                      <div style="font-weight:800; font-size:12.5px; color:${isExp ? '#991b1b' : '#1e1b4b'};">
+                        ${idx + 1}. ${escapeHtml(p.name)}
+                      </div>
+                      ${isExp ? `
+                        <span style="background:#fee2e2; color:#dc2626; border:1px solid #fca5a5; font-size:9.5px; font-weight:900; padding:1px 5px; border-radius:4px; white-space:nowrap;">
+                          ⛔ ĐÃ HẾT HẠN
+                        </span>
+                      ` : `
+                        <span style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:4px; white-space:nowrap;">
+                          🟢 ĐANG NHẬN
+                        </span>
+                      `}
+                    </div>
+                    <div style="font-size:11px; color:#475569; margin-top:2px; line-height:1.3;">
+                      💡 ${escapeHtml(p.purpose)}
+                    </div>
+                    <div style="font-size:10.5px; color:${isExp ? '#dc2626' : '#b45309'}; font-weight:700; margin-top:3px;">
+                      📅 Thời gian: ${escapeHtml(p.start_date || '01/01/2026')} - ${escapeHtml(p.end_date || '31/12/2026')} ${isExp ? '<b>(Đã kết thúc)</b>' : ''}
+                    </div>
+                    <div style="font-size:11px; font-weight:800; color:${isExp ? '#94a3b8' : '#4338ca'}; margin-top:3px;">
+                      🏷️ Cú pháp từ khóa: <b>${escapeHtml(p.keyword)}</b>
+                    </div>
                   </div>
-                  <div style="font-size:11px; color:#475569; margin-top:2px; line-height:1.3;">
-                    💡 ${escapeHtml(p.purpose)}
-                  </div>
-                  <div style="font-size:10.5px; color:#b45309; font-weight:700; margin-top:3px;">
-                    📅 Thời gian: ${escapeHtml(p.start_date || '01/01/2026')} - ${escapeHtml(p.end_date || '31/12/2026')}
-                  </div>
-                  <div style="font-size:11px; font-weight:800; color:#4338ca; margin-top:3px;">
-                    🏷️ Cú pháp từ khóa: <b>${escapeHtml(p.keyword)}</b>
-                  </div>
-                </div>
-              `).join('')}
+                `;
+              }).join('')}
             </div>
 
             <div style="background:#f8fafc; border:1.5px dashed #cbd5e1; border-radius:8px; padding:8px 12px;">
               <div style="display:flex; align-items:center; gap:8px;">
                 <span style="font-weight:700; font-size:12px; color:#475569; white-space:nowrap;">Từ khóa tùy chỉnh:</span>
-                <input type="text" id="donation-keyword-input" value="${programs[0] ? escapeHtml(programs[0].keyword) : 'UNGHO'}" oninput="updateDonationQrCode()" style="flex:1; padding:6px 10px; font-weight:800; font-size:13px; border:1.5px solid #93c5fd; border-radius:6px; color:#1e1b4b; text-transform:uppercase; background:#fff;" />
+                <input type="text" id="donation-keyword-input" value="${defaultProg ? escapeHtml(defaultProg.keyword) : (programs[0] ? escapeHtml(programs[0].keyword) : 'UNGHO')}" oninput="updateDonationQrCode()" style="flex:1; padding:6px 10px; font-weight:800; font-size:13px; border:1.5px solid #93c5fd; border-radius:6px; color:#1e1b4b; text-transform:uppercase; background:#fff;" />
               </div>
               <div style="font-size:11px; color:#64748b; margin-top:4px;" id="donation-program-purpose-hint">
-                💡 <i>${programs[0] ? escapeHtml(programs[0].purpose) : 'Hệ thống tự động ghép với đơn vị của bạn để Ban Thường vụ Tỉnh Đoàn nắm rõ bạn nộp khoản gì.'}</i>
+                💡 <i>${defaultProg ? escapeHtml(defaultProg.purpose) : (programs[0] ? escapeHtml(programs[0].purpose) : 'Hệ thống tự động ghép với đơn vị của bạn để Ban Thường vụ Tỉnh Đoàn nắm rõ bạn nộp khoản gì.')}</i>
               </div>
             </div>
           </div>
@@ -30947,7 +31070,7 @@ window.openDonationModal = function() {
 
           <!-- NÚT BẤM XÁC NHẬN CHUYỂN KHOẢN -->
           <div style="text-align:center; margin-top:14px; padding-bottom:10px;">
-            <button type="button" class="btn btn-lg" onclick="handleDonationSuccessConfirm()" style="width:100%; min-height:50px; background: linear-gradient(135deg, #15803d 0%, #16a34a 100%); color:#fff; border:none; font-weight:900; font-size:14.5px; padding:12px 18px; border-radius:10px; cursor:pointer; box-shadow:0 4px 16px rgba(22,163,74,0.45); display:inline-flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; touch-action:manipulation;">
+            <button type="button" id="donation-confirm-btn" class="btn btn-lg" onclick="handleDonationSuccessConfirm()" style="width:100%; min-height:50px; background: linear-gradient(135deg, #15803d 0%, #16a34a 100%); color:#fff; border:none; font-weight:900; font-size:14.5px; padding:12px 18px; border-radius:10px; cursor:pointer; box-shadow:0 4px 16px rgba(22,163,74,0.45); display:inline-flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; touch-action:manipulation;">
               <div style="display:flex; align-items:center; gap:6px;">
                 <span style="font-size:16px;">⚡</span>
                 <span>TÔI ĐÃ CHUYỂN KHOẢN THÀNH CÔNG</span>
@@ -30970,7 +31093,13 @@ window.openDonationModal = function() {
   updateDonationQrCode();
 };
 
-window.selectDonationProgram = function(kw, purpose, startDate, endDate, el) {
+window.selectDonationProgram = function(kw, purpose, startDate, endDate, el, isExpired) {
+  if (isExpired) {
+    if (typeof showToast === 'function') {
+      showToast(`⛔ Chương trình này đã hết hạn ủng hộ vào ngày ${endDate}! Vui lòng chọn chương trình khác đang mở tiếp nhận.`, 'warning');
+    }
+    return;
+  }
   document.querySelectorAll('.donation-prog-card').forEach(c => {
     c.style.borderColor = '#cbd5e1';
     c.style.background = '#f8fafc';
@@ -31061,6 +31190,44 @@ window.updateDonationQrCode = function() {
   const bank = getDonationBankInfo();
   const qrUrl = `https://img.vietqr.io/image/${bank.bankId}-${bank.accountNo}-compact2.png?amount=${amt}&addInfo=${encodeURIComponent(addInfo)}&accountName=${encodeURIComponent(bank.accountName)}`;
   qrImg.src = qrUrl;
+
+  // Kiểm tra thời hạn của chương trình ứng với từ khóa hiện tại
+  const progs = getDonationPrograms();
+  const matchedProg = progs.find(p => (p.keyword || '').toUpperCase() === cleanKeyword);
+  const isExp = matchedProg ? isProgramExpired(matchedProg) : false;
+  const confirmBtn = document.getElementById('donation-confirm-btn');
+
+  if (confirmBtn) {
+    if (isExp) {
+      confirmBtn.disabled = true;
+      confirmBtn.style.background = '#94a3b8';
+      confirmBtn.style.cursor = 'not-allowed';
+      confirmBtn.style.boxShadow = 'none';
+      confirmBtn.innerHTML = `
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="font-size:16px;">⛔</span>
+          <span>CHƯƠNG TRÌNH ĐÃ HẾT HẠN ỦNG HỘ</span>
+        </div>
+        <div style="font-size:11px; font-weight:600; opacity:0.9;">
+          (Chương trình đã kết thúc vào ngày ${escapeHtml(matchedProg.end_date || '')} - Không thể chuyển tiếp)
+        </div>
+      `;
+    } else {
+      confirmBtn.disabled = false;
+      confirmBtn.style.background = 'linear-gradient(135deg, #15803d 0%, #16a34a 100%)';
+      confirmBtn.style.cursor = 'pointer';
+      confirmBtn.style.boxShadow = '0 4px 16px rgba(22,163,74,0.45)';
+      confirmBtn.innerHTML = `
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="font-size:16px;">⚡</span>
+          <span>TÔI ĐÃ CHUYỂN KHOẢN THÀNH CÔNG</span>
+        </div>
+        <div style="font-size:11.5px; font-weight:600; opacity:0.95;">
+          (Gửi thông tin để Ban Quản trị đối soát ngân hàng & vinh danh lên Bảng Vàng)
+        </div>
+      `;
+    }
+  }
 };
 
 // 6. XÁC NHẬN CHUYỂN KHOẢN (ĐƠN VỊ BẤM: KHOAN THÔNG BÁO CHO ĐẾN KHI ADMIN DUYỆT)
@@ -31113,6 +31280,16 @@ window.handleDonationSuccessConfirm = function() {
     const isAdmin = state.user && state.user.role === 'admin';
     const donationStatus = isAdmin ? 'confirmed' : 'pending';
 
+    // KIỂM TRA CHẶN CHUYỂN TIỀN CHO CHƯƠNG TRÌNH ĐÃ HẾT HẠN
+    const progs = getDonationPrograms();
+    const matchedProg = progs.find(p => (p.keyword || '').toUpperCase() === cleanKeyword);
+    if (matchedProg && isProgramExpired(matchedProg)) {
+      if (typeof showToast === 'function') {
+        showToast(`⛔ Chương trình "${matchedProg.name}" đã hết hạn vào ngày ${matchedProg.end_date}. Không thể chuyển tiền tiếp cho chương trình này!`, 'error');
+      }
+      return;
+    }
+
     const newDonation = {
       id: 'don_' + Date.now(),
       unit_id: unitId,
@@ -31131,6 +31308,58 @@ window.handleDonationSuccessConfirm = function() {
     const list = getDonationsList();
     list.push(newDonation);
     saveDonationsList(list);
+
+    // KHI ĐƠN VỊ NỘP TIỀN: TẠO THÔNG BÁO RIÊNG GỬI DUY NHẤT TỚI MÁY ADMIN KÈM ĐƯỜNG DẪN XEM DUYỆT
+    if (!isAdmin) {
+      const donNotif = {
+        id: 'notif_don_pend_' + Date.now(),
+        type: 'donation_pending',
+        donation_id: newDonation.id,
+        target_role: 'admin',
+        title: `💰 [ỦNG HỘ MỚI] ${unitName} vừa nộp tiền!`,
+        message: `${unitName} vừa báo nộp ${formatMoneyVN(amt)} VNĐ (${addInfo}). Bấm vào đây để vào Bảng Vàng đối soát tài khoản ngân hàng và duyệt tiền.`,
+        unit_id: unitId,
+        unit_name: unitName,
+        amount: amt,
+        created_at: formattedTime,
+        submitted_at: formattedTime,
+        timestamp: Date.now(),
+        read: false,
+        url: './#donations'
+      };
+
+      if (!state.notifications) state.notifications = [];
+      state.notifications.unshift(donNotif);
+
+      if (typeof mutateCloudDB === 'function') {
+        mutateCloudDB(db => {
+          db.donations = db.donations || [];
+          db.donations.push(newDonation);
+          db.notifications = db.notifications || [];
+          db.notifications.unshift(donNotif);
+        }, 'Unit submitted donation pending admin verification');
+      }
+
+      // 1. Gửi WebPush chỉ gửi tới các máy có tag role = admin
+      if (window.WebPushManager && window.WebPushManager.sendPushNotification) {
+        window.WebPushManager.sendPushNotification({
+          title: `💰 [BẢNG VÀNG] ${unitName} vừa nộp ${formatMoneyVN(amt)}đ`,
+          message: `${unitName} chuyển ${formatMoneyVN(amt)}đ (${addInfo}). Bấm để kiểm tra và duyệt tiền.`,
+          targetRole: 'admin',
+          url: './#donations'
+        }).catch(err => console.warn('[WebPush] Error:', err));
+      }
+
+      // 2. Phát SSE Live Bridge tức thì tới các máy đang đăng nhập Admin
+      if (window.broadcastLiveEvent) {
+        window.broadcastLiveEvent('DONATION_PENDING_SUBMITTED', {
+          donation: newDonation,
+          unitName: unitName,
+          amount: amt,
+          addInfo: addInfo
+        });
+      }
+    }
 
     closeModal();
 
@@ -31435,6 +31664,120 @@ window.exportDonationsToExcel = function() {
   showToast('✅ Đã xuất file sao kê Bảng Vàng thành công! File đã lưu vào thư mục Downloads của máy.', 'success');
 };
 
+
+// 9B. XUẤT SAO KÊ EXCEL RIÊNG CHO TỪNG CHƯƠNG TRÌNH KÊU GỌI (TIỀN TO ĐẾN NHỎ + TỔNG TIỀN)
+window.exportProgramDonationsToExcel = function(targetKeyword) {
+  const allDonations = getDonationsList();
+  const programs = getDonationPrograms();
+  const kw = (targetKeyword || 'UNGHO').toUpperCase();
+  const prog = programs.find(p => (p.keyword || '').toUpperCase() === kw) || {
+    name: 'Chương trình ' + kw,
+    keyword: kw,
+    purpose: '',
+    start_date: '',
+    end_date: ''
+  };
+
+  // Lọc các khoản ủng hộ đã được duyệt chính thức thuộc chương trình này
+  let progDonations = allDonations.filter(d => (d.keyword || 'UNGHO').toUpperCase() === kw && d.status === 'confirmed');
+
+  // SẮP XẾP CHUẨN THEO THỨ TỰ TIỀN TO ĐẾN NHỎ (b.amount - a.amount)
+  // Nếu đồng giá tiền thì ưu tiên ai ủng hộ trước xếp trước (a.timestamp - b.timestamp)
+  progDonations.sort((a, b) => {
+    const diff = (Number(b.amount) || 0) - (Number(a.amount) || 0);
+    if (diff !== 0) return diff;
+    return (a.timestamp || 0) - (b.timestamp || 0);
+  });
+
+  const totalProgAmount = progDonations.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+  const bank = getDonationBankInfo();
+  const timeNow = (typeof formatDateTimeVN === 'function') ? formatDateTimeVN(new Date()) : new Date().toLocaleString('vi-VN');
+  const isExp = isProgramExpired(prog);
+  const statusLabel = isExp ? 'ĐÃ HẾT HẠN ỦNG HỘ' : 'ĐANG TIẾP NHẬN ỦNG HỘ';
+
+  const rows = [
+    [`BẢNG SAO KÊ CHI TIẾT TIẾP NHẬN ỦNG HỘ - CHƯƠNG TRÌNH: ${prog.name.toUpperCase()}`],
+    [`Cú pháp từ khóa: ${prog.keyword} | Thời gian kêu gọi: ${prog.start_date || '01/01/2026'} - ${prog.end_date || '31/12/2026'} | Tình trạng: ${statusLabel}`],
+    [`Tài khoản tiếp nhận: ${bank.bankName || bank.bankId} • STK: ${bank.accountNo} • Chủ TK: ${bank.accountName}`],
+    [`Thời điểm xuất sao kê: ${timeNow} | Tổng lượt tiếp nhận: ${progDonations.length} lượt`],
+    [],
+    ['STT', 'Đoàn Cơ Sở / Người Ủng Hộ', 'Số Tiền Ủng Hộ (VNĐ)', 'Thời Gian Ghi Nhận', 'Cú Pháp Chuyển Khoản', 'Ghi Chú / Lời Nhắn', 'Trạng Thái Đối Soát']
+  ];
+
+  progDonations.forEach((d, idx) => {
+    rows.push([
+      idx + 1,
+      d.unit_name || '',
+      Number(d.amount) || 0,
+      d.confirmed_at || d.created_at || '',
+      d.add_info || (d.keyword + ' ' + (d.unit_id ? ('DV' + d.unit_id) : '')),
+      d.message || '',
+      'Đã vào tài khoản ngân hàng (Chính thức)'
+    ]);
+  });
+
+  rows.push([]);
+  rows.push([
+    '',
+    `TỔNG CỘNG TIỀN TIẾP NHẬN TRONG CHƯƠNG TRÌNH [${prog.keyword}]:`,
+    totalProgAmount,
+    '',
+    '',
+    '',
+    ''
+  ]);
+
+  const filePrefix = `Sao_Ke_Chuong_Trinh_${prog.keyword}_${Date.now()}`;
+
+  if (typeof XLSX !== 'undefined') {
+    try {
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols'] = [
+        { wch: 6 },
+        { wch: 38 },
+        { wch: 22 },
+        { wch: 20 },
+        { wch: 22 },
+        { wch: 40 },
+        { wch: 32 }
+      ];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, prog.keyword.substring(0, 31));
+      XLSX.writeFile(wb, `${filePrefix}.xlsx`);
+      if (typeof showToast === 'function') {
+        showToast(`✅ Đã xuất file Excel sao kê chương trình "${prog.name}" thành công! (Sắp xếp tiền to đến nhỏ - Tổng cộng: ${formatMoneyVN(totalProgAmount)}đ)`, 'success');
+      }
+      return;
+    } catch(err) {
+      console.warn('[Excel] XLSX export error, fallback to CSV:', err);
+    }
+  }
+
+  let csvContent = '\uFEFF';
+  rows.forEach(r => {
+    const line = r.map(c => {
+      let str = (c === null || c === undefined) ? '' : String(c);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        str = '"' + str.replace(/"/g, '""') + '"';
+      }
+      return str;
+    }).join(',');
+    csvContent += line + '\r\n';
+  });
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${filePrefix}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  if (typeof showToast === 'function') {
+    showToast(`✅ Đã xuất file sao kê chương trình "${prog.name}" thành công!`, 'success');
+  }
+};
+
 // 10. TAB BẢNG VÀNG ĐỒNG HÀNH TOÀN DIỆN
 function renderDonationsTab() {
   const donations = getDonationsList();
@@ -31587,34 +31930,54 @@ function renderDonationsTab() {
           ` : ''}
         </div>
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:10px;">
-          ${progStats.map((p, idx) => `
-            <div style="background:#f8fafc; border:1.5px solid #e2e8f0; border-radius:8px; padding:12px 14px; display:flex; flex-direction:column; justify-content:space-between; gap:8px;">
-              <div>
-                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px;">
-                  <div style="font-weight:800; font-size:13px; color:#0f172a;">
-                    ${idx + 1}. ${escapeHtml(p.name)}
+          ${progStats.map((p, idx) => {
+            const isExp = isProgramExpired(p);
+            return `
+              <div style="background:#f8fafc; border:1.5px solid ${isExp ? '#fca5a5' : '#e2e8f0'}; border-radius:8px; padding:12px 14px; display:flex; flex-direction:column; justify-content:space-between; gap:8px;">
+                <div>
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px;">
+                    <div style="font-weight:800; font-size:13px; color:#0f172a;">
+                      ${idx + 1}. ${escapeHtml(p.name)}
+                    </div>
+                    <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap; justify-content:flex-end;">
+                      <span style="background:#ede9fe; color:#6d28d9; border:1px solid #ddd6fe; font-size:10.5px; font-weight:800; padding:2px 6px; border-radius:4px; white-space:nowrap;">
+                        ${escapeHtml(p.keyword)}
+                      </span>
+                      ${isExp ? `
+                        <span style="background:#fee2e2; color:#b91c1c; border:1px solid #f87171; font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px; white-space:nowrap;">
+                          ⛔ Đã hết hạn
+                        </span>
+                      ` : `
+                        <span style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px; white-space:nowrap;">
+                          🟢 Đang kêu gọi
+                        </span>
+                      `}
+                    </div>
                   </div>
-                  <span style="background:#ede9fe; color:#6d28d9; border:1px solid #ddd6fe; font-size:10.5px; font-weight:800; padding:2px 6px; border-radius:4px; white-space:nowrap;">
-                    ${escapeHtml(p.keyword)}
-                  </span>
+                  <div style="font-size:11.5px; color:#64748b; margin-top:3px; line-height:1.35;">
+                    ${escapeHtml(p.purpose)}
+                  </div>
+                  <div style="font-size:10.5px; color:${isExp ? '#dc2626' : '#b45309'}; font-weight:700; margin-top:4px;">
+                    📅 Thời gian: ${escapeHtml(p.start_date || '01/01/2026')} - ${escapeHtml(p.end_date || '31/12/2026')} ${isExp ? '<b>(Đã kết thúc)</b>' : ''}
+                  </div>
                 </div>
-                <div style="font-size:11.5px; color:#64748b; margin-top:3px; line-height:1.35;">
-                  ${escapeHtml(p.purpose)}
-                </div>
-                <div style="font-size:10.5px; color:#b45309; font-weight:700; margin-top:4px;">
-                  📅 Thời gian: ${escapeHtml(p.start_date || '01/01/2026')} - ${escapeHtml(p.end_date || '31/12/2026')}
+                <div style="display:flex; justify-content:space-between; align-items:center; padding-top:8px; border-top:1px dashed #cbd5e1; margin-top:6px; flex-wrap:wrap; gap:8px;">
+                  <div>
+                    <span style="font-size:11.5px; color:#475569; font-weight:700;">
+                      Đã tiếp nhận (${p.count} lượt):
+                    </span>
+                    <span style="font-size:14.5px; font-weight:900; color:#b45309; margin-left:4px;">
+                      ${formatMoneyVN(p.amount)} VNĐ
+                    </span>
+                  </div>
+                  <button type="button" class="btn btn-sm" onclick="exportProgramDonationsToExcel('${escapeHtml(p.keyword)}')" style="background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; font-size:11px; font-weight:800; padding:3px 9px; border-radius:5px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; box-shadow:0 1px 2px rgba(0,0,0,0.05);" title="Xuất dữ liệu sao kê chương trình này ra file Excel">
+                    <span>📊</span>
+                    <span>Xuất Excel</span>
+                  </button>
                 </div>
               </div>
-              <div style="display:flex; justify-content:space-between; align-items:baseline; padding-top:6px; border-top:1px dashed #cbd5e1; margin-top:4px;">
-                <span style="font-size:11.5px; color:#475569; font-weight:700;">
-                  Đã tiếp nhận (${p.count} lượt):
-                </span>
-                <span style="font-size:15px; font-weight:900; color:#b45309;">
-                  ${formatMoneyVN(p.amount)} VNĐ
-                </span>
-              </div>
-            </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
       </div>
 
