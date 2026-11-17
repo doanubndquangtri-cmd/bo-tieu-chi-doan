@@ -2543,8 +2543,7 @@ function getRankings() {
 
 
 async function initApp() {
-
-  // Khôi phục ngay tức khắc lịch sử tin nhắn trong 0ms từ bộ nhớ đệm cục bộ
+  // 1. Khôi phục ngay tức khắc lịch sử tin nhắn trong 0ms từ bộ nhớ đệm cục bộ
   try {
     const rawLocal = localStorage.getItem('doan2026_local_chat_messages');
     if (rawLocal) {
@@ -2555,35 +2554,17 @@ async function initApp() {
     }
   } catch (e) {}
 
-  // Load cache first for instant render if available
-
+  // 2. Nạp dữ liệu bộ nhớ đệm (Cache) ngay tức thì trong 0ms nếu có
   const cached = localStorage.getItem('doan2026_cloud_cache');
-
   if (cached) {
-
     try {
-
       ingestCloudDB(JSON.parse(cached));
-
     } catch (e) {}
-
   }
 
-
-
-  // Pull live data from Cloud
-
-  await syncFromCloudNow(true);
-
-
-
-  // Restore session
-
+  // 3. Khôi phục phiên đăng nhập NGAY LẬP TỨC trong 0ms (Mở là vào thẳng ngay)
   const isAdminAuth = localStorage.getItem('doan2026_admin_authenticated') === '1' || sessionStorage.getItem('doan2026_admin_authenticated') === '1';
-
   state.isAdminSession = isAdminAuth;
-
-
 
   try {
     const savedTab = localStorage.getItem('doan2026_chat_tab');
@@ -2596,41 +2577,26 @@ async function initApp() {
   } catch (e) {}
 
   const savedUser = localStorage.getItem('doan2026_user');
-
   if (savedUser) {
-
     try {
-
       const parsed = JSON.parse(savedUser);
-
       if (parsed.role === 'admin') {
-
         state.user = parsed;
-
         state.isAdminSession = true;
-
-        state.activeTab = 'ranking';
-
+        state.activeTab = localStorage.getItem('doan2026_active_tab') || 'ranking';
       } else {
-
-        const found = state.units.find((u) => u.id === parsed.id && Number(u.is_active) === 1);
-
+        const found = (state.units || []).find((u) => u.id === parsed.id && Number(u.is_active) === 1) || parsed;
         if (found) {
-
           state.user = found;
-
-          state.activeTab = 'unit_submit';
-
+          state.activeTab = localStorage.getItem('doan2026_active_tab') || 'unit_submit';
         }
-
       }
-
     } catch (e) {}
-
   }
 
-
-
+  // 4. HIỂN THỊ MÀN HÌNH TỨC THÌ (0ms) - KHÔNG CHỜ MẠNG
+  // - Người dùng cũ: Đã đăng nhập -> Giữ nguyên đăng nhập, hiển thị ngay giao diện chính!
+  // - Người dùng mới: Chưa đăng nhập -> Hiển thị bảng đăng nhập ngay lập tức!
   renderApp();
   if (window.BgMusicManager) window.BgMusicManager.init();
 
@@ -2642,6 +2608,12 @@ async function initApp() {
       }, 1500);
     }
   }
+
+  // 5. ĐỒNG BỘ DỮ LIỆU ĐÁM MÂY CHẠY NGẦM HOÀN TOÀN (BACKGROUND SYNC - KHÔNG CHẶN GIAO DIỆN)
+  syncFromCloudNow(true).then(() => {
+    // Nếu có dữ liệu mới từ máy chủ đám mây, tự động cập nhật mượt mà
+    renderApp();
+  }).catch(() => {});
 
   // TỰ ĐỘNG ĐỒNG BỘ THỜI GIAN THỰC ĐỘ TRỄ CỰC THẤP (TỨC THÌ)
   setInterval(() => {
