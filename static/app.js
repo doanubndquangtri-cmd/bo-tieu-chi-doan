@@ -956,6 +956,7 @@ function _getCloudToken() {
 const state = {
 
   notifications: [],
+  donations: [],
 
   notificationsOpen: false,
 
@@ -1908,6 +1909,7 @@ function ingestCloudDB(db) {
   state.admin_docs = db.admin_docs || [];
 
   state.notifications = Array.isArray(db.notifications) ? db.notifications : [];
+  state.donations = Array.isArray(db.donations) ? db.donations : [];
 
   state.cloudDB = db;
   // Hợp nhất tin nhắn Cloud DB và bộ nhớ đệm cục bộ không để mất bất kỳ tin nào
@@ -4638,6 +4640,11 @@ function renderHeader() {
           </div>
         ` : ''}
 
+        <button class="btn btn-sm" onclick="setTab('donations')" title="Bảng Vàng Vinh Danh & Quét Mã Ủng Hộ Đoàn" style="background: linear-gradient(135deg, #d97706 0%, #b45309 100%); color:#fff; border: 1.5px solid #fde047; font-size:11px; padding:3px 9px; font-weight:800; display:inline-flex; align-items:center; gap:4px; box-shadow:0 0 10px rgba(245,158,11,0.5); cursor:pointer; border-radius:5px; height:27px;">
+          <span>💛</span>
+          <span>Bảng Vàng Ủng Hộ</span>
+        </button>
+
         <button class="btn btn-sm" onclick="toggleChatWidget()" title="Bấm để mở ô Trao Đổi Đoàn giữa các đơn vị và Ban Thường vụ Tỉnh" style="background: linear-gradient(135deg, #0284c7 0%, #0052cc 100%); color: #fff; border: 1px solid rgba(255,255,255,0.4); font-size: 11px; padding: 3px 8px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); cursor: pointer; border-radius: 5px; height:27px;">
           <span>💬</span>
           <span>Trao Đổi Đoàn</span>
@@ -5096,6 +5103,9 @@ function renderNavTabs() {
         <div class="nav-tab ${state.activeTab === 'ranking' ? 'active' : ''}" onclick="setTab('ranking')" title="Bảng Xếp Hạng Thi Đua Toàn Khối">
           🏆 Bảng Xếp Hạng
         </div>
+        <div class="nav-tab ${state.activeTab === 'donations' ? 'active' : ''}" onclick="setTab('donations')" title="Bảng Vàng Tri Ân & Đồng Hành Cùng Đoàn UBND Tỉnh" style="${state.activeTab === 'donations' ? 'background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; color:#fff !important; font-weight:800;' : 'color:#b45309; font-weight:700;'}">
+          💛 Bảng Vàng Đồng Hành
+        </div>
         <div class="nav-tab ${state.activeTab === 'master' ? 'active' : ''}" onclick="setTab('master')" title="Bảng Tổng Hợp Chấm Điểm 40 Cơ Sở Đoàn">
           📋 Bảng Tổng Hợp
         </div>
@@ -5138,6 +5148,9 @@ function renderNavTabs() {
         <div class="nav-tab ${state.activeTab === 'unit_submit' ? 'active' : ''}" onclick="setTab('unit_submit')">
           📤 Nộp Báo Cáo & Tiêu Chí
         </div>
+        <div class="nav-tab ${state.activeTab === 'donations' ? 'active' : ''}" onclick="setTab('donations')" title="Bảng Vàng Tri Ân & Đồng Hành Cùng Đoàn UBND Tỉnh" style="${state.activeTab === 'donations' ? 'background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; color:#fff !important; font-weight:800;' : 'color:#b45309; font-weight:700;'}">
+          💛 Bảng Vàng Đồng Hành
+        </div>
         <div class="nav-tab ${state.activeTab === 'master' ? 'active' : ''}" onclick="setTab('master')">
           📋 Bảng Tổng Hợp Chấm Điểm
         </div>
@@ -5179,7 +5192,7 @@ window.setReportsSubSection = function (mode) {
 
 window.setTab = function (tabId) {
   const isGuest = state.user && state.user.role === 'guest';
-  if (isGuest && tabId !== 'master' && tabId !== 'ranking' && tabId !== 'reports' && tabId !== 'admin_docs') {
+  if (isGuest && tabId !== 'master' && tabId !== 'ranking' && tabId !== 'reports' && tabId !== 'admin_docs' && tabId !== 'donations') {
     return;
   }
   state.activeTab = tabId;
@@ -5195,7 +5208,7 @@ function renderActiveTabContent() {
 
   const isGuest = state.user && state.user.role === 'guest';
 
-  if (isGuest && state.activeTab !== 'master' && state.activeTab !== 'ranking' && state.activeTab !== 'reports' && state.activeTab !== 'admin_docs') {
+  if (isGuest && state.activeTab !== 'master' && state.activeTab !== 'ranking' && state.activeTab !== 'reports' && state.activeTab !== 'admin_docs' && state.activeTab !== 'donations') {
 
     state.activeTab = 'ranking';
 
@@ -5203,8 +5216,10 @@ function renderActiveTabContent() {
 
   switch (state.activeTab) {
 
-    case 'admin_password':
+    case 'donations':
+      return renderDonationsTab();
 
+    case 'admin_password':
       return renderAdminPasswordTab();
 
     case 'admin_docs':
@@ -26887,7 +26902,7 @@ window.initRealtimeLiveBridge = function() {
 
         if (evt.type === 'CHAT_MSG' && evt.payload) {
           handleIncomingRealtimeChat(evt.payload);
-        } else if (evt.type === 'REPORT_SUBMITTED' || evt.type === 'NEW_CRITERIA' || evt.type === 'ADMIN_DOC' || evt.type === 'PROOF_APPROVED' || evt.type === 'PROOF_REJECTED' || evt.type === 'MARQUEE_ANNOUNCEMENT') {
+        } else if (evt.type === 'REPORT_SUBMITTED' || evt.type === 'NEW_CRITERIA' || evt.type === 'ADMIN_DOC' || evt.type === 'PROOF_APPROVED' || evt.type === 'PROOF_REJECTED' || evt.type === 'MARQUEE_ANNOUNCEMENT' || evt.type === 'DONATION_RECEIVED') {
           if (window.playNotificationChime) window.playNotificationChime();
           if (typeof window.syncFromCloudNow === 'function') {
             window.syncFromCloudNow(true).then(() => {
@@ -30110,6 +30125,726 @@ window.saveAdminBgMusicSettings = async function() {
     showToast('Lỗi khi lưu lên đám mây: ' + (res.error || 'Thử lại'), 'error');
   }
 };
+
+
+// ============================================================================
+// HỆ THỐNG BẢNG VÀNG TRI ÂN & QUÉT MÃ VIETQR ỦNG HỘ ĐOÀN UBND TỈNH
+// Tài khoản tiếp nhận: BIDV • 8806208999 • PHUNG HAI THUY
+// Công khai 100% minh bạch - Tự động vinh danh và thông báo toàn khối ngay tức thì
+// ============================================================================
+
+const BANK_INFO_DONATION = {
+  bankId: 'BIDV',
+  bankName: 'BIDV (Ngân hàng TMCP Đầu tư và Phát triển Việt Nam)',
+  accountNo: '8806208999',
+  accountName: 'PHUNG HAI THUY'
+};
+
+function getDonationsList() {
+  if (Array.isArray(state.donations) && state.donations.length > 0) {
+    return state.donations;
+  }
+  if (state.cloudDB && Array.isArray(state.cloudDB.donations)) {
+    return state.cloudDB.donations;
+  }
+  try {
+    const raw = localStorage.getItem('doan2026_local_donations');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch(e) {}
+  return [];
+}
+
+function saveDonationsList(list) {
+  state.donations = list;
+  if (!state.cloudDB) state.cloudDB = {};
+  state.cloudDB.donations = list;
+  try {
+    localStorage.setItem('doan2026_local_donations', JSON.stringify(list));
+  } catch(e) {}
+  // Đồng bộ đám mây
+  if (typeof syncToCloudNow === 'function') {
+    syncToCloudNow('Cập nhật Bảng Vàng ủng hộ Đoàn UBND tỉnh');
+  }
+}
+
+window.copyToClipboardText = function(text, label) {
+  if (!text) return;
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(String(text)).then(() => {
+      showToast('📋 Đã sao chép ' + (label || '') + ': ' + text, 'success');
+    }).catch(() => {
+      prompt('Sao chép: ' + (label || ''), text);
+    });
+  } else {
+    prompt('Sao chép: ' + (label || ''), text);
+  }
+};
+
+function renderDonationsTab() {
+  const donations = getDonationsList();
+  const isAdmin = state.user && state.user.role === 'admin';
+  const totalAmount = donations.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+  const totalCount = donations.length;
+
+  // Tổng hợp theo đơn vị để xếp hạng dẫn đầu (Leaderboard)
+  const unitTotals = {};
+  donations.forEach(d => {
+    const uName = d.unit_name || 'Đơn vị hảo tâm';
+    if (!unitTotals[uName]) {
+      unitTotals[uName] = { name: uName, amount: 0, count: 0, latestMessage: d.message || '' };
+    }
+    unitTotals[uName].amount += (Number(d.amount) || 0);
+    unitTotals[uName].count += 1;
+  });
+
+  const rankedUnits = Object.values(unitTotals).sort((a, b) => b.amount - a.amount);
+  const topUnit = rankedUnits[0] || null;
+
+  return `
+    <div class="panel fullscreen-table-panel" style="display:flex; flex-direction:column; flex:1 1 auto; min-height:0; margin-bottom:2px; background:#f8fafc;">
+      
+      <!-- HERO BANNER VÀNG KIM TRANG TRỌNG -->
+      <div style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #4338ca 100%); color:#fff; padding: 22px 20px; border-radius: 12px; margin-bottom: 18px; box-shadow: 0 8px 24px rgba(30,27,75,0.35); position:relative; overflow:hidden;">
+        <div style="position:absolute; right:-20px; bottom:-20px; font-size:130px; opacity:0.08; pointer-events:none;">🏆</div>
+        
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px; position:relative; z-index:2;">
+          <div>
+            <div style="display:inline-flex; align-items:center; gap:8px; background:rgba(245,158,11,0.25); border:1px solid #fde047; padding:4px 12px; border-radius:20px; margin-bottom:8px;">
+              <span style="font-size:14px;">✨</span>
+              <span style="font-size:12px; font-weight:800; color:#fde047; text-transform:uppercase; letter-spacing:0.5px;">CÔNG KHAI • MINH BẠCH 100% • TỨC THÌ</span>
+            </div>
+            <h1 style="font-size:22px; font-weight:900; margin:0 0 6px 0; color:#fff; letter-spacing:0.3px;">
+              🏆 BẢNG VÀNG TRI ÂN & ĐỒNG HÀNH CÙNG ĐOÀN UBND TỈNH
+            </h1>
+            <p style="font-size:13px; color:#cbd5e1; margin:0; line-height:1.5; max-width:650px;">
+              Trân trọng tri ân và ghi danh các tổ chức cơ sở Đoàn, đơn vị bạn và các đồng chí đã nhiệt tình đóng góp, ủng hộ kinh phí đồng hành cùng các phong trào, hoạt động của Đoàn khối UBND tỉnh.
+            </p>
+          </div>
+
+          <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+            <button type="button" class="btn btn-sm" onclick="openDonationModal()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color:#fff; border: 1.5px solid #fef08a; font-weight:800; font-size:13px; padding:10px 18px; border-radius:8px; cursor:pointer; box-shadow:0 4px 14px rgba(245,158,11,0.5); display:inline-flex; align-items:center; gap:6px;">
+              <span style="font-size:16px;">💖</span>
+              <span>ỦNG HỘ ĐOÀN (QUÉT VIETQR)</span>
+            </button>
+            
+            <button type="button" class="btn btn-sm" onclick="exportDonationsToExcel()" style="background:rgba(255,255,255,0.18); color:#fff; border:1px solid rgba(255,255,255,0.4); font-weight:700; font-size:12px; padding:9px 14px; border-radius:8px; cursor:pointer;" title="Tải file Excel sao kê công khai minh bạch">
+              📊 Xuất Sao Kê Excel
+            </button>
+
+            ${isAdmin ? `
+              <button type="button" class="btn btn-sm" onclick="openAdminManualDonationModal()" style="background:#15803d; color:#fff; border:1px solid #86efac; font-weight:700; font-size:12px; padding:9px 14px; border-radius:8px; cursor:pointer;">
+                ➕ Thêm Trực Tiếp
+              </button>
+            ` : ''}
+          </div>
+        </div>
+      </div>
+
+      <!-- 3 THẺ KPI THỐNG KÊ RỰC RỠ -->
+      <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:14px; margin-bottom: 18px;">
+        
+        <!-- CARD 1: TỔNG QUỸ TIẾP NHẬN -->
+        <div style="background:#fff; border-radius:10px; padding:16px 18px; border:1.5px solid #fef08a; box-shadow:0 3px 10px rgba(0,0,0,0.04); display:flex; align-items:center; gap:14px;">
+          <div style="width:50px; height:50px; border-radius:12px; background:linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); display:flex; align-items:center; justify-content:center; font-size:26px; flex-shrink:0;">
+            💰
+          </div>
+          <div>
+            <div style="font-size:11.5px; font-weight:700; color:#b45309; text-transform:uppercase; letter-spacing:0.5px;">Tổng Quỹ Đã Tiếp Nhận</div>
+            <div style="font-size:22px; font-weight:900; color:#b45309; margin-top:2px;">
+              ${formatScore(totalAmount)} <span style="font-size:14px; font-weight:700;">VNĐ</span>
+            </div>
+            <div style="font-size:11px; color:#64748b; margin-top:2px;">Được đóng góp từ các cơ sở Đoàn & Đoàn bạn</div>
+          </div>
+        </div>
+
+        <!-- CARD 2: SỐ LƯỢT ỦNG HỘ -->
+        <div style="background:#fff; border-radius:10px; padding:16px 18px; border:1.5px solid #bfdbfe; box-shadow:0 3px 10px rgba(0,0,0,0.04); display:flex; align-items:center; gap:14px;">
+          <div style="width:50px; height:50px; border-radius:12px; background:linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); display:flex; align-items:center; justify-content:center; font-size:26px; flex-shrink:0;">
+            🏢
+          </div>
+          <div>
+            <div style="font-size:11.5px; font-weight:700; color:#1d4ed8; text-transform:uppercase; letter-spacing:0.5px;">Tổng Lượt Đồng Hành</div>
+            <div style="font-size:22px; font-weight:900; color:#1d4ed8; margin-top:2px;">
+              ${totalCount} <span style="font-size:14px; font-weight:700;">lượt ủng hộ</span>
+            </div>
+            <div style="font-size:11px; color:#64748b; margin-top:2px;">Minh bạch 100% thời gian thực</div>
+          </div>
+        </div>
+
+        <!-- CARD 3: ĐƠN VỊ TIÊU BIỂU NHẤT -->
+        <div style="background:#fff; border-radius:10px; padding:16px 18px; border:1.5px solid #bbf7d0; box-shadow:0 3px 10px rgba(0,0,0,0.04); display:flex; align-items:center; gap:14px;">
+          <div style="width:50px; height:50px; border-radius:12px; background:linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); display:flex; align-items:center; justify-content:center; font-size:26px; flex-shrink:0;">
+            🥇
+          </div>
+          <div style="min-width:0; flex:1;">
+            <div style="font-size:11.5px; font-weight:700; color:#15803d; text-transform:uppercase; letter-spacing:0.5px;">Đơn Vị Dẫn Đầu Phong Trào</div>
+            <div style="font-size:15px; font-weight:900; color:#15803d; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${topUnit ? escapeHtml(topUnit.name) : 'Chưa có'}">
+              ${topUnit ? escapeHtml(topUnit.name) : 'Đang chờ ghi danh...'}
+            </div>
+            <div style="font-size:11px; color:#64748b; margin-top:2px;">
+              ${topUnit ? `Đóng góp: <b>${formatScore(topUnit.amount)} VNĐ</b> (${topUnit.count} lượt)` : 'Hãy là đơn vị dẫn đầu!'}
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- TOP 3 PODIUM VINH DANH (NẾU CÓ DỮ LIỆU) -->
+      ${rankedUnits.length > 0 ? `
+        <div style="background:#fff; border-radius:10px; border:1px solid #e2e8f0; padding:16px 18px; margin-bottom:18px;">
+          <div style="font-size:13.5px; font-weight:800; color:#0f172a; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+            <span>🏅</span>
+            <span>TOP ĐƠN VỊ ĐÓNG GÓP TIÊU BIỂU NHẤT:</span>
+          </div>
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+            ${rankedUnits.slice(0, 3).map((u, i) => {
+              const medal = i === 0 ? '🥇 QUÁN QUÂN' : (i === 1 ? '🥈 Á QUÂN' : '🥉 HẠNG BA');
+              const bg = i === 0 ? '#fffbeb' : (i === 1 ? '#f8fafc' : '#fef2f2');
+              const border = i === 0 ? '#fde047' : (i === 1 ? '#cbd5e1' : '#fecaca');
+              const textCol = i === 0 ? '#b45309' : (i === 1 ? '#475569' : '#991b1b');
+              return `
+                <div style="background:${bg}; border:1.5px solid ${border}; border-radius:8px; padding:12px 14px; position:relative;">
+                  <div style="font-size:10.5px; font-weight:800; color:${textCol}; text-transform:uppercase; margin-bottom:4px;">
+                    ${medal}
+                  </div>
+                  <div style="font-size:14px; font-weight:800; color:#0f172a; margin-bottom:4px; line-height:1.4;">
+                    ${escapeHtml(u.name)}
+                  </div>
+                  <div style="font-size:16px; font-weight:900; color:${textCol};">
+                    ${formatScore(u.amount)} <span style="font-size:12px;">VNĐ</span>
+                  </div>
+                  <div style="font-size:11px; color:#64748b; margin-top:4px;">
+                    Số lần ủng hộ: <b>${u.count} lần</b>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- BẢNG SAO KÊ CHI TIẾT CÔNG KHAI 100% -->
+      <div style="background:#fff; border-radius:10px; border:1px solid #e2e8f0; overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+        <div style="background:#f8fafc; border-bottom:1px solid #e2e8f0; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+          <div style="font-weight:800; font-size:14px; color:#1e293b; display:flex; align-items:center; gap:6px;">
+            <span>📋</span>
+            <span>NHẬT KÝ SAO KÊ CHI TIẾT CÔNG KHAI (${donations.length} LƯỢT TIẾP NHẬN)</span>
+          </div>
+          <div style="font-size:11.5px; color:#64748b;">
+            Tài khoản BIDV: <b>8806208999</b> • Chủ TK: <b>PHUNG HAI THUY</b>
+          </div>
+        </div>
+
+        <div style="overflow-x:auto;">
+          <table style="width:100%; border-collapse:collapse; font-size:12.5px; text-align:left;">
+            <thead>
+              <tr style="background:#f1f5f9; color:#475569; font-weight:800; border-bottom:1.5px solid #cbd5e1;">
+                <th style="padding:10px 12px; width:45px; text-align:center;">#</th>
+                <th style="padding:10px 12px; width:150px;">Thời Gian</th>
+                <th style="padding:10px 12px;">Đoàn Cơ Sở / Người Đóng Góp</th>
+                <th style="padding:10px 12px; width:140px; text-align:right;">Số Tiền</th>
+                <th style="padding:10px 12px;">Lời Nhắn Gửi / Nội Dung</th>
+                <th style="padding:10px 12px; width:130px; text-align:center;">Trạng Thái</th>
+                ${isAdmin ? '<th style="padding:10px 12px; width:80px; text-align:center;">Thao tác</th>' : ''}
+              </tr>
+            </thead>
+            <tbody>
+              ${donations.length === 0 ? `
+                <tr>
+                  <td colspan="${isAdmin ? 7 : 6}" style="text-align:center; padding:40px 16px; color:#64748b;">
+                    <div style="font-size:36px; margin-bottom:8px;">💛</div>
+                    <div style="font-weight:700; font-size:14px; color:#1e293b; margin-bottom:4px;">Chưa có lượt ủng hộ nào được ghi nhận</div>
+                    <div style="font-size:12px; color:#64748b; margin-bottom:14px;">Hãy là đơn vị tiên phong đồng hành cùng các hoạt động của Đoàn khối UBND tỉnh!</div>
+                    <button type="button" class="btn btn-sm" onclick="openDonationModal()" style="background:#d97706; color:#fff; font-weight:700; padding:8px 16px; border-radius:6px; border:none; cursor:pointer;">
+                      💖 Quét Mã VietQR Ủng Hộ Ngay
+                    </button>
+                  </td>
+                </tr>
+              ` : donations.slice().reverse().map((d, idx) => `
+                <tr style="border-bottom:1px solid #f1f5f9; transition:background 0.2s;" onmouseover="this.style.background='#faf5ff'" onmouseout="this.style.background=''">
+                  <td style="padding:10px 12px; text-align:center; font-weight:700; color:#64748b;">
+                    ${donations.length - idx}
+                  </td>
+                  <td style="padding:10px 12px; color:#475569; font-size:12px; white-space:nowrap;">
+                    🕒 ${escapeHtml(d.created_at || '')}
+                  </td>
+                  <td style="padding:10px 12px;">
+                    <div style="font-weight:800; font-size:13.5px; color:#0f172a;">
+                      🏢 ${escapeHtml(d.unit_name || '')}
+                    </div>
+                  </td>
+                  <td style="padding:10px 12px; text-align:right;">
+                    <span style="font-weight:900; font-size:14.5px; color:#b45309; background:#fef3c7; padding:2px 8px; border-radius:4px; border:1px solid #fde68a;">
+                      +${formatScore(d.amount)} đ
+                    </span>
+                  </td>
+                  <td style="padding:10px 12px; color:#334155; font-style:italic;">
+                    "${escapeHtml(d.message || 'Đồng hành cùng hoạt động Đoàn')}"
+                  </td>
+                  <td style="padding:10px 12px; text-align:center;">
+                    <span class="badge badge-success" style="font-weight:700; padding:3px 8px; font-size:11px;">
+                      ✅ Đã tiếp nhận
+                    </span>
+                  </td>
+                  ${isAdmin ? `
+                    <td style="padding:10px 12px; text-align:center;">
+                      <button type="button" class="btn btn-sm btn-outline" onclick="deleteDonationRecord('${escapeHtml(d.id)}')" style="color:#dc2626; border-color:#fca5a5; padding:2px 6px; font-size:11px; cursor:pointer;" title="Xóa lượt ghi nhận này">
+                        🗑️
+                      </button>
+                    </td>
+                  ` : ''}
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  `;
+}
+
+// MODAL QUÉT MÃ VIETQR ỦNG HỘ THÔNG MINH
+window.openDonationModal = function() {
+  const modalRoot = document.getElementById('modal-root');
+  if (!modalRoot) return;
+
+  const activeUnits = (state.units || []).filter(u => Number(u.is_active) === 1);
+  const currentUnitId = state.user && state.user.role !== 'admin' && state.user.role !== 'guest' ? state.user.id : (activeUnits[0] ? activeUnits[0].id : 1);
+  const defaultAmount = 500000;
+
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+      <div class="modal-box" style="max-width: 650px; border-radius:14px; overflow:hidden; box-shadow:0 16px 40px rgba(0,0,0,0.35);">
+        
+        <!-- HEADER MODAL -->
+        <div class="modal-header" style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #4338ca 100%); color:#fff; padding:16px 20px; display:flex; justify-content:space-between; align-items:center;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span style="font-size:24px;">💖</span>
+            <div>
+              <div style="font-weight:900; font-size:15px; text-transform:uppercase; letter-spacing:0.3px; color:#fde047;">
+                ỦNG HỘ PHONG TRÀO ĐOÀN KHỐI UBND TỈNH
+              </div>
+              <div style="font-size:11px; color:#cbd5e1; font-weight:600;">
+                Quét mã VietQR chuyển khoản • Tự động vinh danh Bảng Vàng & Thông báo toàn khối tức thì
+              </div>
+            </div>
+          </div>
+          <button class="btn btn-sm btn-outline" onclick="closeModal()" style="color:#fff; border-color:rgba(255,255,255,0.4); font-size:14px; padding:2px 8px;">✕</button>
+        </div>
+
+        <div class="modal-body" style="padding:18px 20px; max-height: calc(88vh - 120px); overflow-y:auto; background:#fff;">
+          
+          <!-- CHỌN ĐƠN VỊ ỦNG HỘ -->
+          <div class="form-group" style="margin-bottom:14px;">
+            <label style="font-weight:800; font-size:13px; color:#1e293b; display:block; margin-bottom:5px;">
+              🏢 1. Đơn vị cơ sở Đoàn / Đoàn bạn ủng hộ (*):
+            </label>
+            <select id="donation-unit-select" onchange="updateDonationQrCode()" style="width:100%; padding:8px 10px; font-weight:700; font-size:13px; border:1.5px solid #cbd5e1; border-radius:6px; background:#fff;">
+              ${activeUnits.map((u, idx) => `
+                <option value="${u.id}" ${u.id === currentUnitId ? 'selected' : ''}>
+                  ${idx + 1}. ${escapeHtml(u.unit_name)} (${escapeHtml(u.username)})
+                </option>
+              `).join('')}
+              <option value="other">⭐ Đơn vị ngoài / Đoàn bạn / Nhà hảo tâm khác</option>
+            </select>
+          </div>
+
+          <div id="donation-custom-name-box" style="display:none; margin-bottom:14px;">
+            <label style="font-weight:700; font-size:12.5px; color:#0369a1; display:block; margin-bottom:4px;">
+              Nhập tên Đoàn bạn / Cơ quan / Cá nhân ủng hộ:
+            </label>
+            <input type="text" id="donation-custom-name" placeholder="Ví dụ: Đoàn Trường Cao đẳng Y tế Quảng Trị..." oninput="updateDonationQrCode()" style="width:100%; padding:8px 10px; font-weight:700; font-size:13px; border:1.5px solid #93c5fd; border-radius:6px;" />
+          </div>
+
+          <!-- CHỌN SỐ TIỀN ỦNG HỘ -->
+          <div class="form-group" style="margin-bottom:14px;">
+            <label style="font-weight:800; font-size:13px; color:#1e293b; display:block; margin-bottom:6px;">
+              💰 2. Chọn hoặc nhập số tiền ủng hộ (VNĐ) (*):
+            </label>
+            <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;">
+              ${[200000, 500000, 1000000, 2000000, 5000000].map(amt => `
+                <button type="button" class="btn btn-sm" onclick="setDonationPresetAmount(${amt})" style="background:${amt === defaultAmount ? '#b45309' : '#fef3c7'}; color:${amt === defaultAmount ? '#fff' : '#b45309'}; border:1px solid #fde68a; font-weight:800; font-size:12px; padding:6px 12px; border-radius:6px; cursor:pointer;">
+                  ${formatScore(amt)}đ
+                </button>
+              `).join('')}
+            </div>
+            <input type="number" id="donation-amount-input" value="${defaultAmount}" min="10000" step="10000" oninput="updateDonationQrCode()" style="width:100%; padding:8px 10px; font-size:15px; font-weight:900; color:#b45309; border:1.5px solid #cbd5e1; border-radius:6px;" />
+          </div>
+
+          <!-- LỜI NHẮN GỬI -->
+          <div class="form-group" style="margin-bottom:16px;">
+            <label style="font-weight:700; font-size:12.5px; color:#1e293b; display:block; margin-bottom:4px;">
+              ✍️ 3. Lời chúc / Lời nhắn gửi động viên:
+            </label>
+            <input type="text" id="donation-message-input" placeholder="Ví dụ: Chúc phong trào thanh niên Đoàn khối ngày càng phát triển vững mạnh!" oninput="updateDonationQrCode()" style="width:100%; padding:8px 10px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:6px;" />
+          </div>
+
+          <!-- KHUNG HIỂN THỊ VIETQR & THÔNG TIN TÀI KHOẢN -->
+          <div style="background:#faf5ff; border:1.5px solid #d8b4fe; border-radius:10px; padding:14px 16px; margin-bottom:16px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;">
+              
+              <!-- HÌNH ẢNH MÃ QR -->
+              <div style="text-align:center; flex-shrink:0; margin:0 auto;">
+                <div style="background:#fff; padding:6px; border-radius:10px; border:1px solid #e9d5ff; box-shadow:0 3px 8px rgba(0,0,0,0.06); display:inline-block;">
+                  <img id="donation-qr-img" src="" alt="Mã VietQR" style="width:190px; height:190px; object-fit:contain; display:block;" />
+                </div>
+                <div style="font-size:10.5px; font-weight:700; color:#6d28d9; margin-top:4px;">
+                  ⚡ Quét mã bằng App Ngân Hàng bất kỳ
+                </div>
+              </div>
+
+              <!-- THÔNG TIN TÀI KHOẢN TIẾP NHẬN -->
+              <div style="flex:1; min-width:240px; font-size:12.5px;">
+                <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; margin-bottom:8px;">
+                  <div style="color:#64748b; font-size:11px; font-weight:700; text-transform:uppercase;">Ngân hàng:</div>
+                  <div style="font-weight:800; color:#1e293b; font-size:13px;">${BANK_INFO_DONATION.bankName}</div>
+                </div>
+
+                <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                  <div>
+                    <div style="color:#64748b; font-size:11px; font-weight:700; text-transform:uppercase;">Số Tài Khoản:</div>
+                    <div style="font-weight:900; color:#b45309; font-size:16px; letter-spacing:0.5px;" id="copy-stk-text">${BANK_INFO_DONATION.accountNo}</div>
+                  </div>
+                  <button type="button" class="btn btn-sm" onclick="copyToClipboardText('${BANK_INFO_DONATION.accountNo}', 'Số tài khoản')" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-size:11px; padding:3px 8px; font-weight:700; border-radius:4px; cursor:pointer;">
+                    Copy
+                  </button>
+                </div>
+
+                <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; margin-bottom:8px;">
+                  <div style="color:#64748b; font-size:11px; font-weight:700; text-transform:uppercase;">Chủ Tài Khoản:</div>
+                  <div style="font-weight:900; color:#0f172a; font-size:13.5px;">${BANK_INFO_DONATION.accountName}</div>
+                </div>
+
+                <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center;">
+                  <div>
+                    <div style="color:#64748b; font-size:11px; font-weight:700; text-transform:uppercase;">Nội dung chuyển khoản:</div>
+                    <div style="font-weight:900; color:#4338ca; font-size:13px;" id="donation-addinfo-text">UNGHO DV1</div>
+                  </div>
+                  <button type="button" class="btn btn-sm" onclick="copyToClipboardText(document.getElementById('donation-addinfo-text').textContent, 'Nội dung')" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-size:11px; padding:3px 8px; font-weight:700; border-radius:4px; cursor:pointer;">
+                    Copy
+                  </button>
+                </div>
+
+              </div>
+
+            </div>
+          </div>
+
+          <!-- NÚT BẤM XÁC NHẬN CHUYỂN KHOẢN VÀ LÊN BẢNG VÀNG NGAY -->
+          <div style="text-align:center;">
+            <button type="button" class="btn btn-lg" onclick="handleDonationSuccessConfirm()" style="width:100%; background: linear-gradient(135deg, #15803d 0%, #16a34a 100%); color:#fff; border:none; font-weight:900; font-size:14.5px; padding:12px 18px; border-radius:8px; cursor:pointer; box-shadow:0 4px 14px rgba(22,163,74,0.4); display:inline-flex; align-items:center; justify-content:center; gap:8px;">
+              <span>⚡</span>
+              <span>TÔI ĐÃ CHUYỂN KHOẢN THÀNH CÔNG (BẤM ĐỂ LÊN BẢNG VÀNG NGAY)</span>
+            </button>
+            <div style="font-size:11.5px; color:#64748b; margin-top:8px;">
+              🎉 Hệ thống sẽ nổ pháo hoa và tự động phát thông báo vinh danh trên toàn hệ thống 40 cơ sở Đoàn!
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  updateDonationQrCode();
+};
+
+window.setDonationPresetAmount = function(amt) {
+  const inp = document.getElementById('donation-amount-input');
+  if (inp) {
+    inp.value = amt;
+    updateDonationQrCode();
+  }
+};
+
+window.updateDonationQrCode = function() {
+  const unitSelect = document.getElementById('donation-unit-select');
+  const customBox = document.getElementById('donation-custom-name-box');
+  const customNameInput = document.getElementById('donation-custom-name');
+  const amountInput = document.getElementById('donation-amount-input');
+  const messageInput = document.getElementById('donation-message-input');
+  const qrImg = document.getElementById('donation-qr-img');
+  const addInfoText = document.getElementById('donation-addinfo-text');
+
+  if (!unitSelect || !amountInput || !qrImg) return;
+
+  const isCustom = unitSelect.value === 'other';
+  if (customBox) {
+    customBox.style.display = isCustom ? 'block' : 'none';
+  }
+
+  let unitTag = 'DV';
+  if (!isCustom) {
+    const u = (state.units || []).find(x => String(x.id) === String(unitSelect.value));
+    unitTag = u ? ('DV' + u.id) : ('DV' + unitSelect.value);
+  } else {
+    const rawName = (customNameInput ? customNameInput.value.trim() : '') || 'DOAN BAN';
+    unitTag = rawName.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 10) || 'DOANBAN';
+  }
+
+  const amt = Math.max(10000, Number(amountInput.value) || 500000);
+  const addInfo = 'UNGHO ' + unitTag;
+
+  if (addInfoText) addInfoText.textContent = addInfo;
+
+  const qrUrl = `https://img.vietqr.io/image/BIDV-${BANK_INFO_DONATION.accountNo}-compact2.png?amount=${amt}&addInfo=${encodeURIComponent(addInfo)}&accountName=${encodeURIComponent(BANK_INFO_DONATION.accountName)}`;
+  qrImg.src = qrUrl;
+};
+
+// XÁC NHẬN ỦNG HỘ THÀNH CÔNG VÀ BẮN PHÁO HOA + VINH DANH TOÀN HỆ THỐNG
+window.handleDonationSuccessConfirm = function() {
+  const unitSelect = document.getElementById('donation-unit-select');
+  const customNameInput = document.getElementById('donation-custom-name');
+  const amountInput = document.getElementById('donation-amount-input');
+  const messageInput = document.getElementById('donation-message-input');
+
+  if (!unitSelect || !amountInput) return;
+
+  let unitName = '';
+  let unitId = null;
+
+  if (unitSelect.value === 'other') {
+    unitName = (customNameInput ? customNameInput.value.trim() : '') || 'Đoàn bạn / Đơn vị hảo tâm';
+  } else {
+    const u = (state.units || []).find(x => String(x.id) === String(unitSelect.value));
+    unitName = u ? u.unit_name : ('Cơ sở Đoàn ' + unitSelect.value);
+    unitId = u ? u.id : Number(unitSelect.value);
+  }
+
+  const amt = Math.max(10000, Number(amountInput.value) || 500000);
+  const msg = (messageInput ? messageInput.value.trim() : '') || 'Đồng hành cùng hoạt động phong trào Đoàn khối UBND tỉnh';
+
+  const newDonation = {
+    id: 'don_' + Date.now(),
+    unit_id: unitId,
+    unit_name: unitName,
+    amount: amt,
+    message: msg,
+    created_at: formatDateTimeVN(new Date()),
+    timestamp: Date.now(),
+    status: 'confirmed',
+    created_by: state.user ? (state.user.role === 'admin' ? 'admin' : state.user.username) : 'guest'
+  };
+
+  const list = getDonationsList();
+  list.push(newDonation);
+  saveDonationsList(list);
+
+  // 1. Pháo hoa ăn mừng tung tóe
+  if (window.triggerConfetti) window.triggerConfetti();
+
+  // 2. Âm thanh thông báo
+  if (window.playNotificationChime) window.playNotificationChime();
+
+  // 3. Tự động bắn thiệp chúc mừng vào phòng Trao Đổi Đoàn Toàn Khối
+  const chatMsg = {
+    id: 'msg_don_' + Date.now(),
+    room: 'public',
+    sender: '👑 Ban Thường vụ Đoàn UBND Tỉnh',
+    sender_role: 'admin',
+    sender_id: 0,
+    text: `🏆 [BẢNG VÀNG TRI ÂN] Trân trọng cảm ơn ${unitName} đã vừa ủng hộ ${formatScore(amt)} VNĐ vào Quỹ hoạt động Đoàn UBND tỉnh! Lời nhắn: "${msg}". Toàn khối nhiệt liệt biểu dương và chúc mừng! 💐🎉`,
+    created_at: formatDateTimeVN(new Date()),
+    timestamp: Date.now()
+  };
+  if (!state.chatMessages) state.chatMessages = [];
+  state.chatMessages.push(chatMsg);
+  try {
+    localStorage.setItem('doan2026_local_chat_messages', JSON.stringify(state.chatMessages));
+  } catch(e) {}
+
+  // 4. Cập nhật dòng chữ chạy Marquee trên đầu web
+  if (!state.settings) state.settings = {};
+  state.settings.marquee_text = `💐 Trân trọng cảm ơn ${unitName} vừa đóng góp ủng hộ ${formatScore(amt)}đ vào Quỹ hoạt động Đoàn UBND tỉnh!`;
+  state.settings.marquee_enabled = '1';
+
+  // 5. Gửi thông báo nổi (Web Push Notification) tới TẤT CẢ các thiết bị máy tính và điện thoại
+  if (window.WebPushManager && window.WebPushManager.sendPushNotification) {
+    window.WebPushManager.sendPushNotification({
+      title: '🏆 [BẢNG VÀNG ĐOÀN] Đóng Góp Mới!',
+      message: `${unitName} vừa ủng hộ ${formatScore(amt)}đ đồng hành cùng Đoàn UBND tỉnh!`,
+      url: './',
+      skipExclusion: true
+    });
+  }
+
+  // 6. Phát sóng thời gian thực cho mọi máy khác đang mở
+  if (window.broadcastLiveEvent) {
+    window.broadcastLiveEvent('DONATION_RECEIVED', newDonation);
+  }
+
+  closeModal();
+  showToast(`🎉 Cảm ơn ${unitName}! Đã ghi danh lên Bảng Vàng và phát thông báo toàn khối thành công!`, 'success');
+  setTab('donations');
+};
+
+// ADMIN THÊM LƯỢT ỦNG HỘ TRỰC TIẾP (TIỀN MẶT / PHONG BÌ)
+window.openAdminManualDonationModal = function() {
+  const modalRoot = document.getElementById('modal-root');
+  if (!modalRoot) return;
+
+  const activeUnits = (state.units || []).filter(u => Number(u.is_active) === 1);
+
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+      <div class="modal-box" style="max-width: 520px; border-radius:12px; overflow:hidden;">
+        <div class="modal-header" style="background:#15803d; color:#fff; padding:14px 18px; display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-weight:800; font-size:14px;">➕ Thêm Lượt Ủng Hộ Trực Tiếp (Dành Cho Admin)</span>
+          <button class="btn btn-sm btn-outline" onclick="closeModal()" style="color:#fff; border-color:rgba(255,255,255,0.4);">✕</button>
+        </div>
+        <div class="modal-body" style="padding:18px 20px;">
+          <div style="font-size:12.5px; color:#166534; background:#f0fdf4; padding:8px 12px; border-radius:6px; border:1px solid #bbf7d0; margin-bottom:14px;">
+            💡 Admin sử dụng chức năng này để ghi danh các cơ sở Đoàn hoặc cá nhân ủng hộ bằng tiền mặt/phong bì trực tiếp tại văn phòng.
+          </div>
+
+          <div class="form-group" style="margin-bottom:12px;">
+            <label style="font-weight:700; font-size:13px; color:#1e293b; display:block; margin-bottom:4px;">Cơ sở Đoàn / Đơn vị ủng hộ (*):</label>
+            <select id="admin-manual-unit" onchange="toggleManualCustomName(this.value)" style="width:100%; padding:8px 10px; font-weight:700; font-size:13px; border:1.5px solid #cbd5e1; border-radius:6px;">
+              ${activeUnits.map((u, idx) => `<option value="${u.id}">${idx + 1}. ${escapeHtml(u.unit_name)}</option>`).join('')}
+              <option value="other">⭐ Đơn vị ngoài / Cá nhân hảo tâm khác</option>
+            </select>
+          </div>
+
+          <div id="admin-manual-custom-box" style="display:none; margin-bottom:12px;">
+            <label style="font-weight:700; font-size:12px; color:#0369a1; display:block; margin-bottom:4px;">Tên đơn vị ngoài / Cá nhân:</label>
+            <input type="text" id="admin-manual-custom-name" placeholder="Nhập tên đơn vị..." style="width:100%; padding:8px 10px; font-weight:700; font-size:13px; border:1.5px solid #93c5fd; border-radius:6px;" />
+          </div>
+
+          <div class="form-group" style="margin-bottom:12px;">
+            <label style="font-weight:700; font-size:13px; color:#1e293b; display:block; margin-bottom:4px;">Số tiền ủng hộ (VNĐ) (*):</label>
+            <input type="number" id="admin-manual-amount" value="500000" min="10000" step="10000" style="width:100%; padding:8px 10px; font-size:15px; font-weight:900; color:#b45309; border:1.5px solid #cbd5e1; border-radius:6px;" />
+          </div>
+
+          <div class="form-group" style="margin-bottom:16px;">
+            <label style="font-weight:700; font-size:13px; color:#1e293b; display:block; margin-bottom:4px;">Lời nhắn gửi / Ghi chú:</label>
+            <input type="text" id="admin-manual-message" placeholder="Ủng hộ phong trào thanh niên..." style="width:100%; padding:8px 10px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:6px;" />
+          </div>
+
+          <div style="display:flex; justify-content:flex-end; gap:8px;">
+            <button type="button" class="btn btn-outline" onclick="closeModal()">Hủy</button>
+            <button type="button" class="btn btn-primary" onclick="submitAdminManualDonation()" style="background:#15803d; border-color:#15803d; font-weight:700;">💾 Lưu & Vinh Danh Ngay</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+window.toggleManualCustomName = function(val) {
+  const box = document.getElementById('admin-manual-custom-box');
+  if (box) box.style.display = (val === 'other') ? 'block' : 'none';
+};
+
+window.submitAdminManualDonation = function() {
+  const unitSelect = document.getElementById('admin-manual-unit');
+  const customInput = document.getElementById('admin-manual-custom-name');
+  const amountInput = document.getElementById('admin-manual-amount');
+  const messageInput = document.getElementById('admin-manual-message');
+
+  if (!unitSelect || !amountInput) return;
+
+  let unitName = '';
+  let unitId = null;
+
+  if (unitSelect.value === 'other') {
+    unitName = (customInput ? customInput.value.trim() : '') || 'Đoàn bạn / Đơn vị hảo tâm';
+  } else {
+    const u = (state.units || []).find(x => String(x.id) === String(unitSelect.value));
+    unitName = u ? u.unit_name : ('Cơ sở Đoàn ' + unitSelect.value);
+    unitId = u ? u.id : Number(unitSelect.value);
+  }
+
+  const amt = Math.max(10000, Number(amountInput.value) || 500000);
+  const msg = (messageInput ? messageInput.value.trim() : '') || 'Ủng hộ trực tiếp tại văn phòng Đoàn UBND tỉnh';
+
+  const newDonation = {
+    id: 'don_' + Date.now(),
+    unit_id: unitId,
+    unit_name: unitName,
+    amount: amt,
+    message: msg,
+    created_at: formatDateTimeVN(new Date()),
+    timestamp: Date.now(),
+    status: 'confirmed',
+    created_by: 'admin'
+  };
+
+  const list = getDonationsList();
+  list.push(newDonation);
+  saveDonationsList(list);
+
+  if (window.triggerConfetti) window.triggerConfetti();
+  if (window.playNotificationChime) window.playNotificationChime();
+
+  // Bắn tin chat
+  const chatMsg = {
+    id: 'msg_don_' + Date.now(),
+    room: 'public',
+    sender: '👑 Ban Thường vụ Đoàn UBND Tỉnh',
+    sender_role: 'admin',
+    sender_id: 0,
+    text: `🏆 [BẢNG VÀNG TRI ÂN] Trân trọng cảm ơn ${unitName} đã vừa ủng hộ ${formatScore(amt)} VNĐ vào Quỹ hoạt động Đoàn UBND tỉnh! Lời nhắn: "${msg}". Xin nhiệt liệt biểu dương! 💐🎉`,
+    created_at: formatDateTimeVN(new Date()),
+    timestamp: Date.now()
+  };
+  if (!state.chatMessages) state.chatMessages = [];
+  state.chatMessages.push(chatMsg);
+
+  closeModal();
+  showToast(`🎉 Đã ghi danh ${unitName} lên Bảng Vàng thành công!`, 'success');
+  setTab('donations');
+};
+
+window.deleteDonationRecord = function(donId) {
+  if (!confirm('Bạn có chắc chắn muốn xóa lượt ủng hộ này khỏi Bảng Vàng không?')) return;
+  let list = getDonationsList().filter(d => d.id !== donId);
+  saveDonationsList(list);
+  showToast('Đã xóa lượt ghi nhận khỏi Bảng Vàng.', 'info');
+  renderApp();
+};
+
+window.exportDonationsToExcel = function() {
+  const donations = getDonationsList();
+  if (typeof XLSX === 'undefined') {
+    showToast('Thư viện Excel đang tải, vui lòng thử lại sau 2 giây...', 'warning');
+    return;
+  }
+
+  const rows = [
+    ['BẢNG VÀNG TRI ÂN & SAO KÊ CÔNG KHAI ỦNG HỘ ĐOÀN UBND TỈNH'],
+    ['Tài khoản tiếp nhận: BIDV • 8806208999 • PHUNG HAI THUY'],
+    ['Thời điểm xuất báo cáo: ' + formatDateTimeVN(new Date())],
+    [],
+    ['STT', 'Thời Gian', 'Đoàn Cơ Sở / Đơn Vị Ủng Hộ', 'Số Tiền (VNĐ)', 'Lời Nhắn Gửi / Nội Dung', 'Trạng Thái']
+  ];
+
+  donations.forEach((d, i) => {
+    rows.push([
+      i + 1,
+      d.created_at || '',
+      d.unit_name || '',
+      Number(d.amount) || 0,
+      d.message || '',
+      'Đã tiếp nhận thành công'
+    ]);
+  });
+
+  const totalAmount = donations.reduce((sum, d) => sum + (Number(d.amount) || 0), 0);
+  rows.push([]);
+  rows.push(['', '', 'TỔNG CỘNG QUỸ TIẾP NHẬN:', totalAmount, '', '']);
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sao_Ke_Bang_Vang');
+  XLSX.writeFile(wb, `Sao_Ke_Bang_Vang_Ung_Ho_Doan_UBND_Tinh_${Date.now()}.xlsx`);
+  showToast('Đã xuất file Excel sao kê công khai Bảng Vàng thành công!', 'success');
+};
+
 
 // TỰ ĐỘNG MỞ TIẾNG VÀ PHÁT NHẠC NGAY TỨC THÌ KHI VÀO ỨNG DỤNG (CHO CẢ IPHONE, IPAD, ANDROID VÀ MÁY TÍNH)
 if (typeof window !== 'undefined') {
