@@ -2001,7 +2001,7 @@ function ingestCloudDB(db) {
   state.admin_docs = db.admin_docs || [];
 
   state.notifications = Array.isArray(db.notifications) ? db.notifications : [];
-  state.donations = Array.isArray(db.donations) ? db.donations : [];
+  state.donations = typeof deduplicateDonations === 'function' ? deduplicateDonations(Array.isArray(db.donations) ? db.donations : []) : (Array.isArray(db.donations) ? db.donations : []);
 
   state.cloudDB = db;
   // Hợp nhất tin nhắn Cloud DB và bộ nhớ đệm cục bộ không để mất bất kỳ tin nào
@@ -30875,34 +30875,57 @@ window.handleDeleteDonationProgram = function(progId) {
   renderApp();
 };
 
-// 3. DANH SÁCH LƯỢT ỦNG HỘ
-function getDonationsList() {
-  if (Array.isArray(state.donations) && state.donations.length > 0) {
-    return state.donations;
-  }
-  if (state.cloudDB && Array.isArray(state.cloudDB.donations)) {
-    return state.cloudDB.donations;
-  }
-  try {
-    const raw = localStorage.getItem('doan2026_local_donations');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
+// 3. DANH SÁCH LƯỢT ỦNG HỘ & BỘ LỌC CHỐNG TRÙNG LẶP ID
+function deduplicateDonations(list) {
+  if (!Array.isArray(list)) return [];
+  const map = new Map();
+  list.forEach(item => {
+    if (!item) return;
+    const key = String(item.id || (item.unit_name + '_' + item.created_at + '_' + item.amount));
+    if (!map.has(key)) {
+      map.set(key, item);
+    } else {
+      const existing = map.get(key);
+      // Ưu tiên trạng thái confirmed nếu một trong hai đã được duyệt
+      if (item.status === 'confirmed' || existing.status !== 'confirmed') {
+        map.set(key, item);
+      }
     }
-  } catch(e) {}
-  return [];
+  });
+  return Array.from(map.values());
+}
+window.deduplicateDonations = deduplicateDonations;
+
+function getDonationsList() {
+  let list = [];
+  if (Array.isArray(state.donations) && state.donations.length > 0) {
+    list = state.donations;
+  } else if (state.cloudDB && Array.isArray(state.cloudDB.donations)) {
+    list = state.cloudDB.donations;
+  } else {
+    try {
+      const raw = localStorage.getItem('doan2026_local_donations');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) list = parsed;
+      }
+    } catch(e) {}
+  }
+  return deduplicateDonations(list);
 }
 
 function saveDonationsList(list) {
-  state.donations = list;
+  const cleanList = deduplicateDonations(list);
+  state.donations = cleanList;
   if (!state.cloudDB) state.cloudDB = {};
-  state.cloudDB.donations = list;
+  state.cloudDB.donations = cleanList;
   try {
-    localStorage.setItem('doan2026_local_donations', JSON.stringify(list));
+    localStorage.setItem('doan2026_local_donations', JSON.stringify(cleanList));
+    localStorage.setItem('doan2026_donations_list', JSON.stringify(cleanList));
   } catch(e) {}
   if (typeof mutateCloudDB === 'function') {
     mutateCloudDB(db => {
-      db.donations = list;
+      db.donations = cleanList;
       if (Array.isArray(state.chatMessages)) {
         db.chat_messages = state.chatMessages;
       }
@@ -31491,10 +31514,10 @@ window.handleDonationSuccessConfirm = function() {
 
       if (typeof mutateCloudDB === 'function') {
         mutateCloudDB(db => {
-          db.donations = db.donations || [];
-          db.donations.push(newDonation);
           db.notifications = db.notifications || [];
-          db.notifications.unshift(donNotif);
+          if (!db.notifications.some(n => n.donation_id === newDonation.id)) {
+            db.notifications.unshift(donNotif);
+          }
         }, 'Unit submitted donation pending admin verification');
       }
 
@@ -31539,21 +31562,50 @@ window.handleDonationSuccessConfirm = function() {
 
 // 7. ADMIN DUYỆT TIỀN THẬT -> BẮT ĐẦU PHÁT THÔNG BÁO VÀ CHẠY VINH DANH
 window.confirmDonationByAdmin = function(donId) {
-  const list = getDonationsList();
-  const don = list.find(d => d.id === donId);
+  let list = deduplicateDonations(getDonationsList());
+  const don = list.find(d => d.id === donId || String(d.id) === String(donId));
   if (!don) {
     if (typeof showToast === 'function') showToast('Không tìm thấy lượt ủng hộ này!', 'error');
     return;
   }
 
-  don.status = 'confirmed';
-  don.confirmed_at = (typeof formatDateTimeVN === 'function') ? formatDateTimeVN(new Date()) : new Date().toLocaleString('vi-VN');
-  don.confirmed_by = 'admin';
+  // Cập nhật tất cả các bản ghi trùng ID (nếu có) thành đã xác nhận
+  list.forEach(d => {
+    if (d.id === donId || String(d.id) === String(donId)) {
+      d.status = 'confirmed';
+      d.confirmed_at = (typeof formatDateTimeVN === 'function') ? formatDateTimeVN(new Date()) : new Date().toLocaleString('vi-VN');
+      d.confirmed_by = 'admin';
+    }
+  });
+
+  list = deduplicateDonations(list);
 
   if (!state.settings) state.settings = {};
   state.settings.donation_marquee_enabled = '1';
 
+  // Đánh dấu thông báo chờ duyệt tương ứng thành đã đọc
+  if (Array.isArray(state.notifications)) {
+    state.notifications.forEach(n => {
+      if (n.donation_id === donId || String(n.donation_id) === String(donId)) {
+        n.read = true;
+      }
+    });
+  }
+
   saveDonationsList(list);
+
+  // Cập nhật trạng thái thông báo trên đám mây
+  if (typeof mutateCloudDB === 'function') {
+    mutateCloudDB(db => {
+      if (Array.isArray(db.notifications)) {
+        db.notifications.forEach(n => {
+          if (n.donation_id === donId || String(n.donation_id) === String(donId)) {
+            n.read = true;
+          }
+        });
+      }
+    }, 'Admin approved donation ' + donId);
+  }
 
   if (window.triggerConfetti) { try { window.triggerConfetti(); } catch(e){} }
   if (window.playNotificationChime) { try { window.playNotificationChime(); } catch(e){} }
@@ -31599,7 +31651,14 @@ window.rejectDonationByAdmin = function(donId) {
   if (!confirm('Bạn có chắc chắn muốn HỦY lượt này do tiền CHƯA vào tài khoản ngân hàng không?')) {
     return;
   }
-  let list = getDonationsList().filter(d => d.id !== donId);
+  let list = deduplicateDonations(getDonationsList()).filter(d => d.id !== donId && String(d.id) !== String(donId));
+  if (Array.isArray(state.notifications)) {
+    state.notifications.forEach(n => {
+      if (n.donation_id === donId || String(n.donation_id) === String(donId)) {
+        n.read = true;
+      }
+    });
+  }
   saveDonationsList(list);
   if (typeof showToast === 'function') {
     showToast('Đã hủy bỏ lượt ghi nhận chưa có tiền.', 'info');
@@ -31609,7 +31668,7 @@ window.rejectDonationByAdmin = function(donId) {
 
 window.deleteDonationRecord = function(donId) {
   if (!confirm('Bạn có chắc chắn muốn xóa lượt ủng hộ này khỏi Bảng Vàng không?')) return;
-  let list = getDonationsList().filter(d => d.id !== donId);
+  let list = deduplicateDonations(getDonationsList()).filter(d => d.id !== donId && String(d.id) !== String(donId));
   saveDonationsList(list);
   showToast('Đã xóa lượt ghi nhận khỏi Bảng Vàng.', 'info');
   renderApp();
