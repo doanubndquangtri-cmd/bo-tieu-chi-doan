@@ -5530,6 +5530,29 @@ body.dark-mode .master-table-fixed-banner {
   <script>
 
 
+function removeVietnameseTones(str) {
+  if (!str) return '';
+  str = String(str);
+  str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, 'a');
+  str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, 'e');
+  str = str.replace(/ì|í|ị|ỉ|ĩ/g, 'i');
+  str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, 'o');
+  str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, 'u');
+  str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, 'y');
+  str = str.replace(/đ/g, 'd');
+  str = str.replace(/À|Á|Ạ|Ả|Ã|Â|Ầ|Ấ|Ậ|Ẩ|Ẫ|Ă|Ằ|Ắ|Ặ|Ẳ|Ẵ/g, 'A');
+  str = str.replace(/È|É|Ẹ|Ẻ|Ẽ|Ê|Ề|Ế|Ệ|Ể|Ễ/g, 'E');
+  str = str.replace(/Ì|Í|Ị|Ỉ|Ĩ/g, 'I');
+  str = str.replace(/Ò|Ó|Ọ|Ỏ|Õ|Ô|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ỡ/g, 'O');
+  str = str.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, 'U');
+  str = str.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, 'Y');
+  str = str.replace(/Đ/g, 'D');
+  str = str.normalize('NFD').replace(/[̀-ͯ]/g, '');
+  return str;
+}
+window.removeVietnameseTones = removeVietnameseTones;
+
+
 window.toggleCustomTypeInput = function(val) {
   const t = document.getElementById('type-custom-name');
   if (t) {
@@ -34971,6 +34994,11 @@ window.BgMusicManager = {
   },
 
   unlockAndPlay() {
+    // Nếu người dùng đã chủ động tắt tiếng hoặc tạm dừng: TUYỆT ĐỐI không tự ý mở lại!
+    if (this.isLocallyMuted() || this.isLocallyPaused()) {
+      return;
+    }
+
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (AudioCtx) {
@@ -35058,16 +35086,16 @@ window.BgMusicManager = {
   setupAutoplayOnInteraction() {
     const realActivationEvents = ['click', 'touchstart', 'touchend', 'pointerdown', 'mousedown', 'keydown'];
     const handleUserActivation = () => {
-      if (!this.isLocallyPaused()) {
-        this.unlockAndPlay();
+      if (this.isLocallyMuted() || this.isLocallyPaused()) {
+        return;
       }
-      if (this.isGenuinelyAudible()) {
-        realActivationEvents.forEach((evt) => {
-          window.removeEventListener(evt, handleUserActivation, true);
-          document.removeEventListener(evt, handleUserActivation, true);
-        });
-        this.hasSetupInteractionListener = false;
-      }
+      this.unlockAndPlay();
+      // Ngay sau tương tác đầu tiên thành công, gỡ bỏ vĩnh viễn
+      realActivationEvents.forEach((evt) => {
+        window.removeEventListener(evt, handleUserActivation, true);
+        document.removeEventListener(evt, handleUserActivation, true);
+      });
+      this.hasSetupInteractionListener = false;
     };
 
     if (!this.hasSetupInteractionListener) {
@@ -35100,17 +35128,27 @@ window.BgMusicManager = {
 
     if (this.audio) {
       this.audio.muted = newMuted;
+      if (newMuted) {
+        this.audio.pause();
+      } else {
+        if (!this.isLocallyPaused()) {
+          this.audio.play().catch(() => {});
+        }
+      }
     }
-    if (this.ytPlayer && typeof this.ytPlayer.mute === 'function') {
-      if (newMuted) this.ytPlayer.mute(); else this.ytPlayer.unMute();
+    if (this.ytPlayer) {
+      if (newMuted) {
+        if (typeof this.ytPlayer.mute === 'function') this.ytPlayer.mute();
+        if (typeof this.ytPlayer.pauseVideo === 'function') this.ytPlayer.pauseVideo();
+      } else {
+        if (typeof this.ytPlayer.unMute === 'function') this.ytPlayer.unMute();
+        if (!this.isLocallyPaused() && typeof this.ytPlayer.playVideo === 'function') this.ytPlayer.playVideo();
+      }
     }
 
-    if (!newMuted && !this.isPlaying && !this.isLocallyPaused()) {
-      this.tryPlay();
-    }
-
+    this.isPlaying = !newMuted && !this.isLocallyPaused();
     this.updateUI();
-    showToast(newMuted ? '🔇 Đã tắt tiếng loa' : '🔊 Đã bật tiếng loa', 'info');
+    showToast(newMuted ? '🔇 Đã tắt âm thanh nhạc nền' : '🔊 Đã bật âm thanh nhạc nền', 'info');
   },
 
   setVolume(volPercent) {
@@ -35900,6 +35938,12 @@ function renderDonationsTab() {
                     <div style="font-weight:800; font-size:13.5px; color:#0f172a;">
                       🏢 ${escapeHtml(d.unit_name || '')}
                     </div>
+                    <div style="margin-top:3px; display:inline-flex; align-items:center; gap:5px; flex-wrap:wrap;">
+                      <span style="background:#ede9fe; color:#6d28d9; border:1px solid #ddd6fe; font-size:11px; font-weight:800; padding:2px 7px; border-radius:4px;" title="Mục đích nộp">
+                        🏷️ ${escapeHtml(d.keyword || 'UNGHO')}
+                      </span>
+                      ${d.add_info ? `<span style="font-size:10.5px; color:#64748b; font-family:monospace; background:#f1f5f9; padding:1px 5px; border-radius:3px;">${escapeHtml(d.add_info)}</span>` : ''}
+                    </div>
                   </td>
                   <td style="padding:10px 12px; text-align:right;">
                     <span style="font-weight:900; font-size:14.5px; color:#b45309; background:#fef3c7; padding:2px 8px; border-radius:4px; border:1px solid #fde68a;">
@@ -36000,10 +36044,46 @@ window.openDonationModal = function() {
             <input type="number" id="donation-amount-input" value="${defaultAmount}" min="10000" step="10000" oninput="updateDonationQrCode()" style="width:100%; padding:8px 10px; font-size:15px; font-weight:900; color:#b45309; border:1.5px solid #cbd5e1; border-radius:6px;" />
           </div>
 
+          <!-- MỤC ĐÍCH / TỪ KHÓA NỘI DUNG CHUYỂN KHOẢN -->
+          <div class="form-group" style="margin-bottom:14px;">
+            <label style="font-weight:800; font-size:13px; color:#1e293b; display:block; margin-bottom:5px;">
+              🎯 3. Mục đích nộp / Từ khóa chuyển khoản (*):
+            </label>
+            <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;" id="donation-kw-presets">
+              <button type="button" class="btn btn-sm donation-kw-btn active" onclick="setDonationKeyword('UNGHO')" data-kw="UNGHO" style="background:#4338ca; color:#fff; border:1px solid #4338ca; font-weight:800; font-size:11.5px; padding:5px 10px; border-radius:6px; cursor:pointer;">
+                ⚡ Ủng hộ phong trào
+              </button>
+              <button type="button" class="btn btn-sm donation-kw-btn" onclick="setDonationKeyword('UNGHOBAOLUT')" data-kw="UNGHOBAOLUT" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-weight:700; font-size:11.5px; padding:5px 10px; border-radius:6px; cursor:pointer;">
+                🌊 Ủng hộ bão lụt
+              </button>
+              <button type="button" class="btn btn-sm donation-kw-btn" onclick="setDonationKeyword('DOANPHI')" data-kw="DOANPHI" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-weight:700; font-size:11.5px; padding:5px 10px; border-radius:6px; cursor:pointer;">
+                📋 Nộp Đoàn phí
+              </button>
+              <button type="button" class="btn btn-sm donation-kw-btn" onclick="setDonationKeyword('QUYDOAN')" data-kw="QUYDOAN" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-weight:700; font-size:11.5px; padding:5px 10px; border-radius:6px; cursor:pointer;">
+                🏢 Quỹ hoạt động Đoàn
+              </button>
+              <button type="button" class="btn btn-sm donation-kw-btn" onclick="setDonationKeyword('CONGTRINH')" data-kw="CONGTRINH" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-weight:700; font-size:11.5px; padding:5px 10px; border-radius:6px; cursor:pointer;">
+                🌱 Công trình thanh niên
+              </button>
+              <button type="button" class="btn btn-sm donation-kw-btn" onclick="setDonationKeyword('TINHNGUYEN')" data-kw="TINHNGUYEN" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-weight:700; font-size:11.5px; padding:5px 10px; border-radius:6px; cursor:pointer;">
+                ❤️ Tình nguyện
+              </button>
+            </div>
+            <div style="background:#f8fafc; border:1.5px dashed #cbd5e1; border-radius:8px; padding:8px 12px; margin-bottom:4px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span style="font-weight:700; font-size:12px; color:#475569; white-space:nowrap;">Từ khóa tùy chỉnh:</span>
+                <input type="text" id="donation-keyword-input" value="UNGHO" oninput="updateDonationQrCode()" placeholder="Ví dụ: unghobaolut, doanphi, congtrinh..." style="flex:1; padding:6px 10px; font-weight:800; font-size:13px; border:1.5px solid #93c5fd; border-radius:6px; color:#1e1b4b; text-transform:uppercase; background:#fff;" />
+              </div>
+              <div style="font-size:11px; color:#64748b; margin-top:4px;">
+                💡 <i>Chọn nhanh các mục trên hoặc tự gõ từ khóa bạn muốn (ví dụ: <b>unghobaolut</b>, <b>doanphi</b>...). Hệ thống sẽ tự động ghép với đơn vị của bạn để Ban Thường vụ Tỉnh Đoàn nắm rõ bạn nộp khoản gì.</i>
+              </div>
+            </div>
+          </div>
+
           <!-- LỜI NHẮN GỬI -->
           <div class="form-group" style="margin-bottom:16px;">
             <label style="font-weight:700; font-size:12.5px; color:#1e293b; display:block; margin-bottom:4px;">
-              ✍️ 3. Lời chúc / Lời nhắn gửi động viên:
+              ✍️ 4. Lời chúc / Lời nhắn gửi động viên:
             </label>
             <input type="text" id="donation-message-input" placeholder="Ví dụ: Chúc phong trào thanh niên Đoàn khối ngày càng phát triển vững mạnh!" oninput="updateDonationQrCode()" style="width:100%; padding:8px 10px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:6px;" />
           </div>
@@ -36087,11 +36167,20 @@ window.setDonationPresetAmount = function(amt) {
   }
 };
 
+window.setDonationKeyword = function(kw) {
+  const inp = document.getElementById('donation-keyword-input');
+  if (inp) {
+    inp.value = kw;
+    updateDonationQrCode();
+  }
+};
+
 window.updateDonationQrCode = function() {
   const unitSelect = document.getElementById('donation-unit-select');
   const customBox = document.getElementById('donation-custom-name-box');
   const customNameInput = document.getElementById('donation-custom-name');
   const amountInput = document.getElementById('donation-amount-input');
+  const keywordInput = document.getElementById('donation-keyword-input');
   const messageInput = document.getElementById('donation-message-input');
   const qrImg = document.getElementById('donation-qr-img');
   const addInfoText = document.getElementById('donation-addinfo-text');
@@ -36109,11 +36198,31 @@ window.updateDonationQrCode = function() {
     unitTag = u ? ('DV' + u.id) : ('DV' + unitSelect.value);
   } else {
     const rawName = (customNameInput ? customNameInput.value.trim() : '') || 'DOAN BAN';
-    unitTag = rawName.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 10) || 'DOANBAN';
+    unitTag = removeVietnameseTones(rawName).toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 10) || 'DOANBAN';
   }
 
+  // Xử lý từ khóa tùy chỉnh của người nộp (loại bỏ dấu, chuyển HOA không khoảng trắng)
+  let rawKw = keywordInput ? keywordInput.value.trim() : 'UNGHO';
+  let cleanKeyword = removeVietnameseTones(rawKw).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!cleanKeyword) cleanKeyword = 'UNGHO';
+
+  // Highlight nút preset tương ứng nếu khớp
+  document.querySelectorAll('.donation-kw-btn').forEach(btn => {
+    if (btn.getAttribute('data-kw') === cleanKeyword) {
+      btn.style.background = '#4338ca';
+      btn.style.color = '#fff';
+      btn.style.borderColor = '#4338ca';
+      btn.style.fontWeight = '800';
+    } else {
+      btn.style.background = '#eff6ff';
+      btn.style.color = '#1d4ed8';
+      btn.style.borderColor = '#bfdbfe';
+      btn.style.fontWeight = '700';
+    }
+  });
+
   const amt = Math.max(10000, Number(amountInput.value) || 500000);
-  const addInfo = 'UNGHO ' + unitTag;
+  const addInfo = cleanKeyword + ' ' + unitTag;
 
   if (addInfoText) addInfoText.textContent = addInfo;
 
@@ -36141,13 +36250,29 @@ window.handleDonationSuccessConfirm = function() {
     unitId = u ? u.id : Number(unitSelect.value);
   }
 
+  const keywordInput = document.getElementById('donation-keyword-input');
+  let rawKw = keywordInput ? keywordInput.value.trim() : 'UNGHO';
+  let cleanKeyword = removeVietnameseTones(rawKw).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (!cleanKeyword) cleanKeyword = 'UNGHO';
+
   const amt = Math.max(10000, Number(amountInput.value) || 500000);
   const msg = (messageInput ? messageInput.value.trim() : '') || 'Đồng hành cùng hoạt động phong trào Đoàn khối UBND tỉnh';
+
+  let unitTag = 'DV';
+  if (unitSelect.value !== 'other') {
+    const u = (state.units || []).find(x => String(x.id) === String(unitSelect.value));
+    unitTag = u ? ('DV' + u.id) : ('DV' + unitSelect.value);
+  } else {
+    unitTag = removeVietnameseTones(unitName).toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 10) || 'DOANBAN';
+  }
+  const addInfo = cleanKeyword + ' ' + unitTag;
 
   const newDonation = {
     id: 'don_' + Date.now(),
     unit_id: unitId,
     unit_name: unitName,
+    keyword: cleanKeyword,
+    add_info: addInfo,
     amount: amt,
     message: msg,
     created_at: formatDateTimeVN(new Date()),
@@ -36173,7 +36298,7 @@ window.handleDonationSuccessConfirm = function() {
     sender: '👑 Ban Thường vụ Đoàn UBND Tỉnh',
     sender_role: 'admin',
     sender_id: 0,
-    text: `🏆 [BẢNG VÀNG TRI ÂN] Trân trọng cảm ơn ${unitName} đã vừa ủng hộ ${formatScore(amt)} VNĐ vào Quỹ hoạt động Đoàn UBND tỉnh! Lời nhắn: "${msg}". Toàn khối nhiệt liệt biểu dương và chúc mừng! 💐🎉`,
+    text: `🏆 [BẢNG VÀNG TRI ÂN] Trân trọng cảm ơn ${unitName} đã vừa đóng góp ${formatScore(amt)} VNĐ [${cleanKeyword} - Cú pháp: ${addInfo}] vào Quỹ hoạt động Đoàn UBND tỉnh! Lời nhắn: "${msg}". Toàn khối nhiệt liệt biểu dương và chúc mừng! 💐🎉`,
     created_at: formatDateTimeVN(new Date()),
     timestamp: Date.now()
   };
@@ -36345,7 +36470,7 @@ window.exportDonationsToExcel = function() {
     ['Tài khoản tiếp nhận: BIDV • 8806208999 • PHUNG HAI THUY'],
     ['Thời điểm xuất báo cáo: ' + formatDateTimeVN(new Date())],
     [],
-    ['STT', 'Thời Gian', 'Đoàn Cơ Sở / Đơn Vị Ủng Hộ', 'Số Tiền (VNĐ)', 'Lời Nhắn Gửi / Nội Dung', 'Trạng Thái']
+    ['STT', 'Thời Gian', 'Đoàn Cơ Sở / Đơn Vị Ủng Hộ', 'Mục Đích / Từ Khóa', 'Cú Pháp Chuyển Khoản', 'Số Tiền (VNĐ)', 'Lời Nhắn Gửi / Nội Dung', 'Trạng Thái']
   ];
 
   donations.forEach((d, i) => {
@@ -36353,6 +36478,8 @@ window.exportDonationsToExcel = function() {
       i + 1,
       d.created_at || '',
       d.unit_name || '',
+      d.keyword || 'UNGHO',
+      d.add_info || ('UNGHO ' + (d.unit_id ? ('DV' + d.unit_id) : '')),
       Number(d.amount) || 0,
       d.message || '',
       'Đã tiếp nhận thành công'
@@ -36375,15 +36502,13 @@ window.exportDonationsToExcel = function() {
 if (typeof window !== 'undefined') {
   const realActivationEvents = ['click', 'touchstart', 'touchend', 'pointerdown', 'mousedown', 'keydown'];
   const triggerAppInstantAudio = () => {
-    if (window.BgMusicManager && !window.BgMusicManager.isLocallyPaused()) {
+    if (window.BgMusicManager && !window.BgMusicManager.isLocallyPaused() && !window.BgMusicManager.isLocallyMuted()) {
       window.BgMusicManager.unlockAndPlay();
     }
-    if (window.BgMusicManager && window.BgMusicManager.isGenuinelyAudible()) {
-      realActivationEvents.forEach((evt) => {
-        window.removeEventListener(evt, triggerAppInstantAudio, true);
-        document.removeEventListener(evt, triggerAppInstantAudio, true);
-      });
-    }
+    realActivationEvents.forEach((evt) => {
+      window.removeEventListener(evt, triggerAppInstantAudio, true);
+      document.removeEventListener(evt, triggerAppInstantAudio, true);
+    });
   };
   realActivationEvents.forEach((evt) => {
     window.addEventListener(evt, triggerAppInstantAudio, { passive: true, capture: true });
