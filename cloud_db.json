@@ -3998,16 +3998,6 @@
       "admin_note": ""
     },
     {
-      "unit_id": 1,
-      "criterion_id": 161,
-      "score": null,
-      "approval_status": "rejected",
-      "updated_by": "admin",
-      "submitted_at": "2026-11-16 20:30:01",
-      "report_content": "",
-      "evidence_link": ""
-    },
-    {
       "unit_id": 3,
       "criterion_id": 161,
       "score": 3,
@@ -4182,40 +4172,6 @@
       "approval_status": "approved",
       "updated_by": "admin",
       "submitted_at": "2026-11-16 16:12:25"
-    },
-    {
-      "unit_id": 1,
-      "criterion_id": 165,
-      "score": null,
-      "quantity": 1,
-      "self_score": 5,
-      "approval_status": "rejected",
-      "report_content": "",
-      "evidence_link": "",
-      "file_name": "",
-      "file_path": "",
-      "submitted_at": "2026-11-17 08:37:18",
-      "submitted_date": "2026-11-17",
-      "is_on_time": 1,
-      "updated_by": "admin",
-      "admin_note": ""
-    },
-    {
-      "unit_id": 2,
-      "criterion_id": 165,
-      "score": null,
-      "quantity": 1,
-      "self_score": 4,
-      "approval_status": "rejected",
-      "report_content": "",
-      "evidence_link": "",
-      "file_name": "",
-      "file_path": "",
-      "submitted_at": "2026-11-17 08:38:10",
-      "submitted_date": "2026-11-17",
-      "is_on_time": 1,
-      "updated_by": "admin",
-      "admin_note": ""
     }
   ],
   "sample_scores": [],
