@@ -4586,10 +4586,11 @@ function renderHeader() {
   const totalBadgeCount = isGuest ? 0 : getTotalBadgeCount();
   const unreadNotifCount = isGuest ? 0 : getUnreadNotificationCount();
   const unreadChatCount = (isGuest || typeof getTotalUnreadChatCount !== 'function') ? 0 : getTotalUnreadChatCount();
+  const isDonationsActive = state.activeTab === 'donations';
 
   return `
 
-    <header class="app-header" style="background: linear-gradient(135deg, #003380 0%, #0052cc 100%); color: #fff; padding: 4px 12px; min-height: 46px; height: auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: sticky; top: 0; z-index: 1000 !important;">
+    <header class="app-header" style="background: linear-gradient(135deg, #003380 0%, #0052cc 100%); color: #fff; padding: 6px 14px; min-height: 50px; height: auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.18); position: sticky; top: 0; z-index: 1000 !important;">
 
       <!-- BÊN TRÁI: LOGO VÀ TIÊU ĐỀ HỆ THỐNG -->
 
@@ -4597,7 +4598,7 @@ function renderHeader() {
 
         <div style="display: inline-flex; align-items: center; justify-content: center; margin-right: 8px; flex-shrink: 0;">
 
-          <img src="${LOGO_DOAN_SRC}" alt="Huy hiệu Đoàn" class="youth-badge" style="width:38px; height:38px; object-fit:contain; border:none; background:transparent; padding:0; display:block; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.2));" />
+          <img src="${LOGO_DOAN_SRC}" alt="Huy hiệu Đoàn" class="youth-badge" style="width:38px; height:38px; object-fit:contain; border:none; background:transparent; padding:0; display:block; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25));" />
 
         </div>
 
@@ -4621,35 +4622,34 @@ function renderHeader() {
 
       </div>
 
-
-
-      <!-- CÁC NÚT THAO TÁC CỐ ĐỊNH TRỰC TIẾP TRÊN THANH HEADER (CÙNG HÀNG VỚI THÔNG BÁO, KHÔNG BỊ CUỘN HAY ĐÓNG KHUÔN) -->
-
-      <div class="header-actions" style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap; flex-shrink: 1; flex: 1 1 auto; justify-content: flex-end; overflow: visible; background: transparent; border: none; padding: 0;">
-
-        <!-- CHUÔNG THÔNG BÁO CHO ADMIN & CÁC ĐƠN VỊ (ẨN HOÀN TOÀN Ở TÀI KHOẢN KHÁCH XEM) -->
+      <!-- CỤM 3 TÍNH NĂNG TƯƠNG TÁC CHÍNH ĐƯỢC ĐƯA LÊN TRÊN RỘNG RÃI & NỔI BẬT: THÔNG BÁO - BẢNG VÀNG - TRAO ĐỔI ĐOÀN -->
+      <div class="header-featured-hub" style="display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0;">
         ${!isGuest ? `
-          ${renderPushNotificationHeaderButton()}
-
           <div class="notification-bell-container" id="notif-bell-container" style="position: relative; flex-shrink: 0; z-index: 999999 !important;">
-            <button class="btn btn-sm notification-bell-btn" onclick="toggleNotificationPanel(event)" style="font-size:11px; padding:3px 7px; height:27px;">
-              🔔 <span style="font-weight:700;">Thông báo</span>
-              ${unreadNotifCount > 0 ? `<span class="notification-badge">${unreadNotifCount > 99 ? '99+' : unreadNotifCount}</span>` : ''}
+            <button class="hub-btn hub-btn-notif" onclick="toggleNotificationPanel(event)" title="Xem thông báo hệ thống và văn bản chỉ đạo mới">
+              <span style="font-size:14px;">🔔</span>
+              <span>Thông báo</span>
+              ${unreadNotifCount > 0 ? `<span class="notification-badge" style="background:#ef4444; color:#fff; font-size:10px; font-weight:800; padding:1px 6px; border-radius:10px; margin-left:2px; box-shadow:0 0 6px rgba(239,68,68,0.8);">${unreadNotifCount > 99 ? '99+' : unreadNotifCount}</span>` : ''}
             </button>
             ${state.notificationsOpen ? renderNotificationDropdown() : ''}
           </div>
         ` : ''}
 
-        <button class="btn btn-sm" onclick="setTab('donations')" title="Bảng Vàng Vinh Danh & Quét Mã Ủng Hộ Đoàn" style="background: linear-gradient(135deg, #d97706 0%, #b45309 100%); color:#fff; border: 1.5px solid #fde047; font-size:11px; padding:3px 9px; font-weight:800; display:inline-flex; align-items:center; gap:4px; box-shadow:0 0 10px rgba(245,158,11,0.5); cursor:pointer; border-radius:5px; height:27px;">
-          <span>💛</span>
+        <button class="hub-btn hub-btn-gold ${isDonationsActive ? 'active' : ''}" onclick="setTab('donations')" title="Bảng Vàng Vinh Danh & Quét Mã Ủng Hộ Đoàn UBND Tỉnh">
+          <span style="font-size:14px;">💛</span>
           <span>Bảng Vàng Ủng Hộ</span>
         </button>
 
-        <button class="btn btn-sm" onclick="toggleChatWidget()" title="Bấm để mở ô Trao Đổi Đoàn giữa các đơn vị và Ban Thường vụ Tỉnh" style="background: linear-gradient(135deg, #0284c7 0%, #0052cc 100%); color: #fff; border: 1px solid rgba(255,255,255,0.4); font-size: 11px; padding: 3px 8px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); cursor: pointer; border-radius: 5px; height:27px;">
-          <span>💬</span>
+        <button class="hub-btn hub-btn-chat" onclick="toggleChatWidget()" title="Bấm để mở ô Trao Đổi Đoàn giữa các đơn vị và Ban Thường vụ Tỉnh">
+          <span style="font-size:14px;">💬</span>
           <span>Trao Đổi Đoàn</span>
-          ${(!isGuest && unreadChatCount > 0) ? `<span style="background:#ef4444; color:#fff; font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:10px; margin-left:2px;">${unreadChatCount > 99 ? '99+' : unreadChatCount}</span>` : ''}
+          ${(!isGuest && unreadChatCount > 0) ? `<span style="background:#ef4444; color:#fff; font-size:10px; font-weight:800; padding:1px 6px; border-radius:10px; margin-left:2px; box-shadow:0 0 6px rgba(239,68,68,0.8);">${unreadChatCount > 99 ? '99+' : unreadChatCount}</span>` : ''}
         </button>
+      </div>
+
+      <!-- CÁC NÚT THAO TÁC TIỆN ÍCH QUẢN TRỊ & HỆ THỐNG -->
+
+      <div class="header-actions" style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap; flex-shrink: 1; flex: 1 1 auto; justify-content: flex-end; overflow: visible; background: transparent; border: none; padding: 0;">
 
         <button class="btn btn-sm btn-outline" onclick="syncFromCloudNow(false)" style="background:rgba(255,255,255,0.15); color:#fff; border-color:rgba(255,255,255,0.3); font-size:11px; padding:3px 7px; height:27px;" title="Tải dữ liệu mới nhất từ đám mây">
           🔄 Đồng bộ
@@ -5103,9 +5103,6 @@ function renderNavTabs() {
         <div class="nav-tab ${state.activeTab === 'ranking' ? 'active' : ''}" onclick="setTab('ranking')" title="Bảng Xếp Hạng Thi Đua Toàn Khối">
           🏆 Bảng Xếp Hạng
         </div>
-        <div class="nav-tab ${state.activeTab === 'donations' ? 'active' : ''}" onclick="setTab('donations')" title="Bảng Vàng Tri Ân & Đồng Hành Cùng Đoàn UBND Tỉnh" style="${state.activeTab === 'donations' ? 'background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; color:#fff !important; font-weight:800;' : 'color:#b45309; font-weight:700;'}">
-          💛 Bảng Vàng Đồng Hành
-        </div>
         <div class="nav-tab ${state.activeTab === 'master' ? 'active' : ''}" onclick="setTab('master')" title="Bảng Tổng Hợp Chấm Điểm 40 Cơ Sở Đoàn">
           📋 Bảng Tổng Hợp
         </div>
@@ -5147,9 +5144,6 @@ function renderNavTabs() {
         </div>
         <div class="nav-tab ${state.activeTab === 'unit_submit' ? 'active' : ''}" onclick="setTab('unit_submit')">
           📤 Nộp Báo Cáo & Tiêu Chí
-        </div>
-        <div class="nav-tab ${state.activeTab === 'donations' ? 'active' : ''}" onclick="setTab('donations')" title="Bảng Vàng Tri Ân & Đồng Hành Cùng Đoàn UBND Tỉnh" style="${state.activeTab === 'donations' ? 'background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important; color:#fff !important; font-weight:800;' : 'color:#b45309; font-weight:700;'}">
-          💛 Bảng Vàng Đồng Hành
         </div>
         <div class="nav-tab ${state.activeTab === 'master' ? 'active' : ''}" onclick="setTab('master')">
           📋 Bảng Tổng Hợp Chấm Điểm
