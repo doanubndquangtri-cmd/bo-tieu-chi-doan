@@ -1799,6 +1799,10 @@ async function uploadFileToCloud(fileDataB64, origName, unitId, critId, onProgre
 let _cloudDBQueue = Promise.resolve();
 
 function mutateCloudDB(mutatorFn, commitMsg = 'Update data') {
+  if (state.user && state.user.role === 'guest') {
+    console.warn('[Security] mutateCloudDB rejected: Guest role is strictly read-only.');
+    return Promise.resolve(null);
+  }
   const task = async () => {
     state.isSyncing = true;
     for (let attempt = 0; attempt < 6; attempt++) {
@@ -2912,7 +2916,7 @@ function renderApp() {
 
           <span style="font-size:16px;">👀</span>
 
-          <span><b>Tài khoản Khách xem:</b> Bạn đang xem Bảng Tổng Hợp Chấm Điểm của 40 cơ sở Đoàn ở chế độ <b>Chỉ Xem (Read-only)</b>, không có quyền chỉnh sửa, thêm, xóa dữ liệu.</span>
+          <span><b>Tài khoản Khách (Chỉ Xem):</b> Bạn có thể xem toàn bộ bảng xếp hạng, báo cáo, sao kê Bảng Vàng, nghe nhạc và dán link nhạc. Mọi thao tác nộp bài, chuyển khoản hoặc thay đổi dữ liệu đều bị khóa an toàn.</span>
 
         </div>
 
@@ -3589,6 +3593,13 @@ window.switchAccountQuick = function (val) {
 // =========================================================================
 // HỆ THỐNG THÔNG BÁO VÀ HUY HIỆU LOGO (BADGING SYSTEM)
 // =========================================================================
+
+function showGuestReadOnlyNotice(actionName) {
+  if (typeof showToast === 'function') {
+    showToast(`🔒 <b>Chế độ Khách (Chỉ Xem):</b> Bạn không thể ${actionName || 'thao tác'}. Mọi tính năng chỉnh sửa, nộp bài, chuyển khoản chỉ dành cho tài khoản Đơn vị hoặc Admin!`, 'warning');
+  }
+}
+window.showGuestReadOnlyNotice = showGuestReadOnlyNotice;
 
 function isNotificationForUser(n, user) {
   if (!user || !n || user.role === 'guest') return false;
@@ -7052,6 +7063,10 @@ window.rescanSubmissionKeywords = async function(unitId, critId) {
 };
 
 window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
+  if (state.user && state.user.role === 'guest') {
+    showGuestReadOnlyNotice('nộp bài hoặc gửi minh chứng');
+    return;
+  }
 
   const unitId = forUnitId || state.user.id;
 
@@ -7690,6 +7705,10 @@ function readFileAsDataURL(file) {
 
 
 window.submitUnitCriterion = async function (unitId, criterionId) {
+  if (state.user && state.user.role === 'guest') {
+    showGuestReadOnlyNotice('nộp bài hoặc gửi minh chứng');
+    return;
+  }
   const crit = state.criteria.find(c => c.id === criterionId);
   if (!crit) {
     showToast('Không tìm thấy tiêu chí!', 'error');
@@ -16091,6 +16110,10 @@ window.resetAllEvaluationData = async function() {
 
 // HỘP THOẠI CHỈNH SỬA TOÀN DIỆN THÔNG TIN VĂN BẢN (SỐ/KÝ HIỆU, NGÀY BAN HÀNH, LOẠI, TRÍCH YẾU)
 window.openEditAdminDocModal = function (docId) {
+  if (state.user && state.user.role === 'guest') {
+    showGuestReadOnlyNotice('chỉnh sửa thông tin văn bản');
+    return;
+  }
   const doc = (state.admin_docs || []).find((d) => String(d.id) === String(docId));
   if (!doc) {
     showToast('Không tìm thấy thông tin văn bản cần chỉnh sửa!', 'error');
@@ -17059,6 +17082,10 @@ function renderNotificationDropdown() {
 // DUYỆT BÀI NỘP VÀ XÁC NHẬN CHẤM ĐIỂM (ADMIN - Ảnh 1)
 
 window.approveUnitSubmission = async function(unitId, critId, scoreVal) {
+  if (state.user && state.user.role === 'guest') {
+    showGuestReadOnlyNotice('duyệt bài');
+    return;
+  }
 
   const unit = state.units.find(u => u.id === unitId);
 
@@ -17302,6 +17329,10 @@ window.openRejectSubmissionModal = function(unitId, critId) {
 // XÁC NHẬN TỪ CHỐI BÀI NỘP & GỬI THÔNG BÁO KHÔNG DUYỆT (Ảnh 1)
 
 window.confirmRejectUnitSubmission = async function(unitId, critId) {
+  if (state.user && state.user.role === 'guest') {
+    showGuestReadOnlyNotice('từ chối bài');
+    return;
+  }
 
   const unit = state.units.find(u => u.id === unitId);
 
@@ -19420,6 +19451,10 @@ window.onChatFilePicked = async function(input) {
 // GỬI TIN NHẮN VĂN BẢN TRONG CHAT
 
 window.sendChatMessage = async function() {
+  if (state.user && state.user.role === 'guest') {
+    showGuestReadOnlyNotice('gửi tin nhắn trao đổi');
+    return;
+  }
 
   const input = document.getElementById('chat-input-field');
 
@@ -26958,6 +26993,82 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
 const LIVE_REALTIME_TOPIC = 'doan-ubnd-quangtri-live-sync-2026';
 let _liveEventSource = null;
 
+// XỬ LÝ SỰ KIỆN NỘP TIỀN THỜI GIAN THỰC TỨC THÌ (0.05 GIÂY) CHO ADMIN
+function handleLiveDonationPending(payload) {
+  if (!state.user || state.user.role !== 'admin') return;
+  if (!payload || !payload.donation) return;
+
+  const don = payload.donation;
+  const uName = payload.unitName || don.unit_name || 'Một đơn vị';
+  const uAmt = payload.amount ? (typeof formatMoneyVN === 'function' ? formatMoneyVN(payload.amount) : payload.amount) : (typeof formatMoneyVN === 'function' ? formatMoneyVN(don.amount || 0) : '0');
+
+  // 1. Đưa ngay vào state.donations nếu chưa có (cập nhật nóng tại chỗ, không đợi git)
+  if (!state.donations) state.donations = [];
+  const existsDon = state.donations.some(d => d.id === don.id);
+  if (!existsDon) {
+    state.donations.unshift(don);
+    try {
+      localStorage.setItem('doan2026_donations_list', JSON.stringify(state.donations));
+    } catch(e) {}
+  }
+
+  // 2. Đưa ngay vào state.notifications nếu chưa có
+  if (!state.notifications) state.notifications = [];
+  const existsNotif = state.notifications.some(n => n.donation_id === don.id);
+  if (!existsNotif) {
+    state.notifications.unshift({
+      id: 'notif_don_pend_' + don.id,
+      type: 'donation_pending',
+      donation_id: don.id,
+      target_role: 'admin',
+      title: `💰 [BẢNG VÀNG] ${uName} vừa nộp tiền!`,
+      message: `${uName} vừa nộp ${uAmt} VNĐ (${don.add_info || ''}). Bấm để vào Bảng Vàng đối soát ngân hàng và duyệt tiền.`,
+      unit_id: don.unit_id,
+      unit_name: uName,
+      amount: don.amount,
+      created_at: don.created_at || (typeof formatDateTimeVN === 'function' ? formatDateTimeVN(new Date()) : new Date().toLocaleString('vi-VN')),
+      submitted_at: don.created_at || (typeof formatDateTimeVN === 'function' ? formatDateTimeVN(new Date()) : new Date().toLocaleString('vi-VN')),
+      timestamp: Date.now(),
+      read: false,
+      url: './#donations'
+    });
+  }
+
+  // 3. Chuông reo & rung
+  if (window.playNotificationChime) window.playNotificationChime();
+  if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    try { navigator.vibrate([150, 80, 150]); } catch(e) {}
+  }
+
+  // 4. Toast nổi với nút xem duyệt ngay
+  if (typeof showToast === 'function') {
+    showToast(`💰 <b>${escapeHtml(uName)}</b> vừa nộp ${uAmt}đ! <button type="button" onclick="setTab('donations')" style="color:#fde047; font-weight:800; background:none; border:none; text-decoration:underline; cursor:pointer; margin-left:6px;">👉 Xem duyệt ngay</button>`, 'info');
+  }
+
+  // 5. Cập nhật ngay tức thì toàn bộ UI (đổi số huy hiệu chờ duyệt trên Menu Bảng Vàng trong 0.05s!)
+  renderApp();
+
+  // 6. Cập nhật Taskbar badge / PWA badge
+  if (typeof updateSystemAppBadge === 'function') {
+    updateSystemAppBadge(getTotalBadgeCount() + 1);
+  }
+
+  // 7. Desktop Native Notification nếu tab đang ẩn hoặc minimize
+  if (window.WebPushManager && window.WebPushManager.showLocalNativeNotification) {
+    window.WebPushManager.showLocalNativeNotification(
+      `💰 [BẢNG VÀNG] ${uName} vừa nộp ${uAmt}đ`,
+      `Cơ sở Đoàn vừa bấm nộp ${uAmt}đ. Bấm để vào duyệt tiền ngay.`,
+      './#donations'
+    );
+  }
+
+  // 8. Đẩy đồng bộ ngầm
+  if (typeof window.syncFromCloudNow === 'function') {
+    window.syncFromCloudNow(true).catch(() => {});
+  }
+}
+window.handleLiveDonationPending = handleLiveDonationPending;
+
 window.broadcastLiveEvent = function(type, data) {
   try {
     // 1. Gửi qua BroadcastChannel nội bộ (các tab cùng máy)
@@ -26969,7 +27080,16 @@ window.broadcastLiveEvent = function(type, data) {
       } catch (eBc) {}
     }
 
-    // 2. Gửi qua ntfy.sh Realtime PubSub (xuyên suốt các thiết bị khác nhau qua Internet trong 0.05 giây)
+    // 2. Gửi qua localStorage storage event (tức thời giữa các cửa sổ)
+    try {
+      localStorage.setItem('doan2026_live_event_bridge', JSON.stringify({
+        type: type,
+        payload: data,
+        ts: Date.now()
+      }));
+    } catch(eLs) {}
+
+    // 3. Gửi qua ntfy.sh Realtime PubSub (xuyên suốt các thiết bị khác nhau qua Internet trong 0.05 giây)
     fetch(`https://ntfy.sh/${LIVE_REALTIME_TOPIC}`, {
       method: 'POST',
       headers: { 'Title': type, 'Priority': 'high' },
@@ -27002,17 +27122,9 @@ window.initRealtimeLiveBridge = function() {
         if (evt.type === 'CHAT_MSG' && evt.payload) {
           handleIncomingRealtimeChat(evt.payload);
         } else if (evt.type === 'DONATION_PENDING_SUBMITTED') {
-          // CHỈ MÁY NÀO ĐANG ĐĂNG NHẬP ADMIN MỚI NHẬN THÔNG BÁO NÀY
-          if (state.user && state.user.role === 'admin') {
-            if (window.playNotificationChime) window.playNotificationChime();
-            const uName = (evt.payload && evt.payload.unitName) || 'Một đơn vị';
-            const uAmt = (evt.payload && evt.payload.amount) ? (typeof formatMoneyVN === 'function' ? formatMoneyVN(evt.payload.amount) : evt.payload.amount) : '0';
-            if (typeof showToast === 'function') {
-              showToast(`💰 <b>${escapeHtml(uName)}</b> vừa nộp ${uAmt}đ! <button type="button" onclick="setTab('donations')" style="color:#fde047; font-weight:800; background:none; border:none; text-decoration:underline; cursor:pointer; margin-left:6px;">👉 Xem duyệt ngay</button>`, 'info');
-            }
-            if (typeof window.syncFromCloudNow === 'function') {
-              window.syncFromCloudNow(true);
-            }
+          // CẬP NHẬT NGAY TỨC THÌ (0.05 GIÂY) CHO MÁY ADMIN
+          if (window.handleLiveDonationPending) {
+            window.handleLiveDonationPending(evt.payload);
           }
         } else if (evt.type === 'REPORT_SUBMITTED' || evt.type === 'NEW_CRITERIA' || evt.type === 'ADMIN_DOC' || evt.type === 'PROOF_APPROVED' || evt.type === 'PROOF_REJECTED' || evt.type === 'MARQUEE_ANNOUNCEMENT' || evt.type === 'DONATION_RECEIVED') {
           if (window.playNotificationChime) window.playNotificationChime();
@@ -27068,7 +27180,9 @@ window.initRealtimeLiveBridge = function() {
     try {
       const bcListen = new BroadcastChannel('doan_live_channel');
       bcListen.onmessage = function(e) {
-        if (e.data && e.data.type === 'CHAT_MSG' && e.data.data) {
+        if (e.data && e.data.type === 'DONATION_PENDING_SUBMITTED') {
+          if (window.handleLiveDonationPending) window.handleLiveDonationPending(e.data.data);
+        } else if (e.data && e.data.type === 'CHAT_MSG' && e.data.data) {
           handleIncomingRealtimeChat(e.data.data);
         } else if (e.data && (e.data.type === 'REPORT_SUBMITTED' || e.data.type === 'NEW_CRITERIA' || e.data.type === 'ADMIN_DOC' || e.data.type === 'PROOF_APPROVED' || e.data.type === 'PROOF_REJECTED')) {
           if (typeof window.syncFromCloudNow === 'function') window.syncFromCloudNow(true);
@@ -27140,6 +27254,10 @@ if (window.initRealtimeLiveBridge) {
 
 // --- ADMIN MODAL NHẬP NỘI DUNG CHO TIÊU CHÍ NỘI DUNG TRỐNG ---
 window.openAdminEditBlankContentModal = function (unitId, critId) {
+  if (state.user && state.user.role === 'guest') {
+    showGuestReadOnlyNotice('nhập nội dung báo cáo');
+    return;
+  }
   const u = (state.units || []).find(x => x.id === unitId);
   const c = (state.criteria || []).find(x => x.id === critId);
   if (!u || !c) return;
@@ -30840,6 +30958,10 @@ window.toggleDonationMarquee = function(enable) {
 // - ĐƠN VỊ CỐ ĐỊNH THEO TÀI KHOẢN ĐĂNG NHẬP (KHÔNG CẦN CHỌN)
 // - BỎ HẲN MỤC 4 (LỜI NHẮN) VÀ MỤC 5 (MÃ GIAO DỊCH) THEO YÊU CẦU
 window.openDonationModal = function() {
+  if (state.user && state.user.role === 'guest') {
+    showGuestReadOnlyNotice('chuyển khoản ủng hộ');
+    return;
+  }
   const modalRoot = document.getElementById('modal-root');
   if (!modalRoot) return;
 
@@ -31836,10 +31958,17 @@ function renderDonationsTab() {
           </div>
 
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <button type="button" class="btn btn-lg" onclick="openDonationModal()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color:#fff; border: 1.5px solid #fde047; font-weight:900; font-size:13.5px; padding:10px 18px; border-radius:8px; cursor:pointer; box-shadow:0 0 14px rgba(245,158,11,0.5); display:inline-flex; align-items:center; gap:6px;">
-              <span>💖</span>
-              <span>ỦNG HỘ ĐOÀN (QUÉT VIETQR)</span>
-            </button>
+            ${isGuest ? `
+              <button type="button" class="btn btn-lg" onclick="showGuestReadOnlyNotice('chuyển khoản ủng hộ')" style="background: rgba(255,255,255,0.18); color: #e2e8f0; border: 1.5px solid rgba(255,255,255,0.35); font-weight: 700; font-size: 13px; padding: 10px 16px; border-radius: 8px; cursor: not-allowed; display: inline-flex; align-items: center; gap: 6px;" title="Chế độ Khách: Chỉ xem sao kê công khai">
+                <span>🔒</span>
+                <span>Ủng Hộ Đoàn (Chỉ Xem)</span>
+              </button>
+            ` : `
+              <button type="button" class="btn btn-lg" onclick="openDonationModal()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color:#fff; border: 1.5px solid #fde047; font-weight:900; font-size:13.5px; padding:10px 18px; border-radius:8px; cursor:pointer; box-shadow:0 0 14px rgba(245,158,11,0.5); display:inline-flex; align-items:center; gap:6px;">
+                <span>💖</span>
+                <span>ỦNG HỘ ĐOÀN (QUÉT VIETQR)</span>
+              </button>
+            `}
 
             <button type="button" class="btn btn-sm btn-outline" onclick="exportDonationsToExcel()" style="background:rgba(255,255,255,0.18); color:#fff; border:1px solid rgba(255,255,255,0.4); font-weight:700; font-size:12px; padding:9px 13px; border-radius:8px; cursor:pointer;" title="Xuất dữ liệu sao kê ra file Excel hoặc CSV">
               📊 Xuất Sao Kê Excel
