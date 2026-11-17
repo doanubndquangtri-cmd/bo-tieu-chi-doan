@@ -1909,15 +1909,29 @@ function ingestCloudDB(db) {
 
   state.cloudDB = db;
   // Hợp nhất tin nhắn Cloud DB và bộ nhớ đệm cục bộ không để mất bất kỳ tin nào
-  const cloudMsgs = Array.isArray(db.chat_messages) ? db.chat_messages : [];
+  const clearedAtMap = (db && db.chat_cleared_at) || {};
+  const isMsgGloballyCleared = (m) => {
+    if (!m) return true;
+    const rKey = m.room || 'public';
+    const clearedTime = Number(clearedAtMap[rKey]) || Number(clearedAtMap['all']) || 0;
+    if (clearedTime > 0) {
+      const mTime = getMsgTimestamp(m);
+      if (mTime > 0 && mTime <= clearedTime) return true;
+    }
+    return false;
+  };
+
+  const cloudMsgs = (Array.isArray(db.chat_messages) ? db.chat_messages : []).filter(m => !isMsgGloballyCleared(m));
   let localMsgs = [];
   try {
     const rawLocal = localStorage.getItem('doan2026_local_chat_messages');
     if (rawLocal) localMsgs = JSON.parse(rawLocal) || [];
   } catch (e) {}
   if (!Array.isArray(localMsgs)) localMsgs = [];
+  localMsgs = localMsgs.filter(m => !isMsgGloballyCleared(m));
+
   const msgMap = new Map();
-  (state.chatMessages || []).forEach(m => { if (m && m.id) msgMap.set(m.id, m); });
+  (state.chatMessages || []).filter(m => !isMsgGloballyCleared(m)).forEach(m => { if (m && m.id) msgMap.set(m.id, m); });
   localMsgs.forEach(m => { if (m && m.id) msgMap.set(m.id, m); });
   cloudMsgs.forEach(m => { if (m && m.id) msgMap.set(m.id, m); });
   const mergedMsgs = Array.from(msgMap.values()).sort((a, b) => getMsgTimestamp(a) - getMsgTimestamp(b));
@@ -2498,25 +2512,16 @@ function getRankings() {
     let criteriaCount = 0;
 
     for (const c of state.criteria) {
-
       const sc = getScoreObj(u.id, c.id);
-
-      if (sc && sc.score !== null && sc.score !== '') {
-
+      const isRejected = sc && sc.approval_status === 'rejected';
+      const numScore = (sc && sc.score !== null && sc.score !== '' && !isRejected) ? Number(sc.score) : 0;
+      if (numScore > 0) {
         criteriaCount++;
-
-        const hasFiles = (sc.files && sc.files.length > 0) || !!sc.file_path || !!sc.file_name || !!sc.evidence_link || !!sc.report_content;
-
-        const hasScore = Number(sc.score) > 0;
-
-        if (Number(c.is_report) === 1 && (hasScore || hasFiles)) {
-
-          reportsDone++;
-
-        }
-
       }
-
+      const hasFiles = sc && ((sc.files && sc.files.length > 0) || !!sc.file_path || !!sc.file_name || !!sc.evidence_link || !!sc.report_content);
+      if (Number(c.is_report) === 1 && (numScore > 0 || hasFiles)) {
+        reportsDone++;
+      }
     }
 
     return { unit: u, total, reportsDone, criteriaCount };
@@ -18536,43 +18541,51 @@ window.unhideClearedChatForMe = function(myKey, roomKey) {
 
 
 window.clearChatForAll = async function(roomKey) {
-
   closeModal();
-
   const isAdmin = state.user && state.user.role === 'admin';
-
   if (!isAdmin) return;
 
-  const ok = confirm('CẢNH BÁO: Bạn có chắc chắn muốn XÓA VĨNH VIỄN toàn bộ tin nhắn trên máy chủ không?\n\nSau khi xóa, tất cả các bên (cả Admin và các cơ sở Đoàn) đều sẽ bị xóa sạch toàn bộ dữ liệu.');
-
+  const roomTitle = roomKey === 'public' ? 'Chat Chung Toàn Khối' : (roomKey.startsWith('private_') ? 'Chat Riêng Tư' : roomKey);
+  const ok = confirm(`CẢNH BÁO BAN THƯỜNG VỤ:\n\nBạn có chắc chắn muốn XÓA SẠCH VĨNH VIỄN toàn bộ tin nhắn trong "${roomTitle}" cho TOÀN BỘ HỆ THỐNG không?\n\nSau khi bấm xác nhận, lịch sử tin nhắn cũ sẽ được xóa sạch trên tất cả các máy (cả Ban Thường vụ và 40 cơ sở Đoàn) để bắt đầu phiên trao đổi mới.`);
   if (!ok) return;
-
-
 
   showToast('Đang xóa toàn bộ lịch sử trò chuyện trên máy chủ...', 'info');
 
+  const nowTs = Date.now();
+  // Xóa ngay lập tức trên máy cục bộ
+  state.chatMessages = (state.chatMessages || []).filter(m => !isMsgInRoom(m, roomKey));
+  try {
+    const raw = localStorage.getItem('doan2026_local_chat_messages');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        const remaining = parsed.filter(m => !isMsgInRoom(m, roomKey));
+        localStorage.setItem('doan2026_local_chat_messages', JSON.stringify(remaining));
+      }
+    }
+    // Xóa cờ ẩn riêng nếu có
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('doan2026_chat_cleared_') && k.includes(roomKey)) {
+        localStorage.removeItem(k);
+      }
+    }
+  } catch(e) {}
+
+  renderApp();
+
   const res = await mutateCloudDB(db => {
-
     db.chat_messages = (db.chat_messages || []).filter(m => !isMsgInRoom(m, roomKey));
-
+    db.chat_cleared_at = db.chat_cleared_at || {};
+    db.chat_cleared_at[roomKey] = nowTs;
   }, `Clear chat history for ${roomKey}`);
 
-
-
   if (res.ok) {
-
-    state.chatMessages = (state.chatMessages || []).filter(m => !isMsgInRoom(m, roomKey));
-
-    showToast('🎉 Đã xóa vĩnh viễn toàn bộ lịch sử trên máy chủ!', 'success');
-
+    showToast('🎉 Đã xóa sạch toàn bộ tin nhắn toàn khối cho cả hệ thống!', 'success');
     renderApp();
-
   } else {
-
     showToast('Lỗi khi xóa lịch sử chat trên máy chủ!', 'error');
-
   }
-
 };
 
 

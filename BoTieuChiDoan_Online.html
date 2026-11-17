@@ -7355,15 +7355,29 @@ function ingestCloudDB(db) {
 
   state.cloudDB = db;
   // Hợp nhất tin nhắn Cloud DB và bộ nhớ đệm cục bộ không để mất bất kỳ tin nào
-  const cloudMsgs = Array.isArray(db.chat_messages) ? db.chat_messages : [];
+  const clearedAtMap = (db && db.chat_cleared_at) || {};
+  const isMsgGloballyCleared = (m) => {
+    if (!m) return true;
+    const rKey = m.room || 'public';
+    const clearedTime = Number(clearedAtMap[rKey]) || Number(clearedAtMap['all']) || 0;
+    if (clearedTime > 0) {
+      const mTime = getMsgTimestamp(m);
+      if (mTime > 0 && mTime <= clearedTime) return true;
+    }
+    return false;
+  };
+
+  const cloudMsgs = (Array.isArray(db.chat_messages) ? db.chat_messages : []).filter(m => !isMsgGloballyCleared(m));
   let localMsgs = [];
   try {
     const rawLocal = localStorage.getItem('doan2026_local_chat_messages');
     if (rawLocal) localMsgs = JSON.parse(rawLocal) || [];
   } catch (e) {}
   if (!Array.isArray(localMsgs)) localMsgs = [];
+  localMsgs = localMsgs.filter(m => !isMsgGloballyCleared(m));
+
   const msgMap = new Map();
-  (state.chatMessages || []).forEach(m => { if (m && m.id) msgMap.set(m.id, m); });
+  (state.chatMessages || []).filter(m => !isMsgGloballyCleared(m)).forEach(m => { if (m && m.id) msgMap.set(m.id, m); });
   localMsgs.forEach(m => { if (m && m.id) msgMap.set(m.id, m); });
   cloudMsgs.forEach(m => { if (m && m.id) msgMap.set(m.id, m); });
   const mergedMsgs = Array.from(msgMap.values()).sort((a, b) => getMsgTimestamp(a) - getMsgTimestamp(b));
@@ -7835,134 +7849,16 @@ function getUnitTotalScore(unitId) {
   let sum = 0;
 
   for (const c of state.criteria) {
-
-    const sc = getScoreObj(unitId, c.id);
-
-    if (sc && sc.score !== null && sc.score !== undefined && sc.score !== '' && !isNaN(Number(sc.score))) {
-
-      sum += Number(sc.score);
-
-    }
-
-  }
-
-  return Math.round(sum * 100) / 100;
-
-}
-
-
-
-function getUnitMonthScore(unitId, monthGroup) {
-
-  let sum = 0;
-
-  for (const c of state.criteria) {
-
-    if (Number(c.month_group) === Number(monthGroup)) {
-
-      const sc = getScoreObj(unitId, c.id);
-
-      if (sc && sc.score !== null && sc.score !== undefined && sc.score !== '' && !isNaN(Number(sc.score))) {
-
-        sum += Number(sc.score);
-
-      }
-
-    }
-
-  }
-
-  return Math.round(sum * 100) / 100;
-
-}
-
-
-
-function getCriterionStatus(crit) {
-  if (crit.score_type === 'penalty') {
-    return { status: 'penalty', label: 'Admin điểm danh', badgeClass: 'badge-warning', canSubmit: false };
-  }
-  if (Number(crit.lock_override) === 1) {
-    return { status: 'extended', label: '🔓 Admin mở gia hạn', badgeClass: 'badge-info', canSubmit: true };
-  }
-  const strict = state.settings && state.settings.strict_deadline !== '0';
-  if (!strict) {
-    return { status: 'open', label: '🟢 Mở tự do', badgeClass: 'badge-success', canSubmit: true };
-  }
-
-  const effDate = (state.settings && state.settings.effective_date) || todayISO();
-  const startDate = crit.start_date || '2026-01-01';
-  const startTime = crit.start_time || '00:00';
-  const startDateTime = getCriterionStartDateTime(startDate, startTime);
-
-  const autoTime = crit.deadline_time || (function(){ const m = (crit.title||'').match(/(?:hạn\s*)?(\d{1,2})[h:](\d{2})/i); return m ? (m[1].padStart(2,'0') + ':' + m[2]) : '23:59'; })();
-  const endDateTime = getCriterionDeadlineEndDate(crit.deadline, autoTime);
-
-  const nowTs = Date.now();
-
-  // Kiểm tra chưa đến giờ mở nộp
-  if (effDate < startDate) {
-    return { status: 'upcoming', label: '⏳ Chưa đến hạn nộp', badgeClass: 'badge-warning', canSubmit: false };
-  }
-  if (effDate === startDate && startDateTime && nowTs < startDateTime.getTime()) {
-    const timeLabel = (startTime && startTime !== '00:00') ? ` (từ ${startTime})` : '';
-    return { status: 'upcoming', label: `⏳ Chưa mở nộp${timeLabel}`, badgeClass: 'badge-warning', canSubmit: false };
-  }
-
-  // Kiểm tra đã quá hạn nộp
-  if (endDateTime) {
-    if (effDate > (crit.deadline || '2026-12-31') || (effDate === (crit.deadline || '2026-12-31') && nowTs > endDateTime.getTime())) {
-      return { status: 'expired', label: '🔴 Đã quá hạn', badgeClass: 'badge-danger', canSubmit: false };
-    }
-  } else if (effDate > (crit.deadline || '2026-12-31')) {
-    return { status: 'expired', label: '🔴 Đã quá hạn', badgeClass: 'badge-danger', canSubmit: false };
-  }
-
-  return { status: 'open', label: '🟢 Còn hạn nộp', badgeClass: 'badge-success', canSubmit: true };
-}
-
-
-
-function isCriterionOpen(crit) {
-
-  return getCriterionStatus(crit).canSubmit;
-
-}
-
-
-
-function getRankings() {
-
-  const activeUnits = state.units.filter((u) => Number(u.is_active) === 1);
-
-  const list = activeUnits.map((u) => {
-
-    const total = getUnitTotalScore(u.id);
-
-    let reportsDone = 0;
-
-    let criteriaCount = 0;
-
-    for (const c of state.criteria) {
-
       const sc = getScoreObj(u.id, c.id);
-
-      if (sc && sc.score !== null && sc.score !== '') {
-
+      const isRejected = sc && sc.approval_status === 'rejected';
+      const numScore = (sc && sc.score !== null && sc.score !== '' && !isRejected) ? Number(sc.score) : 0;
+      if (numScore > 0) {
         criteriaCount++;
-
-        const hasFiles = (sc.files && sc.files.length > 0) || !!sc.file_path || !!sc.file_name || !!sc.evidence_link || !!sc.report_content;
-
-        const hasScore = Number(sc.score) > 0;
-
-        if (Number(c.is_report) === 1 && (hasScore || hasFiles)) {
-
-          reportsDone++;
-
-        }
-
       }
-
+      const hasFiles = sc && ((sc.files && sc.files.length > 0) || !!sc.file_path || !!sc.file_name || !!sc.evidence_link || !!sc.report_content);
+      if (Number(c.is_report) === 1 && (numScore > 0 || hasFiles)) {
+        reportsDone++;
+      }
     }
 
     return { unit: u, total, reportsDone, criteriaCount };
@@ -23982,152 +23878,54 @@ window.unhideClearedChatForMe = function(myKey, roomKey) {
 
 
 window.clearChatForAll = async function(roomKey) {
-
   closeModal();
-
   const isAdmin = state.user && state.user.role === 'admin';
-
   if (!isAdmin) return;
 
-  const ok = confirm('CẢNH BÁO: Bạn có chắc chắn muốn XÓA VĨNH VIỄN toàn bộ tin nhắn trên máy chủ không?\n\nSau khi xóa, tất cả các bên (cả Admin và các cơ sở Đoàn) đều sẽ bị xóa sạch toàn bộ dữ liệu.');
+  const roomTitle = roomKey === 'public' ? 'Chat Chung Toàn Khối' : (roomKey.startsWith('private_') ? 'Chat Riêng Tư' : roomKey);
+  const ok = confirm(`CẢNH BÁO BAN THƯỜNG VỤ:
 
+Bạn có chắc chắn muốn XÓA SẠCH VĨNH VIỄN toàn bộ tin nhắn trong "${roomTitle}" cho TOÀN BỘ HỆ THỐNG không?
+
+Sau khi bấm xác nhận, lịch sử tin nhắn cũ sẽ được xóa sạch trên tất cả các máy (cả Ban Thường vụ và 40 cơ sở Đoàn) để bắt đầu phiên trao đổi mới.`);
   if (!ok) return;
-
-
 
   showToast('Đang xóa toàn bộ lịch sử trò chuyện trên máy chủ...', 'info');
 
+  const nowTs = Date.now();
+  state.chatMessages = (state.chatMessages || []).filter(m => !isMsgInRoom(m, roomKey));
+  try {
+    const raw = localStorage.getItem('doan2026_local_chat_messages');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        const remaining = parsed.filter(m => !isMsgInRoom(m, roomKey));
+        localStorage.setItem('doan2026_local_chat_messages', JSON.stringify(remaining));
+      }
+    }
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('doan2026_chat_cleared_') && k.includes(roomKey)) {
+        localStorage.removeItem(k);
+      }
+    }
+  } catch(e) {}
+
+  renderApp();
+
   const res = await mutateCloudDB(db => {
-
     db.chat_messages = (db.chat_messages || []).filter(m => !isMsgInRoom(m, roomKey));
-
+    db.chat_cleared_at = db.chat_cleared_at || {};
+    db.chat_cleared_at[roomKey] = nowTs;
   }, `Clear chat history for ${roomKey}`);
 
-
-
   if (res.ok) {
-
-    state.chatMessages = (state.chatMessages || []).filter(m => !isMsgInRoom(m, roomKey));
-
-    showToast('🎉 Đã xóa vĩnh viễn toàn bộ lịch sử trên máy chủ!', 'success');
-
+    showToast('🎉 Đã xóa sạch toàn bộ tin nhắn toàn khối cho cả hệ thống!', 'success');
     renderApp();
-
   } else {
-
     showToast('Lỗi khi xóa lịch sử chat trên máy chủ!', 'error');
-
   }
-
 };
-
-
-
-window.clearPublicChatHistory = function() {
-
-  window.openClearChatOptionsModal();
-
-};
-
-
-
-window.clearPrivateChatHistory = function() {
-
-  window.openClearChatOptionsModal();
-
-};
-
-
-
-// TÍNH NĂNG KÉO THẢ DI CHUYỂN & KÉO DÃN MỞ RỘNG KHUNG CHAT TÙY Ý (Ảnh 4 & Yêu cầu mới)
-
-window.initChatDrag = function() {
-
-  // Trên mobile (màn hình <= 768px), tắt hoàn toàn kéo rê / co dãn để ưu tiên 100% vuốt chạm cuộn nội dung mượt mà
-  if (typeof window !== "undefined" && window.innerWidth <= 768) return;
-
-
-  const headerEl = document.getElementById('chat-drag-header');
-
-  const widget = document.getElementById('chat-widget-box');
-
-  if (!widget) return;
-
-
-
-  const getZoom = () => parseFloat(getComputedStyle(document.body).zoom) || 1.0;
-
-  const MIN_W = 440;
-
-  const MIN_H = 590;
-
-
-
-  // 1. DI CHUYỂN KHUNG CHAT (DRAG)
-
-  if (headerEl) {
-
-    let startX = 0, startY = 0, initialLeft = 0, initialTop = 0;
-
-
-
-    headerEl.onmousedown = function(e) {
-
-      if (state.chatMaximized) return;
-
-      if (e.target.tagName === 'BUTTON' || e.target.closest('button') || e.target.tagName === 'INPUT') return;
-
-      e.preventDefault();
-
-      const zoom = getZoom();
-
-      startX = e.clientX / zoom;
-
-      startY = e.clientY / zoom;
-
-      const rect = widget.getBoundingClientRect();
-
-      initialLeft = rect.left / zoom;
-
-      initialTop = rect.top / zoom;
-
-
-
-      document.onmousemove = function(e) {
-
-        e.preventDefault();
-
-        const curX = e.clientX / zoom;
-
-        const curY = e.clientY / zoom;
-
-        const dx = curX - startX;
-
-        const dy = curY - startY;
-
-        let newLeft = initialLeft + dx;
-
-        let newTop = initialTop + dy;
-
-        const maxLeft = (window.innerWidth / zoom) - (rect.width / zoom) - 8;
-
-        const maxTop = (window.innerHeight / zoom) - (rect.height / zoom) - 8;
-
-        newLeft = Math.max(8, Math.min(newLeft, maxLeft));
-
-        newTop = Math.max(8, Math.min(newTop, maxTop));
-
-        widget.style.left = Math.round(newLeft) + 'px';
-
-        widget.style.top = Math.round(newTop) + 'px';
-
-        widget.style.right = 'auto';
-
-        widget.style.bottom = 'auto';
-
-        state.chatPos = { left: Math.round(newLeft), top: Math.round(newTop) };
-
-      };
 
 
 
