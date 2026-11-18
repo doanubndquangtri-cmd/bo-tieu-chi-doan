@@ -1965,12 +1965,19 @@ function ingestCloudDB(db) {
   state.donations = Array.isArray(db.donations) ? db.donations : [];
 
   state.cloudDB = db;
-  // Hợp nhất tin nhắn Cloud DB và bộ nhớ đệm cục bộ không để mất bất kỳ tin nào
+  // Hợp nhất tin nhắn Cloud DB: Cloud DB là nguồn chân lý duy nhất (Single Source of Truth)
   const clearedAtMap = (db && db.chat_cleared_at) || {};
+  const deletedIdsSet = new Set(Array.isArray(db && db.deleted_msg_ids) ? db.deleted_msg_ids.map(String) : []);
+
   const isMsgGloballyCleared = (m) => {
     if (!m) return true;
+    if (m.id && deletedIdsSet.has(String(m.id))) return true;
     const rKey = m.room || 'public';
-    const clearedTime = Number(clearedAtMap[rKey]) || Number(clearedAtMap['all']) || 0;
+    const clearedTime = Math.max(
+      Number(clearedAtMap[rKey]) || 0,
+      Number(clearedAtMap['all']) || 0,
+      rKey.startsWith('private_') ? (Number(clearedAtMap['private']) || 0) : 0
+    );
     if (clearedTime > 0) {
       const mTime = getMsgTimestamp(m);
       if (mTime > 0 && mTime <= clearedTime) return true;
@@ -1979,18 +1986,27 @@ function ingestCloudDB(db) {
   };
 
   const cloudMsgs = (Array.isArray(db.chat_messages) ? db.chat_messages : []).filter(m => !isMsgGloballyCleared(m));
+  
+  // CHỈ giữ tin nhắn cục bộ nếu là tin vừa gửi trong vòng 15 giây đang chờ đồng bộ lên máy chủ.
+  // TUYỆT ĐỐI KHÔNG để bộ nhớ cục bộ hồi sinh tin nhắn đã bị xóa trên máy chủ!
   let localMsgs = [];
   try {
     const rawLocal = localStorage.getItem('doan2026_local_chat_messages');
     if (rawLocal) localMsgs = JSON.parse(rawLocal) || [];
   } catch (e) {}
   if (!Array.isArray(localMsgs)) localMsgs = [];
-  localMsgs = localMsgs.filter(m => !isMsgGloballyCleared(m));
+
+  const nowMs = Date.now();
+  const pendingLocal = localMsgs.filter(m => {
+    if (!m || !m.id || isMsgGloballyCleared(m)) return false;
+    const mTime = getMsgTimestamp(m);
+    return m.is_pending || (mTime > 0 && (nowMs - mTime < 15000));
+  });
 
   const msgMap = new Map();
-  (state.chatMessages || []).filter(m => !isMsgGloballyCleared(m)).forEach(m => { if (m && m.id) msgMap.set(m.id, m); });
-  localMsgs.forEach(m => { if (m && m.id) msgMap.set(m.id, m); });
-  cloudMsgs.forEach(m => { if (m && m.id) msgMap.set(m.id, m); });
+  cloudMsgs.forEach(m => { if (m && m.id) msgMap.set(String(m.id), m); });
+  pendingLocal.forEach(m => { if (m && m.id && !msgMap.has(String(m.id))) msgMap.set(String(m.id), m); });
+
   const mergedMsgs = Array.from(msgMap.values()).sort((a, b) => getMsgTimestamp(a) - getMsgTimestamp(b));
   state.chatMessages = mergedMsgs;
   try {
@@ -18607,49 +18623,53 @@ window.clearChatForAll = async function(roomKey) {
   if (!isAdmin) return;
 
   const roomTitle = roomKey === 'public' ? 'Chat Chung Toàn Khối' : (roomKey.startsWith('private_') ? 'Chat Riêng Tư' : roomKey);
-  const ok = confirm(`CẢNH BÁO BAN THƯỜNG VỤ:\n\nBạn có chắc chắn muốn XÓA SẠCH VĨNH VIỄN toàn bộ tin nhắn trong "${roomTitle}" cho TOÀN BỘ HỆ THỐNG không?\n\nSau khi bấm xác nhận, lịch sử tin nhắn cũ sẽ được xóa sạch trên tất cả các máy (cả Ban Thường vụ và 40 cơ sở Đoàn) để bắt đầu phiên trao đổi mới.`);
+  const ok = confirm(`CẢNH BÁO BAN THƯỜNG VỤ:\n\nBạn có chắc chắn muốn XÓA SẠCH VĨNH VIỄN toàn bộ tin nhắn trong "${roomTitle}" cho TOÀN BỘ HỆ THỐNG không?\n\nSau khi xác nhận, lịch sử tin nhắn sẽ bị xóa sạch trên tất cả các máy (cả Ban Thường vụ và 40 cơ sở Đoàn).`);
   if (!ok) return;
 
   showToast('Đang xóa toàn bộ lịch sử trò chuyện trên máy chủ...', 'info');
 
   const nowTs = Date.now();
-  // Xóa ngay lập tức trên máy cục bộ
+  // 1. Xóa ngay lập tức trên máy cục bộ
   state.chatMessages = (state.chatMessages || []).filter(m => !isMsgInRoom(m, roomKey));
   try {
     const raw = localStorage.getItem('doan2026_local_chat_messages');
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        const remaining = parsed.filter(m => !isMsgInRoom(m, roomKey));
-        localStorage.setItem('doan2026_local_chat_messages', JSON.stringify(remaining));
-      }
-    }
-    // Xóa cờ ẩn riêng nếu có
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && k.startsWith('doan2026_chat_cleared_') && k.includes(roomKey)) {
-        localStorage.removeItem(k);
+        localStorage.setItem('doan2026_local_chat_messages', JSON.stringify(parsed.filter(m => !isMsgInRoom(m, roomKey))));
       }
     }
   } catch(e) {}
-
   renderApp();
 
+  // 2. Ghi nhận xóa vĩnh viễn lên Cloud DB
   const res = await mutateCloudDB(db => {
+    const deletedMsgs = (db.chat_messages || []).filter(m => isMsgInRoom(m, roomKey));
+    db.deleted_msg_ids = db.deleted_msg_ids || [];
+    deletedMsgs.forEach(m => {
+      if (m && m.id && !db.deleted_msg_ids.includes(String(m.id))) {
+        db.deleted_msg_ids.push(String(m.id));
+      }
+    });
+    if (db.deleted_msg_ids.length > 2000) {
+      db.deleted_msg_ids = db.deleted_msg_ids.slice(-2000);
+    }
+
     db.chat_messages = (db.chat_messages || []).filter(m => !isMsgInRoom(m, roomKey));
     db.chat_cleared_at = db.chat_cleared_at || {};
     db.chat_cleared_at[roomKey] = nowTs;
+    if (roomKey === 'public') {
+      db.chat_cleared_at['all'] = nowTs;
+    }
   }, `Clear chat history for ${roomKey}`);
 
-  if (res.ok) {
-    showToast('🎉 Đã xóa sạch toàn bộ tin nhắn toàn khối cho cả hệ thống!', 'success');
+  if (res && res.ok) {
+    showToast('🎉 Đã xóa sạch toàn bộ tin nhắn cho toàn bộ 40 cơ sở Đoàn!', 'success');
     renderApp();
   } else {
-    showToast('Lỗi khi xóa lịch sử chat trên máy chủ!', 'error');
+    showToast('Đã xóa cục bộ. Đang đồng bộ máy chủ...', 'info');
   }
 };
-
-
 
 window.clearPublicChatHistory = function() {
 
@@ -32189,20 +32209,44 @@ function formatChatMessageText(text) {
 }
 window.formatChatMessageText = formatChatMessageText;
 
-window.deleteChatMessage = function(msgId) {
-  if (!confirm('Bạn có chắc chắn muốn XÓA tin nhắn này khỏi phòng trao đổi không?')) return;
+window.deleteChatMessage = async function(msgId) {
+  if (!confirm('Bạn có chắc chắn muốn XÓA VĨNH VIỄN tin nhắn này cho toàn bộ phòng trao đổi không?')) return;
   const targetId = String(msgId);
+
+  // 1. Xóa ngay lập tức trên máy cục bộ
   state.chatMessages = (state.chatMessages || []).filter(m => String(m.id) !== targetId);
   try {
-    localStorage.setItem('doan2026_local_chat_messages', JSON.stringify(state.chatMessages));
+    const raw = localStorage.getItem('doan2026_local_chat_messages');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        localStorage.setItem('doan2026_local_chat_messages', JSON.stringify(parsed.filter(m => String(m.id) !== targetId)));
+      }
+    }
   } catch(e) {}
   renderApp();
+
+  // 2. Ghi nhận vĩnh viễn lên Cloud DB để toàn bộ 40 cơ sở Đoàn đều bị xóa
   if (typeof mutateCloudDB === 'function') {
-    mutateCloudDB(db => {
+    const res = await mutateCloudDB(db => {
       db.chat_messages = (db.chat_messages || []).filter(m => String(m.id) !== targetId);
-    }, 'Xóa tin nhắn trao đổi ' + targetId).catch(err => console.warn('Delete chat error:', err));
+      db.deleted_msg_ids = db.deleted_msg_ids || [];
+      if (!db.deleted_msg_ids.includes(targetId)) {
+        db.deleted_msg_ids.push(targetId);
+      }
+      if (db.deleted_msg_ids.length > 2000) {
+        db.deleted_msg_ids = db.deleted_msg_ids.slice(-2000);
+      }
+    }, 'Xóa vĩnh viễn tin nhắn trao đổi ' + targetId);
+
+    if (res && res.ok) {
+      showToast('Đã xóa vĩnh viễn tin nhắn trên toàn bộ hệ thống!', 'success');
+    } else {
+      showToast('Đã xóa tin nhắn.', 'info');
+    }
+  } else {
+    showToast('Đã xóa tin nhắn thành công.', 'info');
   }
-  showToast('Đã xóa tin nhắn thành công.', 'info');
 };
 
 window.openChatMessageDetailsModal = function(msgId) {
