@@ -1922,34 +1922,11 @@ window.isUnitOnline = function(unitId) {
   return false;
 };
 
-window.recordMyPresence = async function() {
-  if (!state.user || !state.cloudOnline || state.isSyncing) return;
+window.recordMyPresence = function() {
+  if (!state.user) return;
   const myId = state.user.role === 'admin' ? 0 : state.user.id;
-  const now = Date.now();
-
-  // Chỉ gửi heartbeat tối đa 1 lần mỗi 2 phút (120.000 ms) để bảo toàn API rate-limit
-  if (window._lastPresenceSent && (now - window._lastPresenceSent < 120000)) {
-    return;
-  }
-  window._lastPresenceSent = now;
-
   state.onlinePresence = state.onlinePresence || {};
-  state.onlinePresence[myId] = now;
-
-  try {
-    await mutateCloudDB(db => {
-      db.online_presence = db.online_presence || {};
-      db.online_presence[myId] = now;
-      // Tự động dọn dẹp các mốc thời gian cũ hơn 24 giờ để DB luôn siêu nhẹ
-      for (const k of Object.keys(db.online_presence)) {
-        if (now - Number(db.online_presence[k]) > 86400000) {
-          delete db.online_presence[k];
-        }
-      }
-    }, `Heartbeat: ${state.user.role === 'admin' ? 'Admin' : (state.user.unit_name || myId)} Online`);
-  } catch (err) {
-    // Không làm gián đoạn người dùng nếu mạng chập chờn
-  }
+  state.onlinePresence[myId] = Date.now();
 };
 
 function ingestCloudDB(db) {
@@ -17764,13 +17741,7 @@ function setChatRoomAsRead(roomKey) {
     if (typeof updateSystemAppBadge === 'function') {
       setTimeout(() => updateSystemAppBadge(getTotalBadgeCount()), 50);
     }
-    // Ghi nhận ngầm lên Cloud DB để đồng bộ xuyên suốt sang mọi thiết bị khác
-    if (typeof mutateCloudDB === 'function') {
-      mutateCloudDB(db => {
-        db.chat_read_status = db.chat_read_status || {};
-        db.chat_read_status[`${userKey}_${roomKey}`] = now;
-      }, `Read room ${roomKey} for ${userKey}`).catch(() => {});
-    }
+    // Read status saved locally without burning GitHub API quota
   } catch (e) {}
 }
 
@@ -17793,13 +17764,7 @@ window.markAllChatAsRead = function() {
     if (typeof updateSystemAppBadge === 'function') {
       updateSystemAppBadge(0);
     }
-    // Đồng bộ tức thì lên Cloud DB để Mobile / Desktop / WebAPK đều nhận diện đã đọc vĩnh viễn
-    if (typeof mutateCloudDB === 'function') {
-      mutateCloudDB(db => {
-        db.chat_read_status = db.chat_read_status || {};
-        db.chat_read_status[userKey] = now;
-      }, `Mark all read for ${userKey}`).catch(() => {});
-    }
+    // Read status saved locally without burning GitHub API quota
   } catch (e) {}
   renderApp();
   if (window.showToast) showToast('Đã đánh dấu tất cả tin nhắn là đã đọc!', 'success');
