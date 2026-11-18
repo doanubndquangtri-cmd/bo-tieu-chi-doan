@@ -1799,10 +1799,6 @@ async function uploadFileToCloud(fileDataB64, origName, unitId, critId, onProgre
 let _cloudDBQueue = Promise.resolve();
 
 function mutateCloudDB(mutatorFn, commitMsg = 'Update data') {
-  if (state.user && state.user.role === 'guest') {
-    console.warn('[Security] mutateCloudDB rejected: Guest role is strictly read-only.');
-    return Promise.resolve(null);
-  }
   const task = async () => {
     state.isSyncing = true;
     for (let attempt = 0; attempt < 6; attempt++) {
@@ -2001,11 +1997,7 @@ function ingestCloudDB(db) {
   state.admin_docs = db.admin_docs || [];
 
   state.notifications = Array.isArray(db.notifications) ? db.notifications : [];
-  if (Array.isArray(db.deleted_donation_ids)) {
-    if (!state.deletedDonationIds) state.deletedDonationIds = new Set();
-    db.deleted_donation_ids.forEach(id => state.deletedDonationIds.add(String(id)));
-  }
-  state.donations = typeof deduplicateDonations === 'function' ? deduplicateDonations(Array.isArray(db.donations) ? db.donations : []) : (Array.isArray(db.donations) ? db.donations : []);
+  state.donations = Array.isArray(db.donations) ? db.donations : [];
 
   state.cloudDB = db;
   // Hợp nhất tin nhắn Cloud DB và bộ nhớ đệm cục bộ không để mất bất kỳ tin nào
@@ -2920,7 +2912,7 @@ function renderApp() {
 
           <span style="font-size:16px;">👀</span>
 
-          <span><b>Tài khoản Khách (Chỉ Xem):</b> Bạn có thể xem toàn bộ bảng xếp hạng, báo cáo, sao kê Bảng Vàng, nghe nhạc và dán link nhạc. Mọi thao tác nộp bài, chuyển khoản hoặc thay đổi dữ liệu đều bị khóa an toàn.</span>
+          <span><b>Tài khoản Khách xem:</b> Bạn đang xem Bảng Tổng Hợp Chấm Điểm của 40 cơ sở Đoàn ở chế độ <b>Chỉ Xem (Read-only)</b>, không có quyền chỉnh sửa, thêm, xóa dữ liệu.</span>
 
         </div>
 
@@ -3597,13 +3589,6 @@ window.switchAccountQuick = function (val) {
 // =========================================================================
 // HỆ THỐNG THÔNG BÁO VÀ HUY HIỆU LOGO (BADGING SYSTEM)
 // =========================================================================
-
-function showGuestReadOnlyNotice(actionName) {
-  if (typeof showToast === 'function') {
-    showToast(`🔒 <b>Chế độ Khách (Chỉ Xem):</b> Bạn không thể ${actionName || 'thao tác'}. Mọi tính năng chỉnh sửa, nộp bài, chuyển khoản chỉ dành cho tài khoản Đơn vị hoặc Admin!`, 'warning');
-  }
-}
-window.showGuestReadOnlyNotice = showGuestReadOnlyNotice;
 
 function isNotificationForUser(n, user) {
   if (!user || !n || user.role === 'guest') return false;
@@ -7067,10 +7052,6 @@ window.rescanSubmissionKeywords = async function(unitId, critId) {
 };
 
 window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
-  if (state.user && state.user.role === 'guest') {
-    showGuestReadOnlyNotice('nộp bài hoặc gửi minh chứng');
-    return;
-  }
 
   const unitId = forUnitId || state.user.id;
 
@@ -7709,10 +7690,6 @@ function readFileAsDataURL(file) {
 
 
 window.submitUnitCriterion = async function (unitId, criterionId) {
-  if (state.user && state.user.role === 'guest') {
-    showGuestReadOnlyNotice('nộp bài hoặc gửi minh chứng');
-    return;
-  }
   const crit = state.criteria.find(c => c.id === criterionId);
   if (!crit) {
     showToast('Không tìm thấy tiêu chí!', 'error');
@@ -16114,10 +16091,6 @@ window.resetAllEvaluationData = async function() {
 
 // HỘP THOẠI CHỈNH SỬA TOÀN DIỆN THÔNG TIN VĂN BẢN (SỐ/KÝ HIỆU, NGÀY BAN HÀNH, LOẠI, TRÍCH YẾU)
 window.openEditAdminDocModal = function (docId) {
-  if (state.user && state.user.role === 'guest') {
-    showGuestReadOnlyNotice('chỉnh sửa thông tin văn bản');
-    return;
-  }
   const doc = (state.admin_docs || []).find((d) => String(d.id) === String(docId));
   if (!doc) {
     showToast('Không tìm thấy thông tin văn bản cần chỉnh sửa!', 'error');
@@ -17086,10 +17059,6 @@ function renderNotificationDropdown() {
 // DUYỆT BÀI NỘP VÀ XÁC NHẬN CHẤM ĐIỂM (ADMIN - Ảnh 1)
 
 window.approveUnitSubmission = async function(unitId, critId, scoreVal) {
-  if (state.user && state.user.role === 'guest') {
-    showGuestReadOnlyNotice('duyệt bài');
-    return;
-  }
 
   const unit = state.units.find(u => u.id === unitId);
 
@@ -17333,10 +17302,6 @@ window.openRejectSubmissionModal = function(unitId, critId) {
 // XÁC NHẬN TỪ CHỐI BÀI NỘP & GỬI THÔNG BÁO KHÔNG DUYỆT (Ảnh 1)
 
 window.confirmRejectUnitSubmission = async function(unitId, critId) {
-  if (state.user && state.user.role === 'guest') {
-    showGuestReadOnlyNotice('từ chối bài');
-    return;
-  }
 
   const unit = state.units.find(u => u.id === unitId);
 
@@ -17944,11 +17909,11 @@ window.scrollChatToBottom = function() {
 
 
 window.toggleChatWidget = function() {
-  const isGuest = Boolean(state.user && state.user.role === 'guest');
+  const isGuest = state.user && state.user.role === 'guest';
   state.chatOpen = !state.chatOpen;
   if (state.chatOpen && isGuest) {
-    if (state.chatTab === 'private' || state.chatTab === 'video') {
-      state.chatTab = 'public';
+    if (state.chatTab === 'public' || state.chatTab === 'private' || state.chatTab === 'video') {
+      state.chatTab = 'ai';
     }
   }
 
@@ -18057,9 +18022,9 @@ window.openQrGenerator = function() {
 };
 
 window.switchChatTab = function(tab) {
-  const isGuest = Boolean(state.user && state.user.role === 'guest');
-  if (isGuest && (tab === 'private' || tab === 'video')) {
-    tab = 'public';
+  const isGuest = state.user && state.user.role === 'guest';
+  if (isGuest && (tab === 'public' || tab === 'private' || tab === 'video')) {
+    tab = 'ai';
   }
   if (tab === 'video') tab = 'public';
 
@@ -19455,10 +19420,6 @@ window.onChatFilePicked = async function(input) {
 // GỬI TIN NHẮN VĂN BẢN TRONG CHAT
 
 window.sendChatMessage = async function() {
-  if (state.user && state.user.role === 'guest') {
-    showGuestReadOnlyNotice('gửi tin nhắn trao đổi');
-    return;
-  }
 
   const input = document.getElementById('chat-input-field');
 
@@ -19744,9 +19705,9 @@ function renderFloatingChatWidget() {
 
   if (!state.user) return '';
 
-  const isGuest = Boolean(state.user && state.user.role === 'guest');
-  if (isGuest && (state.chatTab === 'private' || state.chatTab === 'video')) {
-    state.chatTab = 'public';
+  const isGuest = state.user.role === 'guest';
+  if (isGuest && (state.chatTab === 'public' || state.chatTab === 'private' || state.chatTab === 'video')) {
+    state.chatTab = 'ai';
   }
 
   if (state.chatOpen) {
@@ -19952,15 +19913,15 @@ function renderFloatingChatWidget() {
           </div>
         </div>
 
-        <!-- THANH CHUYỂN TAB: CHAT CHUNG, CHAT RIÊNG TƯ, HỎI ĐÁP AI, GIỌNG NÓI AI & TẠO QR -->
-        <div class="chat-tabs-bar" style="display:grid; grid-template-columns:${isGuest ? 'repeat(4, 1fr)' : 'repeat(5, 1fr)'}; gap:2px; padding:4px 3px; background:#f1f5f9; border-bottom:1px solid #cbd5e1; width:100%; box-sizing:border-box; flex-shrink:0;">
-          <button type="button" class="chat-tab-btn ${state.chatTab === 'public' ? 'active' : ''}" onclick="switchChatTab('public')" style="width:100%; min-width:0; padding:6px 1px; font-size:11px; font-weight:700; text-align:center; white-space:nowrap; border-radius:6px; display:flex; align-items:center; justify-content:center; gap:2px; border:1px solid ${state.chatTab === 'public' ? '#0052cc' : '#cbd5e1'}; background:${state.chatTab === 'public' ? '#0052cc' : '#ffffff'}; color:${state.chatTab === 'public' ? '#ffffff' : '#334155'}; cursor:pointer; box-sizing:border-box; height:32px;" title="Kênh trao đổi chung toàn Khối">
-            <span>🌐</span>
-            <span class="tab-label-full">Toàn Khối</span>
-            <span class="tab-label-short">Chung</span>
-            ${(!isGuest && unreadPublic > 0) ? `<span class="chat-badge" style="background:#ef4444; color:#fff; font-size:9px; font-weight:800; padding:0 4px; border-radius:8px; margin-left:1px;">${unreadPublic}</span>` : ''}
-          </button>
+        <!-- THANH CHUYỂN TAB: CHAT CHUNG, CHAT RIÊNG TƯ, HỎI ĐÁP AI, GIỌNG NÓI AI & TẠO QR (GUEST CHỈ HIỆN 3 TAB AI & TIỆN ÍCH) -->
+        <div class="chat-tabs-bar" style="display:grid; grid-template-columns:${isGuest ? 'repeat(3, 1fr)' : 'repeat(5, 1fr)'}; gap:2px; padding:4px 3px; background:#f1f5f9; border-bottom:1px solid #cbd5e1; width:100%; box-sizing:border-box; flex-shrink:0;">
           ${!isGuest ? `
+            <button type="button" class="chat-tab-btn ${state.chatTab === 'public' ? 'active' : ''}" onclick="switchChatTab('public')" style="width:100%; min-width:0; padding:6px 1px; font-size:11px; font-weight:700; text-align:center; white-space:nowrap; border-radius:6px; display:flex; align-items:center; justify-content:center; gap:2px; border:1px solid ${state.chatTab === 'public' ? '#0052cc' : '#cbd5e1'}; background:${state.chatTab === 'public' ? '#0052cc' : '#ffffff'}; color:${state.chatTab === 'public' ? '#ffffff' : '#334155'}; cursor:pointer; box-sizing:border-box; height:32px;" title="Kênh trao đổi chung toàn Khối">
+              <span>🌐</span>
+              <span class="tab-label-full">Toàn Khối</span>
+              <span class="tab-label-short">Chung</span>
+              ${unreadPublic > 0 ? `<span class="chat-badge" style="background:#ef4444; color:#fff; font-size:9px; font-weight:800; padding:0 4px; border-radius:8px; margin-left:1px;">${unreadPublic}</span>` : ''}
+            </button>
             <button type="button" class="chat-tab-btn ${state.chatTab === 'private' ? 'active' : ''}" onclick="switchChatTab('private')" style="width:100%; min-width:0; padding:6px 1px; font-size:11px; font-weight:700; text-align:center; white-space:nowrap; border-radius:6px; display:flex; align-items:center; justify-content:center; gap:2px; border:1px solid ${state.chatTab === 'private' ? '#0052cc' : '#cbd5e1'}; background:${state.chatTab === 'private' ? '#0052cc' : '#ffffff'}; color:${state.chatTab === 'private' ? '#ffffff' : '#334155'}; cursor:pointer; box-sizing:border-box; height:32px;" title="Kênh trao đổi riêng tư 1 - 1">
               <span>🔒</span>
               <span class="tab-label-full">Riêng Tư</span>
@@ -20248,19 +20209,7 @@ function renderFloatingChatWidget() {
 
           <div class="chat-input-row" style="position:relative; gap:6px; padding-bottom:calc(8px + env(safe-area-inset-bottom, 0px));">
 
-            ${isGuest ? `
-              <input
-                type="text"
-                id="chat-input-field"
-                class="chat-input-field"
-                disabled
-                placeholder="🔒 Chế độ Khách: Chỉ có quyền xem trao đổi, không thể gửi tin nhắn"
-                style="background:#f1f5f9; cursor:not-allowed; color:#64748b; font-size:12px;"
-              />
-              <button class="chat-send-btn" disabled style="opacity:0.5; cursor:not-allowed; background:#94a3b8;" title="Chế độ Khách không thể gửi tin nhắn">
-                🔒 Chỉ Xem
-              </button>
-            ` : (state.chatTab === 'ai' ? `
+            ${state.chatTab === 'ai' ? `
 
               <button type="button" class="chat-attach-btn" onclick="openGeminiApiKeyModal()" style="color:#7c3aed; border-color:#c4b5fd; background:#f5f3ff;" title="Cài đặt hoặc thay đổi Google Gemini API Key">
 
@@ -20271,30 +20220,6 @@ function renderFloatingChatWidget() {
               <button type="button" class="chat-emoji-btn" onclick="openClearAiChatModal()" style="color:#7c3aed; border-color:#c4b5fd;" title="Làm mới cuộc trò chuyện với AI">
 
                 🔄
-
-              </button>
-
-              <input
-
-                type="text"
-
-                id="chat-input-field"
-
-                class="chat-input-field"
-
-                value="${escapeHtml(state.chatDraft || '')}"
-
-                oninput="state.chatDraft = this.value;"
-
-                placeholder="Hỏi Trợ lý AI về Điều lệ Đoàn, tiêu chí, kế hoạch... (Enter để gửi)"
-
-                onkeydown="onChatKeydown(event)"
-
-              />
-
-              <button class="chat-send-btn" onclick="sendChatMessage()" style="background:linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);">
-
-                Gửi AI 🤖
 
               </button>
 
@@ -20326,31 +20251,31 @@ function renderFloatingChatWidget() {
 
               </button>
 
-              <input
+            `}
 
-                type="text"
+            <input
 
-                id="chat-input-field"
+              type="text"
 
-                class="chat-input-field"
+              id="chat-input-field"
 
-                value="${escapeHtml(state.chatDraft || '')}"
+              class="chat-input-field"
 
-                oninput="state.chatDraft = this.value;"
+              value="${escapeHtml(state.chatDraft || '')}"
 
-                placeholder="Nhập nội dung tin nhắn trao đổi... (Enter để gửi)"
+              oninput="state.chatDraft = this.value;"
 
-                onkeydown="onChatKeydown(event)"
+              placeholder="${state.chatTab === 'ai' ? 'Hỏi Trợ lý AI về Điều lệ Đoàn, tiêu chí, kế hoạch... (Enter để gửi)' : 'Nhập nội dung tin nhắn trao đổi... (Enter để gửi)'}"
 
-              />
+              onkeydown="onChatKeydown(event)"
 
-              <button class="chat-send-btn" onclick="sendChatMessage()">
+            />
 
-                Gửi 📤
+            <button class="chat-send-btn" onclick="sendChatMessage()" style="${state.chatTab === 'ai' ? 'background:linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);' : ''}">
 
-              </button>
+              ${state.chatTab === 'ai' ? 'Gửi AI 🤖' : 'Gửi 📤'}
 
-            `)}
+            </button>
 
           </div>
 
@@ -27033,82 +26958,6 @@ if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
 const LIVE_REALTIME_TOPIC = 'doan-ubnd-quangtri-live-sync-2026';
 let _liveEventSource = null;
 
-// XỬ LÝ SỰ KIỆN NỘP TIỀN THỜI GIAN THỰC TỨC THÌ (0.05 GIÂY) CHO ADMIN
-function handleLiveDonationPending(payload) {
-  if (!state.user || state.user.role !== 'admin') return;
-  if (!payload || !payload.donation) return;
-
-  const don = payload.donation;
-  const uName = payload.unitName || don.unit_name || 'Một đơn vị';
-  const uAmt = payload.amount ? (typeof formatMoneyVN === 'function' ? formatMoneyVN(payload.amount) : payload.amount) : (typeof formatMoneyVN === 'function' ? formatMoneyVN(don.amount || 0) : '0');
-
-  // 1. Đưa ngay vào state.donations nếu chưa có (cập nhật nóng tại chỗ, không đợi git)
-  if (!state.donations) state.donations = [];
-  const existsDon = state.donations.some(d => d.id === don.id);
-  if (!existsDon) {
-    state.donations.unshift(don);
-    try {
-      localStorage.setItem('doan2026_donations_list', JSON.stringify(state.donations));
-    } catch(e) {}
-  }
-
-  // 2. Đưa ngay vào state.notifications nếu chưa có
-  if (!state.notifications) state.notifications = [];
-  const existsNotif = state.notifications.some(n => n.donation_id === don.id);
-  if (!existsNotif) {
-    state.notifications.unshift({
-      id: 'notif_don_pend_' + don.id,
-      type: 'donation_pending',
-      donation_id: don.id,
-      target_role: 'admin',
-      title: `💰 [BẢNG VÀNG] ${uName} vừa nộp tiền!`,
-      message: `${uName} vừa nộp ${uAmt} VNĐ (${don.add_info || ''}). Bấm để vào Bảng Vàng đối soát ngân hàng và duyệt tiền.`,
-      unit_id: don.unit_id,
-      unit_name: uName,
-      amount: don.amount,
-      created_at: don.created_at || (typeof formatDateTimeVN === 'function' ? formatDateTimeVN(new Date()) : new Date().toLocaleString('vi-VN')),
-      submitted_at: don.created_at || (typeof formatDateTimeVN === 'function' ? formatDateTimeVN(new Date()) : new Date().toLocaleString('vi-VN')),
-      timestamp: Date.now(),
-      read: false,
-      url: './#donations'
-    });
-  }
-
-  // 3. Chuông reo & rung
-  if (window.playNotificationChime) window.playNotificationChime();
-  if (typeof navigator !== 'undefined' && navigator.vibrate) {
-    try { navigator.vibrate([150, 80, 150]); } catch(e) {}
-  }
-
-  // 4. Toast nổi với nút xem duyệt ngay
-  if (typeof showToast === 'function') {
-    showToast(`💰 <b>${escapeHtml(uName)}</b> vừa nộp ${uAmt}đ! <button type="button" onclick="setTab('donations')" style="color:#fde047; font-weight:800; background:none; border:none; text-decoration:underline; cursor:pointer; margin-left:6px;">👉 Xem duyệt ngay</button>`, 'info');
-  }
-
-  // 5. Cập nhật ngay tức thì toàn bộ UI (đổi số huy hiệu chờ duyệt trên Menu Bảng Vàng trong 0.05s!)
-  renderApp();
-
-  // 6. Cập nhật Taskbar badge / PWA badge
-  if (typeof updateSystemAppBadge === 'function') {
-    updateSystemAppBadge(getTotalBadgeCount() + 1);
-  }
-
-  // 7. Desktop Native Notification nếu tab đang ẩn hoặc minimize
-  if (window.WebPushManager && window.WebPushManager.showLocalNativeNotification) {
-    window.WebPushManager.showLocalNativeNotification(
-      `💰 [BẢNG VÀNG] ${uName} vừa nộp ${uAmt}đ`,
-      `Cơ sở Đoàn vừa bấm nộp ${uAmt}đ. Bấm để vào duyệt tiền ngay.`,
-      './#donations'
-    );
-  }
-
-  // 8. Đẩy đồng bộ ngầm
-  if (typeof window.syncFromCloudNow === 'function') {
-    window.syncFromCloudNow(true).catch(() => {});
-  }
-}
-window.handleLiveDonationPending = handleLiveDonationPending;
-
 window.broadcastLiveEvent = function(type, data) {
   try {
     // 1. Gửi qua BroadcastChannel nội bộ (các tab cùng máy)
@@ -27120,16 +26969,7 @@ window.broadcastLiveEvent = function(type, data) {
       } catch (eBc) {}
     }
 
-    // 2. Gửi qua localStorage storage event (tức thời giữa các cửa sổ)
-    try {
-      localStorage.setItem('doan2026_live_event_bridge', JSON.stringify({
-        type: type,
-        payload: data,
-        ts: Date.now()
-      }));
-    } catch(eLs) {}
-
-    // 3. Gửi qua ntfy.sh Realtime PubSub (xuyên suốt các thiết bị khác nhau qua Internet trong 0.05 giây)
+    // 2. Gửi qua ntfy.sh Realtime PubSub (xuyên suốt các thiết bị khác nhau qua Internet trong 0.05 giây)
     fetch(`https://ntfy.sh/${LIVE_REALTIME_TOPIC}`, {
       method: 'POST',
       headers: { 'Title': type, 'Priority': 'high' },
@@ -27162,9 +27002,17 @@ window.initRealtimeLiveBridge = function() {
         if (evt.type === 'CHAT_MSG' && evt.payload) {
           handleIncomingRealtimeChat(evt.payload);
         } else if (evt.type === 'DONATION_PENDING_SUBMITTED') {
-          // CẬP NHẬT NGAY TỨC THÌ (0.05 GIÂY) CHO MÁY ADMIN
-          if (window.handleLiveDonationPending) {
-            window.handleLiveDonationPending(evt.payload);
+          // CHỈ MÁY NÀO ĐANG ĐĂNG NHẬP ADMIN MỚI NHẬN THÔNG BÁO NÀY
+          if (state.user && state.user.role === 'admin') {
+            if (window.playNotificationChime) window.playNotificationChime();
+            const uName = (evt.payload && evt.payload.unitName) || 'Một đơn vị';
+            const uAmt = (evt.payload && evt.payload.amount) ? (typeof formatMoneyVN === 'function' ? formatMoneyVN(evt.payload.amount) : evt.payload.amount) : '0';
+            if (typeof showToast === 'function') {
+              showToast(`💰 <b>${escapeHtml(uName)}</b> vừa nộp ${uAmt}đ! <button type="button" onclick="setTab('donations')" style="color:#fde047; font-weight:800; background:none; border:none; text-decoration:underline; cursor:pointer; margin-left:6px;">👉 Xem duyệt ngay</button>`, 'info');
+            }
+            if (typeof window.syncFromCloudNow === 'function') {
+              window.syncFromCloudNow(true);
+            }
           }
         } else if (evt.type === 'REPORT_SUBMITTED' || evt.type === 'NEW_CRITERIA' || evt.type === 'ADMIN_DOC' || evt.type === 'PROOF_APPROVED' || evt.type === 'PROOF_REJECTED' || evt.type === 'MARQUEE_ANNOUNCEMENT' || evt.type === 'DONATION_RECEIVED') {
           if (window.playNotificationChime) window.playNotificationChime();
@@ -27220,9 +27068,7 @@ window.initRealtimeLiveBridge = function() {
     try {
       const bcListen = new BroadcastChannel('doan_live_channel');
       bcListen.onmessage = function(e) {
-        if (e.data && e.data.type === 'DONATION_PENDING_SUBMITTED') {
-          if (window.handleLiveDonationPending) window.handleLiveDonationPending(e.data.data);
-        } else if (e.data && e.data.type === 'CHAT_MSG' && e.data.data) {
+        if (e.data && e.data.type === 'CHAT_MSG' && e.data.data) {
           handleIncomingRealtimeChat(e.data.data);
         } else if (e.data && (e.data.type === 'REPORT_SUBMITTED' || e.data.type === 'NEW_CRITERIA' || e.data.type === 'ADMIN_DOC' || e.data.type === 'PROOF_APPROVED' || e.data.type === 'PROOF_REJECTED')) {
           if (typeof window.syncFromCloudNow === 'function') window.syncFromCloudNow(true);
@@ -27294,10 +27140,6 @@ if (window.initRealtimeLiveBridge) {
 
 // --- ADMIN MODAL NHẬP NỘI DUNG CHO TIÊU CHÍ NỘI DUNG TRỐNG ---
 window.openAdminEditBlankContentModal = function (unitId, critId) {
-  if (state.user && state.user.role === 'guest') {
-    showGuestReadOnlyNotice('nhập nội dung báo cáo');
-    return;
-  }
   const u = (state.units || []).find(x => x.id === unitId);
   const c = (state.criteria || []).find(x => x.id === critId);
   if (!u || !c) return;
@@ -30879,94 +30721,40 @@ window.handleDeleteDonationProgram = function(progId) {
   renderApp();
 };
 
-// 3. DANH SÁCH LƯỢT ỦNG HỘ, BỘ LỌC CHỐNG TRÙNG LẶP & DANH SÁCH XÓA VĨNH VIỄN
-function getDeletedDonationIds() {
-  const ids = new Set();
-  if (state.deletedDonationIds && typeof state.deletedDonationIds.forEach === 'function') {
-    state.deletedDonationIds.forEach(id => ids.add(String(id)));
+// 3. DANH SÁCH LƯỢT ỦNG HỘ
+function getDonationsList() {
+  if (Array.isArray(state.donations)) {
+    return state.donations;
   }
-  if (state.cloudDB && Array.isArray(state.cloudDB.deleted_donation_ids)) {
-    state.cloudDB.deleted_donation_ids.forEach(id => ids.add(String(id)));
+  if (state.cloudDB && Array.isArray(state.cloudDB.donations)) {
+    return state.cloudDB.donations;
   }
   try {
-    const raw = localStorage.getItem('doan2026_deleted_donation_ids');
+    const raw = localStorage.getItem('doan2026_local_donations');
     if (raw) {
-      const arr = JSON.parse(raw);
-      if (Array.isArray(arr)) arr.forEach(id => ids.add(String(id)));
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
     }
   } catch(e) {}
-  return ids;
-}
-window.getDeletedDonationIds = getDeletedDonationIds;
-
-function deduplicateDonations(list) {
-  if (!Array.isArray(list)) return [];
-  const deletedIds = getDeletedDonationIds();
-  const map = new Map();
-  list.forEach(item => {
-    if (!item) return;
-    const key = String(item.id || (item.unit_name + '_' + item.created_at + '_' + item.amount));
-    // Nếu bản ghi nằm trong danh sách đã bị Admin xóa / hủy -> TUYỆT ĐỐI KHÔNG HIỂN THỊ LẠI
-    if (deletedIds.has(key) || (item.id && deletedIds.has(String(item.id)))) {
-      return;
-    }
-    if (!map.has(key)) {
-      map.set(key, item);
-    } else {
-      const existing = map.get(key);
-      // Ưu tiên trạng thái confirmed nếu một trong hai đã được duyệt
-      if (item.status === 'confirmed' || existing.status !== 'confirmed') {
-        map.set(key, item);
-      }
-    }
-  });
-  return Array.from(map.values());
-}
-window.deduplicateDonations = deduplicateDonations;
-
-function getDonationsList() {
-  let list = [];
-  if (Array.isArray(state.donations)) {
-    list = state.donations;
-  } else if (state.cloudDB && Array.isArray(state.cloudDB.donations)) {
-    list = state.cloudDB.donations;
-  } else {
-    try {
-      const raw = localStorage.getItem('doan2026_local_donations');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) list = parsed;
-      }
-    } catch(e) {}
-  }
-  return deduplicateDonations(list);
+  return [];
 }
 
 function saveDonationsList(list) {
-  const cleanList = deduplicateDonations(list);
-  state.donations = cleanList;
+  state.donations = list;
   if (!state.cloudDB) state.cloudDB = {};
-  state.cloudDB.donations = cleanList;
+  state.cloudDB.donations = list;
   try {
-    localStorage.setItem('doan2026_local_donations', JSON.stringify(cleanList));
-    localStorage.setItem('doan2026_donations_list', JSON.stringify(cleanList));
-    // Đồng bộ lập tức vào doan2026_cloud_cache để F5 trong 0ms không bao giờ bị nhảy lại dữ liệu cũ
+    localStorage.setItem('doan2026_local_donations', JSON.stringify(list));
     const cachedRaw = localStorage.getItem('doan2026_cloud_cache');
     if (cachedRaw) {
       const cachedDb = JSON.parse(cachedRaw);
-      cachedDb.donations = cleanList;
-      const delArr = Array.from(getDeletedDonationIds());
-      if (delArr.length > 0) cachedDb.deleted_donation_ids = delArr;
+      cachedDb.donations = list;
       localStorage.setItem('doan2026_cloud_cache', JSON.stringify(cachedDb));
     }
   } catch(e) {}
   if (typeof mutateCloudDB === 'function') {
     mutateCloudDB(db => {
-      db.donations = cleanList;
-      const delArr = Array.from(getDeletedDonationIds());
-      if (delArr.length > 0) {
-        db.deleted_donation_ids = Array.from(new Set([...(db.deleted_donation_ids || []), ...delArr]));
-      }
+      db.donations = list;
       if (Array.isArray(state.chatMessages)) {
         db.chat_messages = state.chatMessages;
       }
@@ -31058,10 +30846,6 @@ window.toggleDonationMarquee = function(enable) {
 // - ĐƠN VỊ CỐ ĐỊNH THEO TÀI KHOẢN ĐĂNG NHẬP (KHÔNG CẦN CHỌN)
 // - BỎ HẲN MỤC 4 (LỜI NHẮN) VÀ MỤC 5 (MÃ GIAO DỊCH) THEO YÊU CẦU
 window.openDonationModal = function() {
-  if (state.user && state.user.role === 'guest') {
-    showGuestReadOnlyNotice('chuyển khoản ủng hộ');
-    return;
-  }
   const modalRoot = document.getElementById('modal-root');
   if (!modalRoot) return;
 
@@ -31556,9 +31340,7 @@ window.handleDonationSuccessConfirm = function() {
       if (typeof mutateCloudDB === 'function') {
         mutateCloudDB(db => {
           db.notifications = db.notifications || [];
-          if (!db.notifications.some(n => n.donation_id === newDonation.id)) {
-            db.notifications.unshift(donNotif);
-          }
+          db.notifications.unshift(donNotif);
         }, 'Unit submitted donation pending admin verification');
       }
 
@@ -31603,50 +31385,30 @@ window.handleDonationSuccessConfirm = function() {
 
 // 7. ADMIN DUYỆT TIỀN THẬT -> BẮT ĐẦU PHÁT THÔNG BÁO VÀ CHẠY VINH DANH
 window.confirmDonationByAdmin = function(donId) {
-  let list = deduplicateDonations(getDonationsList());
-  const don = list.find(d => d.id === donId || String(d.id) === String(donId));
+  const targetId = String(donId);
+  const list = getDonationsList();
+  const don = list.find(d => String(d.id) === targetId);
   if (!don) {
     if (typeof showToast === 'function') showToast('Không tìm thấy lượt ủng hộ này!', 'error');
     return;
   }
 
-  // Cập nhật tất cả các bản ghi trùng ID (nếu có) thành đã xác nhận
-  list.forEach(d => {
-    if (d.id === donId || String(d.id) === String(donId)) {
-      d.status = 'confirmed';
-      d.confirmed_at = (typeof formatDateTimeVN === 'function') ? formatDateTimeVN(new Date()) : new Date().toLocaleString('vi-VN');
-      d.confirmed_by = 'admin';
-    }
-  });
-
-  list = deduplicateDonations(list);
+  don.status = 'confirmed';
+  don.confirmed_at = (typeof formatDateTimeVN === 'function') ? formatDateTimeVN(new Date()) : new Date().toLocaleString('vi-VN');
+  don.confirmed_by = 'admin';
 
   if (!state.settings) state.settings = {};
   state.settings.donation_marquee_enabled = '1';
 
-  // Đánh dấu thông báo chờ duyệt tương ứng thành đã đọc
   if (Array.isArray(state.notifications)) {
     state.notifications.forEach(n => {
-      if (n.donation_id === donId || String(n.donation_id) === String(donId)) {
+      if (String(n.donation_id) === targetId) {
         n.read = true;
       }
     });
   }
 
   saveDonationsList(list);
-
-  // Cập nhật trạng thái thông báo trên đám mây
-  if (typeof mutateCloudDB === 'function') {
-    mutateCloudDB(db => {
-      if (Array.isArray(db.notifications)) {
-        db.notifications.forEach(n => {
-          if (n.donation_id === donId || String(n.donation_id) === String(donId)) {
-            n.read = true;
-          }
-        });
-      }
-    }, 'Admin approved donation ' + donId);
-  }
 
   if (window.triggerConfetti) { try { window.triggerConfetti(); } catch(e){} }
   if (window.playNotificationChime) { try { window.playNotificationChime(); } catch(e){} }
@@ -31693,38 +31455,11 @@ window.rejectDonationByAdmin = function(donId) {
     return;
   }
   const targetId = String(donId);
-
-  // 1. Thêm vào danh sách ID xóa vĩnh viễn
-  if (!state.deletedDonationIds) state.deletedDonationIds = new Set();
-  state.deletedDonationIds.add(targetId);
-  try {
-    const rawDel = localStorage.getItem('doan2026_deleted_donation_ids');
-    const delList = rawDel ? JSON.parse(rawDel) : [];
-    if (!delList.includes(targetId)) delList.push(targetId);
-    localStorage.setItem('doan2026_deleted_donation_ids', JSON.stringify(delList));
-  } catch(e) {}
-
-  // 2. Lọc bỏ khỏi danh sách hiện tại
-  let list = deduplicateDonations(getDonationsList()).filter(d => String(d.id) !== targetId);
+  let list = getDonationsList().filter(d => String(d.id) !== targetId);
   if (Array.isArray(state.notifications)) {
     state.notifications = state.notifications.filter(n => String(n.donation_id) !== targetId);
   }
   saveDonationsList(list);
-
-  // 3. Xóa và cập nhật ngay lập tức lên Cloud DB
-  if (typeof mutateCloudDB === 'function') {
-    mutateCloudDB(db => {
-      db.deleted_donation_ids = db.deleted_donation_ids || [];
-      if (!db.deleted_donation_ids.includes(targetId)) {
-        db.deleted_donation_ids.push(targetId);
-      }
-      db.donations = (db.donations || []).filter(d => String(d.id) !== targetId && !db.deleted_donation_ids.includes(String(d.id)));
-      if (Array.isArray(db.notifications)) {
-        db.notifications = db.notifications.filter(n => String(n.donation_id) !== targetId);
-      }
-    }, 'Admin hủy lượt ủng hộ ' + targetId);
-  }
-
   if (typeof showToast === 'function') {
     showToast('Đã hủy bỏ lượt ghi nhận chưa có tiền.', 'info');
   }
@@ -31734,39 +31469,12 @@ window.rejectDonationByAdmin = function(donId) {
 window.deleteDonationRecord = function(donId) {
   if (!confirm('Bạn có chắc chắn muốn xóa lượt ủng hộ này khỏi Bảng Vàng không?')) return;
   const targetId = String(donId);
-
-  // 1. Thêm vào danh sách ID xóa vĩnh viễn (chống F5 nhảy lại)
-  if (!state.deletedDonationIds) state.deletedDonationIds = new Set();
-  state.deletedDonationIds.add(targetId);
-  try {
-    const rawDel = localStorage.getItem('doan2026_deleted_donation_ids');
-    const delList = rawDel ? JSON.parse(rawDel) : [];
-    if (!delList.includes(targetId)) delList.push(targetId);
-    localStorage.setItem('doan2026_deleted_donation_ids', JSON.stringify(delList));
-  } catch(e) {}
-
-  // 2. Lọc bỏ khỏi danh sách hiện tại
-  let list = deduplicateDonations(getDonationsList()).filter(d => String(d.id) !== targetId);
+  let list = getDonationsList().filter(d => String(d.id) !== targetId);
   if (Array.isArray(state.notifications)) {
     state.notifications = state.notifications.filter(n => String(n.donation_id) !== targetId);
   }
   saveDonationsList(list);
-
-  // 3. Xóa và cập nhật ngay lập tức lên Cloud DB
-  if (typeof mutateCloudDB === 'function') {
-    mutateCloudDB(db => {
-      db.deleted_donation_ids = db.deleted_donation_ids || [];
-      if (!db.deleted_donation_ids.includes(targetId)) {
-        db.deleted_donation_ids.push(targetId);
-      }
-      db.donations = (db.donations || []).filter(d => String(d.id) !== targetId && !db.deleted_donation_ids.includes(String(d.id)));
-      if (Array.isArray(db.notifications)) {
-        db.notifications = db.notifications.filter(n => String(n.donation_id) !== targetId);
-      }
-    }, 'Admin xóa lượt ủng hộ ' + targetId);
-  }
-
-  showToast('Đã xóa vĩnh viễn lượt ghi nhận khỏi Bảng Vàng.', 'info');
+  showToast('Đã xóa lượt ghi nhận khỏi Bảng Vàng.', 'info');
   renderApp();
 };
 
@@ -32095,7 +31803,6 @@ window.exportProgramDonationsToExcel = function(targetKeyword) {
 function renderDonationsTab() {
   const donations = getDonationsList();
   const isAdmin = state.user && state.user.role === 'admin';
-  const isGuest = Boolean(state.user && state.user.role === 'guest');
   const programs = getDonationPrograms();
   const bank = getDonationBankInfo();
   
@@ -32150,17 +31857,10 @@ function renderDonationsTab() {
           </div>
 
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            ${isGuest ? `
-              <button type="button" class="btn btn-lg" onclick="showGuestReadOnlyNotice('chuyển khoản ủng hộ')" style="background: rgba(255,255,255,0.18); color: #e2e8f0; border: 1.5px solid rgba(255,255,255,0.35); font-weight: 700; font-size: 13px; padding: 10px 16px; border-radius: 8px; cursor: not-allowed; display: inline-flex; align-items: center; gap: 6px;" title="Chế độ Khách: Chỉ xem sao kê công khai">
-                <span>🔒</span>
-                <span>Ủng Hộ Đoàn (Chỉ Xem)</span>
-              </button>
-            ` : `
-              <button type="button" class="btn btn-lg" onclick="openDonationModal()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color:#fff; border: 1.5px solid #fde047; font-weight:900; font-size:13.5px; padding:10px 18px; border-radius:8px; cursor:pointer; box-shadow:0 0 14px rgba(245,158,11,0.5); display:inline-flex; align-items:center; gap:6px;">
-                <span>💖</span>
-                <span>ỦNG HỘ ĐOÀN (QUÉT VIETQR)</span>
-              </button>
-            `}
+            <button type="button" class="btn btn-lg" onclick="openDonationModal()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color:#fff; border: 1.5px solid #fde047; font-weight:900; font-size:13.5px; padding:10px 18px; border-radius:8px; cursor:pointer; box-shadow:0 0 14px rgba(245,158,11,0.5); display:inline-flex; align-items:center; gap:6px;">
+              <span>💖</span>
+              <span>ỦNG HỘ ĐOÀN (QUÉT VIETQR)</span>
+            </button>
 
             <button type="button" class="btn btn-sm btn-outline" onclick="exportDonationsToExcel()" style="background:rgba(255,255,255,0.18); color:#fff; border:1px solid rgba(255,255,255,0.4); font-weight:700; font-size:12px; padding:9px 13px; border-radius:8px; cursor:pointer;" title="Xuất dữ liệu sao kê ra file Excel hoặc CSV">
               📊 Xuất Sao Kê Excel
