@@ -1858,7 +1858,32 @@ function mutateCloudDB(mutatorFn, commitMsg = 'Update data') {
 
 function sortCriteriaChronologically(list) {
   if (!Array.isArray(list)) return [];
+  const checkOverdue = (c) => {
+    if (!c) return false;
+    if (Number(c.lock_override) === 1) return false;
+    const effDate = (state.settings && state.settings.effective_date) || todayISO();
+    const dl = c.deadline || '9999-99-99';
+    if (dl === '9999-99-99' || !dl) return false;
+    const autoTime = c.deadline_time || (function(){ const m = (c.title||'').match(/(?:hạn\s*)?(\d{1,2})[h:](\d{2})/i); return m ? (m[1].padStart(2,'0') + ':' + m[2]) : '23:59'; })();
+    const endDateTime = typeof getCriterionDeadlineEndDate === 'function' ? getCriterionDeadlineEndDate(c.deadline, autoTime) : null;
+    const nowTs = Date.now();
+    if (endDateTime) {
+      if (effDate > dl || (effDate === dl && nowTs > endDateTime.getTime())) return true;
+    } else if (effDate > dl) {
+      return true;
+    }
+    return false;
+  };
+
   list.sort((a, b) => {
+    // 1. TIÊU CHÍ CÒN HẠN ƯU TIÊN LÊN ĐẦU, CÁI MÔ QUÁ HẠN TỰ ĐỘNG CHO XUỐNG DƯỚI CÙNG!
+    const isOverA = checkOverdue(a);
+    const isOverB = checkOverdue(b);
+    if (isOverA !== isOverB) {
+      return isOverA ? 1 : -1;
+    }
+
+    // 2. SẮP XẾP CHUẨN ĐẸP THEO TRÌNH TỰ THỜI GIAN (HẠN NỘP GẦN NHẤT ĐẾN XA NHẤT)
     const da = a.deadline || '9999-99-99';
     const db = b.deadline || '9999-99-99';
     if (da !== db) return da.localeCompare(db);
@@ -10939,7 +10964,7 @@ function renderAdminCriteriaTab() {
 
   const mf = state.criteriaMonthFilter || 0;
 
-  let list = state.criteria || [];
+  let list = sortCriteriaChronologically([...(state.criteria || [])]);
 
   if (mf > 0) {
 
@@ -30831,6 +30856,10 @@ window.toggleDonationMarquee = function(enable) {
 // - ĐƠN VỊ CỐ ĐỊNH THEO TÀI KHOẢN ĐĂNG NHẬP (KHÔNG CẦN CHỌN)
 // - BỎ HẲN MỤC 4 (LỜI NHẮN) VÀ MỤC 5 (MÃ GIAO DỊCH) THEO YÊU CẦU
 window.openDonationModal = function() {
+  if (state.user && state.user.role === 'guest') {
+    if (typeof showToast === 'function') showToast('Tài khoản Khách chỉ có quyền xem sao kê công khai, không thể thực hiện ủng hộ.', 'warning');
+    return;
+  }
   const modalRoot = document.getElementById('modal-root');
   if (!modalRoot) return;
 
@@ -31603,6 +31632,10 @@ window.handleSaveAdminManualDonation = function() {
 
 // 9. XUẤT SAO KÊ EXCEL CÔNG KHAI BẢNG VÀNG
 window.exportDonationsToExcel = function() {
+  if (state.user && state.user.role === 'guest') {
+    if (typeof showToast === 'function') showToast('Tài khoản Khách không có quyền xuất dữ liệu sao kê.', 'warning');
+    return;
+  }
   const donations = getDonationsList();
   const bank = getDonationBankInfo();
   const timeNow = (typeof formatDateTimeVN === 'function') ? formatDateTimeVN(new Date()) : new Date().toLocaleString('vi-VN');
@@ -31673,6 +31706,10 @@ window.exportDonationsToExcel = function() {
 
 // 9B. XUẤT SAO KÊ EXCEL RIÊNG CHO TỪNG CHƯƠNG TRÌNH KÊU GỌI (TIỀN TO ĐẾN NHỎ + TỔNG TIỀN)
 window.exportProgramDonationsToExcel = function(targetKeyword) {
+  if (state.user && state.user.role === 'guest') {
+    if (typeof showToast === 'function') showToast('Tài khoản Khách không có quyền xuất dữ liệu sao kê.', 'warning');
+    return;
+  }
   const allDonations = getDonationsList();
   const programs = getDonationPrograms();
   const kw = (targetKeyword || 'UNGHO').toUpperCase();
@@ -31788,6 +31825,7 @@ window.exportProgramDonationsToExcel = function(targetKeyword) {
 function renderDonationsTab() {
   const donations = getDonationsList();
   const isAdmin = state.user && state.user.role === 'admin';
+  const isGuest = Boolean(state.user && state.user.role === 'guest');
   const programs = getDonationPrograms();
   const bank = getDonationBankInfo();
   
@@ -31842,14 +31880,21 @@ function renderDonationsTab() {
           </div>
 
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <button type="button" class="btn btn-lg" onclick="openDonationModal()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color:#fff; border: 1.5px solid #fde047; font-weight:900; font-size:13.5px; padding:10px 18px; border-radius:8px; cursor:pointer; box-shadow:0 0 14px rgba(245,158,11,0.5); display:inline-flex; align-items:center; gap:6px;">
-              <span>💖</span>
-              <span>ỦNG HỘ ĐOÀN (QUÉT VIETQR)</span>
-            </button>
+            ${!isGuest ? `
+              <button type="button" class="btn btn-lg" onclick="openDonationModal()" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color:#fff; border: 1.5px solid #fde047; font-weight:900; font-size:13.5px; padding:10px 18px; border-radius:8px; cursor:pointer; box-shadow:0 0 14px rgba(245,158,11,0.5); display:inline-flex; align-items:center; gap:6px;">
+                <span>💖</span>
+                <span>ỦNG HỘ ĐOÀN (QUÉT VIETQR)</span>
+              </button>
 
-            <button type="button" class="btn btn-sm btn-outline" onclick="exportDonationsToExcel()" style="background:rgba(255,255,255,0.18); color:#fff; border:1px solid rgba(255,255,255,0.4); font-weight:700; font-size:12px; padding:9px 13px; border-radius:8px; cursor:pointer;" title="Xuất dữ liệu sao kê ra file Excel hoặc CSV">
-              📊 Xuất Sao Kê Excel
-            </button>
+              <button type="button" class="btn btn-sm btn-outline" onclick="exportDonationsToExcel()" style="background:rgba(255,255,255,0.18); color:#fff; border:1px solid rgba(255,255,255,0.4); font-weight:700; font-size:12px; padding:9px 13px; border-radius:8px; cursor:pointer;" title="Xuất dữ liệu sao kê ra file Excel hoặc CSV">
+                📊 Xuất Sao Kê Excel
+              </button>
+            ` : `
+              <div style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; color: #fff; display: inline-flex; align-items: center; gap: 6px;">
+                <span>👀</span>
+                <span>Chế độ Khách: Xem sao kê công khai</span>
+              </div>
+            `}
 
             ${isAdmin ? `
               <button type="button" class="btn btn-sm" onclick="openAdminManualDonationModal()" style="background:#15803d; color:#fff; border:1px solid #86efac; font-weight:700; font-size:12px; padding:9px 14px; border-radius:8px; cursor:pointer;" title="Thêm lượt ủng hộ bằng tiền mặt / phong bì trực tiếp tại văn phòng">
@@ -31976,10 +32021,10 @@ function renderDonationsTab() {
                       ${formatMoneyVN(p.amount)} VNĐ
                     </span>
                   </div>
-                  <button type="button" class="btn btn-sm" onclick="exportProgramDonationsToExcel('${escapeHtml(p.keyword)}')" style="background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; font-size:11px; font-weight:800; padding:3px 9px; border-radius:5px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; box-shadow:0 1px 2px rgba(0,0,0,0.05);" title="Xuất dữ liệu sao kê chương trình này ra file Excel">
+                  ${!isGuest ? `<button type="button" class="btn btn-sm" onclick="exportProgramDonationsToExcel('${escapeHtml(p.keyword)}')" style="background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; font-size:11px; font-weight:800; padding:3px 9px; border-radius:5px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; box-shadow:0 1px 2px rgba(0,0,0,0.05);" title="Xuất dữ liệu sao kê chương trình này ra file Excel">
                     <span>📊</span>
                     <span>Xuất Excel</span>
-                  </button>
+                  </button>` : ''}
                 </div>
               </div>
             `;
