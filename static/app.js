@@ -1017,7 +1017,7 @@ const CLOUD_OWNER = 'doanubndquangtri-cmd';
 
 const CLOUD_REPO = 'bo-tieu-chi-doan';
 
-const CLOUD_BRANCH = 'cloud-data';
+const CLOUD_BRANCH = 'data-v2';
 
 const PUBLIC_WEB_URL = `https://${CLOUD_OWNER}.github.io/${CLOUD_REPO}/`;
 
@@ -1787,6 +1787,12 @@ async function uploadFileToCloud(fileDataB64, origName, unitId, critId, onProgre
 let _cloudDBQueue = Promise.resolve();
 
 function mutateCloudDB(mutatorFn, commitMsg = 'Update data') {
+  if (commitMsg && commitMsg.startsWith('Heartbeat:')) {
+    return Promise.resolve({ ok: true, result: null });
+  }
+  if (state.user && state.user.role === 'guest') {
+    return Promise.resolve({ ok: false, error: 'Chế độ khách chỉ có quyền xem, không được ghi dữ liệu.' });
+  }
   const task = async () => {
     state.isSyncing = true;
     for (let attempt = 0; attempt < 6; attempt++) {
@@ -30857,6 +30863,10 @@ window.toggleDonationMarquee = function(enable) {
 // - BỎ HẲN MỤC 4 (LỜI NHẮN) VÀ MỤC 5 (MÃ GIAO DỊCH) THEO YÊU CẦU
 window.openDonationModal = function() {
   if (state.user && state.user.role === 'guest') {
+    if (typeof showToast === 'function') showToast('Tài khoản Khách chỉ có quyền xem thông tin sao kê công khai.', 'warning');
+    return;
+  }
+  if (state.user && state.user.role === 'guest') {
     if (typeof showToast === 'function') showToast('Tài khoản Khách chỉ có quyền xem sao kê công khai, không thể thực hiện ủng hộ.', 'warning');
     return;
   }
@@ -32083,9 +32093,9 @@ function renderDonationsTab() {
             <div style="font-size:36px; margin-bottom:8px;">💛</div>
             <div style="font-weight:700; font-size:14px; color:#1e293b; margin-bottom:4px;">Chưa có lượt ủng hộ nào được ghi nhận</div>
             <div style="font-size:12px; color:#64748b; margin-bottom:14px;">Hãy là đơn vị tiên phong đồng hành cùng các hoạt động của Đoàn UBND tỉnh!</div>
-            <button type="button" class="btn btn-sm" onclick="openDonationModal()" style="background:#d97706; color:#fff; font-weight:700; padding:8px 16px; border-radius:6px; border:none; cursor:pointer;">
+            ${!isGuest ? `<button type="button" class="btn btn-sm" onclick="openDonationModal()" style="background:#d97706; color:#fff; font-weight:700; padding:8px 16px; border-radius:6px; border:none; cursor:pointer;">
               💖 Quét Mã VietQR Ủng Hộ Ngay
-            </button>
+            </button>` : ''}
           </div>
         ` : `
           <!-- 1. GIAO DIỆN BẢNG DÀNH CHO DESKTOP (MÀN HÌNH RỘNG > 768px) -->
