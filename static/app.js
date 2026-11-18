@@ -1321,66 +1321,54 @@ function showToast(msg, type = 'info') {
 
    ========================================================================= */
 
-async function fetchCloudDB() {
+async function fetchCloudDB(forWrite = false) {
+  // Khi chỉ đồng bộ / đọc ngầm (background sync), tải trực tiếp qua raw.githubusercontent.com
+  // TUYỆT ĐỐI KHÔNG tiêu tốn hạn ngạch 5000 request/giờ của GitHub API!
+  if (!forWrite) {
+    try {
+      const rawUrl = `https://raw.githubusercontent.com/${CLOUD_OWNER}/${CLOUD_REPO}/${CLOUD_BRANCH}/cloud_db.json?t=${Date.now()}`;
+      const res = await fetch(rawUrl, { cache: 'no-store' });
+      if (res.ok) {
+        const text = await res.text();
+        const db = JSON.parse(text);
+        return { sha: state.cloudSha || '', db };
+      }
+    } catch(e) {
+      console.warn('Raw fetch fallback to API:', e);
+    }
+  }
 
+  // Khi ghi (mutateCloudDB) hoặc khi raw lỗi: gọi GitHub API để lấy SHA chuẩn xác của tệp cho lệnh PUT
   const url = `https://api.github.com/repos/${CLOUD_OWNER}/${CLOUD_REPO}/contents/cloud_db.json?ref=${CLOUD_BRANCH}&t=${Date.now()}`;
-
   const res = await fetch(url, {
-
     headers: {
-
       Authorization: `token ${_getCloudToken()}`,
-
       Accept: 'application/vnd.github.v3+json',
-
     },
-
     cache: 'no-store',
-
   });
-
   if (!res.ok) {
-
     throw new Error(`Cloud HTTP ${res.status}`);
-
   }
-
   const meta = await res.json();
-
   let b64 = meta.content;
-
   if (!b64) {
-
     const blobUrl = `https://api.github.com/repos/${CLOUD_OWNER}/${CLOUD_REPO}/git/blobs/${meta.sha}`;
-
     const blobRes = await fetch(blobUrl, {
-
       headers: {
-
         Authorization: `token ${_getCloudToken()}`,
-
         Accept: 'application/vnd.github.v3+json',
-
       },
-
       cache: 'no-store',
-
     });
-
     if (!blobRes.ok) throw new Error(`Blob HTTP ${blobRes.status}`);
-
     const blobMeta = await blobRes.json();
-
     b64 = blobMeta.content;
-
   }
-
   const jsonStr = base64ToUtf8(b64);
-
   const db = JSON.parse(jsonStr);
-
+  state.cloudSha = meta.sha;
   return { sha: meta.sha, db };
-
 }
 
 
@@ -1803,7 +1791,7 @@ function mutateCloudDB(mutatorFn, commitMsg = 'Update data') {
     state.isSyncing = true;
     for (let attempt = 0; attempt < 6; attempt++) {
       try {
-        const { sha, db } = await fetchCloudDB();
+        const { sha, db } = await fetchCloudDB(true);
         if (!Array.isArray(db.written_reports)) db.written_reports = state.writtenReports || [];
         const result = await mutatorFn(db);
         if (state.user) {
@@ -6175,8 +6163,18 @@ function renderUnitSubmitTab() {
     });
   }
 
-  // SẮP XẾP TIÊU CHÍ: TUÂN THỦ 100% TRÌNH TỰ THỜI GIAN VÀ SỐ CỘT (CỘT 1 -> CỘT 129, TỪ SỚM ĐẾN MUỘN)
+  // SẮP XẾP TIÊU CHÍ: CÁI MÔ QUÁ HẠN TỰ ĐỘNG CHO XUỐNG DƯỚI CÙNG!
   unitCriteriaList.sort((a, b) => {
+    const stA = getCriterionStatus(a);
+    const isOverdueA = (stA.status === 'overdue' || stA.status === 'deadline_passed');
+    const stB = getCriterionStatus(b);
+    const isOverdueB = (stB.status === 'overdue' || stB.status === 'deadline_passed');
+
+    // Nếu một cái quá hạn, một cái chưa -> Cái quá hạn cho xuống sau cùng!
+    if (isOverdueA !== isOverdueB) {
+      return isOverdueA ? 1 : -1;
+    }
+
     const da = a.deadline || '9999-99-99';
     const db = b.deadline || '9999-99-99';
     if (da !== db) return da.localeCompare(db);
@@ -20139,7 +20137,7 @@ function renderFloatingChatWidget() {
 
               const isMine = (m.sender_id === myId) || (isAdmin && m.sender_role === 'admin');
 
-              const textHtml = m.text ? `<div class="chat-text-content">${escapeHtml(m.text)}</div>` : '';
+              const textHtml = m.text ? `<div class="chat-text-content">${formatChatMessageText(m.text)}</div>` : '';
 
               let attachHtml = '';
 
@@ -20179,10 +20177,12 @@ function renderFloatingChatWidget() {
 
                   <div class="chat-message-bubble">${textHtml}${attachHtml}</div>
 
-                  <div class="chat-message-time">
-
-                    ${escapeHtml(m.time_str || '')}
-
+                  <div class="chat-message-time" style="display:flex; align-items:center; gap:6px; justify-content:${isMine ? 'flex-end' : 'flex-start'};">
+                    <span>${escapeHtml(m.time_str || '')}</span>
+                    <button type="button" onclick="openChatMessageDetailsModal('${escapeHtml(m.id)}')" title="Xem chi tiết: ai đã xem, thời gian xem, ai chưa xem" style="background:none; border:none; padding:1px 4px; font-size:11px; cursor:pointer; opacity:0.8; line-height:1; display:inline-flex; align-items:center;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">👁️</button>
+                    ${(isMine || isAdmin) ? `
+                      <button type="button" onclick="deleteChatMessage('${escapeHtml(m.id)}')" title="Xóa tin nhắn này" style="background:none; border:none; padding:1px 4px; font-size:11px; cursor:pointer; opacity:0.75; color:#ef4444; line-height:1; display:inline-flex; align-items:center;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.75'">🗑️</button>
+                    ` : ''}
                   </div>
 
                 </div>
@@ -32205,3 +32205,186 @@ function renderDonationsTab() {
     </div>
   `;
 }
+
+// =========================================================================
+// HỖ TRỢ CHAT MỞ RỘNG: TỰ ĐỘNG NHẬN DIỆN LINK, XÓA TIN NHẮN, CHI TIẾT ĐÃ XEM
+// =========================================================================
+
+function formatChatMessageText(text) {
+  if (!text) return '';
+  const escaped = escapeHtml(text);
+  const urlRegex = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
+  return escaped.replace(urlRegex, (url) => {
+    let href = url;
+    if (href.toLowerCase().startsWith('www.')) {
+      href = 'https://' + href;
+    }
+    return `<a href="${href}" target="_blank" rel="noopener noreferrer" style="color:#0284c7; text-decoration:underline; font-weight:700; word-break:break-all;" onclick="event.stopPropagation();">${url}</a>`;
+  });
+}
+window.formatChatMessageText = formatChatMessageText;
+
+window.deleteChatMessage = function(msgId) {
+  if (!confirm('Bạn có chắc chắn muốn XÓA tin nhắn này khỏi phòng trao đổi không?')) return;
+  const targetId = String(msgId);
+  state.chatMessages = (state.chatMessages || []).filter(m => String(m.id) !== targetId);
+  try {
+    localStorage.setItem('doan2026_local_chat_messages', JSON.stringify(state.chatMessages));
+  } catch(e) {}
+  renderApp();
+  if (typeof mutateCloudDB === 'function') {
+    mutateCloudDB(db => {
+      db.chat_messages = (db.chat_messages || []).filter(m => String(m.id) !== targetId);
+    }, 'Xóa tin nhắn trao đổi ' + targetId).catch(err => console.warn('Delete chat error:', err));
+  }
+  showToast('Đã xóa tin nhắn thành công.', 'info');
+};
+
+window.openChatMessageDetailsModal = function(msgId) {
+  const modalRoot = document.getElementById('modal-root');
+  if (!modalRoot) return;
+  const targetId = String(msgId);
+  const msg = (state.chatMessages || []).find(m => String(m.id) === targetId);
+  if (!msg) {
+    if (typeof showToast === 'function') showToast('Không tìm thấy tin nhắn này!', 'error');
+    return;
+  }
+
+  const msgTs = Number(msg.timestamp) || (new Date(msg.created_at).getTime()) || 0;
+  const readStatus = (state.cloudDB && state.cloudDB.chat_read_status) || {};
+  const isPublic = (msg.room === 'public' || !msg.room);
+
+  const readList = [];
+  const unreadList = [];
+
+  if (isPublic) {
+    // 1. Kiểm tra Admin (id: 0)
+    const adminReadTime = Number(readStatus['admin_public'] || readStatus['admin'] || 0);
+    const adminRead = (msg.sender_role === 'admin') || (adminReadTime >= (msgTs - 3000));
+    const effectiveAdminReadTime = (msg.sender_role === 'admin') ? msgTs : adminReadTime;
+    const adminOnline = window.isUnitOnline ? window.isUnitOnline(0) : false;
+    const adminEntry = {
+      name: '👑 Ban Thường vụ Đoàn UBND Tỉnh (Admin)',
+      isRead: adminRead,
+      readTime: adminRead ? (typeof formatDateTimeVN === 'function' ? formatDateTimeVN(new Date(effectiveAdminReadTime)) : new Date(effectiveAdminReadTime).toLocaleString('vi-VN')) : null,
+      isOnline: adminOnline
+    };
+    if (adminRead) readList.push(adminEntry);
+    else unreadList.push(adminEntry);
+
+    // 2. Kiểm tra 40 cơ sở Đoàn
+    (state.units || []).forEach(u => {
+      if (u.id === 0) return;
+      const uKey = 'unit_' + u.id;
+      const uReadTime = Number(readStatus[`${uKey}_public`] || readStatus[uKey] || 0);
+      const isRead = (u.id === msg.sender_id) || (uReadTime >= (msgTs - 3000));
+      const effectiveReadTime = (u.id === msg.sender_id) ? msgTs : uReadTime;
+      const isOnline = window.isUnitOnline ? window.isUnitOnline(u.id) : false;
+      const entry = {
+        name: u.unit_name,
+        code: u.unit_code,
+        isRead: isRead,
+        readTime: isRead ? (typeof formatDateTimeVN === 'function' ? formatDateTimeVN(new Date(effectiveReadTime)) : new Date(effectiveReadTime).toLocaleString('vi-VN')) : null,
+        isOnline: isOnline
+      };
+      if (isRead) readList.push(entry);
+      else unreadList.push(entry);
+    });
+  } else {
+    // Tin nhắn riêng (Private room): Admin và Đơn vị đối tác
+    const partnerId = Number(msg.room.replace('private_', '').split('_').find(id => Number(id) !== (msg.sender_id || 0))) || 0;
+    const partner = (state.units || []).find(u => u.id === partnerId) || { unit_name: 'Đơn vị trao đổi' };
+    
+    const pKey = partnerId === 0 ? 'admin' : ('unit_' + partnerId);
+    const pReadTime = Number(readStatus[`${pKey}_${msg.room}`] || readStatus[pKey] || 0);
+    const pRead = (pReadTime >= msgTs - 3000);
+    const pEntry = {
+      name: partner.unit_name,
+      isRead: pRead,
+      readTime: pRead ? (typeof formatDateTimeVN === 'function' ? formatDateTimeVN(new Date(pReadTime)) : new Date(pReadTime).toLocaleString('vi-VN')) : null,
+      isOnline: window.isUnitOnline ? window.isUnitOnline(partnerId) : false
+    };
+    if (pRead) readList.push(pEntry);
+    else unreadList.push(pEntry);
+  }
+
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+      <div class="modal-box" style="max-width:560px; width:95%; border-radius:12px; overflow:hidden; box-shadow:0 16px 36px rgba(0,0,0,0.3); margin:20px auto; max-height:90vh; display:flex; flex-direction:column; background:#fff;">
+        <div class="modal-header" style="background:linear-gradient(135deg, #1e3a8a, #0284c7); color:#fff; padding:14px 18px; display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-weight:800; font-size:14.5px; display:flex; align-items:center; gap:8px;">
+            <span>ℹ️</span>
+            <span>CHI TIẾT TIN NHẮN & DANH SÁCH ĐÃ XEM</span>
+          </div>
+          <button class="btn btn-sm btn-outline" onclick="closeModal()" style="color:#fff; border-color:rgba(255,255,255,0.4);">✕</button>
+        </div>
+
+        <div class="modal-body" style="padding:16px 20px; overflow-y:auto; flex:1 1 auto;">
+          <!-- THÔNG TIN TIN NHẮN -->
+          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 14px; margin-bottom:14px;">
+            <div style="font-size:12.5px; color:#64748b; margin-bottom:4px;">
+              <b>Người gửi:</b> <span style="color:#0f172a; font-weight:700;">${escapeHtml(msg.sender_name || 'Người dùng')}</span> • <b>Đã nhận lúc:</b> <span style="color:#0284c7; font-weight:700;">${escapeHtml(msg.time_str || msg.created_at || '')}</span>
+            </div>
+            <div style="font-size:13px; color:#1e293b; background:#fff; border:1px solid #cbd5e1; border-radius:6px; padding:8px 10px; margin-top:6px; max-height:90px; overflow-y:auto;">
+              ${msg.text ? formatChatMessageText(msg.text) : (msg.file_name ? ('📎 ' + escapeHtml(msg.file_name)) : 'Tin nhắn')}
+            </div>
+          </div>
+
+          <!-- THỐNG KÊ LƯỢT XEM -->
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px;">
+            <div style="background:#ecfdf5; border:1.5px solid #10b981; border-radius:8px; padding:10px 12px; text-align:center;">
+              <div style="font-size:11.5px; color:#047857; font-weight:700;">👁️ ĐÃ XEM</div>
+              <div style="font-size:20px; font-weight:900; color:#065f46;">${readList.length} <span style="font-size:12px; font-weight:600;">đơn vị</span></div>
+            </div>
+            <div style="background:#fff7ed; border:1.5px solid #f97316; border-radius:8px; padding:10px 12px; text-align:center;">
+              <div style="font-size:11.5px; color:#c2410c; font-weight:700;">⏳ CHƯA XEM</div>
+              <div style="font-size:20px; font-weight:900; color:#9a3412;">${unreadList.length} <span style="font-size:12px; font-weight:600;">đơn vị</span></div>
+            </div>
+          </div>
+
+          <!-- DANH SÁCH CHI TIẾT -->
+          <div style="font-size:12.5px; font-weight:800; color:#0f172a; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+            <span>Danh sách cơ sở Đoàn:</span>
+            <span style="font-size:11px; color:#64748b; font-weight:600;">Tổng cộng: ${readList.length + unreadList.length} đơn vị</span>
+          </div>
+
+          <div style="border:1px solid #e2e8f0; border-radius:8px; overflow:hidden;">
+            <div style="max-height:260px; overflow-y:auto;">
+              <!-- ĐÃ XEM -->
+              ${readList.map(item => `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; border-bottom:1px solid #f1f5f9; background:#fff; font-size:12px;">
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="color:#10b981; font-weight:800;">✓</span>
+                    <div>
+                      <div style="font-weight:700; color:#1e293b;">${escapeHtml(item.name)}</div>
+                      <div style="font-size:10.5px; color:#64748b;">Đã xem lúc: <b style="color:#047857;">${item.readTime || 'Đã đọc'}</b></div>
+                    </div>
+                  </div>
+                  <span style="background:#d1fae5; color:#065f46; font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:10px;">Đã xem</span>
+                </div>
+              `).join('')}
+
+              <!-- CHƯA XEM -->
+              ${unreadList.map(item => `
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; border-bottom:1px solid #f1f5f9; background:#fffbf7; font-size:12px;">
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="color:#f97316; font-weight:800;">⏳</span>
+                    <div>
+                      <div style="font-weight:600; color:#475569;">${escapeHtml(item.name)}</div>
+                      ${item.isOnline ? `<div style="font-size:10.5px; color:#16a34a; font-weight:700;">🟢 Đang Online trong hệ thống</div>` : `<div style="font-size:10.5px; color:#94a3b8;">Chưa mở xem tin</div>`}
+                    </div>
+                  </div>
+                  <span style="background:#ffedd5; color:#9a3412; font-size:10.5px; font-weight:700; padding:2px 7px; border-radius:10px;">Chưa xem</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer" style="padding:10px 18px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end;">
+          <button type="button" class="btn btn-secondary" onclick="closeModal()" style="padding:6px 16px; font-size:12px; font-weight:700;">Đóng</button>
+        </div>
+      </div>
+    </div>
+  `;
+};
