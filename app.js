@@ -34558,36 +34558,189 @@ window.openPostLightbox = function (postId, imgIdx = 0) {
   const curSrc = imgs[safeIdx];
   const pidEsc = escapeHtml(String(item.id));
   const old = document.getElementById('gallery-lightbox-overlay');
-  if (old) old.remove();
+  if (old) {
+    if (old._cleanupKey) window.removeEventListener('keydown', old._cleanupKey);
+    old.remove();
+  }
 
   const overlay = document.createElement('div');
   overlay.id = 'gallery-lightbox-overlay';
-  overlay.style.cssText = 'position:fixed; inset:0; z-index:9999999; background:rgba(7, 15, 36, 0.94); backdrop-filter:blur(8px); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:16px; box-sizing:border-box;';
-  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+  overlay.style.cssText = 'position:fixed; inset:0; z-index:9999999; background:rgba(7, 15, 36, 0.95); backdrop-filter:blur(8px); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:16px; box-sizing:border-box; user-select:none; -webkit-user-select:none; overflow:hidden;';
+
+  const closeOverlay = () => {
+    if (overlay._cleanupKey) window.removeEventListener('keydown', overlay._cleanupKey);
+    overlay.remove();
+  };
+  overlay.onclick = (e) => { if (e.target === overlay) closeOverlay(); };
+
   overlay.innerHTML = `
-    <div style="position:absolute; top:14px; right:16px; display:flex; align-items:center; gap:8px; z-index:2;">
-      <button type="button" onclick="downloadPostImage('${pidEsc}', ${safeIdx})" style="background:rgba(255,255,255,0.16); color:#fff; border:1px solid rgba(255,255,255,0.35); padding:7px 13px; border-radius:9px; font-weight:700; font-size:12.5px; cursor:pointer;">⬇️ Tải ảnh này</button>
-      <button type="button" onclick="document.getElementById('gallery-lightbox-overlay')?.remove()" style="background:#ef4444; color:#fff; border:none; padding:7px 14px; border-radius:9px; font-weight:800; font-size:12.5px; cursor:pointer;">✕ Đóng</button>
+    <div onclick="event.stopPropagation()" style="position:absolute; top:12px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:6px; z-index:5; background:rgba(15,23,42,0.78); backdrop-filter:blur(8px); padding:5px 8px; border-radius:12px; border:1px solid rgba(255,255,255,0.22); flex-wrap:nowrap; max-width:calc(100vw - 24px);">
+      <button type="button" id="lb-zoom-out" title="Thu nhỏ (-)" style="background:rgba(255,255,255,0.14); color:#fff; border:1px solid rgba(255,255,255,0.28); width:30px; height:30px; border-radius:8px; font-weight:900; font-size:15px; cursor:pointer;">−</button>
+      <button type="button" id="lb-zoom-reset" title="Đặt lại 100%" style="background:rgba(255,255,255,0.1); color:#fde047; border:1px solid rgba(255,255,255,0.22); height:30px; padding:0 9px; border-radius:8px; font-weight:800; font-size:12px; cursor:pointer; min-width:52px;">100%</button>
+      <button type="button" id="lb-zoom-in" title="Phóng to (+)" style="background:rgba(255,255,255,0.14); color:#fff; border:1px solid rgba(255,255,255,0.28); width:30px; height:30px; border-radius:8px; font-weight:900; font-size:15px; cursor:pointer;">+</button>
+      <span style="width:1px; height:18px; background:rgba(255,255,255,0.2); margin:0 2px;"></span>
+      <button type="button" onclick="downloadPostImage('${pidEsc}', ${safeIdx})" style="background:rgba(14,165,233,0.3); color:#fff; border:1px solid rgba(125,211,252,0.45); height:30px; padding:0 11px; border-radius:8px; font-weight:700; font-size:12px; cursor:pointer; white-space:nowrap;">⬇️ Tải ảnh</button>
+      <button type="button" id="lb-close-btn" style="background:#ef4444; color:#fff; border:none; height:30px; padding:0 12px; border-radius:8px; font-weight:800; font-size:12px; cursor:pointer; white-space:nowrap;">✕ Đóng</button>
     </div>
     ${imgs.length > 1 ? `
-      <button type="button" onclick="event.stopPropagation(); openPostLightbox('${pidEsc}', ${safeIdx - 1})" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); background:rgba(255,255,255,0.18); color:#fff; border:1px solid rgba(255,255,255,0.35); width:44px; height:44px; border-radius:50%; font-size:20px; font-weight:800; cursor:pointer;">‹</button>
-      <button type="button" onclick="event.stopPropagation(); openPostLightbox('${pidEsc}', ${safeIdx + 1})" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); background:rgba(255,255,255,0.18); color:#fff; border:1px solid rgba(255,255,255,0.35); width:44px; height:44px; border-radius:50%; font-size:20px; font-weight:800; cursor:pointer;">›</button>
+      <button type="button" onclick="event.stopPropagation(); openPostLightbox('${pidEsc}', ${safeIdx - 1})" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); z-index:5; background:rgba(15,23,42,0.72); color:#fff; border:1px solid rgba(255,255,255,0.35); width:44px; height:44px; border-radius:50%; font-size:22px; font-weight:800; cursor:pointer;">‹</button>
+      <button type="button" onclick="event.stopPropagation(); openPostLightbox('${pidEsc}', ${safeIdx + 1})" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); z-index:5; background:rgba(15,23,42,0.72); color:#fff; border:1px solid rgba(255,255,255,0.35); width:44px; height:44px; border-radius:50%; font-size:22px; font-weight:800; cursor:pointer;">›</button>
     ` : ''}
-    <img
-      src="${escapeHtml(curSrc)}"
-      onerror="if(this.dataset.fb && this.src!==this.dataset.fb){this.src=this.dataset.fb;}"
-      data-fb="${escapeHtml(item.fallback || '')}"
-      alt="${escapeHtml(item.title)}"
-      onclick="event.stopPropagation()"
-      style="max-width:94vw; max-height:78dvh; object-fit:contain; border-radius:10px; box-shadow:0 16px 48px rgba(0,0,0,0.55); border:1px solid rgba(255,255,255,0.18);"
-    />
-    <div onclick="event.stopPropagation()" style="margin-top:14px; text-align:center; max-width:780px; color:#fff;">
-      <div style="font-size:16px; font-weight:800; color:#fde047;">${escapeHtml(item.title)}</div>
-      ${item.description ? `<div style="font-size:13px; color:#e2e8f0; margin-top:4px;">${escapeHtml(item.description)}</div>` : ''}
-      <div style="font-size:11.5px; color:#94a3b8; margin-top:4px;">Ảnh ${safeIdx + 1} / ${imgs.length}${item.uploader_name ? ' • ' + escapeHtml(item.uploader_name) : ''}${item.date ? ' • ' + escapeHtml(item.date) : ''}</div>
+    <div id="lb-stage" onclick="event.stopPropagation()" style="flex:1 1 auto; width:100%; display:flex; align-items:center; justify-content:center; overflow:hidden; touch-action:none; margin-top:42px; cursor:zoom-in;">
+      <img
+        id="lb-zoom-img"
+        src="${escapeHtml(curSrc)}"
+        onerror="if(this.dataset.fb && this.src!==this.dataset.fb){this.src=this.dataset.fb;}"
+        data-fb="${escapeHtml(item.fallback || '')}"
+        alt="${escapeHtml(item.title)}"
+        draggable="false"
+        style="max-width:94vw; max-height:76dvh; object-fit:contain; border-radius:10px; box-shadow:0 16px 48px rgba(0,0,0,0.55); border:1px solid rgba(255,255,255,0.18); transform-origin:center center; transition:transform 0.08s ease-out; will-change:transform;"
+      />
+    </div>
+    <div onclick="event.stopPropagation()" style="margin-top:10px; text-align:center; max-width:780px; color:#fff; z-index:4; flex-shrink:0;">
+      <div style="font-size:15.5px; font-weight:800; color:#fde047;">${escapeHtml(item.title)}</div>
+      ${item.description ? `<div style="font-size:12.5px; color:#e2e8f0; margin-top:3px;">${escapeHtml(item.description)}</div>` : ''}
+      <div style="font-size:11px; color:#94a3b8; margin-top:3px;">Ảnh ${safeIdx + 1} / ${imgs.length}${item.uploader_name ? ' • ' + escapeHtml(item.uploader_name) : ''}${item.date ? ' • ' + escapeHtml(item.date) : ''} • Lăn chuột / chụm 2 ngón tay để phóng to, kéo để di chuyển</div>
     </div>
   `;
   document.body.appendChild(overlay);
+
+  // Động cơ Phóng to / Thu nhỏ & Kéo ảnh mượt cho cả Máy tính & Điện thoại
+  const stage = overlay.querySelector('#lb-stage');
+  const imgEl = overlay.querySelector('#lb-zoom-img');
+  const resetBtn = overlay.querySelector('#lb-zoom-reset');
+  const zoomInBtn = overlay.querySelector('#lb-zoom-in');
+  const zoomOutBtn = overlay.querySelector('#lb-zoom-out');
+  const closeBtn = overlay.querySelector('#lb-close-btn');
+
+  let scale = 1;
+  let tx = 0;
+  let ty = 0;
+  let isDragging = false;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let pinchStartDist = 0;
+  let pinchStartScale = 1;
+  let lastTapTs = 0;
+
+  const applyTransform = (instant = false) => {
+    if (scale <= 1.01) { scale = 1; tx = 0; ty = 0; }
+    if (scale > 5) scale = 5;
+    if (imgEl) {
+      imgEl.style.transition = instant ? 'none' : 'transform 0.12s ease-out';
+      imgEl.style.transform = `translate3d(${tx}px, ${ty}px, 0) scale(${scale})`;
+    }
+    if (stage) stage.style.cursor = scale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'zoom-in';
+    if (resetBtn) resetBtn.textContent = Math.round(scale * 100) + '%';
+  };
+
+  if (closeBtn) closeBtn.onclick = closeOverlay;
+  if (zoomInBtn) zoomInBtn.onclick = () => { scale = Math.min(5, scale * 1.35); applyTransform(); };
+  if (zoomOutBtn) zoomOutBtn.onclick = () => { scale = Math.max(1, scale / 1.35); applyTransform(); };
+  if (resetBtn) resetBtn.onclick = () => { scale = 1; tx = 0; ty = 0; applyTransform(); };
+
+  // 1. Con lăn chuột (Desktop)
+  if (stage) {
+    stage.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.18 : (1 / 1.18);
+      scale = Math.max(1, Math.min(5, scale * factor));
+      applyTransform(true);
+    }, { passive: false });
+
+    // 2. Nhấp đúp để phóng to nhanh 2.5x / thu về 1x
+    stage.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      if (scale > 1.1) { scale = 1; tx = 0; ty = 0; }
+      else { scale = 2.5; }
+      applyTransform();
+    });
+
+    // 3. Kéo chuột để di chuyển ảnh khi đang phóng to
+    stage.addEventListener('mousedown', (e) => {
+      if (scale <= 1) return;
+      isDragging = true;
+      dragStartX = e.clientX - tx;
+      dragStartY = e.clientY - ty;
+      applyTransform(true);
+    });
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      tx = e.clientX - dragStartX;
+      ty = e.clientY - dragStartY;
+      applyTransform(true);
+    });
+    window.addEventListener('mouseup', () => {
+      if (!isDragging) return;
+      isDragging = false;
+      applyTransform(true);
+    });
+
+    // 4. Cảm ứng Điện thoại: Chụm 2 ngón phóng to/thu nhỏ + 1 ngón kéo + Chạm đúp
+    stage.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        isDragging = false;
+        pinchStartDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        pinchStartScale = scale;
+      } else if (e.touches.length === 1) {
+        const now = Date.now();
+        if (now - lastTapTs < 280) {
+          if (scale > 1.1) { scale = 1; tx = 0; ty = 0; }
+          else { scale = 2.5; }
+          applyTransform();
+          lastTapTs = 0;
+          return;
+        }
+        lastTapTs = now;
+        if (scale > 1) {
+          isDragging = true;
+          dragStartX = e.touches[0].clientX - tx;
+          dragStartY = e.touches[0].clientY - ty;
+        }
+      }
+    }, { passive: true });
+
+    stage.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2 && pinchStartDist > 0) {
+        e.preventDefault();
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        scale = Math.max(1, Math.min(5, pinchStartScale * (dist / pinchStartDist)));
+        applyTransform(true);
+      } else if (e.touches.length === 1 && isDragging && scale > 1) {
+        e.preventDefault();
+        tx = e.touches[0].clientX - dragStartX;
+        ty = e.touches[0].clientY - dragStartY;
+        applyTransform(true);
+      }
+    }, { passive: false });
+
+    stage.addEventListener('touchend', (e) => {
+      if (e.touches.length < 2) pinchStartDist = 0;
+      if (e.touches.length === 0) isDragging = false;
+    }, { passive: true });
+  }
+
+  // 5. Phím tắt máy tính (ESC, +, -, mũi tên trái/phải)
+  const onKeyDown = (e) => {
+    if (!document.getElementById('gallery-lightbox-overlay')) {
+      window.removeEventListener('keydown', onKeyDown);
+      return;
+    }
+    if (e.key === 'Escape') closeOverlay();
+    else if (e.key === '+' || e.key === '=') { scale = Math.min(5, scale * 1.25); applyTransform(); }
+    else if (e.key === '-') { scale = Math.max(1, scale / 1.25); applyTransform(); }
+    else if (e.key === '0') { scale = 1; tx = 0; ty = 0; applyTransform(); }
+    else if (e.key === 'ArrowLeft' && imgs.length > 1) openPostLightbox(postId, safeIdx - 1);
+    else if (e.key === 'ArrowRight' && imgs.length > 1) openPostLightbox(postId, safeIdx + 1);
+  };
+  overlay._cleanupKey = onKeyDown;
+  window.addEventListener('keydown', onKeyDown);
 };
 
 window.downloadPostImage = function (postId, imgIdx = 0) {
