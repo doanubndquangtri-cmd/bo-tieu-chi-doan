@@ -9076,30 +9076,30 @@ window.syncFromCloudNow = async function (silent = false) {
     const prevKnownIds = new Set((state.chatMessages || []).map(m => String(m.id)));
     const isFirstSync = !state._hasCompletedFirstCloudSync;
 
-    // Kiểm tra xem dữ liệu cốt lõi (tiêu chí, điểm số, văn bản, thông báo, settings) có thực sự thay đổi không
-    const isSubstantiveChange = !state._lastIngestedDBSignature || 
-      state._lastIngestedDBSignature !== JSON.stringify({
-        c: (db.criteria || []).map(x => [x.id, x.title, x.deadline, x.start_date, x.deadline_time, x.is_report]),
-        s: (db.scores || []).length,
-        d: (db.admin_docs || []).length,
-        u: (db.units || []).length,
-        n: (db.notifications || []).length,
-        m: db.marquee_text || '',
-        st: db.settings || {}
-      });
-
-    state._lastIngestedDBSignature = JSON.stringify({
+    // Kiểm tra xem dữ liệu cốt lõi (tiêu chí, điểm số, văn bản, thông báo, settings, bản tin/thư viện ảnh & tim/bình luận) có thực sự thay đổi không
+    const buildSigObj = () => ({
       c: (db.criteria || []).map(x => [x.id, x.title, x.deadline, x.start_date, x.deadline_time, x.is_report]),
       s: (db.scores || []).length,
       d: (db.admin_docs || []).length,
       u: (db.units || []).length,
       n: (db.notifications || []).length,
       m: db.marquee_text || '',
-      st: db.settings || {}
+      st: db.settings || {},
+      pg: (db.photo_gallery || []).map(p => [p.id, p.title, p.featured, p.updated_at || '']),
+      pgi: Object.entries(db.photo_gallery_interactions || {}).map(([k, v]) => [k, (v && v.likes ? v.likes.length : 0), (v && v.comments ? v.comments.length : 0)])
     });
+    const nextSigStr = JSON.stringify(buildSigObj());
+    const isSubstantiveChange = !state._lastIngestedDBSignature || state._lastIngestedDBSignature !== nextSigStr;
+    state._lastIngestedDBSignature = nextSigStr;
 
     ingestCloudDB(db);
     state._hasCompletedFirstCloudSync = true;
+
+    // Nếu đang mở tab Bản Tin / Thư Viện Ảnh -> cập nhật trực tiếp bài mới, tim & bình luận TẠI CHỖ (KHÔNG F5, KHÔNG nhảy thanh kéo!)
+    if (silent && state.activeTab === 'gallery' && typeof window.patchGalleryFeedLive === 'function') {
+      window.patchGalleryFeedLive();
+      if (typeof window.patchLiveChatDOM === 'function') window.patchLiveChatDOM(false);
+    }
 
     const trulyNewMsgs = (state.chatMessages || []).filter(m => {
       if (!m || !m.id || prevKnownIds.has(String(m.id))) return false;
@@ -34306,10 +34306,16 @@ window.initRealtimeLiveBridge = function() {
               window.syncFromCloudNow(true);
             }
           }
-        } else if (evt.type === 'REPORT_SUBMITTED' || evt.type === 'NEW_CRITERIA' || evt.type === 'ADMIN_DOC' || evt.type === 'PROOF_APPROVED' || evt.type === 'PROOF_REJECTED' || evt.type === 'MARQUEE_ANNOUNCEMENT' || evt.type === 'DONATION_RECEIVED') {
-          if (window.playNotificationChime) window.playNotificationChime();
+        } else if (evt.type === 'REPORT_SUBMITTED' || evt.type === 'NEW_CRITERIA' || evt.type === 'ADMIN_DOC' || evt.type === 'PROOF_APPROVED' || evt.type === 'PROOF_REJECTED' || evt.type === 'MARQUEE_ANNOUNCEMENT' || evt.type === 'DONATION_RECEIVED' || evt.type === 'GALLERY_POST' || evt.type === 'GALLERY_LIKE' || evt.type === 'GALLERY_COMMENT' || evt.type === 'GALLERY_EDIT' || evt.type === 'GALLERY_DELETE') {
+          if (evt.type !== 'GALLERY_LIKE' && evt.type !== 'GALLERY_EDIT' && evt.type !== 'GALLERY_DELETE' && window.playNotificationChime) {
+            window.playNotificationChime();
+          }
+          window._cloudTreeEtag = null;
           if (typeof window.syncFromCloudNow === 'function') {
             window.syncFromCloudNow(true).then(() => {
+              if (state.activeTab === 'gallery' && typeof window.patchGalleryFeedLive === 'function') {
+                window.patchGalleryFeedLive();
+              }
               if (document.hidden && window.WebPushManager && window.WebPushManager.showLocalNativeNotification) {
                 let title = '🔔 Thông Báo Mới Từ Hệ Thống';
                 let body = 'Có cập nhật mới trong Bộ Tiêu Chí Đoàn';
@@ -34368,7 +34374,8 @@ window.initRealtimeLiveBridge = function() {
           handleIncomingPresencePing(e.data.data);
         } else if (e.data && e.data.type === 'PRESENCE_OFFLINE' && e.data.data) {
           handleIncomingPresenceOffline(e.data.data);
-        } else if (e.data && (e.data.type === 'REPORT_SUBMITTED' || e.data.type === 'NEW_CRITERIA' || e.data.type === 'ADMIN_DOC' || e.data.type === 'PROOF_APPROVED' || e.data.type === 'PROOF_REJECTED')) {
+        } else if (e.data && (e.data.type === 'REPORT_SUBMITTED' || e.data.type === 'NEW_CRITERIA' || e.data.type === 'ADMIN_DOC' || e.data.type === 'PROOF_APPROVED' || e.data.type === 'PROOF_REJECTED' || e.data.type === 'GALLERY_POST' || e.data.type === 'GALLERY_LIKE' || e.data.type === 'GALLERY_COMMENT' || e.data.type === 'GALLERY_EDIT' || e.data.type === 'GALLERY_DELETE')) {
+          window._cloudTreeEtag = null;
           if (typeof window.syncFromCloudNow === 'function') window.syncFromCloudNow(true);
         }
       };
@@ -40330,39 +40337,101 @@ window.insertCommentEmoji = function (inputId, emoji) {
   try { inp.setSelectionRange(pos, pos); } catch (e) {}
 };
 
+const GALLERY_REACTIONS = [
+  { key: 'love', icon: '❤️', label: 'Yêu thích', color: '#e11d48', bg: '#fff1f2' },
+  { key: 'like', icon: '👍', label: 'Thích', color: '#0052cc', bg: '#eff6ff' },
+  { key: 'care', icon: '🥰', label: 'Thương thương', color: '#d97706', bg: '#fffbeb' },
+  { key: 'haha', icon: '😆', label: 'Haha', color: '#d97706', bg: '#fffbeb' },
+  { key: 'wow', icon: '😮', label: 'Wow', color: '#d97706', bg: '#fffbeb' },
+  { key: 'sad', icon: '😢', label: 'Buồn', color: '#0284c7', bg: '#f0f9ff' },
+  { key: 'angry', icon: '😡', label: 'Phẫn nộ', color: '#dc2626', bg: '#fef2f2' },
+  { key: 'clap', icon: '👏', label: 'Hoan hô', color: '#15803d', bg: '#f0fdf4' },
+];
+
+function getReactionMeta(reactionIconOrKey) {
+  if (!reactionIconOrKey) return GALLERY_REACTIONS[0];
+  return GALLERY_REACTIONS.find(r => r.icon === reactionIconOrKey || r.key === reactionIconOrKey) || GALLERY_REACTIONS[0];
+}
+
+window.openReactionPickerPopover = function (postId, btnEl) {
+  const existing = document.getElementById('gallery-reaction-popover');
+  if (existing) {
+    const same = existing.dataset.postId === String(postId);
+    existing.remove();
+    if (same) return;
+  }
+  const rect = btnEl ? btnEl.getBoundingClientRect() : null;
+  const pop = document.createElement('div');
+  pop.id = 'gallery-reaction-popover';
+  pop.dataset.postId = String(postId);
+  const pidEsc = escapeHtml(String(postId));
+  const left = rect ? Math.max(8, Math.min(rect.left, window.innerWidth - 340)) : 16;
+  let top = rect ? (rect.top - 58) : 120;
+  if (top < 10 && rect) top = rect.bottom + 6;
+  pop.style.cssText = `position:fixed; left:${left}px; top:${top}px; z-index:9999999; background:#ffffff; border:1px solid #e2e8f0; border-radius:28px; box-shadow:0 10px 28px rgba(15,23,42,0.24); padding:5px 8px; display:inline-flex; align-items:center; gap:3px;`;
+  pop.onclick = (e) => e.stopPropagation();
+  pop.innerHTML = GALLERY_REACTIONS.map(r => `
+    <button
+      type="button"
+      onclick="toggleGalleryLike('${pidEsc}', '${r.icon}'); document.getElementById('gallery-reaction-popover')?.remove();"
+      title="${escapeHtml(r.label)}"
+      style="border:none; background:transparent; font-size:24px; width:36px; height:36px; border-radius:50%; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; transition:transform 0.14s ease, background 0.14s ease;"
+      onmouseover="this.style.transform='scale(1.32) translateY(-4px)'; this.style.background='#f1f5f9';"
+      onmouseout="this.style.transform='scale(1)'; this.style.background='transparent';"
+    >${r.icon}</button>
+  `).join('');
+  document.body.appendChild(pop);
+  setTimeout(() => {
+    const closeOut = (ev) => {
+      if (!pop.contains(ev.target) && ev.target !== btnEl) {
+        pop.remove();
+        document.removeEventListener('click', closeOut);
+      }
+    };
+    document.addEventListener('click', closeOut);
+  }, 10);
+};
+
 function renderFacebookPostSocialSection(item) {
   const isAdmin = Boolean(state.user && state.user.role === 'admin');
   const actor = getCurrentGalleryActor();
   const inter = getPhotoInteraction(item.id);
   const likeCount = inter.likes.length;
   const cmtCount = inter.comments.length;
-  const iLiked = Boolean(actor && inter.likes.some(l => String(l.id) === String(actor.id)));
+  const myLikeObj = actor ? inter.likes.find(l => String(l.id) === String(actor.id)) : null;
+  const myReactMeta = myLikeObj ? getReactionMeta(myLikeObj.reaction || '❤️') : null;
+  const uniqueIcons = Array.from(new Set(inter.likes.map(l => (l && l.reaction) ? l.reaction : '❤️'))).slice(0, 4);
   const pidEsc = escapeHtml(String(item.id));
   const isExpanded = Boolean(window._expandedGalleryComments[String(item.id)]);
   const visibleComments = isExpanded ? inter.comments : inter.comments.slice(-3);
 
   return `
-      <!-- DÒNG THỐNG KÊ TIM & BÌNH LUẬN -->
+      <!-- DÒNG THỐNG KÊ CẢM XÚC & BÌNH LUẬN -->
       <div style="padding:9px 16px 7px 16px; display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:12.5px; color:#64748b;">
         <div onclick="openGalleryCommentsModal('${pidEsc}')" style="cursor:pointer; display:flex; align-items:center; gap:5px; min-width:0; overflow:hidden;">
           ${likeCount > 0 ? `
-            <span style="display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; background:#ffe4e6; font-size:11px; flex-shrink:0;">❤️</span>
+            <span style="display:inline-flex; align-items:center; gap:1px; flex-shrink:0; font-size:14px;">${uniqueIcons.join('')}</span>
             <span style="font-weight:700; color:#334155; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
               ${escapeHtml(inter.likes.slice(0, 2).map(l => l.name).join(', '))}${likeCount > 2 ? ` và ${likeCount - 2} đơn vị khác` : ''}
             </span>
-          ` : `<span>Hãy thả tim cho bài viết này!</span>`}
+          ` : `<span>Hãy thả cảm xúc cho bài viết này!</span>`}
         </div>
         <div onclick="openGalleryCommentsModal('${pidEsc}')" style="cursor:pointer; font-weight:600; white-space:nowrap;">
           ${cmtCount > 0 ? `${cmtCount} bình luận` : ''}
         </div>
       </div>
 
-      <!-- THANH HÀNH ĐỘNG 3 NÚT KIỂU FACEBOOK: THÍCH - BÌNH LUẬN - TẢI ẢNH -->
-      <div style="margin:0 14px; border-top:1px solid #e2e8f0; border-bottom:1px solid #e2e8f0; padding:4px 0; display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px;">
-        <button type="button" onclick="toggleGalleryLike('${pidEsc}')" style="display:inline-flex; align-items:center; justify-content:center; gap:6px; height:36px; border:none; border-radius:8px; background:${iLiked ? '#fff1f2' : 'transparent'}; color:${iLiked ? '#e11d48' : '#475569'}; font-size:13px; font-weight:800; cursor:pointer; transition:background 0.15s;">
-          <span>${iLiked ? '❤️' : '🤍'}</span>
-          <span>${iLiked ? 'Đã thích' : 'Thích'}${likeCount > 0 ? ` (${likeCount})` : ''}</span>
-        </button>
+      <!-- THANH HÀNH ĐỘNG 3 NÚT KIỂU FACEBOOK: THÍCH (ĐA CẢM XÚC) - BÌNH LUẬN - TẢI ẢNH -->
+      <div style="margin:0 14px; border-top:1px solid #e2e8f0; border-bottom:1px solid #e2e8f0; padding:4px 0; display:grid; grid-template-columns:1.15fr 1fr 0.9fr; gap:4px;">
+        <div style="display:inline-flex; align-items:center; gap:2px; border-radius:8px; background:${myReactMeta ? myReactMeta.bg : 'transparent'};">
+          <button type="button" onclick="toggleGalleryLike('${pidEsc}')" style="flex:1 1 auto; display:inline-flex; align-items:center; justify-content:center; gap:5px; height:36px; border:none; border-radius:8px 0 0 8px; background:transparent; color:${myReactMeta ? myReactMeta.color : '#475569'}; font-size:13px; font-weight:800; cursor:pointer; padding:0 4px;">
+            <span>${myReactMeta ? myReactMeta.icon : '🤍'}</span>
+            <span>${myReactMeta ? myReactMeta.label : 'Thích'}${likeCount > 0 ? ` (${likeCount})` : ''}</span>
+          </button>
+          <button type="button" onclick="openReactionPickerPopover('${pidEsc}', this)" title="Chọn biểu cảm khác (👍 ❤️ 🥰 😆 😮 😢 😡 👏)" style="width:28px; height:36px; border:none; border-left:1px solid rgba(148,163,184,0.25); border-radius:0 8px 8px 0; background:transparent; color:#64748b; font-size:14px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">
+            😊
+          </button>
+        </div>
         <button type="button" onclick="focusPostCommentInput('${pidEsc}')" style="display:inline-flex; align-items:center; justify-content:center; gap:6px; height:36px; border:none; border-radius:8px; background:transparent; color:#475569; font-size:13px; font-weight:800; cursor:pointer;">
           <span>💬</span>
           <span>Bình luận</span>
@@ -40600,7 +40669,10 @@ window.submitInlinePostComment = async function (photoId) {
       db.photo_gallery_interactions[pid].comments.push(newCmt);
     }
   }, 'Inline comment on post ' + pid);
-  if (res && res.ok) patchGalleryPostSocial(pid);
+  if (res && res.ok) {
+    if (window.broadcastLiveEvent) window.broadcastLiveEvent('GALLERY_COMMENT', { postId: pid });
+    patchGalleryPostSocial(pid);
+  }
 };
 
 function renderPhotoGalleryTab() {
@@ -40678,38 +40750,139 @@ function renderPhotoGalleryTab() {
           </div>
         ` : ''}
 
-        <!-- BÀI VIẾT ẢNH BÌA CHÍNH (GHIM ĐẦU BẢNG TIN) -->
-        ${hero ? renderFacebookPostCard(hero, true) : ''}
+        <!-- VÙNG BÀI VIẾT BẢNG TIN (TỰ ĐỘNG CẬP NHẬT TRỰC TIẾP TẠI CHỖ KHÔNG CẦN F5) -->
+        <div id="gallery-feed-posts-container">
+          <!-- BÀI VIẾT ẢNH BÌA CHÍNH (GHIM ĐẦU BẢNG TIN) -->
+          ${hero ? renderFacebookPostCard(hero, true) : ''}
 
-        <!-- DANH SÁCH BÀI VIẾT HOẠT ĐỘNG CÔNG KHAI KIỂU FACEBOOK -->
-        ${feedPosts.length === 0 ? `
-          <div style="background:rgba(255,255,255,0.95); backdrop-filter:blur(8px); border:1.5px dashed #cbd5e1; border-radius:14px; padding:26px 16px; text-align:center; color:#64748b; box-shadow:0 6px 20px rgba(7,22,60,0.14);">
-            <div style="font-size:28px; margin-bottom:6px;">📷</div>
-            <div style="font-size:14px; font-weight:700; color:#334155;">Chưa có bài viết hoạt động mới nào</div>
-            <div style="font-size:12.5px; margin-top:4px;">
-              ${!isGuest ? 'Bấm vào khung đăng bài phía trên để chia sẻ bộ ảnh hoạt động của đơn vị bạn cùng toàn khối!' : 'Bài viết hoạt động của các cơ sở Đoàn sẽ hiển thị công khai tại đây.'}
+          <!-- DANH SÁCH BÀI VIẾT HOẠT ĐỘNG CÔNG KHAI KIỂU FACEBOOK -->
+          ${feedPosts.length === 0 ? `
+            <div style="background:rgba(255,255,255,0.95); backdrop-filter:blur(8px); border:1.5px dashed #cbd5e1; border-radius:14px; padding:26px 16px; text-align:center; color:#64748b; box-shadow:0 6px 20px rgba(7,22,60,0.14);">
+              <div style="font-size:28px; margin-bottom:6px;">📷</div>
+              <div style="font-size:14px; font-weight:700; color:#334155;">Chưa có bài viết hoạt động mới nào</div>
+              <div style="font-size:12.5px; margin-top:4px;">
+                ${!isGuest ? 'Bấm vào khung đăng bài phía trên để chia sẻ bộ ảnh hoạt động của đơn vị bạn cùng toàn khối!' : 'Bài viết hoạt động của các cơ sở Đoàn sẽ hiển thị công khai tại đây.'}
+              </div>
             </div>
-          </div>
-        ` : feedPosts.map(post => renderFacebookPostCard(post, false)).join('')}
+          ` : feedPosts.map(post => renderFacebookPostCard(post, false)).join('')}
+        </div>
       </div>
     </div>
   `;
 }
 
-window.toggleGalleryLike = async function (photoId) {
+window.patchGalleryFeedLive = function () {
+  if (typeof document === 'undefined' || state.activeTab !== 'gallery') return;
+  const container = document.getElementById('gallery-feed-posts-container');
+  if (!container) return;
+
+  const photos = getPhotoGalleryList();
+  const renderedCards = Array.from(container.querySelectorAll('article[id^="gallery-post-card-"]'));
+  const renderedIds = renderedCards.map(el => el.id.replace('gallery-post-card-', ''));
+  const nextIds = photos.map(p => String(p.id));
+  const idsSig = photos.map(p => `${p.id}:${p.title}:${p.updated_at || ''}:${p.featured ? 1 : 0}`).join('|');
+
+  const mainEl = document.querySelector('.main-container, main, .main-content');
+  const savedMainTop = mainEl ? mainEl.scrollTop : 0;
+  const savedWinY = window.scrollY || document.documentElement.scrollTop || 0;
+
+  // 1. Nếu danh sách bài viết (thứ tự / bài mới / bài sửa / bài xóa) thay đổi -> cập nhật vùng bài viết tại chỗ
+  if (renderedIds.join(',') !== nextIds.join(',') || window._lastGalleryFeedStructSig !== idsSig) {
+    // Lưu lại nội dung đang gõ dở trong các ô bình luận (nếu có)
+    const drafts = {};
+    container.querySelectorAll('input[id^="post-cmt-input-"]').forEach(inp => {
+      if (inp.value) drafts[inp.id] = inp.value;
+    });
+    const activeId = document.activeElement && document.activeElement.id ? document.activeElement.id : '';
+
+    const hero = photos[0];
+    const feedPosts = photos.slice(1);
+    const isGuest = Boolean(!state.user || state.user.role === 'guest');
+    container.innerHTML = `
+      ${hero ? renderFacebookPostCard(hero, true) : ''}
+      ${feedPosts.length === 0 ? `
+        <div style="background:rgba(255,255,255,0.95); backdrop-filter:blur(8px); border:1.5px dashed #cbd5e1; border-radius:14px; padding:26px 16px; text-align:center; color:#64748b; box-shadow:0 6px 20px rgba(7,22,60,0.14);">
+          <div style="font-size:28px; margin-bottom:6px;">📷</div>
+          <div style="font-size:14px; font-weight:700; color:#334155;">Chưa có bài viết hoạt động mới nào</div>
+          <div style="font-size:12.5px; margin-top:4px;">
+            ${!isGuest ? 'Bấm vào khung đăng bài phía trên để chia sẻ bộ ảnh hoạt động của đơn vị bạn cùng toàn khối!' : 'Bài viết hoạt động của các cơ sở Đoàn sẽ hiển thị công khai tại đây.'}
+          </div>
+        </div>
+      ` : feedPosts.map(post => renderFacebookPostCard(post, false)).join('')}
+    `;
+    window._lastGalleryFeedStructSig = idsSig;
+    Object.entries(drafts).forEach(([id, val]) => {
+      const el = document.getElementById(id);
+      if (el) el.value = val;
+    });
+    if (activeId) {
+      const foc = document.getElementById(activeId);
+      if (foc) try { foc.focus({ preventScroll: true }); } catch (e) {}
+    }
+  } else {
+    // 2. Nếu danh sách bài giữ nguyên -> chỉ vá riêng phần Tim & Bình luận của những bài có tương tác mới (0px giật!)
+    photos.forEach(p => {
+      const pid = String(p.id);
+      const inter = getPhotoInteraction(pid);
+      const sSig = `${inter.likes.length}:${inter.likes.map(l => l.id + ':' + (l.reaction || '❤️')).join(',')}|${inter.comments.length}:${inter.comments.map(c => c.id).join(',')}`;
+      window._lastPostSocialSig = window._lastPostSocialSig || {};
+      if (window._lastPostSocialSig[pid] !== sSig) {
+        window._lastPostSocialSig[pid] = sSig;
+        // Không ghi đè nếu người dùng đang gõ bình luận ngay trong ô đó
+        const cmtInp = document.getElementById('post-cmt-input-' + pid);
+        const isTypingHere = cmtInp && document.activeElement === cmtInp && cmtInp.value.trim() !== '';
+        if (!isTypingHere) {
+          patchGalleryPostSocial(pid);
+        }
+      }
+    });
+  }
+
+  // Khôi phục tuyệt đối vị trí thanh kéo
+  const restoreScroll = () => {
+    if (mainEl && Math.abs(mainEl.scrollTop - savedMainTop) > 1) mainEl.scrollTop = savedMainTop;
+    const curWinY = window.scrollY || document.documentElement.scrollTop || 0;
+    if (Math.abs(curWinY - savedWinY) > 1) window.scrollTo(0, savedWinY);
+  };
+  restoreScroll();
+  requestAnimationFrame(restoreScroll);
+};
+
+// Đồng bộ trực tiếp nhẹ bằng ETag 304 mỗi 3 giây khi đang mở tab Bản Tin / Thư Viện Ảnh -> Bài mới, Tim, Bình luận tự động hiện NGAY không cần F5!
+if (typeof window !== 'undefined' && !window._galleryLiveSyncInterval) {
+  window._galleryLiveSyncInterval = setInterval(() => {
+    try {
+      if (document.hidden || !state.user || state.activeTab !== 'gallery') return;
+      const modalRoot = document.getElementById('modal-root');
+      if (modalRoot && modalRoot.children.length > 0) return;
+      if (typeof window.syncFromCloudNow === 'function') {
+        window.syncFromCloudNow(true);
+      }
+    } catch (e) {}
+  }, 3000);
+}
+
+window.toggleGalleryLike = async function (photoId, chosenReaction = null) {
   const actor = getCurrentGalleryActor();
   if (!actor) {
-    showToast('Vui lòng đăng nhập tài khoản Đoàn hoặc Admin để thả tim!', 'warning');
+    showToast('Vui lòng đăng nhập tài khoản Đoàn hoặc Admin để thả cảm xúc!', 'warning');
     return;
   }
   const pid = String(photoId);
   if (!state.photoGalleryInteractions) state.photoGalleryInteractions = {};
   if (!state.photoGalleryInteractions[pid]) state.photoGalleryInteractions[pid] = { likes: [], comments: [] };
   const localLikes = Array.isArray(state.photoGalleryInteractions[pid].likes) ? [...state.photoGalleryInteractions[pid].likes] : [];
-  const existed = localLikes.some(l => String(l.id) === String(actor.id));
-  state.photoGalleryInteractions[pid].likes = existed
-    ? localLikes.filter(l => String(l.id) !== String(actor.id))
-    : [...localLikes, { id: actor.id, name: actor.name, role: actor.role, ts: Date.now() }];
+  const existingObj = localLikes.find(l => String(l.id) === String(actor.id));
+  const nextReaction = chosenReaction || '❤️';
+
+  if (existingObj && (!chosenReaction || (existingObj.reaction || '❤️') === nextReaction)) {
+    state.photoGalleryInteractions[pid].likes = localLikes.filter(l => String(l.id) !== String(actor.id));
+  } else {
+    state.photoGalleryInteractions[pid].likes = [
+      ...localLikes.filter(l => String(l.id) !== String(actor.id)),
+      { id: actor.id, name: actor.name, role: actor.role, reaction: nextReaction, ts: Date.now() },
+    ];
+  }
   patchGalleryPostSocial(pid);
   if (document.getElementById('gallery-comments-modal-body')) {
     openGalleryCommentsModal(pid);
@@ -40721,13 +40894,19 @@ window.toggleGalleryLike = async function (photoId) {
     }
     if (!db.photo_gallery_interactions[pid]) db.photo_gallery_interactions[pid] = { likes: [], comments: [] };
     const arr = Array.isArray(db.photo_gallery_interactions[pid].likes) ? db.photo_gallery_interactions[pid].likes : [];
-    const has = arr.some(l => String(l.id) === String(actor.id));
-    db.photo_gallery_interactions[pid].likes = has
-      ? arr.filter(l => String(l.id) !== String(actor.id))
-      : [...arr, { id: actor.id, name: actor.name, role: actor.role, ts: Date.now() }];
-  }, 'Toggle gallery like ' + pid);
+    const cur = arr.find(l => String(l.id) === String(actor.id));
+    if (cur && (!chosenReaction || (cur.reaction || '❤️') === nextReaction)) {
+      db.photo_gallery_interactions[pid].likes = arr.filter(l => String(l.id) !== String(actor.id));
+    } else {
+      db.photo_gallery_interactions[pid].likes = [
+        ...arr.filter(l => String(l.id) !== String(actor.id)),
+        { id: actor.id, name: actor.name, role: actor.role, reaction: nextReaction, ts: Date.now() },
+      ];
+    }
+  }, 'Toggle gallery reaction ' + pid);
 
   if (res && res.ok) {
+    if (window.broadcastLiveEvent) window.broadcastLiveEvent('GALLERY_LIKE', { postId: pid });
     patchGalleryPostSocial(pid);
     if (document.getElementById('gallery-comments-modal-body')) {
       openGalleryCommentsModal(pid);
@@ -40776,7 +40955,7 @@ window.openGalleryCommentsModal = function (photoId) {
               <div style="display:flex; flex-wrap:wrap; gap:5px;">
                 ${inter.likes.map(l => `
                   <span style="font-size:11px; font-weight:700; background:#ffffff; color:${l.role === 'admin' ? '#b91c1c' : '#334155'}; border:1px solid #fecdd3; padding:2px 8px; border-radius:12px;">
-                    ${l.role === 'admin' ? '👑' : '🏢'} ${escapeHtml(l.name)}
+                    ${escapeHtml(l.reaction || '❤️')} ${l.role === 'admin' ? '👑' : '🏢'} ${escapeHtml(l.name)}
                   </span>
                 `).join('')}
               </div>
@@ -40866,6 +41045,7 @@ window.submitGalleryComment = async function (photoId) {
   }, 'Comment on gallery photo ' + pid);
 
   if (res && res.ok) {
+    if (window.broadcastLiveEvent) window.broadcastLiveEvent('GALLERY_COMMENT', { postId: pid });
     renderApp();
     openGalleryCommentsModal(pid);
     const body = document.getElementById('gallery-comments-modal-body');
@@ -40893,6 +41073,7 @@ window.deleteGalleryComment = async function (photoId, commentId) {
     }
   }, 'Delete gallery comment ' + commentId);
   if (res && res.ok) {
+    if (window.broadcastLiveEvent) window.broadcastLiveEvent('GALLERY_LIKE', { postId: pid });
     patchGalleryPostSocial(pid);
     if (document.getElementById('gallery-comments-modal-body')) {
       openGalleryCommentsModal(pid);
@@ -40910,6 +41091,7 @@ window.setGalleryFeaturedPhoto = async function (photoId) {
     });
   }, 'Set featured gallery cover ' + pid);
   if (res && res.ok) {
+    if (window.broadcastLiveEvent) window.broadcastLiveEvent('GALLERY_POST', { postId: pid });
     showToast('⭐ Đã cập nhật Ảnh Bìa Chính thành công!', 'success');
     renderApp();
   } else {
@@ -41836,6 +42018,7 @@ window.deleteGalleryPhoto = async function (photoId) {
       delete db.photo_gallery_interactions[pid];
     }
   }, 'Delete gallery post ' + pid);
+  if (window.broadcastLiveEvent) window.broadcastLiveEvent('GALLERY_DELETE', { postId: pid });
 };
 
 window._editPostExistingImages = [];
@@ -42009,6 +42192,7 @@ window.submitEditGalleryPost = async function (postId) {
     }, 'Edit gallery post ' + pid);
 
     if (res && res.ok) {
+      if (window.broadcastLiveEvent) window.broadcastLiveEvent('GALLERY_EDIT', { postId: pid });
       state.photoGallery = (state.photoGallery || []).map(p => String(p.id) === pid
         ? { ...p, title: newTitle, description: newDesc, src: finalImages[0], images: finalImages }
         : p
@@ -42027,7 +42211,7 @@ window.submitEditGalleryPost = async function (postId) {
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795078500753;
+    const CURRENT_BUILD_TS = 1795078742026;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;
