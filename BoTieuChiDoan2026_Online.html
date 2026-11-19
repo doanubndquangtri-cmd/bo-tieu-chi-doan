@@ -13767,7 +13767,7 @@ function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rank
                 `}
               ` : st.canSubmit ? `
                 <button class="btn ${sc ? 'btn-outline' : (isActivity ? 'btn-success' : 'btn-primary')} mobile-submit-action-btn" onclick="openUnitSubmitModal(${c.id})">
-                  ${sc ? '✏️ Cập Nhật Báo Cáo / Minh Chứng Đã Nộp' : (isActivity ? '📤 Nộp Minh Chứng Hoạt Động (Tự Động Chấm)' : '📤 Nộp Báo Cáo Tháng Online')}
+                  ${sc ? '✏️ Cập Nhật Báo Cáo / Minh Chứng Đã Nộp' : (isActivity ? '📤 Nộp Minh Chứng Hoạt Động (Tự Động Chấm)' : '📤 Nộp Báo Cáo Online')}
                 </button>
               ` : `
                 <button class="btn btn-outline mobile-submit-action-btn" onclick="openUnitSubmitModal(${c.id})" style="opacity:0.9;">
@@ -39888,7 +39888,7 @@ window.openChatMessageDetailsModal = function(msgId) {
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795066413445;
+    const CURRENT_BUILD_TS = 1795070173500;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;

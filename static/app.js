@@ -7664,7 +7664,7 @@ function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rank
                 `}
               ` : st.canSubmit ? `
                 <button class="btn ${sc ? 'btn-outline' : (isActivity ? 'btn-success' : 'btn-primary')} mobile-submit-action-btn" onclick="openUnitSubmitModal(${c.id})">
-                  ${sc ? '✏️ Cập Nhật Báo Cáo / Minh Chứng Đã Nộp' : (isActivity ? '📤 Nộp Minh Chứng Hoạt Động (Tự Động Chấm)' : '📤 Nộp Báo Cáo Tháng Online')}
+                  ${sc ? '✏️ Cập Nhật Báo Cáo / Minh Chứng Đã Nộp' : (isActivity ? '📤 Nộp Minh Chứng Hoạt Động (Tự Động Chấm)' : '📤 Nộp Báo Cáo Online')}
                 </button>
               ` : `
                 <button class="btn btn-outline mobile-submit-action-btn" onclick="openUnitSubmitModal(${c.id})" style="opacity:0.9;">
