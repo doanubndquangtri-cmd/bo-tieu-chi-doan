@@ -40035,208 +40035,346 @@ function getPhotoGalleryList() {
   return [defaultHero, ...custom];
 }
 
-function renderPhotoSocialBar(item, idx, isHero) {
+function getPostImages(item) {
+  if (!item) return [];
+  if (Array.isArray(item.images) && item.images.length > 0) return item.images.filter(Boolean);
+  if (item.src) return [item.src];
+  return [];
+}
+
+function renderFacebookPhotoCollage(postId, imgs, fallback) {
+  const count = imgs.length;
+  if (count === 0) return '';
+  const pidEsc = escapeHtml(String(postId));
+  const fbEsc = escapeHtml(fallback || '');
+  const imgTag = (src, idx, hStyle, extraOverlay = '') => `
+    <div onclick="openPostLightbox('${pidEsc}', ${idx})" style="position:relative; overflow:hidden; background:#0f172a; cursor:zoom-in; ${hStyle}">
+      <img
+        src="${escapeHtml(src)}"
+        onerror="if(this.dataset.fb && this.src!==this.dataset.fb){this.src=this.dataset.fb;}"
+        data-fb="${fbEsc}"
+        alt="Ảnh ${idx + 1}"
+        style="width:100%; height:100%; object-fit:cover; display:block; transition:transform 0.25s ease;"
+      />
+      ${extraOverlay}
+    </div>
+  `;
+
+  if (count === 1) {
+    return `
+      <div style="background:#0f172a; cursor:zoom-in; overflow:hidden; border-top:1px solid #e2e8f0; border-bottom:1px solid #e2e8f0;" onclick="openPostLightbox('${pidEsc}', 0)">
+        <img
+          src="${escapeHtml(imgs[0])}"
+          onerror="if(this.dataset.fb && this.src!==this.dataset.fb){this.src=this.dataset.fb;}"
+          data-fb="${fbEsc}"
+          alt="Ảnh bài viết"
+          style="width:100%; max-height:500px; object-fit:cover; display:block;"
+        />
+      </div>
+    `;
+  }
+  if (count === 2) {
+    return `
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:3px; background:#fff; border-top:1px solid #e2e8f0; border-bottom:1px solid #e2e8f0;">
+        ${imgTag(imgs[0], 0, 'height:310px;')}
+        ${imgTag(imgs[1], 1, 'height:310px;')}
+      </div>
+    `;
+  }
+  if (count === 3) {
+    return `
+      <div style="display:flex; flex-direction:column; gap:3px; background:#fff; border-top:1px solid #e2e8f0; border-bottom:1px solid #e2e8f0;">
+        ${imgTag(imgs[0], 0, 'height:290px; width:100%;')}
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:3px;">
+          ${imgTag(imgs[1], 1, 'height:200px;')}
+          ${imgTag(imgs[2], 2, 'height:200px;')}
+        </div>
+      </div>
+    `;
+  }
+  if (count === 4) {
+    return `
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:3px; background:#fff; border-top:1px solid #e2e8f0; border-bottom:1px solid #e2e8f0;">
+        ${imgTag(imgs[0], 0, 'height:230px;')}
+        ${imgTag(imgs[1], 1, 'height:230px;')}
+        ${imgTag(imgs[2], 2, 'height:230px;')}
+        ${imgTag(imgs[3], 3, 'height:230px;')}
+      </div>
+    `;
+  }
+  // 5 đến 10 ảnh: Bố cục Facebook chuẩn (2 ảnh lớn trên + 3 ảnh dưới, ô thứ 5 hiện +N)
+  const moreCount = count - 5;
+  const moreOverlay = moreCount > 0
+    ? `<div style="position:absolute; inset:0; background:rgba(15, 23, 42, 0.56); display:flex; align-items:center; justify-content:center; color:#ffffff; font-size:30px; font-weight:900; letter-spacing:1px; text-shadow:0 2px 8px rgba(0,0,0,0.6);">+${moreCount}</div>`
+    : '';
+  return `
+    <div style="display:flex; flex-direction:column; gap:3px; background:#fff; border-top:1px solid #e2e8f0; border-bottom:1px solid #e2e8f0;">
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:3px;">
+        ${imgTag(imgs[0], 0, 'height:245px;')}
+        ${imgTag(imgs[1], 1, 'height:245px;')}
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:3px;">
+        ${imgTag(imgs[2], 2, 'height:175px;')}
+        ${imgTag(imgs[3], 3, 'height:175px;')}
+        ${imgTag(imgs[4], 4, 'height:175px;', moreOverlay)}
+      </div>
+    </div>
+  `;
+}
+
+window._expandedGalleryComments = window._expandedGalleryComments || {};
+
+function renderFacebookPostCard(item, isHeroCover) {
   const isAdmin = Boolean(state.user && state.user.role === 'admin');
   const actor = getCurrentGalleryActor();
   const inter = getPhotoInteraction(item.id);
   const likeCount = inter.likes.length;
   const cmtCount = inter.comments.length;
   const iLiked = Boolean(actor && inter.likes.some(l => String(l.id) === String(actor.id)));
-  const likeNamesTooltip = likeCount > 0
-    ? ('Đã thả tim: ' + inter.likes.map(l => l.name).join(', '))
-    : 'Hãy là người đầu tiên thả tim cho ảnh này!';
   const canDelete = Boolean(!item.isDefault && (isAdmin || (actor && item.uploader_id && String(item.uploader_id) === String(actor.id))));
-  const latestComments = inter.comments.slice(-2);
+  const imgs = getPostImages(item);
+  const pidEsc = escapeHtml(String(item.id));
+  const isExpanded = Boolean(window._expandedGalleryComments[String(item.id)]);
+  const visibleComments = isExpanded ? inter.comments : inter.comments.slice(-3);
+  const isAuthorAdmin = item.uploader_role === 'admin';
 
   return `
-    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; padding-top:10px; border-top:1px solid #e2e8f0; margin-top:10px;">
-      <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-        <button
-          type="button"
-          onclick="toggleGalleryLike('${escapeHtml(String(item.id))}')"
-          title="${escapeHtml(likeNamesTooltip)}"
-          style="display:inline-flex; align-items:center; gap:5px; padding:${isHero ? '7px 13px' : '5px 10px'}; border-radius:20px; font-size:${isHero ? '12.5px' : '11.5px'}; font-weight:800; cursor:pointer; border:1.5px solid ${iLiked ? '#fda4af' : '#e2e8f0'}; background:${iLiked ? '#fff1f2' : '#f8fafc'}; color:${iLiked ? '#e11d48' : '#334155'}; transition:all 0.16s ease;"
-        >
-          <span>${iLiked ? '❤️' : '🤍'}</span>
-          <span>${likeCount > 0 ? likeCount : 'Tim'}</span>
-        </button>
-
-        <button
-          type="button"
-          onclick="openGalleryCommentsModal('${escapeHtml(String(item.id))}')"
-          title="Xem và gửi bình luận giao lưu"
-          style="display:inline-flex; align-items:center; gap:5px; padding:${isHero ? '7px 13px' : '5px 10px'}; border-radius:20px; font-size:${isHero ? '12.5px' : '11.5px'}; font-weight:700; cursor:pointer; border:1.5px solid #cbd5e1; background:#f8fafc; color:#1e293b;"
-        >
-          <span>💬</span>
-          <span>${cmtCount > 0 ? `${cmtCount} bình luận` : 'Bình luận'}</span>
-        </button>
-      </div>
-
-      <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
-        <button type="button" class="btn btn-sm btn-outline" onclick="openGalleryLightbox(${idx})" style="font-size:${isHero ? '12px' : '11.5px'}; padding:${isHero ? '6px 11px' : '4px 9px'}; border-radius:8px;">
-          🔍 ${isHero ? 'Phóng to' : 'Xem'}
-        </button>
-        <button type="button" class="btn btn-sm btn-outline" onclick="downloadGalleryImage(${idx})" style="font-size:${isHero ? '12px' : '11.5px'}; padding:${isHero ? '6px 11px' : '4px 9px'}; border-radius:8px;">
-          ⬇️ ${isHero ? 'Tải ảnh' : 'Tải'}
-        </button>
-        ${isAdmin && !isHero ? `
-          <button type="button" class="btn btn-sm" onclick="setGalleryFeaturedPhoto('${escapeHtml(String(item.id))}')" title="Admin chọn ảnh này làm Ảnh Bìa Chính" style="font-size:11.5px; padding:4px 9px; border-radius:8px; background:#fef3c7; color:#b45309; border:1px solid #fcd34d; font-weight:700; cursor:pointer;">
-            ⭐ Đặt ảnh bìa
-          </button>
-        ` : ''}
-        ${canDelete ? `
-          <button type="button" class="btn btn-sm" onclick="deleteGalleryPhoto('${escapeHtml(String(item.id))}')" style="font-size:${isHero ? '12px' : '11.5px'}; padding:${isHero ? '6px 10px' : '4px 9px'}; border-radius:8px; background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:700; cursor:pointer;">
-            🗑️ Xóa
-          </button>
-        ` : ''}
-      </div>
-    </div>
-
-    ${likeCount > 0 ? `
-      <div onclick="openGalleryCommentsModal('${escapeHtml(String(item.id))}')" style="margin-top:7px; font-size:11.5px; color:#be123c; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-        <span>❤️</span>
-        <span style="overflow:hidden; text-overflow:ellipsis;">${escapeHtml(inter.likes.slice(0, 3).map(l => l.name).join(', '))}${likeCount > 3 ? ` và ${likeCount - 3} đơn vị khác` : ''} đã thả tim</span>
-      </div>
-    ` : ''}
-
-    ${latestComments.length > 0 ? `
-      <div onclick="openGalleryCommentsModal('${escapeHtml(String(item.id))}')" style="margin-top:8px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:8px 10px; display:flex; flex-direction:column; gap:5px; cursor:pointer;">
-        ${cmtCount > 2 ? `<div style="font-size:11px; color:#0052cc; font-weight:700;">Xem tất cả ${cmtCount} bình luận...</div>` : ''}
-        ${latestComments.map(c => `
-          <div style="font-size:12px; color:#334155; line-height:1.35;">
-            <span style="font-weight:800; color:${c.author_role === 'admin' ? '#b91c1c' : '#0b2259'};">
-              ${c.author_role === 'admin' ? '👑' : '🏢'} ${escapeHtml(c.author_name)}:
-            </span>
-            <span>${escapeHtml(c.text)}</span>
+    <article style="background:#ffffff; border-radius:14px; border:1px solid #e2e8f0; box-shadow:0 2px 10px rgba(15, 23, 42, 0.06); overflow:hidden; margin-bottom:16px;">
+      <!-- ĐẦU BÀI VIẾT KIỂU FACEBOOK -->
+      <div style="padding:13px 16px 10px 16px; display:flex; align-items:flex-start; justify-content:space-between; gap:10px;">
+        <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+          <div style="width:42px; height:42px; border-radius:50%; background:${isAuthorAdmin ? 'linear-gradient(135deg, #dc2626 0%, #f59e0b 100%)' : 'linear-gradient(135deg, #0052cc 0%, #0ea5e9 100%)'}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:19px; flex-shrink:0; box-shadow:0 2px 6px rgba(0,0,0,0.14);">
+            ${isAuthorAdmin ? '👑' : '🏢'}
           </div>
-        `).join('')}
+          <div style="min-width:0;">
+            <div style="font-size:14.5px; font-weight:800; color:#0f172a; line-height:1.25; overflow:hidden; text-overflow:ellipsis;">
+              ${escapeHtml(item.uploader_name || 'Ban Thường vụ Đoàn UBND Tỉnh')}
+              ${isHeroCover ? `<span style="display:inline-block; margin-left:6px; font-size:10.5px; font-weight:800; background:#fef3c7; color:#b45309; border:1px solid #fcd34d; padding:1px 7px; border-radius:10px; vertical-align:middle;">⭐ Ảnh bìa chính</span>` : ''}
+            </div>
+            <div style="font-size:12px; color:#64748b; margin-top:2px; display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+              <span>📅 ${escapeHtml(item.date || 'Hôm nay')}</span>
+              <span>•</span>
+              <span>🌐 Công khai</span>
+              ${imgs.length > 1 ? `<span>•</span><span>🖼️ ${imgs.length} ảnh</span>` : ''}
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:6px; flex-shrink:0;">
+          ${isAdmin && !isHeroCover ? `
+            <button type="button" onclick="setGalleryFeaturedPhoto('${pidEsc}')" title="Admin chọn ảnh này làm Ảnh Bìa Chính" style="font-size:11.5px; padding:5px 10px; border-radius:8px; background:#fef3c7; color:#b45309; border:1px solid #fcd34d; font-weight:700; cursor:pointer; white-space:nowrap;">
+              ⭐ Đặt ảnh bìa
+            </button>
+          ` : ''}
+          ${canDelete ? `
+            <button type="button" onclick="deleteGalleryPhoto('${pidEsc}')" title="${isAdmin ? 'Admin xóa bài viết' : 'Xóa bài viết của đơn vị mình'}" style="font-size:11.5px; padding:5px 9px; border-radius:8px; background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:700; cursor:pointer; white-space:nowrap;">
+              🗑️ Xóa
+            </button>
+          ` : ''}
+        </div>
       </div>
-    ` : ''}
+
+      <!-- NỘI DUNG / CHÚ THÍCH BÀI VIẾT -->
+      <div style="padding:0 16px 11px 16px;">
+        <div style="font-size:15px; font-weight:800; color:#0f172a; line-height:1.4;">${escapeHtml(item.title)}</div>
+        ${item.description ? `<div style="font-size:13.5px; color:#334155; margin-top:4px; line-height:1.5; white-space:pre-wrap; word-break:break-word;">${escapeHtml(item.description)}</div>` : ''}
+      </div>
+
+      <!-- LƯỚI ẢNH KIỂU FACEBOOK (1 / 2 / 3 / 4 / 5+ ẢNH) -->
+      ${renderFacebookPhotoCollage(item.id, imgs, item.fallback)}
+
+      <!-- DÒNG THỐNG KÊ TIM & BÌNH LUẬN -->
+      <div style="padding:9px 16px 7px 16px; display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:12.5px; color:#64748b;">
+        <div onclick="openGalleryCommentsModal('${pidEsc}')" style="cursor:pointer; display:flex; align-items:center; gap:5px; min-width:0; overflow:hidden;">
+          ${likeCount > 0 ? `
+            <span style="display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; background:#ffe4e6; font-size:11px; flex-shrink:0;">❤️</span>
+            <span style="font-weight:700; color:#334155; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+              ${escapeHtml(inter.likes.slice(0, 2).map(l => l.name).join(', '))}${likeCount > 2 ? ` và ${likeCount - 2} đơn vị khác` : ''}
+            </span>
+          ` : `<span>Hãy thả tim cho bài viết này!</span>`}
+        </div>
+        <div onclick="openGalleryCommentsModal('${pidEsc}')" style="cursor:pointer; font-weight:600; white-space:nowrap;">
+          ${cmtCount > 0 ? `${cmtCount} bình luận` : ''}
+        </div>
+      </div>
+
+      <!-- THANH HÀNH ĐỘNG 3 NÚT KIỂU FACEBOOK: THÍCH - BÌNH LUẬN - TẢI ẢNH -->
+      <div style="margin:0 14px; border-top:1px solid #e2e8f0; border-bottom:1px solid #e2e8f0; padding:4px 0; display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px;">
+        <button type="button" onclick="toggleGalleryLike('${pidEsc}')" style="display:inline-flex; align-items:center; justify-content:center; gap:6px; height:36px; border:none; border-radius:8px; background:${iLiked ? '#fff1f2' : 'transparent'}; color:${iLiked ? '#e11d48' : '#475569'}; font-size:13px; font-weight:800; cursor:pointer; transition:background 0.15s;">
+          <span>${iLiked ? '❤️' : '🤍'}</span>
+          <span>${iLiked ? 'Đã thích' : 'Thích'}${likeCount > 0 ? ` (${likeCount})` : ''}</span>
+        </button>
+        <button type="button" onclick="focusPostCommentInput('${pidEsc}')" style="display:inline-flex; align-items:center; justify-content:center; gap:6px; height:36px; border:none; border-radius:8px; background:transparent; color:#475569; font-size:13px; font-weight:800; cursor:pointer;">
+          <span>💬</span>
+          <span>Bình luận</span>
+        </button>
+        <button type="button" onclick="downloadPostImage('${pidEsc}', 0)" style="display:inline-flex; align-items:center; justify-content:center; gap:6px; height:36px; border:none; border-radius:8px; background:transparent; color:#475569; font-size:13px; font-weight:800; cursor:pointer;">
+          <span>⬇️</span>
+          <span>Tải ảnh</span>
+        </button>
+      </div>
+
+      <!-- KHU VỰC BÌNH LUẬN TRỰC TIẾP TRONG BÀI VIẾT KIỂU FACEBOOK -->
+      <div style="padding:10px 16px 13px 16px; display:flex; flex-direction:column; gap:8px;">
+        ${cmtCount > 3 && !isExpanded ? `
+          <button type="button" onclick="window._expandedGalleryComments['${pidEsc}']=true; renderApp();" style="border:none; background:transparent; color:#475569; font-size:12.5px; font-weight:700; text-align:left; padding:0; cursor:pointer;">
+            Xem thêm ${cmtCount - 3} bình luận trước đó...
+          </button>
+        ` : ''}
+
+        ${visibleComments.map(c => {
+          const canDelCmt = Boolean(isAdmin || (actor && String(c.author_id) === String(actor.id)));
+          const cIsAdmin = c.author_role === 'admin';
+          return `
+            <div style="display:flex; align-items:flex-start; gap:8px;">
+              <div style="width:30px; height:30px; border-radius:50%; background:${cIsAdmin ? '#fee2e2' : '#dbeafe'}; color:${cIsAdmin ? '#b91c1c' : '#1d4ed8'}; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; margin-top:2px;">
+                ${cIsAdmin ? '👑' : '🏢'}
+              </div>
+              <div style="flex:1 1 auto; min-width:0;">
+                <div style="display:inline-block; max-width:100%; background:#f0f2f5; border-radius:14px; padding:7px 12px;">
+                  <div style="font-size:12.5px; font-weight:800; color:${cIsAdmin ? '#b91c1c' : '#0f172a'};">
+                    ${escapeHtml(c.author_name)}
+                  </div>
+                  <div style="font-size:13px; color:#1e293b; line-height:1.4; white-space:pre-wrap; word-break:break-word; margin-top:1px;">
+                    ${escapeHtml(c.text)}
+                  </div>
+                </div>
+                <div style="font-size:11px; color:#64748b; margin-top:3px; padding-left:10px; display:flex; align-items:center; gap:10px;">
+                  <span>${escapeHtml(c.created_at || '')}</span>
+                  ${canDelCmt ? `<button type="button" onclick="deleteGalleryComment('${pidEsc}', '${escapeHtml(String(c.id))}')" style="border:none; background:transparent; color:#dc2626; font-size:11px; font-weight:700; cursor:pointer; padding:0;">Xóa</button>` : ''}
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('')}
+
+        ${actor ? `
+          <div style="display:flex; align-items:center; gap:8px; margin-top:2px;">
+            <div style="width:30px; height:30px; border-radius:50%; background:${actor.role === 'admin' ? '#fee2e2' : '#dbeafe'}; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0;">
+              ${actor.role === 'admin' ? '👑' : '🏢'}
+            </div>
+            <input
+              type="text"
+              id="post-cmt-input-${pidEsc}"
+              placeholder="Viết bình luận công khai với tư cách ${escapeHtml(actor.name)}..."
+              onkeydown="if(event.key==='Enter'){submitInlinePostComment('${pidEsc}');}"
+              style="flex:1 1 auto; padding:8px 13px; border:1px solid #cbd5e1; border-radius:20px; background:#f0f2f5; font-size:13px; color:#0f172a; outline:none;"
+              onfocus="this.style.background='#ffffff'; this.style.borderColor='#0052cc';"
+              onblur="this.style.background='#f0f2f5'; this.style.borderColor='#cbd5e1';"
+            />
+            <button type="button" onclick="submitInlinePostComment('${pidEsc}')" style="background:#0052cc; color:#fff; border:none; padding:8px 14px; border-radius:20px; font-size:12.5px; font-weight:800; cursor:pointer; white-space:nowrap;">
+              Gửi
+            </button>
+          </div>
+        ` : ''}
+      </div>
+    </article>
   `;
 }
 
+window.focusPostCommentInput = function (photoId) {
+  const inp = document.getElementById('post-cmt-input-' + photoId);
+  if (inp) {
+    inp.focus();
+    inp.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  } else {
+    openGalleryCommentsModal(photoId);
+  }
+};
+
+window.submitInlinePostComment = async function (photoId) {
+  const actor = getCurrentGalleryActor();
+  if (!actor) return;
+  const input = document.getElementById('post-cmt-input-' + photoId);
+  const text = (input && input.value || '').trim();
+  if (!text) return;
+  if (input) input.value = '';
+
+  const pid = String(photoId);
+  const nowStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString('vi-VN');
+  const newCmt = {
+    id: 'cmt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    author_id: actor.id,
+    author_name: actor.name,
+    author_role: actor.role,
+    text,
+    created_at: nowStr,
+  };
+
+  // Hiển thị bình luận tức thì (Optimistic UI)
+  if (!state.photoGalleryInteractions) state.photoGalleryInteractions = {};
+  if (!state.photoGalleryInteractions[pid]) state.photoGalleryInteractions[pid] = { likes: [], comments: [] };
+  if (!Array.isArray(state.photoGalleryInteractions[pid].comments)) state.photoGalleryInteractions[pid].comments = [];
+  state.photoGalleryInteractions[pid].comments.push(newCmt);
+  renderApp();
+
+  const res = await mutateCloudDB((db) => {
+    if (!db.photo_gallery_interactions || typeof db.photo_gallery_interactions !== 'object') {
+      db.photo_gallery_interactions = {};
+    }
+    if (!db.photo_gallery_interactions[pid]) db.photo_gallery_interactions[pid] = { likes: [], comments: [] };
+    if (!Array.isArray(db.photo_gallery_interactions[pid].comments)) db.photo_gallery_interactions[pid].comments = [];
+    if (!db.photo_gallery_interactions[pid].comments.some(c => String(c.id) === String(newCmt.id))) {
+      db.photo_gallery_interactions[pid].comments.push(newCmt);
+    }
+  }, 'Inline comment on post ' + pid);
+  if (res && res.ok) renderApp();
+};
+
 function renderPhotoGalleryTab() {
-  const isAdmin = Boolean(state.user && state.user.role === 'admin');
   const isGuest = Boolean(!state.user || state.user.role === 'guest');
+  const actor = getCurrentGalleryActor();
   const photos = getPhotoGalleryList();
   const hero = photos[0];
-  const album = photos.slice(1);
+  const feedPosts = photos.slice(1);
 
   return `
-    <div style="max-width: 1220px; margin: 0 auto; padding: 14px 12px 28px 12px;">
-      <!-- THANH TIÊU ĐỀ THƯ VIỆN ẢNH -->
-      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:14px; background:linear-gradient(135deg, #0b2259 0%, #1552be 100%); color:#fff; padding:14px 18px; border-radius:14px; box-shadow:0 4px 16px rgba(11, 34, 89, 0.18);">
-        <div>
-          <div style="font-size:11px; font-weight:800; color:#fde047; letter-spacing:0.6px; text-transform:uppercase;">
-            TỈNH ĐOÀN QUẢNG TRỊ • ĐOÀN ỦY BAN NHÂN DÂN TỈNH
-          </div>
-          <h2 style="margin:3px 0 2px 0; font-size:clamp(16px, 2.2vw, 21px); font-weight:900; color:#fff; display:flex; align-items:center; gap:8px;">
-            <span>📸</span> Thư Viện Ảnh &amp; Giao Lưu Hoạt Động Đoàn
-          </h2>
-          <div style="font-size:12.5px; color:#dbeafe;">
-            Không gian công khai chia sẻ hình ảnh hoạt động, thả tim &amp; bình luận giao lưu giữa toàn bộ 40 cơ sở Đoàn và Admin (${photos.length} ảnh)
-          </div>
+    <div style="max-width: 760px; margin: 0 auto; padding: 14px 10px 32px 10px;">
+      <!-- BANNER ĐẦU TRANG THƯ VIỆN ẢNH -->
+      <div style="background:linear-gradient(135deg, #0b2259 0%, #1552be 100%); color:#fff; padding:14px 18px; border-radius:14px; margin-bottom:14px; box-shadow:0 4px 16px rgba(11, 34, 89, 0.18);">
+        <div style="font-size:11px; font-weight:800; color:#fde047; letter-spacing:0.6px; text-transform:uppercase;">
+          TỈNH ĐOÀN QUẢNG TRỊ • ĐOÀN ỦY BAN NHÂN DÂN TỈNH
         </div>
-        ${!isGuest ? `
-          <button type="button" class="btn" onclick="openAddGalleryPhotoModal()" style="background:linear-gradient(135deg, #f59e0b 0%, #ea580c 100%); color:#fff; border:1px solid rgba(254,240,138,0.75); font-weight:800; font-size:13px; padding:9px 16px; border-radius:10px; box-shadow:0 3px 10px rgba(234,88,12,0.35); cursor:pointer; display:inline-flex; align-items:center; gap:6px; white-space:nowrap;">
-            ➕ Đăng Ảnh Hoạt Động
-          </button>
-        ` : ''}
+        <h2 style="margin:3px 0 2px 0; font-size:clamp(16px, 2.2vw, 20px); font-weight:900; color:#fff; display:flex; align-items:center; gap:8px;">
+          <span>📸</span> Bảng Tin &amp; Thư Viện Ảnh Hoạt Động Đoàn
+        </h2>
+        <div style="font-size:12.5px; color:#dbeafe;">
+          Chia sẻ bài viết kèm bộ ảnh hoạt động, thả tim và bình luận giao lưu công khai toàn khối
+        </div>
       </div>
 
-      <!-- ẢNH BÌA TẬP THỂ CHÍNH (HERO SHOWCASE) -->
-      ${hero ? `
-        <div style="background:#ffffff; border-radius:16px; overflow:hidden; border:1px solid #e2e8f0; box-shadow:0 8px 28px rgba(15, 23, 42, 0.1); margin-bottom:20px;">
-          <div style="position:relative; background:#0f172a; cursor:zoom-in; overflow:hidden;" onclick="openGalleryLightbox(0)">
-            <img
-              src="${escapeHtml(hero.src)}"
-              onerror="if(this.dataset.fb && this.src!==this.dataset.fb){this.src=this.dataset.fb;}"
-              data-fb="${escapeHtml(hero.fallback || '')}"
-              alt="${escapeHtml(hero.title)}"
-              style="width:100%; max-height:540px; object-fit:cover; display:block; transition:transform 0.35s ease;"
-              onmouseover="this.style.transform='scale(1.015)'"
-              onmouseout="this.style.transform='scale(1)'"
-            />
-            <div style="position:absolute; top:12px; left:12px; background:rgba(11, 34, 89, 0.82); backdrop-filter:blur(8px); color:#fde047; font-size:11.5px; font-weight:800; padding:5px 12px; border-radius:20px; border:1px solid rgba(253,224,71,0.45); box-shadow:0 2px 8px rgba(0,0,0,0.28);">
-              ⭐ ẢNH BÌA CHÍNH
+      <!-- Ô ĐĂNG BÀI NHANH KIỂU FACEBOOK -->
+      ${!isGuest && actor ? `
+        <div style="background:#ffffff; border-radius:14px; border:1px solid #e2e8f0; box-shadow:0 2px 10px rgba(15,23,42,0.06); padding:12px 14px; margin-bottom:16px;">
+          <div style="display:flex; align-items:center; gap:10px;">
+            <div style="width:40px; height:40px; border-radius:50%; background:${actor.role === 'admin' ? 'linear-gradient(135deg, #dc2626 0%, #f59e0b 100%)' : 'linear-gradient(135deg, #0052cc 0%, #0ea5e9 100%)'}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;">
+              ${actor.role === 'admin' ? '👑' : '🏢'}
             </div>
-            <div style="position:absolute; bottom:12px; right:12px; background:rgba(15,23,42,0.72); backdrop-filter:blur(6px); color:#fff; font-size:12px; font-weight:700; padding:6px 12px; border-radius:9px; border:1px solid rgba(255,255,255,0.25);">
-              🔍 Bấm vào ảnh để phóng to
-            </div>
+            <button type="button" onclick="openAddGalleryPhotoModal()" style="flex:1 1 auto; text-align:left; padding:10px 15px; border-radius:22px; border:1px solid #e2e8f0; background:#f0f2f5; color:#64748b; font-size:13.5px; font-weight:600; cursor:pointer;">
+              ${escapeHtml(actor.name)} ơi, bạn muốn chia sẻ hoạt động gì hôm nay?
+            </button>
           </div>
-
-          <div style="padding:14px 18px; background:linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);">
-            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-bottom:4px;">
-              <span style="font-size:11.5px; font-weight:700; color:${hero.uploader_role === 'admin' ? '#b91c1c' : '#0284c7'};">
-                ${hero.uploader_role === 'admin' ? '👑' : '🏢'} ${escapeHtml(hero.uploader_name || 'Ban Thường vụ Đoàn UBND Tỉnh')}
-              </span>
-              ${hero.date ? `<span style="font-size:11.5px; color:#64748b; font-weight:600;">📅 ${escapeHtml(hero.date)}</span>` : ''}
-            </div>
-            <div style="font-size:17.5px; font-weight:900; color:#0b2259; line-height:1.3;">
-              ${escapeHtml(hero.title)}
-            </div>
-            ${hero.description ? `
-              <div style="font-size:13px; color:#475569; margin-top:4px; line-height:1.45;">
-                ${escapeHtml(hero.description)}
-              </div>
-            ` : ''}
-            ${renderPhotoSocialBar(hero, 0, true)}
+          <div style="margin-top:10px; padding-top:10px; border-top:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between; gap:8px;">
+            <button type="button" onclick="openAddGalleryPhotoModal()" style="flex:1 1 auto; display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:8px 12px; border-radius:9px; border:none; background:#eff6ff; color:#0052cc; font-size:13px; font-weight:800; cursor:pointer;">
+              <span>🖼️</span> Đăng Bài &amp; Bộ Ảnh (Tối đa 10 ảnh/bài)
+            </button>
           </div>
         </div>
       ` : ''}
 
-      <!-- ALBUM ẢNH HOẠT ĐỘNG CÔNG KHAI -->
-      <div>
-        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
-          <h3 style="margin:0; font-size:15.5px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:7px;">
-            <span>🖼️</span> Album Ảnh Hoạt Động Toàn Khối (${album.length})
-          </h3>
-        </div>
+      <!-- BÀI VIẾT ẢNH BÌA CHÍNH (GHIM ĐẦU BẢNG TIN) -->
+      ${hero ? renderFacebookPostCard(hero, true) : ''}
 
-        ${album.length === 0 ? `
-          <div style="background:#ffffff; border:1.5px dashed #cbd5e1; border-radius:14px; padding:26px 16px; text-align:center; color:#64748b;">
-            <div style="font-size:28px; margin-bottom:6px;">📷</div>
-            <div style="font-size:14px; font-weight:700; color:#334155;">Chưa có thêm ảnh hoạt động mới trong album</div>
-            <div style="font-size:12.5px; margin-top:4px;">
-              ${!isGuest ? 'Các cơ sở Đoàn và Admin đều có thể bấm <b>"➕ Đăng Ảnh Hoạt Động"</b> ở góc trên để chia sẻ hình ảnh, thả tim và bình luận giao lưu cùng toàn khối!' : 'Hình ảnh hoạt động của các cơ sở Đoàn và Ban Thường vụ sẽ hiển thị công khai tại đây.'}
-            </div>
+      <!-- DANH SÁCH BÀI VIẾT HOẠT ĐỘNG CÔNG KHAI KIỂU FACEBOOK -->
+      ${feedPosts.length === 0 ? `
+        <div style="background:#ffffff; border:1.5px dashed #cbd5e1; border-radius:14px; padding:26px 16px; text-align:center; color:#64748b;">
+          <div style="font-size:28px; margin-bottom:6px;">📷</div>
+          <div style="font-size:14px; font-weight:700; color:#334155;">Chưa có bài viết hoạt động mới nào</div>
+          <div style="font-size:12.5px; margin-top:4px;">
+            ${!isGuest ? 'Bấm vào khung đăng bài phía trên để chia sẻ bộ ảnh hoạt động của đơn vị bạn cùng toàn khối!' : 'Bài viết hoạt động của các cơ sở Đoàn sẽ hiển thị công khai tại đây.'}
           </div>
-        ` : `
-          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(310px, 1fr)); gap:16px;">
-            ${album.map((item, i) => {
-              const realIdx = i + 1;
-              return `
-                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; box-shadow:0 3px 12px rgba(15,23,42,0.06); display:flex; flex-direction:column;">
-                  <div style="position:relative; height:215px; background:#0f172a; cursor:zoom-in; overflow:hidden;" onclick="openGalleryLightbox(${realIdx})">
-                    <img
-                      src="${escapeHtml(item.src)}"
-                      onerror="if(this.dataset.fb && this.src!==this.dataset.fb){this.src=this.dataset.fb;}"
-                      data-fb="${escapeHtml(item.fallback || '')}"
-                      alt="${escapeHtml(item.title)}"
-                      style="width:100%; height:100%; object-fit:cover; display:block;"
-                    />
-                    ${item.date ? `
-                      <span style="position:absolute; top:8px; right:8px; background:rgba(15,23,42,0.75); color:#fff; font-size:11px; font-weight:700; padding:3px 8px; border-radius:6px;">
-                        📅 ${escapeHtml(item.date)}
-                      </span>
-                    ` : ''}
-                  </div>
-                  <div style="padding:12px 14px; flex:1 1 auto; display:flex; flex-direction:column; justify-content:space-between;">
-                    <div>
-                      <div style="font-size:11.5px; font-weight:700; color:${item.uploader_role === 'admin' ? '#b91c1c' : '#0284c7'}; margin-bottom:4px;">
-                        ${item.uploader_role === 'admin' ? '👑' : '🏢'} ${escapeHtml(item.uploader_name || 'Cơ sở Đoàn')}
-                      </div>
-                      <div style="font-size:14.5px; font-weight:800; color:#0f172a; line-height:1.35;">${escapeHtml(item.title)}</div>
-                      ${item.description ? `<div style="font-size:12.5px; color:#64748b; margin-top:4px; line-height:1.4;">${escapeHtml(item.description)}</div>` : ''}
-                    </div>
-                    ${renderPhotoSocialBar(item, realIdx, false)}
-                  </div>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        `}
-      </div>
+        </div>
+      ` : feedPosts.map(post => renderFacebookPostCard(post, false)).join('')}
     </div>
   `;
 }
@@ -40450,29 +40588,33 @@ window.setGalleryFeaturedPhoto = async function (photoId) {
   }
 };
 
-window.openGalleryLightbox = function (idx) {
+window.openPostLightbox = function (postId, imgIdx = 0) {
   const photos = getPhotoGalleryList();
-  if (!photos.length) return;
-  const safeIdx = ((idx % photos.length) + photos.length) % photos.length;
-  const item = photos[safeIdx];
+  const item = photos.find(p => String(p.id) === String(postId));
+  if (!item) return;
+  const imgs = getPostImages(item);
+  if (!imgs.length) return;
+  const safeIdx = ((imgIdx % imgs.length) + imgs.length) % imgs.length;
+  const curSrc = imgs[safeIdx];
+  const pidEsc = escapeHtml(String(item.id));
   const old = document.getElementById('gallery-lightbox-overlay');
   if (old) old.remove();
 
   const overlay = document.createElement('div');
   overlay.id = 'gallery-lightbox-overlay';
-  overlay.style.cssText = 'position:fixed; inset:0; z-index:9999999; background:rgba(7, 15, 36, 0.92); backdrop-filter:blur(8px); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:16px; box-sizing:border-box;';
+  overlay.style.cssText = 'position:fixed; inset:0; z-index:9999999; background:rgba(7, 15, 36, 0.94); backdrop-filter:blur(8px); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:16px; box-sizing:border-box;';
   overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
   overlay.innerHTML = `
     <div style="position:absolute; top:14px; right:16px; display:flex; align-items:center; gap:8px; z-index:2;">
-      <button type="button" onclick="downloadGalleryImage(${safeIdx})" style="background:rgba(255,255,255,0.16); color:#fff; border:1px solid rgba(255,255,255,0.35); padding:7px 13px; border-radius:9px; font-weight:700; font-size:12.5px; cursor:pointer;">⬇️ Tải ảnh</button>
+      <button type="button" onclick="downloadPostImage('${pidEsc}', ${safeIdx})" style="background:rgba(255,255,255,0.16); color:#fff; border:1px solid rgba(255,255,255,0.35); padding:7px 13px; border-radius:9px; font-weight:700; font-size:12.5px; cursor:pointer;">⬇️ Tải ảnh này</button>
       <button type="button" onclick="document.getElementById('gallery-lightbox-overlay')?.remove()" style="background:#ef4444; color:#fff; border:none; padding:7px 14px; border-radius:9px; font-weight:800; font-size:12.5px; cursor:pointer;">✕ Đóng</button>
     </div>
-    ${photos.length > 1 ? `
-      <button type="button" onclick="event.stopPropagation(); openGalleryLightbox(${safeIdx - 1})" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); background:rgba(255,255,255,0.16); color:#fff; border:1px solid rgba(255,255,255,0.35); width:42px; height:42px; border-radius:50%; font-size:18px; font-weight:800; cursor:pointer;">‹</button>
-      <button type="button" onclick="event.stopPropagation(); openGalleryLightbox(${safeIdx + 1})" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); background:rgba(255,255,255,0.16); color:#fff; border:1px solid rgba(255,255,255,0.35); width:42px; height:42px; border-radius:50%; font-size:18px; font-weight:800; cursor:pointer;">›</button>
+    ${imgs.length > 1 ? `
+      <button type="button" onclick="event.stopPropagation(); openPostLightbox('${pidEsc}', ${safeIdx - 1})" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); background:rgba(255,255,255,0.18); color:#fff; border:1px solid rgba(255,255,255,0.35); width:44px; height:44px; border-radius:50%; font-size:20px; font-weight:800; cursor:pointer;">‹</button>
+      <button type="button" onclick="event.stopPropagation(); openPostLightbox('${pidEsc}', ${safeIdx + 1})" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); background:rgba(255,255,255,0.18); color:#fff; border:1px solid rgba(255,255,255,0.35); width:44px; height:44px; border-radius:50%; font-size:20px; font-weight:800; cursor:pointer;">›</button>
     ` : ''}
     <img
-      src="${escapeHtml(item.src)}"
+      src="${escapeHtml(curSrc)}"
       onerror="if(this.dataset.fb && this.src!==this.dataset.fb){this.src=this.dataset.fb;}"
       data-fb="${escapeHtml(item.fallback || '')}"
       alt="${escapeHtml(item.title)}"
@@ -40482,20 +40624,23 @@ window.openGalleryLightbox = function (idx) {
     <div onclick="event.stopPropagation()" style="margin-top:14px; text-align:center; max-width:780px; color:#fff;">
       <div style="font-size:16px; font-weight:800; color:#fde047;">${escapeHtml(item.title)}</div>
       ${item.description ? `<div style="font-size:13px; color:#e2e8f0; margin-top:4px;">${escapeHtml(item.description)}</div>` : ''}
-      <div style="font-size:11.5px; color:#94a3b8; margin-top:4px;">Ảnh ${safeIdx + 1} / ${photos.length}${item.uploader_name ? ' • ' + escapeHtml(item.uploader_name) : ''}${item.date ? ' • ' + escapeHtml(item.date) : ''}</div>
+      <div style="font-size:11.5px; color:#94a3b8; margin-top:4px;">Ảnh ${safeIdx + 1} / ${imgs.length}${item.uploader_name ? ' • ' + escapeHtml(item.uploader_name) : ''}${item.date ? ' • ' + escapeHtml(item.date) : ''}</div>
     </div>
   `;
   document.body.appendChild(overlay);
 };
 
-window.downloadGalleryImage = function (idx) {
+window.downloadPostImage = function (postId, imgIdx = 0) {
   const photos = getPhotoGalleryList();
-  const item = photos[idx];
+  const item = photos.find(p => String(p.id) === String(postId));
   if (!item) return;
+  const imgs = getPostImages(item);
+  const src = imgs[imgIdx] || imgs[0];
+  if (!src) return;
   const a = document.createElement('a');
-  a.href = item.src;
+  a.href = src;
   const safeName = (item.title || 'anh_doan_ubnd_quangtri').replace(/[^a-zA-Z0-9_\-\u00C0-\u024F\u1E00-\u1EFF]+/g, '_').slice(0, 50);
-  a.download = safeName + '.jpg';
+  a.download = safeName + (imgs.length > 1 ? '_' + (imgIdx + 1) : '') + '.jpg';
   a.target = '_blank';
   document.body.appendChild(a);
   a.click();
@@ -40681,47 +40826,46 @@ window.submitAddGalleryPhoto = async function () {
     const baseTs = Date.now();
     const createdIso = nowISO();
 
-    const newItems = compressedList.map((dataUrl, i) => ({
-      id: `photo_${baseTs}_${i}_${Math.random().toString(36).slice(2, 6)}`,
-      title: isBatch ? `${baseTitle} (${i + 1}/${files.length})` : baseTitle,
+    const newPost = {
+      id: `post_${baseTs}_${Math.random().toString(36).slice(2, 7)}`,
+      title: baseTitle,
       description,
-      src: dataUrl,
+      src: compressedList[0],
+      images: compressedList,
       date: dateStr,
       uploader_id: actor.id,
       uploader_name: actor.name,
       uploader_role: actor.role,
-      featured: Boolean(featured && i === 0),
+      featured: Boolean(featured),
       created_at: createdIso,
-    }));
+    };
 
-    // HIỂN THỊ TỨC THÌ (Optimistic UI) trước khi đồng bộ nền lên đám mây
+    // HIỂN THỊ TỨC THÌ 1 BÀI VIẾT KIỂU FACEBOOK (Optimistic UI) trước khi đồng bộ nền lên đám mây
     if (!Array.isArray(state.photoGallery)) state.photoGallery = [];
     if (featured) state.photoGallery.forEach(p => { if (p) p.featured = false; });
-    state.photoGallery = [...newItems, ...state.photoGallery];
+    state.photoGallery = [newPost, ...state.photoGallery];
     if (state.cloudDB) state.cloudDB.photo_gallery = state.photoGallery;
     window._selectedGalleryFiles = [];
     closeModal();
     renderApp();
-    showToast(`⚡ Đã đăng tức thì ${newItems.length} ảnh! Đang lưu lên đám mây...`, 'info');
+    showToast(`⚡ Đã đăng bài viết (${compressedList.length} ảnh)! Đang lưu lên đám mây...`, 'info');
 
-    // Đồng bộ 1 lần duy nhất toàn bộ bộ ảnh lên Cloud DB
+    // Đồng bộ 1 lần duy nhất bài viết lên Cloud DB
     const res = await mutateCloudDB((db) => {
       if (!Array.isArray(db.photo_gallery)) db.photo_gallery = [];
       if (featured) db.photo_gallery.forEach(p => { if (p) p.featured = false; });
-      const existingIds = new Set(db.photo_gallery.map(p => String(p.id)));
-      const toInsert = newItems.filter(it => !existingIds.has(String(it.id)));
-      db.photo_gallery = [...toInsert, ...db.photo_gallery];
-    }, `Add ${newItems.length} gallery photo(s): ${baseTitle}`);
+      if (!db.photo_gallery.some(p => String(p.id) === String(newPost.id))) {
+        db.photo_gallery.unshift(newPost);
+      }
+    }, `Add gallery post (${compressedList.length} photos): ${baseTitle}`);
 
     if (res && res.ok) {
-      showToast(`🟢 Đã lưu công khai ${newItems.length} ảnh lên đám mây thành công!`, 'success');
+      showToast(`🟢 Đã lưu công khai bài viết (${compressedList.length} ảnh) thành công!`, 'success');
       renderApp();
     } else {
-      // Hoàn tác nếu lỗi mạng
-      const addedIds = new Set(newItems.map(it => String(it.id)));
-      state.photoGallery = (state.photoGallery || []).filter(p => !addedIds.has(String(p.id)));
+      state.photoGallery = (state.photoGallery || []).filter(p => String(p.id) !== String(newPost.id));
       renderApp();
-      showToast('Không thể lưu ảnh lên đám mây, vui lòng kiểm tra mạng và thử lại!', 'error');
+      showToast('Không thể lưu bài viết lên đám mây, vui lòng kiểm tra mạng và thử lại!', 'error');
     }
   } catch (e) {
     showToast('Lỗi xử lý ảnh: ' + (e.message || e), 'error');
@@ -40769,7 +40913,7 @@ window.deleteGalleryPhoto = async function (photoId) {
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795073123233;
+    const CURRENT_BUILD_TS = 1795073361994;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;
