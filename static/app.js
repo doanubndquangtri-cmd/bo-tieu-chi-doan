@@ -2098,8 +2098,42 @@ let _presenceCloudQueue = Promise.resolve();
 window.patchLiveChatDOM = function(hasNewIncomingMsg = false) {
   if (typeof document === 'undefined') return;
   try {
+    // 1. LUÔN cập nhật trực tiếp số lượng Online / Offline trên thanh Header & Modal (ngay cả khi đóng Chat, KHÔNG cần F5!)
+    const pCounts = typeof getGlobalPresenceCounts === 'function' ? getGlobalPresenceCounts() : null;
+    if (pCounts) {
+      const onPill = document.getElementById('header-online-pill');
+      const offPill = document.getElementById('header-offline-pill');
+      if (onPill) onPill.innerHTML = `🟢 ${pCounts.onlineCount} Online`;
+      if (offPill) offPill.innerHTML = `⚪ ${pCounts.offlineCount} Offline`;
+    }
+    if (window._activePresenceModalTab && typeof openPresenceDirectoryModal === 'function') {
+      openPresenceDirectoryModal(window._activePresenceModalTab, true);
+    }
+
+    // 2. LUÔN cập nhật huy hiệu số tin nhắn chưa đọc trên nút "Trao Đổi Đoàn" & App Badge
+    const isGuest = Boolean(state.user && state.user.role === 'guest');
+    const unreadChatCount = (isGuest || typeof getTotalUnreadChatCount !== 'function') ? 0 : getTotalUnreadChatCount();
+    const chatBtn = document.getElementById('header-chat-btn');
+    if (chatBtn) {
+      let badgeEl = document.getElementById('header-chat-unread-badge');
+      if (!isGuest && unreadChatCount > 0) {
+        const badgeText = unreadChatCount > 99 ? '99+' : String(unreadChatCount);
+        if (!badgeEl) {
+          badgeEl = document.createElement('span');
+          badgeEl.id = 'header-chat-unread-badge';
+          badgeEl.style.cssText = 'background:#ef4444; color:#fff; font-size:10px; font-weight:800; padding:1px 6px; border-radius:10px; margin-left:2px; box-shadow:0 0 6px rgba(239,68,68,0.8);';
+          chatBtn.appendChild(badgeEl);
+        }
+        if (badgeEl.textContent !== badgeText) badgeEl.textContent = badgeText;
+      } else if (badgeEl) {
+        badgeEl.remove();
+      }
+    }
+    if (typeof updateSystemAppBadge === 'function' && typeof getTotalBadgeCount === 'function') {
+      updateSystemAppBadge(getTotalBadgeCount());
+    }
+
     if (!state.chatOpen) {
-      // Nếu khung chat đang đóng, chỉ cập nhật khi không gõ văn bản
       const activeEl = document.activeElement;
       if (!activeEl || (activeEl.tagName !== 'INPUT' && activeEl.tagName !== 'TEXTAREA' && activeEl.tagName !== 'SELECT')) {
         if (state.activeTab === 'units' && typeof renderApp === 'function') renderApp();
@@ -2110,7 +2144,7 @@ window.patchLiveChatDOM = function(hasNewIncomingMsg = false) {
     const tmp = document.createElement('div');
     tmp.innerHTML = renderFloatingChatWidget();
 
-    // 1. Cập nhật trực tiếp danh sách tin nhắn (#chat-messages-body) mà KHÔNG động chạm tới ô gõ #chat-input-field
+    // 3. Cập nhật trực tiếp danh sách tin nhắn (#chat-messages-body) mà KHÔNG động chạm tới ô gõ #chat-input-field
     const curBody = document.getElementById('chat-messages-body');
     const newBody = tmp.querySelector('#chat-messages-body');
     if (curBody && newBody && curBody.innerHTML !== newBody.innerHTML) {
@@ -2124,7 +2158,7 @@ window.patchLiveChatDOM = function(hasNewIncomingMsg = false) {
       }
     }
 
-    // 2. Cập nhật trực tiếp thanh Online / Offline (.chat-private-unit-bar) ngay lập tức không cần F5
+    // 4. Cập nhật trực tiếp thanh Online / Offline (.chat-private-unit-bar) ngay lập tức không cần F5
     const curPrivBar = document.querySelector('.chat-private-unit-bar');
     const newPrivBar = tmp.querySelector('.chat-private-unit-bar');
     if (curPrivBar && newPrivBar && curPrivBar.innerHTML !== newPrivBar.innerHTML) {
@@ -2132,7 +2166,6 @@ window.patchLiveChatDOM = function(hasNewIncomingMsg = false) {
       const newSelect = newPrivBar.querySelector('select.chat-unit-select');
       const isSelectFocused = (document.activeElement && document.activeElement === curSelect);
       if (isSelectFocused && curSelect && newSelect) {
-        // Nếu người dùng đang mở dropdown select, cập nhật các thẻ span Online/Off và danh sách option bên trong mà không làm đóng select
         const prevVal = curSelect.value;
         if (curSelect.innerHTML !== newSelect.innerHTML) {
           curSelect.innerHTML = newSelect.innerHTML;
@@ -2148,23 +2181,11 @@ window.patchLiveChatDOM = function(hasNewIncomingMsg = false) {
       }
     }
 
-    // 3. Cập nhật huy hiệu số tin chưa đọc trên thanh tab chat (.chat-tabs-bar)
+    // 5. Cập nhật huy hiệu số tin chưa đọc trên thanh tab chat (.chat-tabs-bar)
     const curTabs = document.querySelector('.chat-tabs-bar');
     const newTabs = tmp.querySelector('.chat-tabs-bar');
     if (curTabs && newTabs && curTabs.innerHTML !== newTabs.innerHTML) {
       curTabs.innerHTML = newTabs.innerHTML;
-    }
-
-    // 4. Cập nhật trực tiếp số lượng Online / Offline trên thanh Header và Modal danh sách (nếu đang mở)
-    const pCounts = typeof getGlobalPresenceCounts === 'function' ? getGlobalPresenceCounts() : null;
-    if (pCounts) {
-      const onPill = document.getElementById('header-online-pill');
-      const offPill = document.getElementById('header-offline-pill');
-      if (onPill) onPill.innerHTML = `🟢 ${pCounts.onlineCount} Online`;
-      if (offPill) offPill.innerHTML = `⚪ ${pCounts.offlineCount} Offline`;
-    }
-    if (window._activePresenceModalTab && typeof openPresenceDirectoryModal === 'function') {
-      openPresenceDirectoryModal(window._activePresenceModalTab, true);
     }
   } catch (e) {}
 };
@@ -2263,7 +2284,7 @@ function ingestLiveChatFromPresence(parsed) {
 window.fetchPresenceFromCloud = async function(force = false) {
   if (typeof fetch !== 'function') return;
   const now = Date.now();
-  if (!force && window._lastCloudPresenceFetchTs && (now - window._lastCloudPresenceFetchTs < 1200)) return;
+  if (!force && window._lastCloudPresenceFetchTs && (now - window._lastCloudPresenceFetchTs < 800)) return;
   window._lastCloudPresenceFetchTs = now;
 
   try {
@@ -2302,18 +2323,22 @@ window.syncPresenceToCloud = function(isOnline = true, targetUser = null) {
     for (let attempt = 0; attempt < 6; attempt++) {
       try {
         const now = Date.now();
-        const getUrl = `https://api.github.com/repos/${CLOUD_OWNER}/${CLOUD_REPO}/contents/presence.json?ref=${PRESENCE_BRANCH}&t=${now}`;
-        const getRes = await fetch(getUrl, {
-          headers: {
-            Authorization: `token ${_getCloudToken()}`,
-            Accept: 'application/vnd.github.v3+json',
-          },
-          cache: 'no-store',
-        });
-        if (!getRes.ok) return;
-        const meta = await getRes.json();
-        const sha = meta.sha;
-        let data = meta.content ? JSON.parse(base64ToUtf8(meta.content)) : {};
+        let sha = (attempt === 0 && window._presenceCloudSha) ? window._presenceCloudSha : null;
+        let data = (attempt === 0 && sha && state.cloudPresenceMap) ? JSON.parse(JSON.stringify(state.cloudPresenceMap)) : null;
+        if (!sha || !data) {
+          const getUrl = `https://api.github.com/repos/${CLOUD_OWNER}/${CLOUD_REPO}/contents/presence.json?ref=${PRESENCE_BRANCH}&t=${now}`;
+          const getRes = await fetch(getUrl, {
+            headers: {
+              Authorization: `token ${_getCloudToken()}`,
+              Accept: 'application/vnd.github.v3+json',
+            },
+            cache: 'no-store',
+          });
+          if (!getRes.ok) return;
+          const meta = await getRes.json();
+          sha = meta.sha;
+          data = meta.content ? JSON.parse(base64ToUtf8(meta.content)) : {};
+        }
 
         data = (data && typeof data === 'object') ? data : {};
         data[myId] = data[myId] && typeof data[myId] === 'object' ? data[myId] : {};
@@ -2436,9 +2461,9 @@ window.recordMyPresence = function(force = false, justJoined = false) {
     window.syncPresenceToCloud(true);
   }
 
-  // Làm mới danh sách Online & Tin nhắn trực tiếp mỗi 1.5 giây khi đang mở Chat/Bảng Online, hoặc mỗi 8 giây ở nền
+  // Làm mới danh sách Online & Tin nhắn trực tiếp mỗi 1 giây khi đang mở Chat/Bảng Online, hoặc mỗi 2.5 giây khi đóng Chat
   const isViewingPresence = Boolean(state.chatOpen || state.activeTab === 'units' || window._activePresenceModalTab);
-  const pollInterval = isViewingPresence ? 1500 : 8000;
+  const pollInterval = isViewingPresence ? 1000 : 2500;
   if (!window._lastCloudPresenceFetchTs || (now - window._lastCloudPresenceFetchTs >= pollInterval)) {
     window.fetchPresenceFromCloud();
   }
@@ -5476,10 +5501,10 @@ function renderHeader() {
           ` : ''}
         </button>
 
-        <button class="hub-btn hub-btn-chat" onclick="toggleChatWidget()" title="Bấm để mở ô Trao Đổi Đoàn giữa các đơn vị và Ban Thường vụ Tỉnh">
+        <button id="header-chat-btn" class="hub-btn hub-btn-chat" onclick="toggleChatWidget()" title="Bấm để mở ô Trao Đổi Đoàn giữa các đơn vị và Ban Thường vụ Tỉnh">
           <span style="font-size:14px;">💬</span>
           <span>Trao Đổi Đoàn</span>
-          ${(!isGuest && unreadChatCount > 0) ? `<span style="background:#ef4444; color:#fff; font-size:10px; font-weight:800; padding:1px 6px; border-radius:10px; margin-left:2px; box-shadow:0 0 6px rgba(239,68,68,0.8);">${unreadChatCount > 99 ? '99+' : unreadChatCount}</span>` : ''}
+          ${(!isGuest && unreadChatCount > 0) ? `<span id="header-chat-unread-badge" style="background:#ef4444; color:#fff; font-size:10px; font-weight:800; padding:1px 6px; border-radius:10px; margin-left:2px; box-shadow:0 0 6px rgba(239,68,68,0.8);">${unreadChatCount > 99 ? '99+' : unreadChatCount}</span>` : ''}
         </button>
       </div>
 
