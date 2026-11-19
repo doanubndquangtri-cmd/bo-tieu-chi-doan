@@ -6053,11 +6053,7 @@ body.dark-mode .master-table-fixed-banner {
   }
 }
 
-/* Nền video động cho tab Thư Viện Ảnh: đảm bảo Header, Banner & Tab luôn nổi phía trên video nền, không hở khoảng trống */
-#app > *:not(.main-container):not(#floating-chat-widget):not(.floating-music-widget) {
-  position: relative;
-  z-index: 950;
-}
+/* Nền video động cho tab Thư Viện Ảnh: chỉ nâng z-index các thanh đầu trang, TUYỆT ĐỐI không đụng vào khung chat cố định */
 .admin-view-as-banner {
   position: relative !important;
   z-index: 960 !important;
