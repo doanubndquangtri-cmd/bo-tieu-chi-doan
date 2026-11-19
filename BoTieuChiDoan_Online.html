@@ -40191,45 +40191,88 @@ window.downloadGalleryImage = function (idx) {
   a.remove();
 };
 
+window.previewGalleryUploadFile = function (inputEl) {
+  const previewBox = document.getElementById('gallery-upload-preview');
+  const previewImg = document.getElementById('gallery-upload-preview-img');
+  const fileNameEl = document.getElementById('gallery-upload-file-name');
+  const file = inputEl && inputEl.files && inputEl.files[0];
+  if (!file) {
+    if (previewBox) previewBox.style.display = 'none';
+    if (fileNameEl) fileNameEl.textContent = 'Bấm để chọn ảnh từ máy tính hoặc điện thoại...';
+    return;
+  }
+  if (fileNameEl) fileNameEl.textContent = `✅ Đã chọn: ${file.name} (${(file.size / 1024).toFixed(0)} KB)`;
+  const reader = new FileReader();
+  reader.onload = () => {
+    if (previewImg) previewImg.src = reader.result;
+    if (previewBox) previewBox.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+};
+
 window.openAddGalleryPhotoModal = function () {
   if (!state.user || state.user.role !== 'admin') return;
   const root = document.getElementById('modal-root');
   if (!root) return;
   root.innerHTML = `
-    <div class="modal-backdrop" onclick="closeModal()">
-      <div class="modal-card" onclick="event.stopPropagation()" style="max-width:520px; width:95%;">
-        <div class="modal-header" style="background:linear-gradient(135deg, #0b2259 0%, #1552be 100%); color:#fff; padding:14px 18px;">
-          <h3 style="margin:0; font-size:15.5px; font-weight:800;">📸 Đăng Thêm Ảnh Hoạt Động Đoàn</h3>
-          <button class="modal-close" onclick="closeModal()" style="color:#fff;">✕</button>
-        </div>
-        <div class="modal-body" style="padding:16px 18px; display:flex; flex-direction:column; gap:12px;">
-          <div>
-            <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:5px;">Chọn ảnh từ máy tính / điện thoại:</label>
-            <input type="file" id="gallery-file-input" accept="image/*" style="width:100%; padding:8px; border:1.5px dashed #94a3b8; border-radius:8px; background:#f8fafc; font-size:12.5px;" />
-            <div style="font-size:11px; color:#64748b; margin-top:4px;">Ảnh sẽ được tự động tối ưu dung lượng HD để tải nhanh trên cả máy tính và điện thoại.</div>
-          </div>
-          <div>
-            <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:5px;">Tiêu đề ảnh *</label>
-            <input type="text" id="gallery-title-input" placeholder="VD: Chương trình Tình nguyện mùa Đông 2026..." style="width:100%; padding:9px 11px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:13px;" />
-          </div>
-          <div>
-            <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:5px;">Mô tả ngắn / Địa điểm:</label>
-            <textarea id="gallery-desc-input" rows="2" placeholder="Ghi chú sự kiện, đơn vị tham gia..." style="width:100%; padding:9px 11px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:13px; resize:vertical;"></textarea>
-          </div>
-          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+    <div class="modal-backdrop" onclick="closeModal()" style="position:fixed; inset:0; background:rgba(15, 23, 42, 0.65); backdrop-filter:blur(4px); z-index:99999; display:flex; align-items:center; justify-content:center; padding:14px; box-sizing:border-box;">
+      <div class="modal-content" onclick="event.stopPropagation()" style="background:#ffffff; border-radius:16px; overflow:hidden; max-width:540px; width:100%; max-height:92dvh; display:flex; flex-direction:column; box-shadow:0 24px 60px rgba(15, 23, 42, 0.38); border:1px solid #e2e8f0;">
+        <div style="background:linear-gradient(135deg, #0b2259 0%, #1552be 100%); color:#fff; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-shrink:0;">
+          <div style="display:flex; align-items:center; gap:9px;">
+            <span style="font-size:20px;">📸</span>
             <div>
-              <label style="font-size:12px; font-weight:700; color:#334155; margin-right:6px;">Ngày chụp:</label>
-              <input type="date" id="gallery-date-input" value="${todayISO()}" style="padding:5px 8px; border:1.5px solid #cbd5e1; border-radius:7px; font-size:12.5px;" />
+              <h3 style="margin:0; font-size:15.5px; font-weight:800; color:#fff;">Đăng Thêm Ảnh Hoạt Động Đoàn</h3>
+              <div style="font-size:11.5px; color:#bfdbfe; margin-top:1px;">Hiển thị ngay cho toàn bộ 40 cơ sở Đoàn cùng xem</div>
             </div>
-            <label style="display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; color:#0b2259; cursor:pointer;">
-              <input type="checkbox" id="gallery-featured-input" />
+          </div>
+          <button type="button" onclick="closeModal()" style="width:32px; height:32px; border-radius:8px; border:1px solid rgba(255,255,255,0.28); background:rgba(255,255,255,0.14); color:#fff; font-size:16px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;" title="Đóng">✕</button>
+        </div>
+
+        <div style="padding:18px; background:#ffffff; overflow-y:auto; display:flex; flex-direction:column; gap:14px; box-sizing:border-box;">
+          <div>
+            <label style="display:block; font-size:12.5px; font-weight:800; color:#1e293b; margin-bottom:6px;">
+              1. Chọn ảnh từ máy tính / điện thoại <span style="color:#dc2626;">*</span>
+            </label>
+            <label for="gallery-file-input" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:14px 12px; border:2px dashed #93c5fd; border-radius:12px; background:#f0f7ff; cursor:pointer; text-align:center; transition:all 0.2s ease;">
+              <span style="font-size:26px;">🖼️</span>
+              <span id="gallery-upload-file-name" style="font-size:12.5px; font-weight:700; color:#0b2259;">Bấm để chọn ảnh từ máy tính hoặc điện thoại...</span>
+              <span style="font-size:11px; color:#64748b;">Hỗ trợ JPG, PNG, WebP • Tự động tối ưu HD tải siêu nhanh</span>
+              <input type="file" id="gallery-file-input" accept="image/*" onchange="previewGalleryUploadFile(this)" style="display:none;" />
+            </label>
+            <div id="gallery-upload-preview" style="display:none; margin-top:10px; border-radius:10px; overflow:hidden; border:1px solid #cbd5e1; background:#0f172a;">
+              <img id="gallery-upload-preview-img" src="" alt="Xem trước ảnh" style="width:100%; max-height:190px; object-fit:contain; display:block;" />
+            </div>
+          </div>
+
+          <div>
+            <label for="gallery-title-input" style="display:block; font-size:12.5px; font-weight:800; color:#1e293b; margin-bottom:6px;">
+              2. Tiêu đề ảnh <span style="color:#dc2626;">*</span>
+            </label>
+            <input type="text" id="gallery-title-input" placeholder="VD: Chương trình Tình nguyện mùa Đông 2026..." style="width:100%; box-sizing:border-box; padding:10px 12px; border:1.5px solid #cbd5e1; border-radius:9px; font-size:13px; color:#0f172a; background:#ffffff; outline:none;" onfocus="this.style.borderColor='#0052cc'" onblur="this.style.borderColor='#cbd5e1'" />
+          </div>
+
+          <div>
+            <label for="gallery-desc-input" style="display:block; font-size:12.5px; font-weight:800; color:#1e293b; margin-bottom:6px;">
+              3. Mô tả ngắn / Địa điểm (không bắt buộc)
+            </label>
+            <textarea id="gallery-desc-input" rows="2" placeholder="Ghi chú sự kiện, thời gian, đơn vị tham gia..." style="width:100%; box-sizing:border-box; padding:10px 12px; border:1.5px solid #cbd5e1; border-radius:9px; font-size:13px; color:#0f172a; background:#ffffff; resize:vertical; outline:none; font-family:inherit;" onfocus="this.style.borderColor='#0052cc'" onblur="this.style.borderColor='#cbd5e1'"></textarea>
+          </div>
+
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; padding:10px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;">
+            <div style="display:inline-flex; align-items:center; gap:8px;">
+              <label for="gallery-date-input" style="font-size:12.5px; font-weight:700; color:#334155;">📅 Ngày chụp:</label>
+              <input type="date" id="gallery-date-input" value="${todayISO()}" style="padding:6px 9px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:12.5px; color:#0f172a; background:#fff;" />
+            </div>
+            <label style="display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:700; color:#0b2259; cursor:pointer; user-select:none;">
+              <input type="checkbox" id="gallery-featured-input" style="width:16px; height:16px; accent-color:#0052cc; cursor:pointer;" />
               <span>⭐ Đặt làm ảnh bìa chính</span>
             </label>
           </div>
         </div>
-        <div class="modal-footer" style="padding:12px 18px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:8px;">
-          <button type="button" class="btn btn-outline" onclick="closeModal()">Hủy</button>
-          <button type="button" id="btn-save-gallery-photo" class="btn btn-primary" onclick="submitAddGalleryPhoto()">💾 Lưu &amp; Đăng Ảnh</button>
+
+        <div style="padding:12px 18px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; align-items:center; gap:8px; flex-shrink:0;">
+          <button type="button" class="btn btn-outline" onclick="closeModal()" style="padding:8px 16px; border-radius:9px; font-size:13px; font-weight:700; color:#475569; border-color:#cbd5e1; background:#fff;">Hủy</button>
+          <button type="button" id="btn-save-gallery-photo" class="btn btn-primary" onclick="submitAddGalleryPhoto()" style="padding:8px 18px; border-radius:9px; font-size:13px; font-weight:800; background:linear-gradient(135deg, #0052cc 0%, #0284c7 100%); border:none; color:#fff; box-shadow:0 3px 10px rgba(0,82,204,0.28);">💾 Lưu &amp; Đăng Ảnh</button>
         </div>
       </div>
     </div>
@@ -40326,7 +40369,7 @@ window.deleteGalleryPhoto = async function (photoId) {
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795072123536;
+    const CURRENT_BUILD_TS = 1795072338110;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;
