@@ -6099,6 +6099,22 @@ body.dark-mode .master-table-fixed-banner {
   }
 }
 
+/* Nền video động cho tab Thư Viện Ảnh: đảm bảo Header & Tab luôn nổi phía trên video nền */
+.nav-tabs {
+  position: relative;
+  z-index: 950;
+}
+.marquee-bar,
+.donation-marquee-bar {
+  position: relative;
+  z-index: 940;
+}
+main:has(.gallery-animated-page),
+.main-content:has(.gallery-animated-page),
+.content-area:has(.gallery-animated-page) {
+  background: transparent !important;
+}
+
 </style>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
@@ -40377,52 +40393,76 @@ function renderPhotoGalleryTab() {
   const feedPosts = photos.slice(1);
 
   return `
-    <div style="max-width: 760px; margin: 0 auto; padding: 14px 10px 32px 10px;">
-      <!-- BANNER ĐẦU TRANG THƯ VIỆN ẢNH -->
-      <div style="background:linear-gradient(135deg, #0b2259 0%, #1552be 100%); color:#fff; padding:14px 18px; border-radius:14px; margin-bottom:14px; box-shadow:0 4px 16px rgba(11, 34, 89, 0.18);">
-        <div style="font-size:11px; font-weight:800; color:#fde047; letter-spacing:0.6px; text-transform:uppercase;">
-          TỈNH ĐOÀN QUẢNG TRỊ • ĐOÀN ỦY BAN NHÂN DÂN TỈNH
-        </div>
-        <h2 style="margin:3px 0 2px 0; font-size:clamp(16px, 2.2vw, 20px); font-weight:900; color:#fff; display:flex; align-items:center; gap:8px;">
-          <span>📸</span> Bảng Tin &amp; Thư Viện Ảnh Hoạt Động Đoàn
-        </h2>
-        <div style="font-size:12.5px; color:#dbeafe;">
-          Chia sẻ bài viết kèm bộ ảnh hoạt động, thả tim và bình luận giao lưu công khai toàn khối
-        </div>
+    <div class="gallery-animated-page" style="position:relative; min-height:calc(100vh - 140px); width:100%; overflow-x:hidden;">
+      <!-- VIDEO NỀN ĐỘNG CHUYỂN ĐỘNG GIỐNG MÀN HÌNH ĐĂNG NHẬP -->
+      <div style="position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; background:#0b2259;">
+        <video
+          id="gallery-bg-video"
+          autoplay
+          loop
+          muted
+          playsinline
+          webkit-playsinline
+          preload="auto"
+          poster="static/bg_poster.jpg"
+          oncanplay="this.muted=true; this.play().catch(()=>{});"
+          style="width:100%; height:100%; object-fit:cover; display:block; filter:brightness(0.95);"
+        >
+          <source src="static/bg_video.mp4" type="video/mp4" />
+          <source src="bg_video.mp4" type="video/mp4" />
+          <source src="https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/static/bg_video.mp4" type="video/mp4" />
+          <source src="https://botieuchidoan.io.vn/static/bg_video.mp4" type="video/mp4" />
+        </video>
+        <div style="position:absolute; inset:0; background:linear-gradient(180deg, rgba(11,34,89,0.22) 0%, rgba(15,23,42,0.18) 100%);"></div>
       </div>
 
-      <!-- Ô ĐĂNG BÀI NHANH KIỂU FACEBOOK -->
-      ${!isGuest && actor ? `
-        <div style="background:#ffffff; border-radius:14px; border:1px solid #e2e8f0; box-shadow:0 2px 10px rgba(15,23,42,0.06); padding:12px 14px; margin-bottom:16px;">
-          <div style="display:flex; align-items:center; gap:10px;">
-            <div style="width:40px; height:40px; border-radius:50%; background:${actor.role === 'admin' ? 'linear-gradient(135deg, #dc2626 0%, #f59e0b 100%)' : 'linear-gradient(135deg, #0052cc 0%, #0ea5e9 100%)'}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;">
-              ${actor.role === 'admin' ? '👑' : '🏢'}
+      <div style="position:relative; z-index:2; max-width: 760px; margin: 0 auto; padding: 14px 10px 36px 10px;">
+        <!-- BANNER ĐẦU TRANG THƯ VIỆN ẢNH -->
+        <div style="background:linear-gradient(135deg, rgba(11,34,89,0.92) 0%, rgba(21,82,190,0.9) 100%); backdrop-filter:blur(10px); color:#fff; padding:14px 18px; border-radius:14px; margin-bottom:14px; box-shadow:0 8px 24px rgba(7, 22, 60, 0.28); border:1px solid rgba(255,255,255,0.2);">
+          <div style="font-size:11px; font-weight:800; color:#fde047; letter-spacing:0.6px; text-transform:uppercase;">
+            TỈNH ĐOÀN QUẢNG TRỊ • ĐOÀN ỦY BAN NHÂN DÂN TỈNH
+          </div>
+          <h2 style="margin:3px 0 2px 0; font-size:clamp(16px, 2.2vw, 20px); font-weight:900; color:#fff; display:flex; align-items:center; gap:8px;">
+            <span>📸</span> Bảng Tin &amp; Thư Viện Ảnh Hoạt Động Đoàn
+          </h2>
+          <div style="font-size:12.5px; color:#dbeafe;">
+            Chia sẻ bài viết kèm bộ ảnh hoạt động, thả tim và bình luận giao lưu công khai toàn khối
+          </div>
+        </div>
+
+        <!-- Ô ĐĂNG BÀI NHANH KIỂU FACEBOOK -->
+        ${!isGuest && actor ? `
+          <div style="background:rgba(255,255,255,0.96); backdrop-filter:blur(10px); border-radius:14px; border:1px solid rgba(255,255,255,0.65); box-shadow:0 6px 22px rgba(7,22,60,0.18); padding:12px 14px; margin-bottom:16px;">
+            <div style="display:flex; align-items:center; gap:10px;">
+              <div style="width:40px; height:40px; border-radius:50%; background:${actor.role === 'admin' ? 'linear-gradient(135deg, #dc2626 0%, #f59e0b 100%)' : 'linear-gradient(135deg, #0052cc 0%, #0ea5e9 100%)'}; color:#fff; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0;">
+                ${actor.role === 'admin' ? '👑' : '🏢'}
+              </div>
+              <button type="button" onclick="openAddGalleryPhotoModal()" style="flex:1 1 auto; text-align:left; padding:10px 15px; border-radius:22px; border:1px solid #e2e8f0; background:#f0f2f5; color:#64748b; font-size:13.5px; font-weight:600; cursor:pointer;">
+                ${escapeHtml(actor.name)} ơi, bạn muốn chia sẻ hoạt động gì hôm nay?
+              </button>
             </div>
-            <button type="button" onclick="openAddGalleryPhotoModal()" style="flex:1 1 auto; text-align:left; padding:10px 15px; border-radius:22px; border:1px solid #e2e8f0; background:#f0f2f5; color:#64748b; font-size:13.5px; font-weight:600; cursor:pointer;">
-              ${escapeHtml(actor.name)} ơi, bạn muốn chia sẻ hoạt động gì hôm nay?
-            </button>
+            <div style="margin-top:10px; padding-top:10px; border-top:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between; gap:8px;">
+              <button type="button" onclick="openAddGalleryPhotoModal()" style="flex:1 1 auto; display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:8px 12px; border-radius:9px; border:none; background:#eff6ff; color:#0052cc; font-size:13px; font-weight:800; cursor:pointer;">
+                <span>🖼️</span> Đăng Bài &amp; Bộ Ảnh (Tối đa 10 ảnh/bài)
+              </button>
+            </div>
           </div>
-          <div style="margin-top:10px; padding-top:10px; border-top:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between; gap:8px;">
-            <button type="button" onclick="openAddGalleryPhotoModal()" style="flex:1 1 auto; display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:8px 12px; border-radius:9px; border:none; background:#eff6ff; color:#0052cc; font-size:13px; font-weight:800; cursor:pointer;">
-              <span>🖼️</span> Đăng Bài &amp; Bộ Ảnh (Tối đa 10 ảnh/bài)
-            </button>
-          </div>
-        </div>
-      ` : ''}
+        ` : ''}
 
-      <!-- BÀI VIẾT ẢNH BÌA CHÍNH (GHIM ĐẦU BẢNG TIN) -->
-      ${hero ? renderFacebookPostCard(hero, true) : ''}
+        <!-- BÀI VIẾT ẢNH BÌA CHÍNH (GHIM ĐẦU BẢNG TIN) -->
+        ${hero ? renderFacebookPostCard(hero, true) : ''}
 
-      <!-- DANH SÁCH BÀI VIẾT HOẠT ĐỘNG CÔNG KHAI KIỂU FACEBOOK -->
-      ${feedPosts.length === 0 ? `
-        <div style="background:#ffffff; border:1.5px dashed #cbd5e1; border-radius:14px; padding:26px 16px; text-align:center; color:#64748b;">
-          <div style="font-size:28px; margin-bottom:6px;">📷</div>
-          <div style="font-size:14px; font-weight:700; color:#334155;">Chưa có bài viết hoạt động mới nào</div>
-          <div style="font-size:12.5px; margin-top:4px;">
-            ${!isGuest ? 'Bấm vào khung đăng bài phía trên để chia sẻ bộ ảnh hoạt động của đơn vị bạn cùng toàn khối!' : 'Bài viết hoạt động của các cơ sở Đoàn sẽ hiển thị công khai tại đây.'}
+        <!-- DANH SÁCH BÀI VIẾT HOẠT ĐỘNG CÔNG KHAI KIỂU FACEBOOK -->
+        ${feedPosts.length === 0 ? `
+          <div style="background:rgba(255,255,255,0.95); backdrop-filter:blur(8px); border:1.5px dashed #cbd5e1; border-radius:14px; padding:26px 16px; text-align:center; color:#64748b; box-shadow:0 6px 20px rgba(7,22,60,0.14);">
+            <div style="font-size:28px; margin-bottom:6px;">📷</div>
+            <div style="font-size:14px; font-weight:700; color:#334155;">Chưa có bài viết hoạt động mới nào</div>
+            <div style="font-size:12.5px; margin-top:4px;">
+              ${!isGuest ? 'Bấm vào khung đăng bài phía trên để chia sẻ bộ ảnh hoạt động của đơn vị bạn cùng toàn khối!' : 'Bài viết hoạt động của các cơ sở Đoàn sẽ hiển thị công khai tại đây.'}
+            </div>
           </div>
-        </div>
-      ` : feedPosts.map(post => renderFacebookPostCard(post, false)).join('')}
+        ` : feedPosts.map(post => renderFacebookPostCard(post, false)).join('')}
+      </div>
     </div>
   `;
 }
@@ -40996,7 +41036,7 @@ window.deleteGalleryPhoto = async function (photoId) {
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795073883811;
+    const CURRENT_BUILD_TS = 1795074036060;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;

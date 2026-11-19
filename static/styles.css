@@ -6052,3 +6052,19 @@ body.dark-mode .master-table-fixed-banner {
     transform: scale(0.97) !important;
   }
 }
+
+/* Nền video động cho tab Thư Viện Ảnh: đảm bảo Header & Tab luôn nổi phía trên video nền */
+.nav-tabs {
+  position: relative;
+  z-index: 950;
+}
+.marquee-bar,
+.donation-marquee-bar {
+  position: relative;
+  z-index: 940;
+}
+main:has(.gallery-animated-page),
+.main-content:has(.gallery-animated-page),
+.content-area:has(.gallery-animated-page) {
+  background: transparent !important;
+}
