@@ -7550,30 +7550,47 @@ function sortCriteriaChronologically(list) {
    ONLINE PRESENCE TRACKING & REALTIME HEARTBEAT SYSTEM
    ========================================================================= */
 
+function getMyPresenceSessionId() {
+  if (!window._myPresenceSessionId) {
+    window._myPresenceSessionId = 'sid_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 7);
+  }
+  return window._myPresenceSessionId;
+}
+
 window.isUnitOnline = function(unitId) {
   if (!state.user) return false;
   const myId = state.user.role === 'admin' ? 0 : state.user.id;
   if (myId === unitId && state.user.role !== 'guest') return true; // Người đang truy cập trên trình duyệt luôn Online 100%
 
   const now = Date.now();
+  // Kiểm tra theo từng phiên thiết bị (sid): chỉ cần còn ít nhất 1 thiết bị/tab đang mở & hoạt động trong 30 giây là Online
+  const sessionsMap = state.presenceSessionsByUnit && state.presenceSessionsByUnit[unitId];
+  if (sessionsMap && typeof sessionsMap === 'object') {
+    const sids = Object.keys(sessionsMap);
+    for (const sid of sids) {
+      const ts = Number(sessionsMap[sid]) || 0;
+      if (ts > 0 && (now - ts < 30000)) {
+        return true;
+      }
+    }
+  }
+
   const rtPresence = state.realtimePresence || {};
   const rtOffline = state.realtimeOffline || {};
   const rtSeen = Number(rtPresence[unitId] || rtPresence[String(unitId)] || 0);
   const offAt = Number(rtOffline[unitId] || rtOffline[String(unitId)] || 0);
 
-  // Nếu đơn vị vừa thoát app / ẩn tab / đăng xuất / chuyển tài khoản gần hơn lần ping cuối -> Offline ngay lập tức
   if (offAt > 0 && offAt >= rtSeen && (now - offAt < 600000)) {
     return false;
   }
 
-  // Chỉ tính Online khi thiết bị đang thực sự mở app & hoạt động (ping mỗi 10s, quá 25s không ping là Offline)
-  if (rtSeen > 0 && (now - rtSeen < 25000)) {
+  if (rtSeen > 0 && (now - rtSeen < 30000)) {
     return true;
   }
 
   const presence = state.onlinePresence || {};
   const lastSeen = Number(presence[unitId] || presence[String(unitId)] || 0);
-  if (lastSeen > 0 && (now - lastSeen < 25000)) {
+  if (lastSeen > 0 && (now - lastSeen < 30000)) {
     return true;
   }
 
@@ -7584,7 +7601,11 @@ window.recordMyPresence = function(force = false, justJoined = false) {
   if (!state.user || state.user.role === 'guest') return;
   if (typeof document !== 'undefined' && document.hidden && !force) return;
   const myId = state.user.role === 'admin' ? 0 : Number(state.user.id);
+  const sid = getMyPresenceSessionId();
   const now = Date.now();
+  state.presenceSessionsByUnit = state.presenceSessionsByUnit || {};
+  state.presenceSessionsByUnit[myId] = state.presenceSessionsByUnit[myId] || {};
+  state.presenceSessionsByUnit[myId][sid] = now;
   state.realtimePresence = state.realtimePresence || {};
   state.realtimePresence[myId] = now;
   state.onlinePresence = state.onlinePresence || {};
@@ -7596,24 +7617,28 @@ window.recordMyPresence = function(force = false, justJoined = false) {
   }
   window._lastPresenceBroadcastTs = now;
   if (window.broadcastLiveEvent) {
-    window.broadcastLiveEvent('PRESENCE_PING', { unitId: myId, ts: now, justJoined: Boolean(justJoined) });
+    window.broadcastLiveEvent('PRESENCE_PING', { unitId: myId, sid: sid, ts: now, justJoined: Boolean(justJoined) });
   }
 };
 
 window.broadcastMyOffline = function() {
   if (!state.user || state.user.role === 'guest') return;
   const myId = state.user.role === 'admin' ? 0 : Number(state.user.id);
+  const sid = getMyPresenceSessionId();
   const now = Date.now();
+  if (state.presenceSessionsByUnit && state.presenceSessionsByUnit[myId]) {
+    delete state.presenceSessionsByUnit[myId][sid];
+  }
   if (state.realtimePresence) delete state.realtimePresence[myId];
   if (state.onlinePresence) delete state.onlinePresence[myId];
   state.realtimeOffline = state.realtimeOffline || {};
   state.realtimeOffline[myId] = now;
-  const payloadStr = JSON.stringify({ type: 'PRESENCE_OFFLINE', payload: { unitId: myId, ts: now }, sender_id: state.user.id, ts: now });
+  const payloadStr = JSON.stringify({ type: 'PRESENCE_OFFLINE', payload: { unitId: myId, sid: sid, ts: now }, sender_id: state.user.id, ts: now });
 
   if (typeof BroadcastChannel !== 'undefined') {
     try {
       const bc = new BroadcastChannel('doan_live_channel');
-      bc.postMessage({ type: 'PRESENCE_OFFLINE', data: { unitId: myId, ts: now } });
+      bc.postMessage({ type: 'PRESENCE_OFFLINE', data: { unitId: myId, sid: sid, ts: now } });
       bc.close();
     } catch (e) {}
   }
@@ -7626,7 +7651,7 @@ window.broadcastMyOffline = function() {
       fetch(`https://ntfy.sh/${LIVE_REALTIME_TOPIC}`, {
         method: 'POST',
         keepalive: true,
-        headers: { 'Title': 'PRESENCE_OFFLINE', 'Priority': 'high' },
+        headers: { 'Title': 'PRESENCE_OFFLINE', 'Priority': 'default' },
         body: payloadStr
       }).catch(() => {});
     }
@@ -7742,9 +7767,13 @@ function ingestCloudDB(db) {
     }
   }
   if (window._activeChatDetailsMsgId && typeof openChatMessageDetailsModal === 'function') {
-    setTimeout(() => {
-      if (window._activeChatDetailsMsgId) openChatMessageDetailsModal(window._activeChatDetailsMsgId);
-    }, 30);
+    const newReadSig = JSON.stringify(db.chat_read_status || {});
+    if (newReadSig !== window._lastDetailsReadStatusSig) {
+      window._lastDetailsReadStatusSig = newReadSig;
+      setTimeout(() => {
+        if (window._activeChatDetailsMsgId) openChatMessageDetailsModal(window._activeChatDetailsMsgId);
+      }, 30);
+    }
   }
 
   state.deletedMonthKeys = Array.isArray(db.deleted_month_keys) ? db.deleted_month_keys : [];
@@ -33002,8 +33031,24 @@ window.broadcastLiveEvent = function(type, data) {
 };
 
 window.initRealtimeLiveBridge = function() {
+  if (typeof fetchPresenceSnapshot === 'function') {
+    fetchPresenceSnapshot();
+  }
+  if (!window._presenceFallbackInterval && typeof setInterval === 'function') {
+    window._presenceFallbackInterval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.hidden) return;
+      if (!_liveEventSource || _liveEventSource.readyState !== 1) {
+        if (typeof fetchPresenceSnapshot === 'function') fetchPresenceSnapshot();
+        if (window.initRealtimeLiveBridge) window.initRealtimeLiveBridge();
+      }
+    }, 12000);
+  }
   if (typeof EventSource === 'undefined') return;
-  if (_liveEventSource) return;
+  if (_liveEventSource && _liveEventSource.readyState !== 2) return;
+  if (_liveEventSource && _liveEventSource.readyState === 2) {
+    try { _liveEventSource.close(); } catch (e) {}
+    _liveEventSource = null;
+  }
 
   try {
     _liveEventSource = new EventSource(`https://ntfy.sh/${LIVE_REALTIME_TOPIC}/sse?since=30s`);
@@ -33130,12 +33175,49 @@ window.initRealtimeLiveBridge = function() {
   }, 350);
 };
 
-function handleIncomingPresencePing(payload) {
+async function fetchPresenceSnapshot() {
+  try {
+    if (typeof fetch !== 'function') return;
+    const res = await fetch(`https://ntfy.sh/${LIVE_REALTIME_TOPIC}/json?since=35s&poll=1`, { cache: 'no-store' });
+    if (!res.ok) return;
+    const text = await res.text();
+    const lines = text.trim().split('\n');
+    for (const line of lines) {
+      if (!line) continue;
+      try {
+        const raw = JSON.parse(line);
+        if (!raw || !raw.message) continue;
+        const evt = JSON.parse(raw.message);
+        if (!evt || !evt.type) continue;
+        if (evt.type === 'PRESENCE_PING' && evt.payload) {
+          handleIncomingPresencePing(evt.payload, true);
+        } else if (evt.type === 'PRESENCE_OFFLINE' && evt.payload) {
+          handleIncomingPresenceOffline(evt.payload, true);
+        }
+      } catch (eLine) {}
+    }
+    if ((state.chatOpen || state.activeTab === 'units') && typeof renderApp === 'function') {
+      const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
+      if (!activeEl || (activeEl.id !== 'chat-input-field' && activeEl.tagName !== 'SELECT' && activeEl.tagName !== 'INPUT' && activeEl.tagName !== 'TEXTAREA')) {
+        renderApp();
+      }
+    }
+  } catch (e) {}
+}
+
+function handleIncomingPresencePing(payload, silent = false) {
   if (!payload || payload.unitId === undefined || payload.unitId === null) return;
   const uid = Number(payload.unitId);
   const ts = Number(payload.ts) || Date.now();
+  const sid = payload.sid ? String(payload.sid) : 'default';
   const prevOnline = window.isUnitOnline ? window.isUnitOnline(uid) : false;
 
+  state.presenceSessionsByUnit = state.presenceSessionsByUnit || {};
+  state.presenceSessionsByUnit[uid] = state.presenceSessionsByUnit[uid] || {};
+  const prevSidTs = Number(state.presenceSessionsByUnit[uid][sid]) || 0;
+  if (ts > prevSidTs) {
+    state.presenceSessionsByUnit[uid][sid] = ts;
+  }
   state.realtimePresence = state.realtimePresence || {};
   state.realtimePresence[uid] = Math.max(Number(state.realtimePresence[uid]) || 0, ts);
   state.onlinePresence = state.onlinePresence || {};
@@ -33143,18 +33225,18 @@ function handleIncomingPresencePing(payload) {
   if (state.realtimeOffline) delete state.realtimeOffline[uid];
 
   // Nếu có đơn vị/Admin khác vừa mới mở web trong 5 giây gần đây -> phản hồi lại 1 lần để họ thấy mình đang Online ngay lập tức
-  if (payload.justJoined && (Date.now() - ts < 5000) && state.user && state.user.role !== 'guest') {
+  if (!silent && payload.justJoined && (Date.now() - ts < 5000) && state.user && state.user.role !== 'guest') {
     const myId = state.user.role === 'admin' ? 0 : Number(state.user.id);
     if (uid !== myId) {
       setTimeout(() => {
         if (window.broadcastLiveEvent && state.user && state.user.role !== 'guest') {
-          window.broadcastLiveEvent('PRESENCE_PING', { unitId: myId, ts: Date.now(), justJoined: false });
+          window.broadcastLiveEvent('PRESENCE_PING', { unitId: myId, sid: getMyPresenceSessionId(), ts: Date.now(), justJoined: false });
         }
       }, 200 + Math.floor(Math.random() * 800));
     }
   }
 
-  if (!prevOnline && (state.chatOpen || state.activeTab === 'units') && typeof renderApp === 'function') {
+  if (!silent && !prevOnline && (state.chatOpen || state.activeTab === 'units') && typeof renderApp === 'function') {
     const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
     if (!activeEl || (activeEl.id !== 'chat-input-field' && activeEl.tagName !== 'SELECT' && activeEl.tagName !== 'INPUT' && activeEl.tagName !== 'TEXTAREA')) {
       renderApp();
@@ -33162,16 +33244,30 @@ function handleIncomingPresencePing(payload) {
   }
 }
 
-function handleIncomingPresenceOffline(payload) {
+function handleIncomingPresenceOffline(payload, silent = false) {
   if (!payload || payload.unitId === undefined || payload.unitId === null) return;
   const uid = Number(payload.unitId);
   const ts = Number(payload.ts) || Date.now();
-  state.realtimeOffline = state.realtimeOffline || {};
-  state.realtimeOffline[uid] = ts;
-  if (state.realtimePresence) delete state.realtimePresence[uid];
-  if (state.onlinePresence) delete state.onlinePresence[uid];
+  const sid = payload.sid ? String(payload.sid) : null;
 
-  if ((state.chatOpen || state.activeTab === 'units') && typeof renderApp === 'function') {
+  if (sid && state.presenceSessionsByUnit && state.presenceSessionsByUnit[uid]) {
+    const lastPingForSid = Number(state.presenceSessionsByUnit[uid][sid]) || 0;
+    if (ts >= lastPingForSid) {
+      delete state.presenceSessionsByUnit[uid][sid];
+    }
+  } else if (state.presenceSessionsByUnit && state.presenceSessionsByUnit[uid]) {
+    delete state.presenceSessionsByUnit[uid];
+  }
+
+  const stillHasActiveSession = window.isUnitOnline ? window.isUnitOnline(uid) : false;
+  if (!stillHasActiveSession) {
+    state.realtimeOffline = state.realtimeOffline || {};
+    state.realtimeOffline[uid] = Math.max(Number(state.realtimeOffline[uid]) || 0, ts);
+    if (state.realtimePresence) delete state.realtimePresence[uid];
+    if (state.onlinePresence) delete state.onlinePresence[uid];
+  }
+
+  if (!silent && (state.chatOpen || state.activeTab === 'units') && typeof renderApp === 'function') {
     const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
     if (!activeEl || (activeEl.id !== 'chat-input-field' && activeEl.tagName !== 'SELECT' && activeEl.tagName !== 'INPUT' && activeEl.tagName !== 'TEXTAREA')) {
       renderApp();
@@ -38528,7 +38624,13 @@ window.openChatMessageDetailsModal = function(msgId) {
     if (typeof showToast === 'function') showToast('Không tìm thấy tin nhắn này!', 'error');
     return;
   }
+  const prevScrollListEl = document.getElementById('chat-details-scroll-list');
+  const prevListScrollTop = (prevScrollListEl && window._activeChatDetailsMsgId === targetId) ? prevScrollListEl.scrollTop : 0;
+  const prevBodyEl = document.getElementById('chat-details-modal-body');
+  const prevBodyScrollTop = (prevBodyEl && window._activeChatDetailsMsgId === targetId) ? prevBodyEl.scrollTop : 0;
+
   window._activeChatDetailsMsgId = targetId;
+  window._lastDetailsReadStatusSig = JSON.stringify((state.cloudDB && state.cloudDB.chat_read_status) || {});
 
   const msgTs = getMsgTimestamp(msg);
   const readStatus = getMergedChatReadStatus();
@@ -38599,7 +38701,7 @@ window.openChatMessageDetailsModal = function(msgId) {
           <button class="btn btn-sm btn-outline" onclick="closeModal()" style="color:#fff; border-color:rgba(255,255,255,0.4);">✕</button>
         </div>
 
-        <div class="modal-body" style="padding:16px 20px; overflow-y:auto; flex:1 1 auto;">
+        <div class="modal-body" id="chat-details-modal-body" style="padding:16px 20px; overflow-y:auto; flex:1 1 auto;">
           <!-- THÔNG TIN TIN NHẮN -->
           <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 14px; margin-bottom:14px;">
             <div style="font-size:12.5px; color:#64748b; margin-bottom:4px;">
@@ -38629,7 +38731,7 @@ window.openChatMessageDetailsModal = function(msgId) {
           </div>
 
           <div style="border:1px solid #e2e8f0; border-radius:8px; overflow:hidden;">
-            <div style="max-height:260px; overflow-y:auto;">
+            <div id="chat-details-scroll-list" style="max-height:260px; overflow-y:auto;">
               <!-- ĐÃ XEM -->
               ${readList.map(item => `
                 <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 12px; border-bottom:1px solid #f1f5f9; background:#fff; font-size:12px;">
@@ -38667,6 +38769,15 @@ window.openChatMessageDetailsModal = function(msgId) {
       </div>
     </div>
   `;
+
+  if (prevListScrollTop > 0) {
+    const newScrollList = document.getElementById('chat-details-scroll-list');
+    if (newScrollList) newScrollList.scrollTop = prevListScrollTop;
+  }
+  if (prevBodyScrollTop > 0) {
+    const newBody = document.getElementById('chat-details-modal-body');
+    if (newBody) newBody.scrollTop = prevBodyScrollTop;
+  }
 };
 
 </script>
