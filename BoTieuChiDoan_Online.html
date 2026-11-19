@@ -5693,6 +5693,237 @@ body.dark-mode .master-table-fixed-banner {
   box-shadow: 0 2px 8px rgba(217, 119, 6, 0.08);
 }
 
+/* ========================================================================= */
+/* MOBILE UX UPGRADE 2026-11-19                                              */
+/* ROLLBACK GIT TAG: backup-mobile-before-upgrade-20261119 (commit 22429b61) */
+/* ========================================================================= */
+@media (max-width: 768px) {
+  /* 1. Header gọn gàng, không chiếm diện tích khi cuộn (nhường chỗ cho thanh Tab ghim trên cùng) */
+  .app-header {
+    position: relative !important;
+    top: auto !important;
+    padding: 10px 10px 10px 10px !important;
+    gap: 8px !important;
+    box-shadow: 0 3px 12px rgba(7, 22, 60, 0.22) !important;
+  }
+
+  .header-top-row {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+    padding-bottom: 0 !important;
+  }
+
+  /* 2. Logo & Tiêu đề rõ nét, không bị cắt chữ trên màn hình nhỏ */
+  .brand-box {
+    width: 100% !important;
+    min-width: 0 !important;
+    gap: 0 !important;
+  }
+
+  .brand-box .brand-logo-wrap {
+    width: 48px !important;
+    height: 48px !important;
+    margin-right: 10px !important;
+    padding: 3px !important;
+  }
+
+  .brand-title {
+    min-width: 0 !important;
+    flex: 1 1 auto !important;
+    white-space: normal !important;
+    overflow: visible !important;
+  }
+
+  .brand-title .brand-org {
+    font-size: 9.5px !important;
+    letter-spacing: 0.35px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .brand-title h1 {
+    font-size: clamp(12.5px, 3.7vw, 15.5px) !important;
+    line-height: 1.25 !important;
+    white-space: normal !important;
+    letter-spacing: 0 !important;
+    margin: 2px 0 !important;
+  }
+
+  .brand-title .brand-sub {
+    font-size: 10.5px !important;
+    line-height: 1.2 !important;
+  }
+
+  /* 3. Cụm 4 nút chính xếp lưới 2x2 cân đối, dễ bấm bằng ngón cái */
+  .header-featured-hub {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    width: 100% !important;
+    gap: 6px !important;
+    padding: 6px !important;
+    border-radius: 10px !important;
+    box-sizing: border-box !important;
+  }
+
+  .header-featured-hub .notification-bell-container {
+    width: 100% !important;
+    display: flex !important;
+  }
+
+  .header-featured-hub .hub-btn {
+    width: 100% !important;
+    height: 38px !important;
+    font-size: 12px !important;
+    font-weight: 800 !important;
+    padding: 0 8px !important;
+    justify-content: center !important;
+    border-radius: 8px !important;
+    gap: 5px !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* 4. Thanh công cụ phụ trong thẻ kính tối gọn gàng, tự dàn đều các hàng */
+  .header-actions.header-subbar {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 8px !important;
+    background: rgba(6, 18, 48, 0.38) !important;
+    border: 1px solid rgba(255, 255, 255, 0.14) !important;
+    border-radius: 10px !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 7px !important;
+    box-sizing: border-box !important;
+  }
+
+  .header-tools-group {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center !important;
+    gap: 6px !important;
+    width: 100% !important;
+  }
+
+  .header-divider-v {
+    display: none !important;
+  }
+
+  .header-actions select {
+    flex: 1 1 100% !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 34px !important;
+    font-size: 12.5px !important;
+    padding: 4px 10px !important;
+    border-radius: 7px !important;
+  }
+
+  .header-actions .btn,
+  .header-actions .date-pill {
+    flex: 1 1 auto !important;
+    height: 32px !important;
+    font-size: 11.5px !important;
+    padding: 0 9px !important;
+    border-radius: 7px !important;
+    justify-content: center !important;
+  }
+
+  .header-music-widget {
+    flex: 1 1 auto !important;
+    height: 32px !important;
+    justify-content: center !important;
+    border-radius: 7px !important;
+  }
+
+  .header-music-widget .btn {
+    flex: 0 0 auto !important;
+    height: 100% !important;
+  }
+
+  .header-status-box {
+    width: 100% !important;
+    height: 34px !important;
+    margin-left: 0 !important;
+    padding: 3px 9px !important;
+    justify-content: space-between !important;
+    border-radius: 8px !important;
+    background: rgba(0, 12, 36, 0.45) !important;
+    box-sizing: border-box !important;
+  }
+
+  /* 5. Ghim thanh Tab điều hướng trên cùng khi cuộn để chuyển mục tức thì */
+  .nav-tabs {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 950 !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    padding: 0 8px !important;
+    gap: 6px !important;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08) !important;
+    scroll-snap-type: x proximity !important;
+  }
+
+  .nav-tab {
+    height: 48px !important;
+    padding: 0 13px !important;
+    font-size: 13.5px !important;
+    scroll-snap-align: start !important;
+  }
+
+  /* 6. Khung Thông báo căn giữa gọn trên màn hình điện thoại, không bị lệch mép */
+  .notification-dropdown {
+    position: fixed !important;
+    top: 56px !important;
+    left: 8px !important;
+    right: 8px !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: calc(100vw - 16px) !important;
+    max-height: 78dvh !important;
+    border-radius: 14px !important;
+    z-index: 999999 !important;
+    box-shadow: 0 14px 40px rgba(15, 23, 42, 0.35) !important;
+  }
+
+  /* 7. Nội dung chính, Card, Modal & Chat tối ưu vuốt chạm + vùng an toàn tai thỏ/thanh cử chỉ */
+  .main-content,
+  .page-container,
+  .content-area {
+    padding: 10px 8px !important;
+  }
+
+  .card,
+  .section-card {
+    border-radius: 12px !important;
+    padding: 12px 10px !important;
+    margin-bottom: 10px !important;
+  }
+
+  .modal-content,
+  .modal-box,
+  .modal-card {
+    width: calc(100vw - 16px) !important;
+    max-width: calc(100vw - 16px) !important;
+    max-height: 92dvh !important;
+    border-radius: 14px !important;
+  }
+
+  .table-wrapper,
+  .table-responsive,
+  .master-table-scroll-container {
+    -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-x: contain !important;
+  }
+
+  .chat-input-area {
+    padding-bottom: max(8px, env(safe-area-inset-bottom)) !important;
+  }
+}
+
 </style>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
@@ -39494,7 +39725,7 @@ window.openChatMessageDetailsModal = function(msgId) {
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795064407387;
+    const CURRENT_BUILD_TS = 1795065432425;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;
