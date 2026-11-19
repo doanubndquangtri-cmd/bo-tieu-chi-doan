@@ -40502,39 +40502,68 @@ window.downloadGalleryImage = function (idx) {
   a.remove();
 };
 
-window.previewGalleryUploadFile = function (inputEl) {
+window._selectedGalleryFiles = [];
+
+window.renderGalleryUploadPreviews = function () {
   const previewBox = document.getElementById('gallery-upload-preview');
-  const previewImg = document.getElementById('gallery-upload-preview-img');
   const fileNameEl = document.getElementById('gallery-upload-file-name');
-  const file = inputEl && inputEl.files && inputEl.files[0];
-  if (!file) {
-    if (previewBox) previewBox.style.display = 'none';
-    if (fileNameEl) fileNameEl.textContent = 'Bấm để chọn ảnh từ máy tính hoặc điện thoại...';
+  const files = Array.isArray(window._selectedGalleryFiles) ? window._selectedGalleryFiles : [];
+  if (!files.length) {
+    if (previewBox) { previewBox.style.display = 'none'; previewBox.innerHTML = ''; }
+    if (fileNameEl) fileNameEl.textContent = 'Bấm để chọn ảnh (tối đa 10 ảnh mỗi lần)...';
     return;
   }
-  if (fileNameEl) fileNameEl.textContent = `✅ Đã chọn: ${file.name} (${(file.size / 1024).toFixed(0)} KB)`;
-  const reader = new FileReader();
-  reader.onload = () => {
-    if (previewImg) previewImg.src = reader.result;
-    if (previewBox) previewBox.style.display = 'block';
-  };
-  reader.readAsDataURL(file);
+  const totalKB = files.reduce((s, f) => s + (f.size || 0), 0) / 1024;
+  if (fileNameEl) fileNameEl.textContent = `✅ Đã chọn ${files.length} / 10 ảnh (${totalKB >= 1024 ? (totalKB / 1024).toFixed(1) + ' MB' : totalKB.toFixed(0) + ' KB'}) — Bấm để chọn thêm`;
+  if (previewBox) {
+    previewBox.style.display = 'grid';
+    previewBox.innerHTML = files.map((file, idx) => {
+      const objUrl = URL.createObjectURL(file);
+      return `
+        <div style="position:relative; border-radius:9px; overflow:hidden; border:1px solid #cbd5e1; background:#0f172a; aspect-ratio:4/3;">
+          <img src="${objUrl}" alt="Preview ${idx + 1}" style="width:100%; height:100%; object-fit:cover; display:block;" />
+          <span style="position:absolute; bottom:3px; left:3px; background:rgba(15,23,42,0.75); color:#fff; font-size:10px; font-weight:800; padding:1px 5px; border-radius:4px;">#${idx + 1}</span>
+          <button type="button" onclick="event.stopPropagation(); removeSelectedGalleryFile(${idx})" title="Bỏ ảnh này" style="position:absolute; top:3px; right:3px; width:20px; height:20px; border-radius:50%; border:none; background:rgba(220,38,38,0.92); color:#fff; font-size:11px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;">✕</button>
+        </div>
+      `;
+    }).join('');
+  }
+};
+
+window.removeSelectedGalleryFile = function (idx) {
+  if (!Array.isArray(window._selectedGalleryFiles)) return;
+  window._selectedGalleryFiles.splice(idx, 1);
+  window.renderGalleryUploadPreviews();
+};
+
+window.previewGalleryUploadFile = function (inputEl) {
+  const picked = inputEl && inputEl.files ? Array.from(inputEl.files).filter(f => f && f.type && f.type.startsWith('image/')) : [];
+  if (!picked.length) return;
+  const current = Array.isArray(window._selectedGalleryFiles) ? [...window._selectedGalleryFiles] : [];
+  const merged = [...current, ...picked];
+  if (merged.length > 10) {
+    showToast('⚠️ Tối đa 10 ảnh mỗi lần đăng — đã tự động lấy 10 ảnh đầu tiên!', 'warning');
+  }
+  window._selectedGalleryFiles = merged.slice(0, 10);
+  if (inputEl) inputEl.value = '';
+  window.renderGalleryUploadPreviews();
 };
 
 window.openAddGalleryPhotoModal = function () {
   const actor = getCurrentGalleryActor();
   if (!actor) return;
+  window._selectedGalleryFiles = [];
   const isAdmin = actor.role === 'admin';
   const root = document.getElementById('modal-root');
   if (!root) return;
   root.innerHTML = `
     <div class="modal-backdrop" onclick="closeModal()" style="position:fixed; inset:0; background:rgba(15, 23, 42, 0.65); backdrop-filter:blur(4px); z-index:99999; display:flex; align-items:center; justify-content:center; padding:14px; box-sizing:border-box;">
-      <div class="modal-content" onclick="event.stopPropagation()" style="background:#ffffff; border-radius:16px; overflow:hidden; max-width:540px; width:100%; max-height:92dvh; display:flex; flex-direction:column; box-shadow:0 24px 60px rgba(15, 23, 42, 0.38); border:1px solid #e2e8f0;">
+      <div class="modal-content" onclick="event.stopPropagation()" style="background:#ffffff; border-radius:16px; overflow:hidden; max-width:560px; width:100%; max-height:92dvh; display:flex; flex-direction:column; box-shadow:0 24px 60px rgba(15, 23, 42, 0.38); border:1px solid #e2e8f0;">
         <div style="background:linear-gradient(135deg, #0b2259 0%, #1552be 100%); color:#fff; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-shrink:0;">
           <div style="display:flex; align-items:center; gap:9px;">
             <span style="font-size:20px;">📸</span>
             <div>
-              <h3 style="margin:0; font-size:15.5px; font-weight:800; color:#fff;">Đăng Ảnh Hoạt Động Đoàn</h3>
+              <h3 style="margin:0; font-size:15.5px; font-weight:800; color:#fff;">Đăng Ảnh Hoạt Động Đoàn (Tối đa 10 ảnh)</h3>
               <div style="font-size:11.5px; color:#bfdbfe; margin-top:1px;">Đăng công khai với tên: <b>${escapeHtml(actor.name)}</b></div>
             </div>
           </div>
@@ -40544,22 +40573,20 @@ window.openAddGalleryPhotoModal = function () {
         <div style="padding:18px; background:#ffffff; overflow-y:auto; display:flex; flex-direction:column; gap:14px; box-sizing:border-box;">
           <div>
             <label style="display:block; font-size:12.5px; font-weight:800; color:#1e293b; margin-bottom:6px;">
-              1. Chọn ảnh từ máy tính / điện thoại <span style="color:#dc2626;">*</span>
+              1. Chọn 1 hoặc nhiều ảnh (tối đa 10 ảnh/lần) <span style="color:#dc2626;">*</span>
             </label>
             <label for="gallery-file-input" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:14px 12px; border:2px dashed #93c5fd; border-radius:12px; background:#f0f7ff; cursor:pointer; text-align:center; transition:all 0.2s ease;">
               <span style="font-size:26px;">🖼️</span>
-              <span id="gallery-upload-file-name" style="font-size:12.5px; font-weight:700; color:#0b2259;">Bấm để chọn ảnh từ máy tính hoặc điện thoại...</span>
-              <span style="font-size:11px; color:#64748b;">Hỗ trợ JPG, PNG, WebP • Tự động tối ưu HD tải siêu nhanh</span>
-              <input type="file" id="gallery-file-input" accept="image/*" onchange="previewGalleryUploadFile(this)" style="display:none;" />
+              <span id="gallery-upload-file-name" style="font-size:12.5px; font-weight:700; color:#0b2259;">Bấm để chọn ảnh (tối đa 10 ảnh mỗi lần)...</span>
+              <span style="font-size:11px; color:#64748b;">Hỗ trợ chọn cùng lúc nhiều ảnh JPG, PNG, WebP • Nén song song siêu nhanh</span>
+              <input type="file" id="gallery-file-input" accept="image/*" multiple onchange="previewGalleryUploadFile(this)" style="display:none;" />
             </label>
-            <div id="gallery-upload-preview" style="display:none; margin-top:10px; border-radius:10px; overflow:hidden; border:1px solid #cbd5e1; background:#0f172a;">
-              <img id="gallery-upload-preview-img" src="" alt="Xem trước ảnh" style="width:100%; max-height:190px; object-fit:contain; display:block;" />
-            </div>
+            <div id="gallery-upload-preview" style="display:none; margin-top:10px; grid-template-columns:repeat(auto-fill, minmax(88px, 1fr)); gap:8px;"></div>
           </div>
 
           <div>
             <label for="gallery-title-input" style="display:block; font-size:12.5px; font-weight:800; color:#1e293b; margin-bottom:6px;">
-              2. Tiêu đề ảnh <span style="color:#dc2626;">*</span>
+              2. Tiêu đề chung cho bộ ảnh <span style="color:#dc2626;">*</span>
             </label>
             <input type="text" id="gallery-title-input" placeholder="VD: Chương trình Tình nguyện mùa Đông 2026..." style="width:100%; box-sizing:border-box; padding:10px 12px; border:1.5px solid #cbd5e1; border-radius:9px; font-size:13px; color:#0f172a; background:#ffffff; outline:none;" onfocus="this.style.borderColor='#0052cc'" onblur="this.style.borderColor='#cbd5e1'" />
           </div>
@@ -40579,7 +40606,7 @@ window.openAddGalleryPhotoModal = function () {
             ${isAdmin ? `
               <label style="display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:700; color:#0b2259; cursor:pointer; user-select:none;">
                 <input type="checkbox" id="gallery-featured-input" style="width:16px; height:16px; accent-color:#0052cc; cursor:pointer;" />
-                <span>⭐ Đặt làm ảnh bìa chính</span>
+                <span>⭐ Đặt ảnh đầu tiên làm ảnh bìa chính</span>
               </label>
             ` : `
               <span style="font-size:11.5px; color:#64748b; font-style:italic;">🌐 Hiển thị công khai trong Album toàn khối</span>
@@ -40589,87 +40616,116 @@ window.openAddGalleryPhotoModal = function () {
 
         <div style="padding:12px 18px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; align-items:center; gap:8px; flex-shrink:0;">
           <button type="button" class="btn btn-outline" onclick="closeModal()" style="padding:8px 16px; border-radius:9px; font-size:13px; font-weight:700; color:#475569; border-color:#cbd5e1; background:#fff;">Hủy</button>
-          <button type="button" id="btn-save-gallery-photo" class="btn btn-primary" onclick="submitAddGalleryPhoto()" style="padding:8px 18px; border-radius:9px; font-size:13px; font-weight:800; background:linear-gradient(135deg, #0052cc 0%, #0284c7 100%); border:none; color:#fff; box-shadow:0 3px 10px rgba(0,82,204,0.28);">💾 Lưu &amp; Đăng Ảnh</button>
+          <button type="button" id="btn-save-gallery-photo" class="btn btn-primary" onclick="submitAddGalleryPhoto()" style="padding:8px 18px; border-radius:9px; font-size:13px; font-weight:800; background:linear-gradient(135deg, #0052cc 0%, #0284c7 100%); border:none; color:#fff; box-shadow:0 3px 10px rgba(0,82,204,0.28);">⚡ Đăng Ảnh Ngay</button>
         </div>
       </div>
     </div>
   `;
 };
 
+function compressGalleryImageFast(file, isBatch) {
+  return new Promise((resolve, reject) => {
+    const objUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const maxW = isBatch ? 1080 : 1280;
+        const quality = isBatch ? 0.72 : 0.78;
+        const scale = img.width > maxW ? (maxW / img.width) : 1;
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        URL.revokeObjectURL(objUrl);
+        resolve(dataUrl);
+      } catch (err) {
+        URL.revokeObjectURL(objUrl);
+        reject(err);
+      }
+    };
+    img.onerror = (err) => {
+      URL.revokeObjectURL(objUrl);
+      reject(err);
+    };
+    img.src = objUrl;
+  });
+}
+
 window.submitAddGalleryPhoto = async function () {
   const actor = getCurrentGalleryActor();
   if (!actor) return;
   const isAdmin = actor.role === 'admin';
-  const fileEl = document.getElementById('gallery-file-input');
+  const files = Array.isArray(window._selectedGalleryFiles) ? window._selectedGalleryFiles.slice(0, 10) : [];
   const titleEl = document.getElementById('gallery-title-input');
   const descEl = document.getElementById('gallery-desc-input');
   const dateEl = document.getElementById('gallery-date-input');
   const featEl = document.getElementById('gallery-featured-input');
   const btn = document.getElementById('btn-save-gallery-photo');
 
-  const file = fileEl && fileEl.files && fileEl.files[0];
-  const title = (titleEl && titleEl.value || '').trim();
+  const baseTitle = (titleEl && titleEl.value || '').trim();
   const description = (descEl && descEl.value || '').trim();
   const rawDate = (dateEl && dateEl.value || '').trim();
   const dateStr = rawDate ? formatDateVN(rawDate) : '';
   const featured = Boolean(isAdmin && featEl && featEl.checked);
 
-  if (!file) { showToast('Vui lòng chọn 1 tệp ảnh!', 'warning'); return; }
-  if (!title) { showToast('Vui lòng nhập tiêu đề cho ảnh!', 'warning'); return; }
+  if (!files.length) { showToast('Vui lòng chọn ít nhất 1 tệp ảnh (tối đa 10 ảnh)!', 'warning'); return; }
+  if (!baseTitle) { showToast('Vui lòng nhập tiêu đề cho bộ ảnh!', 'warning'); return; }
 
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang tối ưu & tải lên...'; }
+  if (btn) { btn.disabled = true; btn.textContent = `⚡ Đang xử lý ${files.length} ảnh...`; }
   try {
-    const dataUrl = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const img = new Image();
-        img.onload = () => {
-          const maxW = 1400;
-          const scale = img.width > maxW ? (maxW / img.width) : 1;
-          const canvas = document.createElement('canvas');
-          canvas.width = Math.round(img.width * scale);
-          canvas.height = Math.round(img.height * scale);
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          resolve(canvas.toDataURL('image/jpeg', 0.82));
-        };
-        img.onerror = reject;
-        img.src = reader.result;
-      };
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
+    const isBatch = files.length > 1;
+    // Nén song song toàn bộ tối đa 10 ảnh trong ~150-300ms
+    const compressedList = await Promise.all(files.map(f => compressGalleryImageFast(f, isBatch)));
+    const baseTs = Date.now();
+    const createdIso = nowISO();
 
-    const newItem = {
-      id: 'photo_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
-      title,
+    const newItems = compressedList.map((dataUrl, i) => ({
+      id: `photo_${baseTs}_${i}_${Math.random().toString(36).slice(2, 6)}`,
+      title: isBatch ? `${baseTitle} (${i + 1}/${files.length})` : baseTitle,
       description,
       src: dataUrl,
       date: dateStr,
       uploader_id: actor.id,
       uploader_name: actor.name,
       uploader_role: actor.role,
-      featured,
-      created_at: nowISO(),
-    };
+      featured: Boolean(featured && i === 0),
+      created_at: createdIso,
+    }));
 
+    // HIỂN THỊ TỨC THÌ (Optimistic UI) trước khi đồng bộ nền lên đám mây
+    if (!Array.isArray(state.photoGallery)) state.photoGallery = [];
+    if (featured) state.photoGallery.forEach(p => { if (p) p.featured = false; });
+    state.photoGallery = [...newItems, ...state.photoGallery];
+    if (state.cloudDB) state.cloudDB.photo_gallery = state.photoGallery;
+    window._selectedGalleryFiles = [];
+    closeModal();
+    renderApp();
+    showToast(`⚡ Đã đăng tức thì ${newItems.length} ảnh! Đang lưu lên đám mây...`, 'info');
+
+    // Đồng bộ 1 lần duy nhất toàn bộ bộ ảnh lên Cloud DB
     const res = await mutateCloudDB((db) => {
       if (!Array.isArray(db.photo_gallery)) db.photo_gallery = [];
       if (featured) db.photo_gallery.forEach(p => { if (p) p.featured = false; });
-      db.photo_gallery.unshift(newItem);
-    }, 'Add gallery photo: ' + title);
+      const existingIds = new Set(db.photo_gallery.map(p => String(p.id)));
+      const toInsert = newItems.filter(it => !existingIds.has(String(it.id)));
+      db.photo_gallery = [...toInsert, ...db.photo_gallery];
+    }, `Add ${newItems.length} gallery photo(s): ${baseTitle}`);
 
     if (res && res.ok) {
-      closeModal();
-      showToast('🟢 Đã đăng ảnh công khai vào Thư Viện Ảnh!', 'success');
+      showToast(`🟢 Đã lưu công khai ${newItems.length} ảnh lên đám mây thành công!`, 'success');
       renderApp();
     } else {
-      showToast('Không thể lưu ảnh lên đám mây, vui lòng thử lại!', 'error');
-      if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu & Đăng Ảnh'; }
+      // Hoàn tác nếu lỗi mạng
+      const addedIds = new Set(newItems.map(it => String(it.id)));
+      state.photoGallery = (state.photoGallery || []).filter(p => !addedIds.has(String(p.id)));
+      renderApp();
+      showToast('Không thể lưu ảnh lên đám mây, vui lòng kiểm tra mạng và thử lại!', 'error');
     }
   } catch (e) {
     showToast('Lỗi xử lý ảnh: ' + (e.message || e), 'error');
-    if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu & Đăng Ảnh'; }
+    if (btn) { btn.disabled = false; btn.textContent = '⚡ Đăng Ảnh Ngay'; }
   }
 };
 
@@ -40679,8 +40735,19 @@ window.deleteGalleryPhoto = async function (photoId) {
   const photos = getPhotoGalleryList();
   const target = photos.find(p => String(p.id) === String(photoId));
   if (!target || target.isDefault) return;
-  if (actor.role !== 'admin' && String(target.uploader_id) !== String(actor.id)) return;
+  if (actor.role !== 'admin' && String(target.uploader_id) !== String(actor.id)) {
+    showToast('Bạn chỉ có thể xóa ảnh do chính đơn vị mình đăng!', 'warning');
+    return;
+  }
   if (!confirm('Bạn có chắc muốn xóa ảnh này khỏi Thư Viện Ảnh không?')) return;
+
+  // Xóa tức thì trên giao diện (Optimistic UI)
+  const backupGallery = Array.isArray(state.photoGallery) ? [...state.photoGallery] : [];
+  state.photoGallery = backupGallery.filter(p => String(p.id) !== String(photoId));
+  if (state.cloudDB) state.cloudDB.photo_gallery = state.photoGallery;
+  renderApp();
+  showToast('🗑️ Đã xóa ảnh! Đang đồng bộ...', 'info');
+
   const res = await mutateCloudDB((db) => {
     if (Array.isArray(db.photo_gallery)) {
       db.photo_gallery = db.photo_gallery.filter(p => String(p.id) !== String(photoId));
@@ -40690,17 +40757,19 @@ window.deleteGalleryPhoto = async function (photoId) {
     }
   }, 'Delete gallery photo ' + photoId);
   if (res && res.ok) {
-    showToast('🗑️ Đã xóa ảnh khỏi Thư Viện Ảnh!', 'success');
+    showToast('🟢 Đã xóa ảnh khỏi Thư Viện Ảnh!', 'success');
     renderApp();
   } else {
-    showToast('Lỗi khi xóa ảnh!', 'error');
+    state.photoGallery = backupGallery;
+    renderApp();
+    showToast('Lỗi khi xóa ảnh trên đám mây!', 'error');
   }
 };
 
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795072831234;
+    const CURRENT_BUILD_TS = 1795073123233;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;
