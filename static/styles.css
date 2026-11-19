@@ -6053,7 +6053,15 @@ body.dark-mode .master-table-fixed-banner {
   }
 }
 
-/* Nền video động cho tab Thư Viện Ảnh: đảm bảo Header & Tab luôn nổi phía trên video nền */
+/* Nền video động cho tab Thư Viện Ảnh: đảm bảo Header, Banner & Tab luôn nổi phía trên video nền, không hở khoảng trống */
+#app > *:not(.main-container):not(#floating-chat-widget):not(.floating-music-widget) {
+  position: relative;
+  z-index: 950;
+}
+.admin-view-as-banner {
+  position: relative !important;
+  z-index: 960 !important;
+}
 .nav-tabs {
   position: relative;
   z-index: 950;
@@ -6063,8 +6071,11 @@ body.dark-mode .master-table-fixed-banner {
   position: relative;
   z-index: 940;
 }
+.main-container:has(.gallery-animated-page),
 main:has(.gallery-animated-page),
 .main-content:has(.gallery-animated-page),
 .content-area:has(.gallery-animated-page) {
   background: transparent !important;
+  padding-top: 0 !important;
+  margin-top: 0 !important;
 }
