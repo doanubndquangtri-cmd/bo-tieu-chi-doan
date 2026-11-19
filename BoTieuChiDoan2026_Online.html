@@ -8706,6 +8706,7 @@ function ingestCloudDB(db) {
 
   state.notifications = Array.isArray(db.notifications) ? db.notifications : [];
   state.donations = Array.isArray(db.donations) ? db.donations : [];
+  state.photoGallery = Array.isArray(db.photo_gallery) ? db.photo_gallery : [];
 
   state.cloudDB = db;
   // Hợp nhất tin nhắn Cloud DB: Cloud DB + các tin nhắn đã xóa cục bộ (tombstone) để không bao giờ bị CDN cache làm sống lại
@@ -12157,6 +12158,9 @@ function renderNavTabs() {
         <div class="nav-tab ${state.activeTab === 'admin_docs' ? 'active' : ''}" onclick="setTab('admin_docs')" title="Kho Văn Bản, Chỉ Đạo & Hướng Dẫn">
           📂 Hệ Thống Văn Bản
         </div>
+        <div class="nav-tab ${state.activeTab === 'gallery' ? 'active' : ''}" onclick="setTab('gallery')" title="Thư Viện Ảnh Tập Thể & Hoạt Động Đoàn UBND Tỉnh">
+          📸 Thư Viện Ảnh
+        </div>
         <div class="nav-tab ${state.activeTab === 'admin_password' ? 'active' : ''}" onclick="setTab('admin_password')" title="Đổi Mật Khẩu Quản Trị Viên">
           🔐 Đổi Mật Khẩu
         </div>
@@ -12175,6 +12179,9 @@ function renderNavTabs() {
         <div class="nav-tab ${state.activeTab === 'admin_docs' ? 'active' : ''}" onclick="setTab('admin_docs')">
           📂 Hệ Thống Văn Bản
         </div>
+        <div class="nav-tab ${state.activeTab === 'gallery' ? 'active' : ''}" onclick="setTab('gallery')">
+          📸 Thư Viện Ảnh
+        </div>
       </nav>
     `;
   } else {
@@ -12192,6 +12199,9 @@ function renderNavTabs() {
         ${twoReportsTabs}
         <div class="nav-tab ${state.activeTab === 'admin_docs' ? 'active' : ''}" onclick="setTab('admin_docs')">
           📂 Hệ Thống Văn Bản
+        </div>
+        <div class="nav-tab ${state.activeTab === 'gallery' ? 'active' : ''}" onclick="setTab('gallery')">
+          📸 Thư Viện Ảnh
         </div>
         <div class="nav-tab ${state.activeTab === 'unit_password' ? 'active' : ''}" onclick="setTab('unit_password')">
           🔐 Đổi Mật Khẩu Đơn Vị
@@ -12227,7 +12237,7 @@ window.setReportsSubSection = function (mode) {
 
 window.setTab = function (tabId) {
   const isGuest = state.user && state.user.role === 'guest';
-  if (isGuest && tabId !== 'master' && tabId !== 'ranking' && tabId !== 'reports' && tabId !== 'admin_docs' && tabId !== 'donations') {
+  if (isGuest && tabId !== 'master' && tabId !== 'ranking' && tabId !== 'reports' && tabId !== 'admin_docs' && tabId !== 'donations' && tabId !== 'gallery') {
     return;
   }
   state.activeTab = tabId;
@@ -12243,13 +12253,16 @@ function renderActiveTabContent() {
 
   const isGuest = state.user && state.user.role === 'guest';
 
-  if (isGuest && state.activeTab !== 'master' && state.activeTab !== 'ranking' && state.activeTab !== 'reports' && state.activeTab !== 'admin_docs' && state.activeTab !== 'donations') {
+  if (isGuest && state.activeTab !== 'master' && state.activeTab !== 'ranking' && state.activeTab !== 'reports' && state.activeTab !== 'admin_docs' && state.activeTab !== 'donations' && state.activeTab !== 'gallery') {
 
     state.activeTab = 'ranking';
 
   }
 
   switch (state.activeTab) {
+
+    case 'gallery':
+      return renderPhotoGalleryTab();
 
     case 'donations':
       return renderDonationsTab();
@@ -39959,10 +39972,361 @@ window.openChatMessageDetailsModal = function(msgId) {
   }
 };
 
+/* =========================================================================
+   THƯ VIỆN ẢNH TẬP THỂ & HOẠT ĐỘNG ĐOÀN UBND TỈNH QUẢNG TRỊ
+   ========================================================================= */
+const DEFAULT_HERO_PHOTO_URL = './assets/doan_ubnd_quangtri_hero.jpg';
+const DEFAULT_HERO_PHOTO_FALLBACK = 'https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/assets/doan_ubnd_quangtri_hero.jpg';
+
+function getPhotoGalleryList() {
+  const defaultHero = {
+    id: 'default_hero_doan_ubnd_qt',
+    title: 'ĐOÀN ỦY BAN NHÂN DÂN TỈNH QUẢNG TRỊ',
+    description: 'Ảnh tập thể Ban Chấp hành & Cán bộ các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh Quảng Trị',
+    src: DEFAULT_HERO_PHOTO_URL,
+    fallback: DEFAULT_HERO_PHOTO_FALLBACK,
+    date: '2026',
+    isDefault: true,
+    featured: true,
+  };
+  const custom = Array.isArray(state.photoGallery)
+    ? state.photoGallery
+    : (state.cloudDB && Array.isArray(state.cloudDB.photo_gallery) ? state.cloudDB.photo_gallery : []);
+  const hasCustomFeatured = custom.some(p => p && p.featured);
+  if (hasCustomFeatured) {
+    const feat = custom.find(p => p && p.featured);
+    const others = custom.filter(p => p && p.id !== feat.id);
+    return [feat, { ...defaultHero, featured: false }, ...others];
+  }
+  return [defaultHero, ...custom];
+}
+
+function renderPhotoGalleryTab() {
+  const isAdmin = Boolean(state.user && state.user.role === 'admin');
+  const photos = getPhotoGalleryList();
+  const hero = photos[0];
+  const album = photos.slice(1);
+
+  return `
+    <div style="max-width: 1220px; margin: 0 auto; padding: 14px 12px 28px 12px;">
+      <!-- THANH TIÊU ĐỀ THƯ VIỆN ẢNH -->
+      <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:14px; background:linear-gradient(135deg, #0b2259 0%, #1552be 100%); color:#fff; padding:14px 18px; border-radius:14px; box-shadow:0 4px 16px rgba(11, 34, 89, 0.18);">
+        <div>
+          <div style="font-size:11px; font-weight:800; color:#fde047; letter-spacing:0.6px; text-transform:uppercase;">
+            TỈNH ĐOÀN QUẢNG TRỊ • ĐOÀN ỦY BAN NHÂN DÂN TỈNH
+          </div>
+          <h2 style="margin:3px 0 2px 0; font-size:clamp(16px, 2.2vw, 21px); font-weight:900; color:#fff; display:flex; align-items:center; gap:8px;">
+            <span>📸</span> Thư Viện Ảnh &amp; Khoảnh Khắc Hoạt Động Đoàn
+          </h2>
+          <div style="font-size:12.5px; color:#dbeafe;">
+            Lưu giữ hình ảnh tập thể và các hoạt động tiêu biểu của Đoàn UBND tỉnh &amp; các cơ sở Đoàn trực thuộc (${photos.length} ảnh)
+          </div>
+        </div>
+        ${isAdmin ? `
+          <button type="button" class="btn" onclick="openAddGalleryPhotoModal()" style="background:linear-gradient(135deg, #f59e0b 0%, #ea580c 100%); color:#fff; border:1px solid rgba(254,240,138,0.75); font-weight:800; font-size:13px; padding:9px 16px; border-radius:10px; box-shadow:0 3px 10px rgba(234,88,12,0.35); cursor:pointer; display:inline-flex; align-items:center; gap:6px; white-space:nowrap;">
+            ➕ Đăng Thêm Ảnh Hoạt Động
+          </button>
+        ` : ''}
+      </div>
+
+      <!-- ẢNH TẬP THỂ CHÍNH (HERO SHOWCASE) -->
+      ${hero ? `
+        <div style="background:#ffffff; border-radius:16px; overflow:hidden; border:1px solid #e2e8f0; box-shadow:0 8px 28px rgba(15, 23, 42, 0.1); margin-bottom:20px;">
+          <div style="position:relative; background:#0f172a; cursor:zoom-in; overflow:hidden;" onclick="openGalleryLightbox(0)">
+            <img
+              src="${escapeHtml(hero.src)}"
+              onerror="if(this.dataset.fb && this.src!==this.dataset.fb){this.src=this.dataset.fb;}"
+              data-fb="${escapeHtml(hero.fallback || '')}"
+              alt="${escapeHtml(hero.title)}"
+              style="width:100%; max-height:540px; object-fit:cover; display:block; transition:transform 0.35s ease;"
+              onmouseover="this.style.transform='scale(1.015)'"
+              onmouseout="this.style.transform='scale(1)'"
+            />
+            <div style="position:absolute; top:12px; left:12px; background:rgba(11, 34, 89, 0.78); backdrop-filter:blur(8px); color:#fde047; font-size:11.5px; font-weight:800; padding:5px 12px; border-radius:20px; border:1px solid rgba(253,224,71,0.45); box-shadow:0 2px 8px rgba(0,0,0,0.28);">
+              ⭐ ẢNH TẬP THỂ CHÍNH
+            </div>
+            <div style="position:absolute; bottom:12px; right:12px; background:rgba(15,23,42,0.72); backdrop-filter:blur(6px); color:#fff; font-size:12px; font-weight:700; padding:6px 12px; border-radius:9px; border:1px solid rgba(255,255,255,0.25);">
+              🔍 Bấm vào ảnh để phóng to
+            </div>
+          </div>
+
+          <div style="padding:14px 18px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; background:linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);">
+            <div style="flex:1 1 280px; min-width:0;">
+              <div style="font-size:17px; font-weight:900; color:#0b2259; line-height:1.3;">
+                ${escapeHtml(hero.title)}
+              </div>
+              ${hero.description ? `
+                <div style="font-size:13px; color:#475569; margin-top:4px; line-height:1.45;">
+                  ${escapeHtml(hero.description)}
+                </div>
+              ` : ''}
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              <button type="button" class="btn btn-primary btn-sm" onclick="openGalleryLightbox(0)" style="padding:8px 14px; font-size:12.5px; font-weight:700; border-radius:9px;">
+                🔍 Xem Toàn Màn Hình
+              </button>
+              <button type="button" class="btn btn-outline btn-sm" onclick="downloadGalleryImage(0)" style="padding:8px 14px; font-size:12.5px; font-weight:700; border-radius:9px; border-color:#cbd5e1; color:#0f172a; background:#fff;">
+                ⬇️ Tải Ảnh Gốc
+              </button>
+              ${isAdmin && !hero.isDefault ? `
+                <button type="button" class="btn btn-sm" onclick="deleteGalleryPhoto('${escapeHtml(String(hero.id))}')" style="padding:8px 12px; font-size:12.5px; font-weight:700; border-radius:9px; background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;">
+                  🗑️ Xóa
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- ALBUM ẢNH HOẠT ĐỘNG KHÁC -->
+      <div>
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+          <h3 style="margin:0; font-size:15.5px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:7px;">
+            <span>🖼️</span> Album Hoạt Động Đoàn (${album.length})
+          </h3>
+        </div>
+
+        ${album.length === 0 ? `
+          <div style="background:#ffffff; border:1.5px dashed #cbd5e1; border-radius:14px; padding:26px 16px; text-align:center; color:#64748b;">
+            <div style="font-size:28px; margin-bottom:6px;">📷</div>
+            <div style="font-size:14px; font-weight:700; color:#334155;">Chưa có thêm ảnh hoạt động mới trong album</div>
+            <div style="font-size:12.5px; margin-top:4px;">
+              ${isAdmin ? 'Bấm nút <b>"➕ Đăng Thêm Ảnh Hoạt Động"</b> ở góc trên để bổ sung hình ảnh các chương trình, hoạt động cho toàn khối cùng xem.' : 'Các hình ảnh hoạt động mới của Đoàn UBND tỉnh sẽ được Ban Thường vụ cập nhật tại đây.'}
+            </div>
+          </div>
+        ` : `
+          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:14px;">
+            ${album.map((item, i) => {
+              const realIdx = i + 1;
+              return `
+                <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; box-shadow:0 3px 12px rgba(15,23,42,0.06); display:flex; flex-direction:column;">
+                  <div style="position:relative; height:200px; background:#0f172a; cursor:zoom-in; overflow:hidden;" onclick="openGalleryLightbox(${realIdx})">
+                    <img
+                      src="${escapeHtml(item.src)}"
+                      onerror="if(this.dataset.fb && this.src!==this.dataset.fb){this.src=this.dataset.fb;}"
+                      data-fb="${escapeHtml(item.fallback || '')}"
+                      alt="${escapeHtml(item.title)}"
+                      style="width:100%; height:100%; object-fit:cover; display:block;"
+                    />
+                    ${item.date ? `
+                      <span style="position:absolute; top:8px; right:8px; background:rgba(15,23,42,0.72); color:#fff; font-size:11px; font-weight:700; padding:3px 8px; border-radius:6px;">
+                        📅 ${escapeHtml(item.date)}
+                      </span>
+                    ` : ''}
+                  </div>
+                  <div style="padding:12px 14px; flex:1 1 auto; display:flex; flex-direction:column; justify-content:space-between; gap:8px;">
+                    <div>
+                      <div style="font-size:14px; font-weight:800; color:#0f172a; line-height:1.35;">${escapeHtml(item.title)}</div>
+                      ${item.description ? `<div style="font-size:12px; color:#64748b; margin-top:4px; line-height:1.4;">${escapeHtml(item.description)}</div>` : ''}
+                    </div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; padding-top:8px; border-top:1px solid #f1f5f9;">
+                      <div style="display:flex; gap:6px;">
+                        <button type="button" class="btn btn-sm btn-outline" onclick="openGalleryLightbox(${realIdx})" style="font-size:11.5px; padding:4px 9px; border-radius:7px;">🔍 Xem</button>
+                        <button type="button" class="btn btn-sm btn-outline" onclick="downloadGalleryImage(${realIdx})" style="font-size:11.5px; padding:4px 9px; border-radius:7px;">⬇️ Tải</button>
+                      </div>
+                      ${isAdmin && !item.isDefault ? `
+                        <button type="button" class="btn btn-sm" onclick="deleteGalleryPhoto('${escapeHtml(String(item.id))}')" style="font-size:11.5px; padding:4px 9px; border-radius:7px; background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;">🗑️ Xóa</button>
+                      ` : ''}
+                    </div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `}
+      </div>
+    </div>
+  `;
+}
+
+window.openGalleryLightbox = function (idx) {
+  const photos = getPhotoGalleryList();
+  if (!photos.length) return;
+  const safeIdx = ((idx % photos.length) + photos.length) % photos.length;
+  const item = photos[safeIdx];
+  const old = document.getElementById('gallery-lightbox-overlay');
+  if (old) old.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'gallery-lightbox-overlay';
+  overlay.style.cssText = 'position:fixed; inset:0; z-index:9999999; background:rgba(7, 15, 36, 0.92); backdrop-filter:blur(8px); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:16px; box-sizing:border-box;';
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+  overlay.innerHTML = `
+    <div style="position:absolute; top:14px; right:16px; display:flex; align-items:center; gap:8px; z-index:2;">
+      <button type="button" onclick="downloadGalleryImage(${safeIdx})" style="background:rgba(255,255,255,0.16); color:#fff; border:1px solid rgba(255,255,255,0.35); padding:7px 13px; border-radius:9px; font-weight:700; font-size:12.5px; cursor:pointer;">⬇️ Tải ảnh</button>
+      <button type="button" onclick="document.getElementById('gallery-lightbox-overlay')?.remove()" style="background:#ef4444; color:#fff; border:none; padding:7px 14px; border-radius:9px; font-weight:800; font-size:12.5px; cursor:pointer;">✕ Đóng</button>
+    </div>
+    ${photos.length > 1 ? `
+      <button type="button" onclick="event.stopPropagation(); openGalleryLightbox(${safeIdx - 1})" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); background:rgba(255,255,255,0.16); color:#fff; border:1px solid rgba(255,255,255,0.35); width:42px; height:42px; border-radius:50%; font-size:18px; font-weight:800; cursor:pointer;">‹</button>
+      <button type="button" onclick="event.stopPropagation(); openGalleryLightbox(${safeIdx + 1})" style="position:absolute; right:12px; top:50%; transform:translateY(-50%); background:rgba(255,255,255,0.16); color:#fff; border:1px solid rgba(255,255,255,0.35); width:42px; height:42px; border-radius:50%; font-size:18px; font-weight:800; cursor:pointer;">›</button>
+    ` : ''}
+    <img
+      src="${escapeHtml(item.src)}"
+      onerror="if(this.dataset.fb && this.src!==this.dataset.fb){this.src=this.dataset.fb;}"
+      data-fb="${escapeHtml(item.fallback || '')}"
+      alt="${escapeHtml(item.title)}"
+      onclick="event.stopPropagation()"
+      style="max-width:94vw; max-height:78dvh; object-fit:contain; border-radius:10px; box-shadow:0 16px 48px rgba(0,0,0,0.55); border:1px solid rgba(255,255,255,0.18);"
+    />
+    <div onclick="event.stopPropagation()" style="margin-top:14px; text-align:center; max-width:780px; color:#fff;">
+      <div style="font-size:16px; font-weight:800; color:#fde047;">${escapeHtml(item.title)}</div>
+      ${item.description ? `<div style="font-size:13px; color:#e2e8f0; margin-top:4px;">${escapeHtml(item.description)}</div>` : ''}
+      <div style="font-size:11.5px; color:#94a3b8; margin-top:4px;">Ảnh ${safeIdx + 1} / ${photos.length}${item.date ? ' • ' + escapeHtml(item.date) : ''}</div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+};
+
+window.downloadGalleryImage = function (idx) {
+  const photos = getPhotoGalleryList();
+  const item = photos[idx];
+  if (!item) return;
+  const a = document.createElement('a');
+  a.href = item.src;
+  const safeName = (item.title || 'anh_doan_ubnd_quangtri').replace(/[^a-zA-Z0-9_\-\u00C0-\u024F\u1E00-\u1EFF]+/g, '_').slice(0, 50);
+  a.download = safeName + '.jpg';
+  a.target = '_blank';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+};
+
+window.openAddGalleryPhotoModal = function () {
+  if (!state.user || state.user.role !== 'admin') return;
+  const root = document.getElementById('modal-root');
+  if (!root) return;
+  root.innerHTML = `
+    <div class="modal-backdrop" onclick="closeModal()">
+      <div class="modal-card" onclick="event.stopPropagation()" style="max-width:520px; width:95%;">
+        <div class="modal-header" style="background:linear-gradient(135deg, #0b2259 0%, #1552be 100%); color:#fff; padding:14px 18px;">
+          <h3 style="margin:0; font-size:15.5px; font-weight:800;">📸 Đăng Thêm Ảnh Hoạt Động Đoàn</h3>
+          <button class="modal-close" onclick="closeModal()" style="color:#fff;">✕</button>
+        </div>
+        <div class="modal-body" style="padding:16px 18px; display:flex; flex-direction:column; gap:12px;">
+          <div>
+            <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:5px;">Chọn ảnh từ máy tính / điện thoại:</label>
+            <input type="file" id="gallery-file-input" accept="image/*" style="width:100%; padding:8px; border:1.5px dashed #94a3b8; border-radius:8px; background:#f8fafc; font-size:12.5px;" />
+            <div style="font-size:11px; color:#64748b; margin-top:4px;">Ảnh sẽ được tự động tối ưu dung lượng HD để tải nhanh trên cả máy tính và điện thoại.</div>
+          </div>
+          <div>
+            <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:5px;">Tiêu đề ảnh *</label>
+            <input type="text" id="gallery-title-input" placeholder="VD: Chương trình Tình nguyện mùa Đông 2026..." style="width:100%; padding:9px 11px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:13px;" />
+          </div>
+          <div>
+            <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:5px;">Mô tả ngắn / Địa điểm:</label>
+            <textarea id="gallery-desc-input" rows="2" placeholder="Ghi chú sự kiện, đơn vị tham gia..." style="width:100%; padding:9px 11px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:13px; resize:vertical;"></textarea>
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+            <div>
+              <label style="font-size:12px; font-weight:700; color:#334155; margin-right:6px;">Ngày chụp:</label>
+              <input type="date" id="gallery-date-input" value="${todayISO()}" style="padding:5px 8px; border:1.5px solid #cbd5e1; border-radius:7px; font-size:12.5px;" />
+            </div>
+            <label style="display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; color:#0b2259; cursor:pointer;">
+              <input type="checkbox" id="gallery-featured-input" />
+              <span>⭐ Đặt làm ảnh bìa chính</span>
+            </label>
+          </div>
+        </div>
+        <div class="modal-footer" style="padding:12px 18px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:8px;">
+          <button type="button" class="btn btn-outline" onclick="closeModal()">Hủy</button>
+          <button type="button" id="btn-save-gallery-photo" class="btn btn-primary" onclick="submitAddGalleryPhoto()">💾 Lưu &amp; Đăng Ảnh</button>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+window.submitAddGalleryPhoto = async function () {
+  const fileEl = document.getElementById('gallery-file-input');
+  const titleEl = document.getElementById('gallery-title-input');
+  const descEl = document.getElementById('gallery-desc-input');
+  const dateEl = document.getElementById('gallery-date-input');
+  const featEl = document.getElementById('gallery-featured-input');
+  const btn = document.getElementById('btn-save-gallery-photo');
+
+  const file = fileEl && fileEl.files && fileEl.files[0];
+  const title = (titleEl && titleEl.value || '').trim();
+  const description = (descEl && descEl.value || '').trim();
+  const rawDate = (dateEl && dateEl.value || '').trim();
+  const dateStr = rawDate ? formatDateVN(rawDate) : '';
+  const featured = Boolean(featEl && featEl.checked);
+
+  if (!file) { showToast('Vui lòng chọn 1 tệp ảnh!', 'warning'); return; }
+  if (!title) { showToast('Vui lòng nhập tiêu đề cho ảnh!', 'warning'); return; }
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Đang tối ưu & tải lên...'; }
+  try {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const maxW = 1400;
+          const scale = img.width > maxW ? (maxW / img.width) : 1;
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL('image/jpeg', 0.82));
+        };
+        img.onerror = reject;
+        img.src = reader.result;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    const newItem = {
+      id: 'photo_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+      title,
+      description,
+      src: dataUrl,
+      date: dateStr,
+      featured,
+      created_at: nowISO(),
+    };
+
+    const res = await mutateCloudDB((db) => {
+      if (!Array.isArray(db.photo_gallery)) db.photo_gallery = [];
+      if (featured) db.photo_gallery.forEach(p => { if (p) p.featured = false; });
+      db.photo_gallery.unshift(newItem);
+    }, 'Add gallery photo: ' + title);
+
+    if (res && res.ok) {
+      closeModal();
+      showToast('🟢 Đã đăng ảnh vào Thư Viện Ảnh thành công!', 'success');
+      renderApp();
+    } else {
+      showToast('Không thể lưu ảnh lên đám mây, vui lòng thử lại!', 'error');
+      if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu & Đăng Ảnh'; }
+    }
+  } catch (e) {
+    showToast('Lỗi xử lý ảnh: ' + (e.message || e), 'error');
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Lưu & Đăng Ảnh'; }
+  }
+};
+
+window.deleteGalleryPhoto = async function (photoId) {
+  if (!state.user || state.user.role !== 'admin') return;
+  if (!confirm('Bạn có chắc muốn xóa ảnh này khỏi Thư Viện Ảnh không?')) return;
+  const res = await mutateCloudDB((db) => {
+    if (Array.isArray(db.photo_gallery)) {
+      db.photo_gallery = db.photo_gallery.filter(p => String(p.id) !== String(photoId));
+    }
+  }, 'Delete gallery photo ' + photoId);
+  if (res && res.ok) {
+    showToast('🗑️ Đã xóa ảnh khỏi Thư Viện Ảnh!', 'success');
+    renderApp();
+  } else {
+    showToast('Lỗi khi xóa ảnh!', 'error');
+  }
+};
+
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795070974363;
+    const CURRENT_BUILD_TS = 1795072123536;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;
