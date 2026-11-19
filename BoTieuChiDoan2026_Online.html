@@ -5714,46 +5714,53 @@ body.dark-mode .master-table-fixed-banner {
     padding-bottom: 0 !important;
   }
 
-  /* 2. Logo & Tiêu đề rõ nét, không bị cắt chữ trên màn hình nhỏ */
+  /* 2. Logo & Tiêu đề 1 dòng thẳng hàng sắc nét, tuyệt đối không rớt chữ thò thụt */
   .brand-box {
     width: 100% !important;
     min-width: 0 !important;
     gap: 0 !important;
+    align-items: center !important;
   }
 
   .brand-box .brand-logo-wrap {
-    width: 48px !important;
-    height: 48px !important;
-    margin-right: 10px !important;
+    width: 44px !important;
+    height: 44px !important;
+    margin-right: 9px !important;
     padding: 3px !important;
   }
 
   .brand-title {
     min-width: 0 !important;
     flex: 1 1 auto !important;
-    white-space: normal !important;
-    overflow: visible !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
   }
 
   .brand-title .brand-org {
-    font-size: 9.5px !important;
-    letter-spacing: 0.35px !important;
+    font-size: clamp(8px, 2.25vw, 10px) !important;
+    letter-spacing: 0.15px !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+    line-height: 1.25 !important;
   }
 
   .brand-title h1 {
-    font-size: clamp(12.5px, 3.7vw, 15.5px) !important;
+    font-size: clamp(9.5px, 2.95vw, 13.5px) !important;
     line-height: 1.25 !important;
-    white-space: normal !important;
-    letter-spacing: 0 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    letter-spacing: -0.25px !important;
     margin: 2px 0 !important;
   }
 
   .brand-title .brand-sub {
-    font-size: 10.5px !important;
+    font-size: clamp(9.5px, 2.55vw, 11px) !important;
     line-height: 1.2 !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
   }
 
   /* 3. Cụm 4 nút chính xếp lưới 2x2 cân đối, dễ bấm bằng ngón cái */
@@ -5921,6 +5928,162 @@ body.dark-mode .master-table-fixed-banner {
 
   .chat-input-area {
     padding-bottom: max(8px, env(safe-area-inset-bottom)) !important;
+  }
+
+  /* 8. Nâng cấp thanh chuyển Chế Độ Thẻ / Bảng kiểu iOS Segmented Control gọn 1 hàng */
+  .mobile-view-toggle-bar {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 5px !important;
+    background: #e2e8f0 !important;
+    padding: 4px !important;
+    border-radius: 12px !important;
+    margin-bottom: 10px !important;
+    border: 1px solid #cbd5e1 !important;
+  }
+
+  .mobile-toggle-btn {
+    height: 38px !important;
+    padding: 0 8px !important;
+    font-size: 12.5px !important;
+    font-weight: 700 !important;
+    border-radius: 9px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 5px !important;
+    transition: all 0.18s ease !important;
+    border: none !important;
+    background: transparent !important;
+    color: #475569 !important;
+  }
+
+  .mobile-toggle-btn.active {
+    background: linear-gradient(135deg, #0052cc 0%, #0284c7 100%) !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 8px rgba(0, 82, 204, 0.28) !important;
+  }
+
+  /* 9. Nâng cấp cụm Thẻ Thống Kê: Tên Đơn Vị trải ngang 100%, 3 chỉ số xếp đều 3 cột siêu cân đối */
+  .stats-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    margin-bottom: 10px !important;
+  }
+
+  .stats-grid > .stat-card:first-child:nth-last-child(4) {
+    grid-column: 1 / -1 !important;
+    background: linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%) !important;
+    border-left: 4px solid #0052cc !important;
+  }
+
+  .stats-grid .stat-card {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    padding: 9px 10px !important;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04) !important;
+    min-width: 0 !important;
+  }
+
+  .stats-grid .stat-label {
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    color: #64748b !important;
+    letter-spacing: 0.35px !important;
+    text-transform: uppercase !important;
+    display: block !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .stats-grid .stat-value {
+    font-size: clamp(13.5px, 4vw, 16.5px) !important;
+    font-weight: 900 !important;
+    line-height: 1.25 !important;
+    margin-top: 3px !important;
+    display: block !important;
+    white-space: nowrap !important;
+  }
+
+  /* 10. Thanh lọc Tháng mượt mà, ẩn thanh cuộn thừa */
+  .month-pills {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+    padding: 2px 0 6px 0 !important;
+    gap: 6px !important;
+  }
+
+  .month-pills::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .month-pill {
+    border-radius: 9px !important;
+    font-weight: 700 !important;
+    padding: 6px 12px !important;
+    border: 1px solid #cbd5e1 !important;
+    background: #ffffff !important;
+    color: #334155 !important;
+    transition: all 0.16s ease !important;
+  }
+
+  .month-pill.active {
+    background: linear-gradient(135deg, #0052cc 0%, #0284c7 100%) !important;
+    color: #ffffff !important;
+    border-color: #0052cc !important;
+    box-shadow: 0 2px 8px rgba(0, 82, 204, 0.25) !important;
+  }
+
+  /* 11. Thẻ Tiêu Chí trên Mobile sang trọng, gọn gàng, dễ đọc & chạm mượt */
+  .mobile-submit-card {
+    background: #ffffff !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 14px !important;
+    padding: 13px 12px !important;
+    margin-bottom: 12px !important;
+    box-shadow: 0 3px 12px rgba(15, 23, 42, 0.05) !important;
+    transition: transform 0.14s ease, box-shadow 0.14s ease !important;
+  }
+
+  .mobile-submit-card-header {
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 5px !important;
+    margin-bottom: 8px !important;
+  }
+
+  .mobile-submit-card-title {
+    font-size: 14.5px !important;
+    font-weight: 800 !important;
+    line-height: 1.4 !important;
+    color: #0f172a !important;
+    margin-bottom: 10px !important;
+  }
+
+  .mobile-submit-card-meta {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px 10px !important;
+    font-size: 12px !important;
+    background: #f8fafc !important;
+    padding: 10px !important;
+    border-radius: 10px !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+
+  /* Phản hồi bấm chạm mượt như app native */
+  button:active,
+  .nav-tab:active,
+  .month-pill:active,
+  .mobile-toggle-btn:active {
+    transform: scale(0.97) !important;
   }
 }
 
@@ -13007,10 +13170,10 @@ function renderUnitSubmitTab() {
     ${isMobile ? `
       <div class="mobile-view-toggle-bar">
         <button class="mobile-toggle-btn" onclick="setMobileUnitSubmitViewMode('cards')">
-          📱 Chế Độ Thẻ (Dễ nộp trên điện thoại)
+          📱 Chế Độ Thẻ
         </button>
         <button class="mobile-toggle-btn active" onclick="setMobileUnitSubmitViewMode('table')">
-          📊 Xem Dạng Bảng Kẻ Ô
+          📊 Dạng Bảng Kẻ Ô
         </button>
       </div>
       <div class="mobile-scroll-hint" style="background:#eff6ff; color:#1e40af; padding:8px 12px; border-radius:6px; font-size:12px; margin-bottom:8px; border:1px solid #bfdbfe;">
@@ -13430,10 +13593,10 @@ function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rank
   return `
     <div class="mobile-view-toggle-bar">
       <button class="mobile-toggle-btn active" onclick="setMobileUnitSubmitViewMode('cards')">
-        📱 Chế Độ Thẻ (Dễ nộp trên điện thoại)
+        📱 Chế Độ Thẻ
       </button>
       <button class="mobile-toggle-btn" onclick="setMobileUnitSubmitViewMode('table')">
-        📊 Xem Dạng Bảng Kẻ Ô
+        📊 Dạng Bảng Kẻ Ô
       </button>
     </div>
 
@@ -39725,7 +39888,7 @@ window.openChatMessageDetailsModal = function(msgId) {
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795065432425;
+    const CURRENT_BUILD_TS = 1795066413445;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;

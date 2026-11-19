@@ -7067,10 +7067,10 @@ function renderUnitSubmitTab() {
     ${isMobile ? `
       <div class="mobile-view-toggle-bar">
         <button class="mobile-toggle-btn" onclick="setMobileUnitSubmitViewMode('cards')">
-          📱 Chế Độ Thẻ (Dễ nộp trên điện thoại)
+          📱 Chế Độ Thẻ
         </button>
         <button class="mobile-toggle-btn active" onclick="setMobileUnitSubmitViewMode('table')">
-          📊 Xem Dạng Bảng Kẻ Ô
+          📊 Dạng Bảng Kẻ Ô
         </button>
       </div>
       <div class="mobile-scroll-hint" style="background:#eff6ff; color:#1e40af; padding:8px 12px; border-radius:6px; font-size:12px; margin-bottom:8px; border:1px solid #bfdbfe;">
@@ -7490,10 +7490,10 @@ function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rank
   return `
     <div class="mobile-view-toggle-bar">
       <button class="mobile-toggle-btn active" onclick="setMobileUnitSubmitViewMode('cards')">
-        📱 Chế Độ Thẻ (Dễ nộp trên điện thoại)
+        📱 Chế Độ Thẻ
       </button>
       <button class="mobile-toggle-btn" onclick="setMobileUnitSubmitViewMode('table')">
-        📊 Xem Dạng Bảng Kẻ Ô
+        📊 Dạng Bảng Kẻ Ô
       </button>
     </div>
 
