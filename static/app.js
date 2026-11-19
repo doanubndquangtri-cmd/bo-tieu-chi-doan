@@ -2269,6 +2269,53 @@ window.forceClearCacheAndReload = async function () {
 
 
 
+function hasNotifiedMessageId(msgId) {
+  if (!msgId) return true;
+  const idStr = String(msgId);
+  if (window._notifiedMsgIds && window._notifiedMsgIds.has(idStr)) return true;
+  try {
+    const raw = localStorage.getItem('doan2026_notified_msg_ids');
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr) && arr.includes(idStr)) {
+        window._notifiedMsgIds = window._notifiedMsgIds || new Set();
+        window._notifiedMsgIds.add(idStr);
+        return true;
+      }
+    }
+  } catch (e) {}
+  return false;
+}
+
+function markMessageNotified(msgId) {
+  if (!msgId) return;
+  const idStr = String(msgId);
+  window._notifiedMsgIds = window._notifiedMsgIds || new Set();
+  window._notifiedMsgIds.add(idStr);
+  try {
+    const raw = localStorage.getItem('doan2026_notified_msg_ids');
+    let arr = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(arr)) arr = [];
+    if (!arr.includes(idStr)) {
+      arr.push(idStr);
+      if (arr.length > 500) arr = arr.slice(-500);
+      localStorage.setItem('doan2026_notified_msg_ids', JSON.stringify(arr));
+    }
+  } catch (e) {}
+}
+
+function canCurrentUserSeeChatMsg(m) {
+  if (!m || !state.user || state.user.role === 'guest') return false;
+  const room = m.room || 'public';
+  if (room === 'public') return true;
+  if (room.startsWith('private_')) {
+    const myId = state.user.role === 'admin' ? 0 : Number(state.user.id);
+    const parts = room.replace('private_', '').split('_').map(Number);
+    return parts.includes(myId);
+  }
+  return true;
+}
+
 window.syncFromCloudNow = async function (silent = false) {
   try {
     const { sha, db } = await fetchCloudDB();
@@ -2284,9 +2331,8 @@ window.syncFromCloudNow = async function (silent = false) {
     state.cloudOnline = true;
     state.lastSyncTime = new Date().toLocaleTimeString('vi-VN');
 
-    const prevMsgCount = (state.chatMessages || []).length;
-    const newMsgCount = (db.chat_messages || []).length;
-    const hasNewMsgs = newMsgCount > prevMsgCount;
+    const prevKnownIds = new Set((state.chatMessages || []).map(m => String(m.id)));
+    const isFirstSync = !state._hasCompletedFirstCloudSync;
 
     // Kiểm tra xem dữ liệu cốt lõi (tiêu chí, điểm số, văn bản, thông báo, settings) có thực sự thay đổi không
     const isSubstantiveChange = !state._lastIngestedDBSignature || 
@@ -2311,6 +2357,21 @@ window.syncFromCloudNow = async function (silent = false) {
     });
 
     ingestCloudDB(db);
+    state._hasCompletedFirstCloudSync = true;
+
+    const trulyNewMsgs = (state.chatMessages || []).filter(m => {
+      if (!m || !m.id || prevKnownIds.has(String(m.id))) return false;
+      const rKey = m.room || 'public';
+      if (typeof isMsgClearedForMe === 'function' && isMsgClearedForMe(m, rKey)) return false;
+      return canCurrentUserSeeChatMsg(m);
+    });
+
+    if (isFirstSync) {
+      // Lần tải trang đầu tiên: đánh dấu toàn bộ tin cũ là đã biết để KHÔNG bao giờ bật thông báo lặp lại!
+      trulyNewMsgs.forEach(m => markMessageNotified(m.id));
+    }
+
+    const hasNewMsgs = !isFirstSync && trulyNewMsgs.length > 0;
 
     if (hasNewMsgs || !silent || (changed && isSubstantiveChange)) {
       if (silent) {
@@ -2362,15 +2423,29 @@ window.syncFromCloudNow = async function (silent = false) {
         if (state.chatOpen && typeof scrollChatToBottom === 'function') {
           setTimeout(scrollChatToBottom, 40);
         }
-        if (window.playNotificationChime) window.playNotificationChime();
 
-        // Kích hoạt thông báo nổi màn hình Desktop nếu người dùng đang ở cửa sổ khác
-        const latestMsg = (db.chat_messages || [])[db.chat_messages.length - 1];
-        if (latestMsg && state.user && Number(latestMsg.sender_id) !== (state.user.role === 'admin' ? 0 : Number(state.user.id))) {
+        // Chỉ thông báo 1 lần duy nhất cho tin nhắn thực sự mới (chưa từng thông báo) trong 3 phút gần đây
+        const myId = state.user ? (state.user.role === 'admin' ? 0 : Number(state.user.id)) : null;
+        const nowTs = Date.now();
+        const unnotified = trulyNewMsgs.filter(m => {
+          if (!m || !m.id || hasNotifiedMessageId(m.id)) return false;
+          if (myId !== null && Number(m.sender_id) === myId) return false;
+          const mTs = typeof getMsgTimestamp === 'function' ? getMsgTimestamp(m) : 0;
+          if (mTs > 0 && (nowTs - mTs > 180000)) return false;
+          return true;
+        });
+
+        // Đánh dấu đã thông báo ngay để không bao giờ lặp lại ở các chu kỳ đồng bộ sau
+        trulyNewMsgs.forEach(m => markMessageNotified(m.id));
+
+        if (unnotified.length > 0) {
+          const latestMsg = unnotified[unnotified.length - 1];
+          if (window.playNotificationChime) window.playNotificationChime();
           if (typeof window.showDesktopNotification === 'function') {
             window.showDesktopNotification(
               `💬 ${latestMsg.sender_name || 'Tin nhắn mới'}`,
-              latestMsg.text || 'Đã gửi một tin nhắn mới trong Trao Đổi Đoàn'
+              latestMsg.text || 'Đã gửi một tin nhắn mới trong Trao Đổi Đoàn',
+              latestMsg.id
             );
           }
           if (typeof startTitleFlash === 'function') {
@@ -4596,16 +4671,27 @@ function renderPushNotificationHeaderButton() {
   return '';
 }
 
-window.showDesktopNotification = function(title, body) {
+window.showDesktopNotification = function(title, body, msgId = null) {
   try {
     if (typeof Notification === 'undefined') return;
+    if (msgId && typeof hasNotifiedMessageId === 'function' && hasNotifiedMessageId(msgId)) {
+      return;
+    }
+    const now = Date.now();
+    if (window._lastDesktopNotifTs && (now - window._lastDesktopNotifTs < 2000)) {
+      return;
+    }
+    if (msgId && typeof markMessageNotified === 'function') {
+      markMessageNotified(msgId);
+    }
     if (Notification.permission === 'granted') {
+      window._lastDesktopNotifTs = now;
       const notif = new Notification(title, {
         body: body,
         icon: './icon-192.png',
         badge: './favicon.png',
-        tag: 'tieuchidoan-notification',
-        renotify: true
+        tag: msgId ? ('tieuchidoan-' + msgId) : 'tieuchidoan-notification',
+        renotify: false
       });
       notif.onclick = function() {
         window.focus();
@@ -27454,20 +27540,28 @@ function handleIncomingChatRead(payload) {
 
 function handleIncomingRealtimeChat(msg) {
   if (!msg || !msg.id) return;
+  if (!canCurrentUserSeeChatMsg(msg)) return;
+  const rKey = msg.room || 'public';
+  if (typeof isMsgClearedForMe === 'function' && isMsgClearedForMe(msg, rKey)) return;
+
   state.chatMessages = state.chatMessages || [];
-  const exists = state.chatMessages.some(m => m.id === msg.id);
+  const exists = state.chatMessages.some(m => String(m.id) === String(msg.id));
   if (exists) return;
 
   state.chatMessages.push(msg);
   try { localStorage.setItem('doan2026_local_chat_messages', JSON.stringify(state.chatMessages.slice(-1000))); } catch (e) {}
 
   // BỎ QUA HOÀN TOÀN TIN NHẮN DO CHÍNH MÌNH VỪA GỬI (Không chuông, không badge, không popup)
-  const myId = state.user ? Number(state.user.id) : null;
+  const myId = state.user ? (state.user.role === 'admin' ? 0 : Number(state.user.id)) : null;
   const isSenderMe = myId !== null && Number(msg.sender_id) === myId;
   if (isSenderMe) {
+    markMessageNotified(msg.id);
     if (state.chatOpen) renderApp();
     return;
   }
+
+  const alreadyNotified = hasNotifiedMessageId(msg.id);
+  markMessageNotified(msg.id);
 
   // Nếu đang mở đúng phòng chat này -> Hiển thị tin nhắn ngay tức khắc và cuộn xuống
   const currentRoom = typeof getChatRoomKey === 'function' ? getChatRoomKey() : 'public';
@@ -27484,14 +27578,14 @@ function handleIncomingRealtimeChat(msg) {
     }
     renderApp();
 
-    // Bắn thông báo nổi màn hình ngay lập tức nếu tab đang chạy nền
-    if (document.hidden && window.WebPushManager && window.WebPushManager.showLocalNativeNotification) {
+    // Bắn thông báo nổi màn hình 1 LẦN DUY NHẤT nếu tab đang chạy nền
+    if (!alreadyNotified && document.hidden && window.WebPushManager && window.WebPushManager.showLocalNativeNotification) {
       const sName = msg.sender_name || 'Đồng chí';
       window.WebPushManager.showLocalNativeNotification(`💬 Tin nhắn mới từ ${sName}`, msg.text || '', './');
     }
   }
 
-  if (window.playNotificationChime) window.playNotificationChime();
+  if (!alreadyNotified && window.playNotificationChime) window.playNotificationChime();
 }
 
 // Tự động kết nối lại khi người dùng mở lại điện thoại / chuyển tab
