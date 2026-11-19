@@ -18335,41 +18335,10 @@ window.saveNewCriterion = async function () {
 
     savedCriterion = { ...newCriterionObj };
 
-    db.notifications = db.notifications || [];
-    db.notifications.unshift({
-      id: 'notif_crit_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-      type: 'new_criterion',
-      target_role: 'unit',
-      title: 'Bổ sung tiêu chí mới',
-      col_label: newCriterionObj.col_label,
-      criterion_title: newCriterionObj.title,
-      content: `Ban Thường vụ đã ban hành tiêu chí/báo cáo mới: "${newCriterionObj.col_label} - ${newCriterionObj.title}"`,
-      criterion_id: newCriterionObj.id,
-      is_report: newCriterionObj.is_report,
-      submitted_at: nowISO(),
-      read: true,
-      read_by_units: [],
-      created_at: nowISO()
-    });
-    if (db.notifications.length > 200) db.notifications.length = 200;
-
   }, `Create criterion ${title}`);
 
   if (res.ok) {
     closeModal();
-    if (savedCriterion) {
-      if (window.broadcastLiveEvent) {
-        window.broadcastLiveEvent('NEW_CRITERIA', { col_label: savedCriterion.col_label, title: savedCriterion.title });
-      }
-      if (window.WebPushManager) {
-        window.WebPushManager.sendPushNotification({
-          title: '📋 Tiêu Chí / Báo Cáo Mới Được Ban Hành',
-          message: `Ban Thường vụ đã ban hành: "${savedCriterion.col_label} - ${savedCriterion.title}"`,
-          targetRole: null,
-          url: './'
-        });
-      }
-    }
     if (monthVal === '__NEW_CUSTOM__' && savedCriterion) {
       state.monthFilter = savedCriterion.month_group;
     }
@@ -23469,38 +23438,9 @@ window.duplicateCriterion = async function (critId) {
     sortCriteriaChronologically(db.criteria);
 
     duplicatedCrit = { ...newCrit };
-
-    db.notifications = db.notifications || [];
-    db.notifications.unshift({
-      id: 'notif_crit_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-      type: 'new_criterion',
-      target_role: 'unit',
-      title: 'Bổ sung tiêu chí mới',
-      col_label: newCrit.col_label,
-      criterion_title: newCrit.title,
-      content: `Ban Thường vụ đã ban hành tiêu chí/báo cáo mới: "${newCrit.col_label} - ${newCrit.title}"`,
-      criterion_id: newCrit.id,
-      is_report: newCrit.is_report,
-      submitted_at: nowISO(),
-      read: true,
-      read_by_units: [],
-      created_at: nowISO()
-    });
-    if (db.notifications.length > 200) db.notifications.length = 200;
   }, `Duplicate criterion ${c.id}`);
 
   if (res.ok) {
-    if (window.broadcastLiveEvent && duplicatedCrit) {
-      window.broadcastLiveEvent('NEW_CRITERIA', { col_label: duplicatedCrit.col_label, title: duplicatedCrit.title });
-    }
-    if (window.WebPushManager && duplicatedCrit) {
-      window.WebPushManager.sendPushNotification({
-        title: '📋 Tiêu Chí / Báo Cáo Được Ban Hành Bổ Sung',
-        message: `Đã ban hành: "${duplicatedCrit.col_label} - ${duplicatedCrit.title}"`,
-        targetRole: null,
-        url: './'
-      });
-    }
     showToast(`🎉 Đã nhân đôi tiêu chí thành công: "${dupTitle}"!`, 'success');
 
     renderApp();
