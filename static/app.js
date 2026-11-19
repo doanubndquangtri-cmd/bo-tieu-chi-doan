@@ -1976,10 +1976,163 @@ window.isUnitOnline = function(unitId) {
 const PRESENCE_BRANCH = 'presence-data';
 let _presenceCloudQueue = Promise.resolve();
 
+window.patchLiveChatDOM = function(hasNewIncomingMsg = false) {
+  if (typeof document === 'undefined') return;
+  try {
+    if (!state.chatOpen) {
+      // Nếu khung chat đang đóng, chỉ cập nhật khi không gõ văn bản
+      const activeEl = document.activeElement;
+      if (!activeEl || (activeEl.tagName !== 'INPUT' && activeEl.tagName !== 'TEXTAREA' && activeEl.tagName !== 'SELECT')) {
+        if (state.activeTab === 'units' && typeof renderApp === 'function') renderApp();
+      }
+      return;
+    }
+
+    const tmp = document.createElement('div');
+    tmp.innerHTML = renderFloatingChatWidget();
+
+    // 1. Cập nhật trực tiếp danh sách tin nhắn (#chat-messages-body) mà KHÔNG động chạm tới ô gõ #chat-input-field
+    const curBody = document.getElementById('chat-messages-body');
+    const newBody = tmp.querySelector('#chat-messages-body');
+    if (curBody && newBody && curBody.innerHTML !== newBody.innerHTML) {
+      const wasNearBottom = (curBody.scrollHeight - curBody.scrollTop - curBody.clientHeight) < 150;
+      const prevTop = curBody.scrollTop;
+      curBody.innerHTML = newBody.innerHTML;
+      if (hasNewIncomingMsg && wasNearBottom) {
+        curBody.scrollTop = curBody.scrollHeight + 1000;
+      } else {
+        curBody.scrollTop = prevTop;
+      }
+    }
+
+    // 2. Cập nhật trực tiếp thanh Online / Offline (.chat-private-unit-bar) ngay lập tức không cần F5
+    const curPrivBar = document.querySelector('.chat-private-unit-bar');
+    const newPrivBar = tmp.querySelector('.chat-private-unit-bar');
+    if (curPrivBar && newPrivBar && curPrivBar.innerHTML !== newPrivBar.innerHTML) {
+      const curSelect = curPrivBar.querySelector('select.chat-unit-select');
+      const newSelect = newPrivBar.querySelector('select.chat-unit-select');
+      const isSelectFocused = (document.activeElement && document.activeElement === curSelect);
+      if (isSelectFocused && curSelect && newSelect) {
+        // Nếu người dùng đang mở dropdown select, cập nhật các thẻ span Online/Off và danh sách option bên trong mà không làm đóng select
+        const prevVal = curSelect.value;
+        if (curSelect.innerHTML !== newSelect.innerHTML) {
+          curSelect.innerHTML = newSelect.innerHTML;
+          curSelect.value = prevVal;
+        }
+        const curTopRow = curPrivBar.firstElementChild;
+        const newTopRow = newPrivBar.firstElementChild;
+        if (curTopRow && newTopRow && curTopRow.innerHTML !== newTopRow.innerHTML) {
+          curTopRow.innerHTML = newTopRow.innerHTML;
+        }
+      } else {
+        curPrivBar.innerHTML = newPrivBar.innerHTML;
+      }
+    }
+
+    // 3. Cập nhật huy hiệu số tin chưa đọc trên thanh tab chat (.chat-tabs-bar)
+    const curTabs = document.querySelector('.chat-tabs-bar');
+    const newTabs = tmp.querySelector('.chat-tabs-bar');
+    if (curTabs && newTabs && curTabs.innerHTML !== newTabs.innerHTML) {
+      curTabs.innerHTML = newTabs.innerHTML;
+    }
+  } catch (e) {}
+};
+
+function ingestLiveChatFromPresence(parsed) {
+  if (!parsed || typeof parsed !== 'object') return false;
+  let hasNewIncoming = false;
+
+  // 1. Đồng bộ danh sách ID tin nhắn đã xóa toàn cục
+  if (Array.isArray(parsed._deleted_msg_ids)) {
+    parsed._deleted_msg_ids.forEach(id => {
+      if (id) addGlobalDeletedChatId(String(id));
+    });
+  }
+  if (parsed._chat_cleared_at && typeof parsed._chat_cleared_at === 'object') {
+    Object.keys(parsed._chat_cleared_at).forEach(rk => {
+      const ts = Number(parsed._chat_cleared_at[rk]) || 0;
+      if (ts > getLocalGlobalClearedAt(rk)) {
+        setLocalGlobalClearedAt(rk, ts);
+      }
+    });
+  }
+
+  // 2. Đồng bộ trạng thái Đã xem (Mắt xem) tức thì
+  if (parsed._chat_read_status && typeof parsed._chat_read_status === 'object') {
+    state.realtimeReadStatus = state.realtimeReadStatus || {};
+    state.cloudDB = state.cloudDB || {};
+    state.cloudDB.chat_read_status = state.cloudDB.chat_read_status || {};
+    let readChanged = false;
+    Object.keys(parsed._chat_read_status).forEach(k => {
+      const v = Number(parsed._chat_read_status[k]) || 0;
+      const cur = Math.max(Number(state.realtimeReadStatus[k]) || 0, Number(state.cloudDB.chat_read_status[k]) || 0);
+      if (v > cur) {
+        state.realtimeReadStatus[k] = v;
+        state.cloudDB.chat_read_status[k] = v;
+        readChanged = true;
+      }
+    });
+    if (readChanged && window._activeChatDetailsMsgId && typeof openChatMessageDetailsModal === 'function') {
+      openChatMessageDetailsModal(window._activeChatDetailsMsgId);
+    }
+  }
+
+  // 3. Đồng bộ tin nhắn mới tức thì (không bị trễ 5 phút bởi raw.githubusercontent.com CDN cache!)
+  const delSet = getGlobalDeletedChatIds();
+  const hideSet = getMyHiddenChatIds();
+  const prevLen = (state.chatMessages || []).length;
+  state.chatMessages = (state.chatMessages || []).filter(m => {
+    if (!m || !m.id) return false;
+    const idStr = String(m.id);
+    if (delSet.has(idStr) || hideSet.has(idStr)) return false;
+    const rKey = m.room || 'public';
+    if (typeof isMsgClearedForMe === 'function' && isMsgClearedForMe(m, rKey)) return false;
+    return true;
+  });
+
+  const existingIds = new Set(state.chatMessages.map(m => String(m.id)));
+  const myId = state.user ? (state.user.role === 'admin' ? 0 : Number(state.user.id)) : null;
+
+  if (Array.isArray(parsed._recent_chat)) {
+    parsed._recent_chat.forEach(m => {
+      if (!m || !m.id) return;
+      const idStr = String(m.id);
+      if (existingIds.has(idStr) || delSet.has(idStr) || hideSet.has(idStr)) return;
+      const rKey = m.room || 'public';
+      if (typeof isMsgClearedForMe === 'function' && isMsgClearedForMe(m, rKey)) return;
+      existingIds.add(idStr);
+      state.chatMessages.push(m);
+      if (canCurrentUserSeeChatMsg(m)) {
+        hasNewIncoming = true;
+        const isSenderMe = myId !== null && Number(m.sender_id) === myId;
+        if (!isSenderMe && !hasNotifiedMessageId(idStr)) {
+          markMessageNotified(idStr);
+          if (window.playNotificationChime) window.playNotificationChime();
+          const currentRoom = typeof getChatRoomKey === 'function' ? getChatRoomKey() : 'public';
+          if (state.chatOpen && (m.room === currentRoom || isMsgInRoom(m, currentRoom))) {
+            setChatRoomAsRead(currentRoom);
+          }
+        } else {
+          markMessageNotified(idStr);
+        }
+      }
+    });
+  }
+
+  if (hasNewIncoming || state.chatMessages.length !== prevLen) {
+    state.chatMessages.sort((a, b) => getMsgTimestamp(a) - getMsgTimestamp(b));
+    try {
+      localStorage.setItem('doan2026_local_chat_messages', JSON.stringify(state.chatMessages.slice(-1000)));
+    } catch (e) {}
+  }
+
+  return hasNewIncoming;
+}
+
 window.fetchPresenceFromCloud = async function(force = false) {
   if (typeof fetch !== 'function') return;
   const now = Date.now();
-  if (!force && window._lastCloudPresenceFetchTs && (now - window._lastCloudPresenceFetchTs < 3500)) return;
+  if (!force && window._lastCloudPresenceFetchTs && (now - window._lastCloudPresenceFetchTs < 2200)) return;
   window._lastCloudPresenceFetchTs = now;
 
   try {
@@ -1999,13 +2152,10 @@ window.fetchPresenceFromCloud = async function(force = false) {
     if (parsed && typeof parsed === 'object') {
       const prevSig = JSON.stringify(state.cloudPresenceMap || {});
       state.cloudPresenceMap = parsed;
+      const hasNewMsg = ingestLiveChatFromPresence(parsed);
       const newSig = JSON.stringify(parsed);
-      if ((force || prevSig !== newSig) && (state.chatOpen || state.activeTab === 'units') && typeof renderApp === 'function') {
-        if (window._lastUserScrollTs && (Date.now() - window._lastUserScrollTs < 700)) return;
-        const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
-        if (!activeEl || (activeEl.id !== 'chat-input-field' && activeEl.tagName !== 'SELECT' && activeEl.tagName !== 'INPUT' && activeEl.tagName !== 'TEXTAREA')) {
-          renderApp();
-        }
+      if (force || hasNewMsg || prevSig !== newSig) {
+        window.patchLiveChatDOM(hasNewMsg);
       }
     }
   } catch (e) {}
@@ -2040,6 +2190,7 @@ window.syncPresenceToCloud = function(isOnline = true, targetUser = null) {
 
         // Dọn các session quá hạn > 100s trên toàn bộ các đơn vị
         Object.keys(data).forEach(uKey => {
+          if (uKey.startsWith('_')) return;
           const uEntry = data[uKey];
           if (uEntry && uEntry.sessions && typeof uEntry.sessions === 'object') {
             Object.keys(uEntry.sessions).forEach(k => {
@@ -2060,8 +2211,43 @@ window.syncPresenceToCloud = function(isOnline = true, targetUser = null) {
           data[myId].online = Object.keys(data[myId].sessions).length > 0;
         }
 
-        const prevSig = JSON.stringify(state.cloudPresenceMap || {});
+        // Gộp tin nhắn mới nhất + trạng thái Đã xem + danh sách tin đã xóa vào presence.json để truyền tức thì 1-2s không bị cache CDN
+        const delIds = new Set(Array.isArray(data._deleted_msg_ids) ? data._deleted_msg_ids.map(String) : []);
+        getGlobalDeletedChatIds().forEach(id => delIds.add(String(id)));
+        data._deleted_msg_ids = Array.from(delIds).slice(-300);
+
+        data._chat_cleared_at = (data._chat_cleared_at && typeof data._chat_cleared_at === 'object') ? data._chat_cleared_at : {};
+        ['public', 'private', 'all'].forEach(rk => {
+          const localCl = getLocalGlobalClearedAt(rk);
+          if (localCl > (Number(data._chat_cleared_at[rk]) || 0)) {
+            data._chat_cleared_at[rk] = localCl;
+          }
+        });
+
+        data._chat_read_status = (data._chat_read_status && typeof data._chat_read_status === 'object') ? data._chat_read_status : {};
+        const myMergedReads = getMergedChatReadStatus();
+        Object.keys(myMergedReads).forEach(k => {
+          const v = Number(myMergedReads[k]) || 0;
+          if (v > (Number(data._chat_read_status[k]) || 0)) {
+            data._chat_read_status[k] = v;
+          }
+        });
+
+        const msgMap = new Map();
+        if (Array.isArray(data._recent_chat)) {
+          data._recent_chat.forEach(m => {
+            if (m && m.id && !delIds.has(String(m.id))) msgMap.set(String(m.id), m);
+          });
+        }
+        (state.chatMessages || []).slice(-25).forEach(m => {
+          if (m && m.id && !delIds.has(String(m.id))) msgMap.set(String(m.id), m);
+        });
+        data._recent_chat = Array.from(msgMap.values())
+          .sort((a, b) => getMsgTimestamp(a) - getMsgTimestamp(b))
+          .slice(-25);
+
         state.cloudPresenceMap = data;
+        const hasNewMsg = ingestLiveChatFromPresence(data);
 
         const putUrl = `https://api.github.com/repos/${CLOUD_OWNER}/${CLOUD_REPO}/contents/presence.json`;
         const putRes = await fetch(putUrl, {
@@ -2080,18 +2266,13 @@ window.syncPresenceToCloud = function(isOnline = true, targetUser = null) {
           }),
         });
         if (putRes.status === 409) {
-          await new Promise(r => setTimeout(r, 250 * (attempt + 1)));
+          await new Promise(r => setTimeout(r, 200 * (attempt + 1)));
           continue;
         }
         if (putRes.ok) {
           const putMeta = await putRes.json();
           window._presenceCloudSha = putMeta.content && putMeta.content.sha;
-          if (prevSig !== JSON.stringify(data) && (state.chatOpen || state.activeTab === 'units') && typeof renderApp === 'function') {
-            const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
-            if (!activeEl || (activeEl.id !== 'chat-input-field' && activeEl.tagName !== 'SELECT' && activeEl.tagName !== 'INPUT' && activeEl.tagName !== 'TEXTAREA')) {
-              renderApp();
-            }
-          }
+          window.patchLiveChatDOM(hasNewMsg);
         }
         return;
       } catch (e) {
@@ -2124,8 +2305,8 @@ window.recordMyPresence = function(force = false, justJoined = false) {
     window.syncPresenceToCloud(true);
   }
 
-  // Làm mới danh sách Online mỗi 4 giây khi đang mở Chat / Quản lý đơn vị, hoặc mỗi 20 giây ở nền
-  const pollInterval = (state.chatOpen || state.activeTab === 'units') ? 4000 : 20000;
+  // Làm mới danh sách Online & Tin nhắn trực tiếp mỗi 2.5 giây khi đang mở Chat, hoặc mỗi 15 giây ở nền
+  const pollInterval = (state.chatOpen || state.activeTab === 'units') ? 2500 : 15000;
   if (!window._lastCloudPresenceFetchTs || (now - window._lastCloudPresenceFetchTs >= pollInterval)) {
     window.fetchPresenceFromCloud();
   }
@@ -2592,9 +2773,13 @@ window.syncFromCloudNow = async function (silent = false) {
           }
         }
 
-        // C. Tuyệt đối không re-render nếu con trỏ chuột đang focus vào bất kỳ thẻ input, textarea, select nào
+        // C. Tuyệt đối không re-render toàn trang nếu con trỏ chuột đang focus vào input, textarea, select
+        // NHƯNG vẫn cập nhật trực tiếp nội dung khung Chat & danh sách Online/Offline tại chỗ!
         const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
         if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT')) {
+          if (state.chatOpen && typeof window.patchLiveChatDOM === 'function') {
+            window.patchLiveChatDOM(hasNewMsgs);
+          }
           return;
         }
 
@@ -18320,6 +18505,9 @@ function setChatRoomAsRead(roomKey) {
       window._chatReadSyncTimers = window._chatReadSyncTimers || {};
       if (window._chatReadSyncTimers[fullKey]) clearTimeout(window._chatReadSyncTimers[fullKey]);
       window._chatReadSyncTimers[fullKey] = setTimeout(() => {
+        if (typeof window.syncPresenceToCloud === 'function') {
+          window.syncPresenceToCloud(true);
+        }
         if (typeof mutateCloudDB === 'function') {
           mutateCloudDB(db => {
             db.chat_read_status = db.chat_read_status || {};
@@ -19230,6 +19418,7 @@ window.clearChatForAll = async function(roomKey) {
   if (roomKey === 'public') {
     setLocalGlobalClearedAt('all', nowTs);
   }
+  if (typeof window.syncPresenceToCloud === 'function') window.syncPresenceToCloud(true);
   // Xóa ngay lập tức trên máy cục bộ
   state.chatMessages = (state.chatMessages || []).filter(m => !isMsgInRoom(m, roomKey));
   try {
@@ -19971,6 +20160,7 @@ window.onChatFilePicked = async function(input) {
 
     renderApp();
     broadcastLocalSyncSignal();
+    if (typeof window.syncPresenceToCloud === 'function') window.syncPresenceToCloud(true);
 
     setTimeout(() => { if (typeof window.renderAdminDocChosenFiles === 'function') window.renderAdminDocChosenFiles(); }, 50);
 
@@ -20108,7 +20298,8 @@ window.sendChatMessage = async function() {
   // 1. CẬP NHẬT GIAO DIỆN CHAT NGAY TỨC THÌ (0ms KHÔNG CHỜ ĐỢI)
   renderApp();
   broadcastLocalSyncSignal();
-  // Phát tin nhắn tức thì qua Live Bridge (0.05 giây tới tất cả thiết bị khác)
+  // Đẩy tin nhắn tức thì qua nhánh presence-data (không bị trễ CDN cache) và Live Bridge
+  if (typeof window.syncPresenceToCloud === 'function') window.syncPresenceToCloud(true);
   if (window.broadcastLiveEvent) window.broadcastLiveEvent('CHAT_MSG', newMsg);
   setTimeout(() => {
     scrollChatToBottom();
@@ -33154,9 +33345,10 @@ window.deleteChatMessageForAll = async function(msgId) {
   closeModal();
   const targetId = String(msgId);
 
-  // 1. Lưu tombstone cục bộ ngay lập tức để CDN cache không bao giờ làm sống lại
+    // 1. Lưu tombstone cục bộ ngay lập tức để CDN cache không bao giờ làm sống lại
   addGlobalDeletedChatId(targetId);
   addMyHiddenChatId(targetId);
+  if (typeof window.syncPresenceToCloud === 'function') window.syncPresenceToCloud(true);
 
   // 2. Xóa ngay lập tức trên máy cục bộ
   state.chatMessages = (state.chatMessages || []).filter(m => String(m.id) !== targetId);
