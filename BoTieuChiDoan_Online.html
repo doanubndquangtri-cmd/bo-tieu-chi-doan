@@ -8720,7 +8720,13 @@ function ingestCloudDB(db) {
 
   state.notifications = Array.isArray(db.notifications) ? db.notifications : [];
   state.donations = Array.isArray(db.donations) ? db.donations : [];
-  state.photoGallery = Array.isArray(db.photo_gallery) ? db.photo_gallery : [];
+  const delGallerySet = new Set([
+    ...(typeof getDeletedGalleryIds === 'function' ? getDeletedGalleryIds() : []),
+    ...(Array.isArray(db.deleted_gallery_ids) ? db.deleted_gallery_ids.map(String) : []),
+  ]);
+  const cloudGallery = (Array.isArray(db.photo_gallery) ? db.photo_gallery : []).filter(p => p && !delGallerySet.has(String(p.id)));
+  const pendingPosts = (Array.isArray(window._pendingGalleryPosts) ? window._pendingGalleryPosts : []).filter(p => p && !delGallerySet.has(String(p.id)) && !cloudGallery.some(cp => String(cp.id) === String(p.id)));
+  state.photoGallery = [...pendingPosts, ...cloudGallery];
   state.photoGalleryInteractions = (db.photo_gallery_interactions && typeof db.photo_gallery_interactions === 'object') ? db.photo_gallery_interactions : {};
 
   state.cloudDB = db;
@@ -39992,6 +39998,28 @@ window.openChatMessageDetailsModal = function(msgId) {
    ========================================================================= */
 const DEFAULT_HERO_PHOTO_URL = './assets/doan_ubnd_quangtri_hero.jpg';
 const DEFAULT_HERO_PHOTO_FALLBACK = 'https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/assets/doan_ubnd_quangtri_hero.jpg';
+const DELETED_GALLERY_STORAGE_KEY = 'doan2026_deleted_gallery_ids';
+
+function getDeletedGalleryIds() {
+  try {
+    const raw = localStorage.getItem(DELETED_GALLERY_STORAGE_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    const fromCloud = (state.cloudDB && Array.isArray(state.cloudDB.deleted_gallery_ids)) ? state.cloudDB.deleted_gallery_ids : [];
+    return Array.from(new Set([...(Array.isArray(arr) ? arr : []), ...fromCloud].map(String)));
+  } catch (e) {
+    return [];
+  }
+}
+
+function addDeletedGalleryId(photoId) {
+  if (!photoId) return;
+  try {
+    const set = new Set(getDeletedGalleryIds());
+    set.add(String(photoId));
+    const list = Array.from(set).slice(-300);
+    localStorage.setItem(DELETED_GALLERY_STORAGE_KEY, JSON.stringify(list));
+  } catch (e) {}
+}
 
 function getPhotoGalleryInteractionsMap() {
   if (state.photoGalleryInteractions && typeof state.photoGalleryInteractions === 'object') {
@@ -40037,9 +40065,11 @@ function getPhotoGalleryList() {
     isDefault: true,
     featured: true,
   };
-  const custom = Array.isArray(state.photoGallery)
+  const delSet = new Set(getDeletedGalleryIds());
+  const rawCustom = Array.isArray(state.photoGallery)
     ? state.photoGallery
     : (state.cloudDB && Array.isArray(state.cloudDB.photo_gallery) ? state.cloudDB.photo_gallery : []);
+  const custom = rawCustom.filter(p => p && !delSet.has(String(p.id)));
   const hasCustomFeatured = custom.some(p => p && p.featured);
   if (hasCustomFeatured) {
     const feat = custom.find(p => p && p.featured);
@@ -40065,6 +40095,8 @@ function renderFacebookPhotoCollage(postId, imgs, fallback) {
     <div onclick="openPostLightbox('${pidEsc}', ${idx})" style="position:relative; overflow:hidden; background:#0f172a; cursor:zoom-in; ${hStyle}">
       <img
         src="${escapeHtml(src)}"
+        loading="lazy"
+        decoding="async"
         onerror="if(this.dataset.fb && this.src!==this.dataset.fb){this.src=this.dataset.fb;}"
         data-fb="${fbEsc}"
         alt="Ảnh ${idx + 1}"
@@ -40079,6 +40111,8 @@ function renderFacebookPhotoCollage(postId, imgs, fallback) {
       <div style="background:#0f172a; cursor:zoom-in; overflow:hidden; border-top:1px solid #e2e8f0; border-bottom:1px solid #e2e8f0;" onclick="openPostLightbox('${pidEsc}', 0)">
         <img
           src="${escapeHtml(imgs[0])}"
+          loading="lazy"
+          decoding="async"
           onerror="if(this.dataset.fb && this.src!==this.dataset.fb){this.src=this.dataset.fb;}"
           data-fb="${fbEsc}"
           alt="Ảnh bài viết"
@@ -40782,14 +40816,28 @@ window.openAddGalleryPhotoModal = function () {
   `;
 };
 
-function compressGalleryImageFast(file, isBatch) {
+async function compressGalleryImageFast(file, isBatch) {
+  const maxW = isBatch ? 860 : 1150;
+  const quality = isBatch ? 0.66 : 0.75;
+  // Ưu tiên createImageBitmap (giải mã tăng tốc phần cứng ngoài luồng chính -> cực nhanh, không giật đơ!)
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bmp = await createImageBitmap(file);
+      const scale = bmp.width > maxW ? (maxW / bmp.width) : 1;
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(bmp.width * scale));
+      canvas.height = Math.max(1, Math.round(bmp.height * scale));
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+      bmp.close();
+      return canvas.toDataURL('image/jpeg', quality);
+    } catch (e) {}
+  }
   return new Promise((resolve, reject) => {
     const objUrl = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
       try {
-        const maxW = isBatch ? 920 : 1200;
-        const quality = isBatch ? 0.68 : 0.76;
         const scale = img.width > maxW ? (maxW / img.width) : 1;
         const canvas = document.createElement('canvas');
         canvas.width = Math.max(1, Math.round(img.width * scale));
@@ -40821,7 +40869,6 @@ window.submitAddGalleryPhoto = async function () {
   const descEl = document.getElementById('gallery-desc-input');
   const dateEl = document.getElementById('gallery-date-input');
   const featEl = document.getElementById('gallery-featured-input');
-  const btn = document.getElementById('btn-save-gallery-photo');
 
   const baseTitle = (titleEl && titleEl.value || '').trim();
   const description = (descEl && descEl.value || '').trim();
@@ -40832,102 +40879,124 @@ window.submitAddGalleryPhoto = async function () {
   if (!files.length) { showToast('Vui lòng chọn ít nhất 1 tệp ảnh (tối đa 10 ảnh)!', 'warning'); return; }
   if (!baseTitle) { showToast('Vui lòng nhập tiêu đề cho bộ ảnh!', 'warning'); return; }
 
-  if (btn) { btn.disabled = true; btn.textContent = `⚡ Đang xử lý ${files.length} ảnh...`; }
+  // BƯỚC 1: HIỂN THỊ TỨC THÌ TRONG 0 GIÂY bằng ObjectURL (không bắt người dùng đợi nén hay đợi mạng!)
+  const baseTs = Date.now();
+  const createdIso = nowISO();
+  const tempUrls = files.map(f => URL.createObjectURL(f));
+  const postId = `post_${baseTs}_${Math.random().toString(36).slice(2, 7)}`;
+  const optimisticPost = {
+    id: postId,
+    title: baseTitle,
+    description,
+    src: tempUrls[0],
+    images: tempUrls,
+    date: dateStr,
+    uploader_id: actor.id,
+    uploader_name: actor.name,
+    uploader_role: actor.role,
+    featured: Boolean(featured),
+    created_at: createdIso,
+  };
+
+  if (!Array.isArray(window._pendingGalleryPosts)) window._pendingGalleryPosts = [];
+  window._pendingGalleryPosts.unshift(optimisticPost);
+  if (!Array.isArray(state.photoGallery)) state.photoGallery = [];
+  if (featured) state.photoGallery.forEach(p => { if (p) p.featured = false; });
+  state.photoGallery = [optimisticPost, ...state.photoGallery.filter(p => String(p.id) !== postId)];
+  window._selectedGalleryFiles = [];
+  closeModal();
+  renderApp();
+  showToast(`⚡ Đã đăng tức thì (${files.length} ảnh)! Đang lưu lên đám mây...`, 'info');
+
+  // BƯỚC 2: Nén song song & đồng bộ ngầm lên Cloud DB
   try {
     const isBatch = files.length > 1;
-    // Nén song song toàn bộ tối đa 10 ảnh trong ~150-300ms
     const compressedList = await Promise.all(files.map(f => compressGalleryImageFast(f, isBatch)));
-    const baseTs = Date.now();
-    const createdIso = nowISO();
-
-    const newPost = {
-      id: `post_${baseTs}_${Math.random().toString(36).slice(2, 7)}`,
-      title: baseTitle,
-      description,
+    const finalPost = {
+      ...optimisticPost,
       src: compressedList[0],
       images: compressedList,
-      date: dateStr,
-      uploader_id: actor.id,
-      uploader_name: actor.name,
-      uploader_role: actor.role,
-      featured: Boolean(featured),
-      created_at: createdIso,
     };
 
-    // HIỂN THỊ TỨC THÌ 1 BÀI VIẾT KIỂU FACEBOOK (Optimistic UI) trước khi đồng bộ nền lên đám mây
-    if (!Array.isArray(state.photoGallery)) state.photoGallery = [];
-    if (featured) state.photoGallery.forEach(p => { if (p) p.featured = false; });
-    state.photoGallery = [newPost, ...state.photoGallery];
-    if (state.cloudDB) state.cloudDB.photo_gallery = state.photoGallery;
-    window._selectedGalleryFiles = [];
-    closeModal();
-    renderApp();
-    showToast(`⚡ Đã đăng bài viết (${compressedList.length} ảnh)! Đang lưu lên đám mây...`, 'info');
+    // Nếu người dùng đã kịp bấm Xóa ngay trong lúc đang nén -> hủy lưu luôn!
+    if (getDeletedGalleryIds().includes(postId)) {
+      window._pendingGalleryPosts = (window._pendingGalleryPosts || []).filter(p => String(p.id) !== postId);
+      tempUrls.forEach(u => { try { URL.revokeObjectURL(u); } catch (e) {} });
+      return;
+    }
 
-    // Đồng bộ 1 lần duy nhất bài viết lên Cloud DB
     const res = await mutateCloudDB((db) => {
+      const delSet = new Set([...(Array.isArray(db.deleted_gallery_ids) ? db.deleted_gallery_ids.map(String) : []), ...getDeletedGalleryIds()]);
+      if (delSet.has(postId)) return;
       if (!Array.isArray(db.photo_gallery)) db.photo_gallery = [];
       if (featured) db.photo_gallery.forEach(p => { if (p) p.featured = false; });
-      if (!db.photo_gallery.some(p => String(p.id) === String(newPost.id))) {
-        db.photo_gallery.unshift(newPost);
+      if (!db.photo_gallery.some(p => String(p.id) === postId)) {
+        db.photo_gallery.unshift(finalPost);
       }
     }, `Add gallery post (${compressedList.length} photos): ${baseTitle}`);
 
+    window._pendingGalleryPosts = (window._pendingGalleryPosts || []).filter(p => String(p.id) !== postId);
     if (res && res.ok) {
+      // Thay thế ObjectURL tạm bằng dataUrl chuẩn rồi giải phóng bộ nhớ
+      state.photoGallery = (state.photoGallery || []).map(p => String(p.id) === postId ? finalPost : p);
       showToast(`🟢 Đã lưu công khai bài viết (${compressedList.length} ảnh) thành công!`, 'success');
       renderApp();
     } else {
-      state.photoGallery = (state.photoGallery || []).filter(p => String(p.id) !== String(newPost.id));
+      state.photoGallery = (state.photoGallery || []).filter(p => String(p.id) !== postId);
       renderApp();
       showToast('Không thể lưu bài viết lên đám mây, vui lòng kiểm tra mạng và thử lại!', 'error');
     }
+    setTimeout(() => tempUrls.forEach(u => { try { URL.revokeObjectURL(u); } catch (e) {} }), 2000);
   } catch (e) {
+    window._pendingGalleryPosts = (window._pendingGalleryPosts || []).filter(p => String(p.id) !== postId);
+    state.photoGallery = (state.photoGallery || []).filter(p => String(p.id) !== postId);
+    renderApp();
     showToast('Lỗi xử lý ảnh: ' + (e.message || e), 'error');
-    if (btn) { btn.disabled = false; btn.textContent = '⚡ Đăng Ảnh Ngay'; }
   }
 };
 
 window.deleteGalleryPhoto = async function (photoId) {
   const actor = getCurrentGalleryActor();
   if (!actor) return;
+  const pid = String(photoId);
   const photos = getPhotoGalleryList();
-  const target = photos.find(p => String(p.id) === String(photoId));
+  const target = photos.find(p => String(p.id) === pid);
   if (!target || target.isDefault) return;
   if (actor.role !== 'admin' && String(target.uploader_id) !== String(actor.id)) {
-    showToast('Bạn chỉ có thể xóa ảnh do chính đơn vị mình đăng!', 'warning');
+    showToast('Bạn chỉ có thể xóa bài viết do chính đơn vị mình đăng!', 'warning');
     return;
   }
-  if (!confirm('Bạn có chắc muốn xóa ảnh này khỏi Thư Viện Ảnh không?')) return;
+  if (!confirm('Bạn có chắc muốn xóa bài viết này khỏi Thư Viện Ảnh không?')) return;
 
-  // Xóa tức thì trên giao diện (Optimistic UI)
-  const backupGallery = Array.isArray(state.photoGallery) ? [...state.photoGallery] : [];
-  state.photoGallery = backupGallery.filter(p => String(p.id) !== String(photoId));
-  if (state.cloudDB) state.cloudDB.photo_gallery = state.photoGallery;
-  renderApp();
-  showToast('🗑️ Đã xóa ảnh! Đang đồng bộ...', 'info');
-
-  const res = await mutateCloudDB((db) => {
-    if (Array.isArray(db.photo_gallery)) {
-      db.photo_gallery = db.photo_gallery.filter(p => String(p.id) !== String(photoId));
-    }
-    if (db.photo_gallery_interactions && db.photo_gallery_interactions[String(photoId)]) {
-      delete db.photo_gallery_interactions[String(photoId)];
-    }
-  }, 'Delete gallery photo ' + photoId);
-  if (res && res.ok) {
-    showToast('🟢 Đã xóa ảnh khỏi Thư Viện Ảnh!', 'success');
-    renderApp();
-  } else {
-    state.photoGallery = backupGallery;
-    renderApp();
-    showToast('Lỗi khi xóa ảnh trên đám mây!', 'error');
+  // GHI NHỚ TOMBSTONE VĨNH VIỄN + XÓA TỨC THÌ -> TUYỆT ĐỐI KHÔNG BAO GIỜ HIỆN LẠI!
+  addDeletedGalleryId(pid);
+  window._pendingGalleryPosts = (window._pendingGalleryPosts || []).filter(p => String(p.id) !== pid);
+  state.photoGallery = (state.photoGallery || []).filter(p => String(p.id) !== pid);
+  if (state.cloudDB && Array.isArray(state.cloudDB.photo_gallery)) {
+    state.cloudDB.photo_gallery = state.cloudDB.photo_gallery.filter(p => String(p.id) !== pid);
   }
+  renderApp();
+  showToast('🗑️ Đã xóa bài viết ngay lập tức!', 'success');
+
+  await mutateCloudDB((db) => {
+    if (!Array.isArray(db.deleted_gallery_ids)) db.deleted_gallery_ids = [];
+    if (!db.deleted_gallery_ids.map(String).includes(pid)) {
+      db.deleted_gallery_ids.push(pid);
+      if (db.deleted_gallery_ids.length > 300) db.deleted_gallery_ids = db.deleted_gallery_ids.slice(-300);
+    }
+    if (Array.isArray(db.photo_gallery)) {
+      db.photo_gallery = db.photo_gallery.filter(p => String(p.id) !== pid);
+    }
+    if (db.photo_gallery_interactions && db.photo_gallery_interactions[pid]) {
+      delete db.photo_gallery_interactions[pid];
+    }
+  }, 'Delete gallery post ' + pid);
 };
 
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795073741318;
+    const CURRENT_BUILD_TS = 1795073883811;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;
