@@ -12658,8 +12658,8 @@ function renderMasterScoreCell(unit, crit, isAdmin) {
 
 
 
-  // Chỉ hiển thị biểu tượng đính kèm khi ô CÓ ĐIỂM (hoặc có bài đơn vị đang chờ duyệt); ô trống hoàn toàn ẩn biểu tượng đính kèm
-  const hasScore = numVal !== null && val !== '' && !Number.isNaN(numVal);
+  // Chỉ hiển thị biểu tượng đính kèm khi ô CÓ ĐIỂM hiển thị (khác trống và khác 0, vì 0 hiển thị là ô trống); ô trống hoàn toàn ẩn biểu tượng đính kèm
+  const hasScore = numVal !== null && val !== '' && !Number.isNaN(numVal) && numVal !== 0;
 
   const hasAttachment = Boolean(sc && (
     (sc.file_path && String(sc.file_path).trim() !== '') ||
@@ -12944,9 +12944,10 @@ window.onAdminInlineScoreChange = async function (inputEl) {
       (updatedSc.evidence_link && String(updatedSc.evidence_link).trim() !== '') ||
       (Array.isArray(updatedSc.attachments) && updatedSc.attachments.length > 0)
     ));
+    const hasVisibleScore = numVal !== null && !Number.isNaN(numVal) && numVal !== 0;
     if (cellTd) {
       const existingDot = cellTd.querySelector('.evidence-dot');
-      if (numVal !== null) {
+      if (hasVisibleScore) {
         const dotSpan = existingDot || document.createElement('span');
         dotSpan.className = hasAttachment ? 'evidence-dot ontime' : 'evidence-dot no-attachment';
         dotSpan.onclick = () => openSubmissionDetailModal(unitId, critId);
@@ -12965,8 +12966,8 @@ window.onAdminInlineScoreChange = async function (inputEl) {
       setTimeout(() => renderApp(), 400);
     }
 
-    // Khi Admin vừa chấm điểm cho ô chưa có tệp đính kèm -> hiển thị thanh hỏi nhanh (không chặn nhập liệu)
-    if (numVal !== null && !hasAttachment && typeof window.showAdminScoreAttachmentPrompt === 'function') {
+    // Khi Admin vừa chấm điểm (>0 hoặc âm) cho ô chưa có tệp đính kèm -> hiển thị thanh hỏi nhanh (không chặn nhập liệu)
+    if (hasVisibleScore && !hasAttachment && typeof window.showAdminScoreAttachmentPrompt === 'function') {
       window.showAdminScoreAttachmentPrompt(unitId, critId, numVal);
     } else {
       showToast('🟢 Đã cập nhật điểm thành công!', 'success');
@@ -39961,7 +39962,7 @@ window.openChatMessageDetailsModal = function(msgId) {
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795070595080;
+    const CURRENT_BUILD_TS = 1795070974363;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;
