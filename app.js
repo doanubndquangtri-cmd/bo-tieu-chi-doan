@@ -5490,142 +5490,149 @@ function renderHeader() {
 
   return `
 
-    <header class="app-header" style="background: linear-gradient(135deg, #003380 0%, #0052cc 100%); color: #fff; padding: 6px 14px; min-height: 50px; height: auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.18); position: sticky; top: 0; z-index: 1000 !important;">
+    <header class="app-header" style="background: linear-gradient(135deg, #002d72 0%, #0047b3 55%, #005ce6 100%); color: #fff; padding: 10px 18px 8px 18px; min-height: 50px; height: auto; display: flex; flex-direction: column; align-items: stretch; gap: 6px; box-shadow: 0 3px 12px rgba(0,24,70,0.22); position: sticky; top: 0; z-index: 1000 !important;">
 
-      <!-- BÊN TRÁI: LOGO VÀ TIÊU ĐỀ HỆ THỐNG -->
+      <!-- HÀNG 1: LOGO + TIÊU ĐỀ NỔI BẬT BÊN TRÁI & CỤM 3 NÚT TƯƠNG TÁC CHÍNH BÊN PHẢI -->
+      <div class="header-top-row" style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 18px; width: 100%; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.16);">
 
-      <div class="brand-box" style="display: flex; align-items: center; flex-shrink: 0; min-width: max-content;">
+        <!-- BÊN TRÁI: LOGO VÀ TIÊU ĐỀ HỆ THỐNG -->
+        <div class="brand-box" style="display: flex; align-items: center; flex-shrink: 0; min-width: max-content;">
 
-        <div style="display: inline-flex; align-items: center; justify-content: center; margin-right: 8px; flex-shrink: 0;">
+          <div style="display: inline-flex; align-items: center; justify-content: center; margin-right: 12px; flex-shrink: 0;">
 
-          <img src="${LOGO_DOAN_SRC}" alt="Huy hiệu Đoàn" class="youth-badge" style="width:38px; height:38px; object-fit:contain; border:none; background:transparent; padding:0; display:block; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25));" />
+            <img src="${LOGO_DOAN_SRC}" alt="Huy hiệu Đoàn" class="youth-badge" style="width:54px; height:54px; object-fit:contain; border:none; background:transparent; padding:0; display:block; filter:drop-shadow(0 2px 6px rgba(0,0,0,0.35));" />
+
+          </div>
+
+          <div class="brand-title" style="min-width: max-content; white-space: nowrap;">
+
+            <div class="brand-org" style="font-size: 11.5px; font-weight: 800; color: #fde047; text-transform: uppercase; letter-spacing: 0.6px; line-height: 1.25; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">
+
+              TỈNH ĐOÀN QUẢNG TRỊ • ĐOÀN ỦY BAN NHÂN DÂN TỈNH
+
+            </div>
+
+            <h1 style="font-size: clamp(14px, 1.55vw, 19px); margin: 2px 0; text-transform: uppercase; line-height: 1.2; font-weight: 900; color: #ffffff; white-space: nowrap; letter-spacing: 0.25px; text-shadow: 0 2px 4px rgba(0,0,0,0.28);" title="Bộ tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh - Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí">
+              Bộ Tiêu Chí Các Tổ Chức Cơ Sở Đoàn Trực Thuộc
+            </h1>
+
+            <div class="brand-sub" style="font-size: 12px; font-weight: 600; color: #dbeafe; line-height: 1.25; letter-spacing: 0.15px;">
+              Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí
+            </div>
+
+          </div>
 
         </div>
 
-        <div class="brand-title" style="min-width: max-content; white-space: nowrap;">
-
-          <div style="font-size: 10px; font-weight: 800; color: #fef08a; text-transform: uppercase; letter-spacing: 0.3px; line-height: 1.2;">
-
-            TỈNH ĐOÀN QUẢNG TRỊ • ĐOÀN ỦY BAN NHÂN DÂN TỈNH
-
-          </div>
-
-          <h1 style="font-size: clamp(10px, 3.1vw, 13px); margin: 1px 0 0 0; text-transform: uppercase; line-height: 1.25; font-weight: 800; color: #fff; white-space: nowrap; letter-spacing: -0.2px;" title="Bộ tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh - Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí">
-            Bộ Tiêu Chí Các Tổ Chức Cơ Sở Đoàn Trực Thuộc
-          </h1>
-
-          <div style="font-size: 10.5px; font-weight: 600; color: #bfdbfe; line-height: 1.2; margin-top: 1px;">
-            Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí
-          </div>
-
-        </div>
-
-      </div>
-
-      <!-- CỤM 3 TÍNH NĂNG TƯƠNG TÁC CHÍNH ĐƯỢC ĐƯA LÊN TRÊN RỘNG RÃI & NỔI BẬT: THÔNG BÁO - BẢNG VÀNG - TRAO ĐỔI ĐOÀN -->
-      <div class="header-featured-hub" style="display: inline-flex; align-items: center; gap: 8px; flex-shrink: 0;">
-        ${!isGuest ? `
-          <div class="notification-bell-container" id="notif-bell-container" style="position: relative; flex-shrink: 0; z-index: 999999 !important;">
-            <button class="hub-btn hub-btn-notif" onclick="toggleNotificationPanel(event)" title="Xem thông báo hệ thống và văn bản chỉ đạo mới">
-              <span style="font-size:14px;">🔔</span>
-              <span>Thông báo</span>
-              ${unreadNotifCount > 0 ? `<span class="notification-badge" style="background:#ef4444; color:#fff; font-size:10px; font-weight:800; padding:1px 6px; border-radius:10px; margin-left:2px; box-shadow:0 0 6px rgba(239,68,68,0.8);">${unreadNotifCount > 99 ? '99+' : unreadNotifCount}</span>` : ''}
-            </button>
-            ${state.notificationsOpen ? renderNotificationDropdown() : ''}
-          </div>
-        ` : ''}
-
-        <button class="hub-btn hub-btn-gold ${isDonationsActive ? 'active' : ''}" onclick="setTab('donations')" title="Bảng Vàng Vinh Danh & Quét Mã Ủng Hộ Đoàn UBND Tỉnh">
-          <span style="font-size:14px;">💛</span>
-          <span>Bảng Vàng Ủng Hộ</span>
-          ${(isAdmin && typeof getDonationsList === 'function' && getDonationsList().filter(d => d.status === 'pending').length > 0) ? `
-            <span class="badge" style="background:#ef4444; color:#fff; font-size:10px; font-weight:900; margin-left:4px; padding:2px 7px; border-radius:10px; box-shadow:0 0 8px rgba(239,68,68,0.8); animation:pulse 1.5s infinite; white-space:nowrap;">
-              ⏳ ${getDonationsList().filter(d => d.status === 'pending').length} chờ duyệt
-            </span>
+        <!-- CỤM 3 TÍNH NĂNG TƯƠNG TÁC CHÍNH: THÔNG BÁO - BẢNG VÀNG - TRAO ĐỔI ĐOÀN -->
+        <div class="header-featured-hub" style="display: inline-flex; align-items: center; gap: 9px; flex-shrink: 0;">
+          ${!isGuest ? `
+            <div class="notification-bell-container" id="notif-bell-container" style="position: relative; flex-shrink: 0; z-index: 999999 !important;">
+              <button class="hub-btn hub-btn-notif" onclick="toggleNotificationPanel(event)" title="Xem thông báo hệ thống và văn bản chỉ đạo mới">
+                <span style="font-size:15px;">🔔</span>
+                <span>Thông báo</span>
+                ${unreadNotifCount > 0 ? `<span class="notification-badge" style="background:#ef4444; color:#fff; font-size:10.5px; font-weight:800; padding:1px 6px; border-radius:10px; margin-left:2px; box-shadow:0 0 6px rgba(239,68,68,0.8);">${unreadNotifCount > 99 ? '99+' : unreadNotifCount}</span>` : ''}
+              </button>
+              ${state.notificationsOpen ? renderNotificationDropdown() : ''}
+            </div>
           ` : ''}
-        </button>
 
-        <button id="header-chat-btn" class="hub-btn hub-btn-chat" onclick="toggleChatWidget()" title="Bấm để mở ô Trao Đổi Đoàn giữa các đơn vị và Ban Thường vụ Tỉnh">
-          <span style="font-size:14px;">💬</span>
-          <span>Trao Đổi Đoàn</span>
-          ${(!isGuest && unreadChatCount > 0) ? `<span id="header-chat-unread-badge" style="background:#ef4444; color:#fff; font-size:10px; font-weight:800; padding:1px 6px; border-radius:10px; margin-left:2px; box-shadow:0 0 6px rgba(239,68,68,0.8);">${unreadChatCount > 99 ? '99+' : unreadChatCount}</span>` : ''}
-        </button>
+          <button class="hub-btn hub-btn-gold ${isDonationsActive ? 'active' : ''}" onclick="setTab('donations')" title="Bảng Vàng Vinh Danh & Quét Mã Ủng Hộ Đoàn UBND Tỉnh">
+            <span style="font-size:15px;">💛</span>
+            <span>Bảng Vàng Ủng Hộ</span>
+            ${(isAdmin && typeof getDonationsList === 'function' && getDonationsList().filter(d => d.status === 'pending').length > 0) ? `
+              <span class="badge" style="background:#ef4444; color:#fff; font-size:10.5px; font-weight:900; margin-left:4px; padding:2px 7px; border-radius:10px; box-shadow:0 0 8px rgba(239,68,68,0.8); animation:pulse 1.5s infinite; white-space:nowrap;">
+                ⏳ ${getDonationsList().filter(d => d.status === 'pending').length} chờ duyệt
+              </span>
+            ` : ''}
+          </button>
+
+          <button id="header-chat-btn" class="hub-btn hub-btn-chat" onclick="toggleChatWidget()" title="Bấm để mở ô Trao Đổi Đoàn giữa các đơn vị và Ban Thường vụ Tỉnh">
+            <span style="font-size:15px;">💬</span>
+            <span>Trao Đổi Đoàn</span>
+            ${(!isGuest && unreadChatCount > 0) ? `<span id="header-chat-unread-badge" style="background:#ef4444; color:#fff; font-size:10.5px; font-weight:800; padding:1px 6px; border-radius:10px; margin-left:2px; box-shadow:0 0 6px rgba(239,68,68,0.8);">${unreadChatCount > 99 ? '99+' : unreadChatCount}</span>` : ''}
+          </button>
+        </div>
+
       </div>
 
-      <!-- CÁC NÚT THAO TÁC TIỆN ÍCH QUẢN TRỊ & HỆ THỐNG -->
+      <!-- HÀNG 2: THANH TIỆN ÍCH QUẢN TRỊ BÊN TRÁI & TRẠNG THÁI ONLINE/OFFLINE + ĐỒNG HỒ BÊN PHẢI -->
+      <div class="header-actions" style="display: flex; align-items: center; justify-content: space-between; gap: 8px 10px; flex-wrap: wrap; width: 100%; overflow: visible; background: transparent; border: none; padding: 2px 0 0 0;">
 
-      <div class="header-actions" style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap; flex-shrink: 1; flex: 1 1 auto; justify-content: flex-end; overflow: visible; background: transparent; border: none; padding: 0;">
+        <div class="header-tools-group" style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
 
-        <button class="btn btn-sm btn-outline" onclick="syncFromCloudNow(false)" style="background:rgba(255,255,255,0.15); color:#fff; border-color:rgba(255,255,255,0.3); font-size:11px; padding:3px 7px; height:27px;" title="Tải dữ liệu mới nhất từ đám mây">
-          🔄 Đồng bộ
-        </button>
-
-        <div class="date-pill" onclick="${isAdmin ? 'openDateSettingsModal()' : ''}" title="Ngày hệ thống dùng để đối chiếu hạn nộp báo cáo" style="font-size:11px; padding:2px 7px; height:27px;">
-          📅 <b>${formatDateVN(effDate)}</b>
-          <span class="badge ${strict ? 'badge-warning' : 'badge-success'}" style="margin-left:3px; padding:1px 4px; font-size:9.5px;">
-            ${strict ? 'Đúng hạn' : 'Tự do'}
-          </span>
-          ${isAdmin ? '⚙️' : ''}
-        </div>
-
-        ${isAdminSession ? `
-          <select onchange="switchAccountQuick(this.value)" title="Chuyển đổi góc nhìn giữa Admin và các Đơn vị" style="max-width: 170px; font-size: 11px; padding: 2px 6px; font-weight: 700; border: 1.5px solid #fef08a; background: #fffbeb; color: #1e3a8a; border-radius: 5px; height: 27px;">
-            ${switcherOptions}
-          </select>
-        ` : ''}
-
-        <button class="btn btn-success btn-sm" onclick="exportToExcelClient()" title="Tải bảng tổng hợp Excel chuẩn về máy" style="font-size:11px; padding:3px 7px; height:27px;">
-          📊 Xuất Excel
-        </button>
-
-        <!-- NÚT ÂM LƯỢNG & BẢNG ĐIỀU KHIỂN NHẠC NỀN (CHO CẢ ADMIN VÀ ĐOÀN CƠ SỞ) -->
-        <div class="header-music-widget" style="display:inline-flex; align-items:center; background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.38); border-radius:6px; height:27px; padding:0 3px; gap:2px;" title="Âm thanh & Nhạc nền">
-          <button type="button" class="btn btn-sm" onclick="window.BgMusicManager.toggleMute(); event.stopPropagation();" title="Bấm vào loa để Bật/Tắt âm thanh nhanh cho máy này" style="border:none; background:transparent; color:#fff; font-size:11px; padding:2px 5px; height:100%; display:inline-flex; align-items:center; gap:2px; cursor:pointer;">
-            <span id="header-music-icon">${(window.BgMusicManager && window.BgMusicManager.isLocallyMuted()) ? '🔇' : '🔊'}</span>
-            <span id="header-music-vol-text" style="font-size:10px; font-weight:700;">${(window.BgMusicManager && window.BgMusicManager.isLocallyMuted()) ? 'Tắt' : `${Math.round((window.BgMusicManager ? window.BgMusicManager.getLocalVolume() : 0.35) * 100)}%`}</span>
+          <button class="btn btn-sm btn-outline" onclick="syncFromCloudNow(false)" style="background:rgba(255,255,255,0.16); color:#fff; border-color:rgba(255,255,255,0.32); font-size:12px; padding:0 10px; height:30px; border-radius:6px;" title="Tải dữ liệu mới nhất từ đám mây">
+            🔄 Đồng bộ
           </button>
-          <button type="button" class="btn btn-sm" onclick="openBgMusicSettingsModal()" title="Bấm vào đây để chọn bài hát, chuyển bài, hoặc dán link YouTube..." style="border:none; border-left:1px solid rgba(255,255,255,0.35); background:transparent; color:#fef08a; font-size:11px; padding:2px 6px; height:100%; display:inline-flex; align-items:center; gap:3px; font-weight:700; cursor:pointer;">
-            <span>🎵</span>
-            <span id="header-music-title-text" style="max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10px;">${escapeHtml(window.BgMusicManager ? window.BgMusicManager.getCurrentTitle() : 'Nhạc nền')}</span>
-          </button>
-        </div>
 
-        ${isAdmin ? `
-          <button class="btn btn-sm" onclick="openMarqueeSettingsModal()" title="Cài đặt dòng chữ thông báo chạy ngang trên đầu trang" style="font-size:11px; padding:3px 7px; height:27px; background:${(state.settings && state.settings.marquee_enabled === '0') ? 'rgba(255,255,255,0.2)' : '#f59e0b'}; color:#fff; border:1px solid rgba(255,255,255,0.4); font-weight:700; display:inline-flex; align-items:center; gap:4px;">
-            📢 <span>Chữ Chạy</span>
-            <span style="font-size:9px; padding:1px 4px; border-radius:3px; background:${(state.settings && state.settings.marquee_enabled === '0') ? '#64748b' : '#15803d'}; font-weight:800;">
-              ${(state.settings && state.settings.marquee_enabled === '0') ? 'TẮT' : 'BẬT'}
+          <div class="date-pill" onclick="${isAdmin ? 'openDateSettingsModal()' : ''}" title="Ngày hệ thống dùng để đối chiếu hạn nộp báo cáo" style="font-size:12px; padding:0 10px; height:30px; border-radius:6px;">
+            📅 <b>${formatDateVN(effDate)}</b>
+            <span class="badge ${strict ? 'badge-warning' : 'badge-success'}" style="margin-left:4px; padding:2px 6px; font-size:10px;">
+              ${strict ? 'Đúng hạn' : 'Tự do'}
             </span>
+            ${isAdmin ? '<span style="margin-left:3px;">⚙️</span>' : ''}
+          </div>
+
+          ${isAdminSession ? `
+            <select onchange="switchAccountQuick(this.value)" title="Chuyển đổi góc nhìn giữa Admin và các Đơn vị" style="max-width: 195px; font-size: 12px; padding: 2px 8px; font-weight: 700; border: 1.5px solid #fef08a; background: #fffbeb; color: #1e3a8a; border-radius: 6px; height: 30px;">
+              ${switcherOptions}
+            </select>
+          ` : ''}
+
+          <button class="btn btn-success btn-sm" onclick="exportToExcelClient()" title="Tải bảng tổng hợp Excel chuẩn về máy" style="font-size:12px; padding:0 10px; height:30px; border-radius:6px;">
+            📊 Xuất Excel
           </button>
-        ` : ''}
 
-        ${isAdmin ? `
-          <button class="btn btn-primary btn-sm" onclick="saveExcelToGoogleDrive()" title="Tự động xuất và lưu file Excel vào đúng thư mục Tháng trên Google Drive" style="background:#0284c7; border-color:#0284c7; font-weight:700; font-size:11px; padding:3px 7px; height:27px;">
-            ☁️ Lưu Drive
+          <!-- NÚT ÂM LƯỢNG & BẢNG ĐIỀU KHIỂN NHẠC NỀN (CHO CẢ ADMIN VÀ ĐOÀN CƠ SỞ) -->
+          <div class="header-music-widget" style="display:inline-flex; align-items:center; background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.34); border-radius:6px; height:30px; padding:0 4px; gap:2px;" title="Âm thanh & Nhạc nền">
+            <button type="button" class="btn btn-sm" onclick="window.BgMusicManager.toggleMute(); event.stopPropagation();" title="Bấm vào loa để Bật/Tắt âm thanh nhanh cho máy này" style="border:none; background:transparent; color:#fff; font-size:12px; padding:0 6px; height:100%; display:inline-flex; align-items:center; gap:3px; cursor:pointer;">
+              <span id="header-music-icon">${(window.BgMusicManager && window.BgMusicManager.isLocallyMuted()) ? '🔇' : '🔊'}</span>
+              <span id="header-music-vol-text" style="font-size:11px; font-weight:700;">${(window.BgMusicManager && window.BgMusicManager.isLocallyMuted()) ? 'Tắt' : `${Math.round((window.BgMusicManager ? window.BgMusicManager.getLocalVolume() : 0.35) * 100)}%`}</span>
+            </button>
+            <button type="button" class="btn btn-sm" onclick="openBgMusicSettingsModal()" title="Bấm vào đây để chọn bài hát, chuyển bài, hoặc dán link YouTube..." style="border:none; border-left:1px solid rgba(255,255,255,0.32); background:transparent; color:#fef08a; font-size:12px; padding:0 8px; height:100%; display:inline-flex; align-items:center; gap:4px; font-weight:700; cursor:pointer;">
+              <span>🎵</span>
+              <span id="header-music-title-text" style="max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px;">${escapeHtml(window.BgMusicManager ? window.BgMusicManager.getCurrentTitle() : 'Nhạc nền')}</span>
+            </button>
+          </div>
+
+          ${isAdmin ? `
+            <button class="btn btn-sm" onclick="openMarqueeSettingsModal()" title="Cài đặt dòng chữ thông báo chạy ngang trên đầu trang" style="font-size:12px; padding:0 10px; height:30px; border-radius:6px; background:${(state.settings && state.settings.marquee_enabled === '0') ? 'rgba(255,255,255,0.2)' : '#f59e0b'}; color:#fff; border:1px solid rgba(255,255,255,0.4); font-weight:700; display:inline-flex; align-items:center; gap:5px;">
+              📢 <span>Chữ Chạy</span>
+              <span style="font-size:9.5px; padding:1px 5px; border-radius:4px; background:${(state.settings && state.settings.marquee_enabled === '0') ? '#64748b' : '#15803d'}; font-weight:800;">
+                ${(state.settings && state.settings.marquee_enabled === '0') ? 'TẮT' : 'BẬT'}
+              </span>
+            </button>
+          ` : ''}
+
+          ${isAdmin ? `
+            <button class="btn btn-primary btn-sm" onclick="saveExcelToGoogleDrive()" title="Tự động xuất và lưu file Excel vào đúng thư mục Tháng trên Google Drive" style="background:#0284c7; border-color:rgba(255,255,255,0.32); font-weight:700; font-size:12px; padding:0 10px; height:30px; border-radius:6px;">
+              ☁️ Lưu Drive
+            </button>
+          ` : ''}
+
+          <button class="btn btn-sm" onclick="showPWAInstallGuide()" title="Cài đặt ứng dụng vào điện thoại" style="background: rgba(255,255,255,0.18); color:#fff; border: 1px solid rgba(255,255,255,0.36); font-size: 12px; padding: 0 10px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; height:30px; border-radius:6px;">
+            📲 Cài App
           </button>
-        ` : ''}
 
-        <button class="btn btn-sm" onclick="showPWAInstallGuide()" title="Cài đặt ứng dụng vào điện thoại" style="background: rgba(255,255,255,0.2); color:#fff; border: 1px solid rgba(255,255,255,0.4); font-size: 11px; padding: 3px 7px; font-weight: 600; display: inline-flex; align-items: center; gap: 3px; height:27px;">
-          📲 Cài App
-        </button>
+          <button class="btn btn-outline btn-sm" onclick="handleLogout()" style="background: rgba(255,255,255,0.14); color: #fff; border-color: rgba(255,255,255,0.32); font-size:12px; padding:0 10px; height:30px; border-radius:6px;">
+            Đăng xuất
+          </button>
 
-        <button class="btn btn-outline btn-sm" onclick="handleLogout()" style="background: rgba(255,255,255,0.15); color: #fff; border-color: rgba(255,255,255,0.3); font-size:11px; padding:3px 7px; height:27px;">
-          Đăng xuất
-        </button>
+        </div>
 
         <!-- DANH SÁCH ONLINE / OFFLINE TỨC THÌ CỦA CƠ SỞ ĐOÀN & ADMIN + ĐỒNG HỒ -->
         ${(() => {
           const pCounts = typeof getGlobalPresenceCounts === 'function' ? getGlobalPresenceCounts() : { onlineCount: 0, offlineCount: 0 };
           return `
-            <div class="header-status-box" style="display: inline-flex; align-items: center; gap: 4px; height: 27px; padding: 2px 6px; background: rgba(0,0,0,0.28); border-radius: 6px; border: 1px solid rgba(255,255,255,0.25); flex-shrink: 0;">
-              <button type="button" id="header-online-pill" onclick="openPresenceDirectoryModal('online')" title="Bấm để xem danh sách các cơ sở Đoàn & Admin đang Online tức thì" style="background: rgba(22,163,74,0.28); border: 1px solid rgba(74,222,128,0.65); color: #86efac; font-size: 10.5px; font-weight: 800; padding: 1px 7px; border-radius: 5px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; white-space: nowrap;">
+            <div class="header-status-box" style="display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 2px 9px; background: rgba(0,18,56,0.42); border-radius: 7px; border: 1px solid rgba(255,255,255,0.24); flex-shrink: 0;">
+              <button type="button" id="header-online-pill" onclick="openPresenceDirectoryModal('online')" title="Bấm để xem danh sách các cơ sở Đoàn & Admin đang Online tức thì" style="background: rgba(22,163,74,0.28); border: 1px solid rgba(74,222,128,0.65); color: #86efac; font-size: 11.5px; font-weight: 800; padding: 2px 8px; border-radius: 5px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
                 🟢 ${pCounts.onlineCount} Online
               </button>
-              <button type="button" id="header-offline-pill" onclick="openPresenceDirectoryModal('offline')" title="Bấm để xem danh sách các cơ sở Đoàn & Admin đang Offline" style="background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.28); color: #e2e8f0; font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 5px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; white-space: nowrap;">
+              <button type="button" id="header-offline-pill" onclick="openPresenceDirectoryModal('offline')" title="Bấm để xem danh sách các cơ sở Đoàn & Admin đang Offline" style="background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.28); color: #e2e8f0; font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 5px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;">
                 ⚪ ${pCounts.offlineCount} Offline
               </button>
-              <span style="color: rgba(255,255,255,0.35); font-size: 10px; margin: 0 1px;">|</span>
-              <span style="color: #ffffff; font-weight: 700; font-family: monospace; font-size: 10.5px;" id="live-realtime-clock" title="Đồng hồ thời gian thực">
+              <span style="color: rgba(255,255,255,0.35); font-size: 11px; margin: 0 1px;">|</span>
+              <span style="color: #ffffff; font-weight: 700; font-family: monospace; font-size: 11.5px;" id="live-realtime-clock" title="Đồng hồ thời gian thực">
                 ⏱️ ${new Date().toLocaleTimeString('vi-VN')}
               </span>
             </div>
