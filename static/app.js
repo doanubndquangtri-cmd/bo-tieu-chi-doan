@@ -1864,32 +1864,7 @@ function mutateCloudDB(mutatorFn, commitMsg = 'Update data') {
 
 function sortCriteriaChronologically(list) {
   if (!Array.isArray(list)) return [];
-  const checkOverdue = (c) => {
-    if (!c) return false;
-    if (Number(c.lock_override) === 1) return false;
-    const effDate = (state.settings && state.settings.effective_date) || todayISO();
-    const dl = c.deadline || '9999-99-99';
-    if (dl === '9999-99-99' || !dl) return false;
-    const autoTime = c.deadline_time || (function(){ const m = (c.title||'').match(/(?:hạn\s*)?(\d{1,2})[h:](\d{2})/i); return m ? (m[1].padStart(2,'0') + ':' + m[2]) : '23:59'; })();
-    const endDateTime = typeof getCriterionDeadlineEndDate === 'function' ? getCriterionDeadlineEndDate(c.deadline, autoTime) : null;
-    const nowTs = Date.now();
-    if (endDateTime) {
-      if (effDate > dl || (effDate === dl && nowTs > endDateTime.getTime())) return true;
-    } else if (effDate > dl) {
-      return true;
-    }
-    return false;
-  };
-
   list.sort((a, b) => {
-    // 1. TIÊU CHÍ CÒN HẠN ƯU TIÊN LÊN ĐẦU, CÁI MÔ QUÁ HẠN TỰ ĐỘNG CHO XUỐNG DƯỚI CÙNG!
-    const isOverA = checkOverdue(a);
-    const isOverB = checkOverdue(b);
-    if (isOverA !== isOverB) {
-      return isOverA ? 1 : -1;
-    }
-
-    // 2. SẮP XẾP CHUẨN ĐẸP THEO TRÌNH TỰ THỜI GIAN (HẠN NỘP GẦN NHẤT ĐẾN XA NHẤT)
     const da = a.deadline || '9999-99-99';
     const db = b.deadline || '9999-99-99';
     if (da !== db) return da.localeCompare(db);
@@ -6178,21 +6153,36 @@ function renderUnitSubmitTab() {
         case 'con_han':
           return Boolean(st.canSubmit && !hasProof && !hasScoreVal);
         case 'chua_den_han':
-          return st.status === 'not_started';
-        case 'qua_han':
-          return Boolean((st.status === 'overdue' || st.status === 'deadline_passed') && !hasProof && !hasScoreVal);
+          return st.status === 'not_started' || st.status === 'upcoming';
+        case 'qua_han': {
+          const endDate = getCriterionDeadlineEndDate(c.deadline, getCriterionDeadlineTime(c));
+          const isTimePassed = Number(c.lock_override) !== 1 && endDate && endDate.getTime() <= Date.now();
+          return Boolean((st.status === 'expired' || st.status === 'overdue' || st.status === 'deadline_passed' || isTimePassed) && !hasProof && !hasScoreVal);
+        }
         default:
           return true;
       }
     });
   }
 
-  // SẮP XẾP TIÊU CHÍ: CÁI MÔ QUÁ HẠN TỰ ĐỘNG CHO XUỐNG DƯỚI CÙNG!
+  // SẮP XẾP TIÊU CHÍ RIÊNG Ở MỤC NỘP BÁO CÁO & TIÊU CHÍ (TÀI KHOẢN CƠ SỞ):
+  // CHỈ TIÊU ĐÃ QUÁ HẠN ĐƯA VỀ SAU CÙNG, CHỈ TIÊU CÒN HẠN / SẮP TỚI ƯU TIÊN LÊN ĐẦU
+  const isCritOverdueInSubmit = (c) => {
+    if (!c) return false;
+    if (Number(c.lock_override) === 1) return false;
+    const st = getCriterionStatus(c);
+    if (st.status === 'expired' || st.status === 'overdue' || st.status === 'deadline_passed') return true;
+    const endDate = getCriterionDeadlineEndDate(c.deadline, getCriterionDeadlineTime(c));
+    if (endDate && endDate.getTime() <= Date.now()) return true;
+    const effDate = (state.settings && state.settings.effective_date) || todayISO();
+    const dl = c.deadline || '9999-99-99';
+    if (dl !== '9999-99-99' && effDate > dl) return true;
+    return false;
+  };
+
   unitCriteriaList.sort((a, b) => {
-    const stA = getCriterionStatus(a);
-    const isOverdueA = (stA.status === 'overdue' || stA.status === 'deadline_passed');
-    const stB = getCriterionStatus(b);
-    const isOverdueB = (stB.status === 'overdue' || stB.status === 'deadline_passed');
+    const isOverdueA = isCritOverdueInSubmit(a);
+    const isOverdueB = isCritOverdueInSubmit(b);
 
     // Nếu một cái quá hạn, một cái chưa -> Cái quá hạn cho xuống sau cùng!
     if (isOverdueA !== isOverdueB) {
