@@ -38408,8 +38408,8 @@ window.openDeleteChatMessageModal = function(msgId) {
   const previewText = msg && msg.text ? (msg.text.length > 90 ? msg.text.slice(0, 90) + '...' : msg.text) : (msg && msg.file_name ? `[Tệp: ${msg.file_name}]` : 'Tin nhắn đã chọn');
 
   modalRoot.innerHTML = `
-    <div class="modal-overlay" onclick="closeModal()" style="z-index:9999999;">
-      <div class="modal-box" onclick="event.stopPropagation()" style="max-width:440px; width:94%; border-radius:12px; overflow:hidden; box-shadow:0 20px 50px rgba(0,0,0,0.35);">
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()" style="z-index:9999999;">
+      <div class="modal-box" onclick="event.stopPropagation()" style="max-width:440px; width:94%; border-radius:12px; overflow:hidden; box-shadow:0 20px 50px rgba(0,0,0,0.35); background:#fff; margin:20px auto;">
         <div class="modal-header" style="background:linear-gradient(135deg, #0052cc 0%, #0284c7 100%); color:#fff; padding:14px 18px; display:flex; justify-content:space-between; align-items:center;">
           <div style="font-weight:800; font-size:14.5px; display:flex; align-items:center; gap:8px;">
             <span>🗑️</span>
