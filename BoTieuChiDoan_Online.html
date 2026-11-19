@@ -40231,6 +40231,9 @@ function renderFacebookPostCard(item, isHeroCover) {
             </button>
           ` : ''}
           ${canDelete ? `
+            <button type="button" onclick="openEditGalleryPostModal('${pidEsc}')" title="Chỉnh sửa nội dung & quản lý ảnh trong bài viết" style="font-size:11.5px; padding:5px 9px; border-radius:8px; background:#eff6ff; color:#0052cc; border:1px solid #bfdbfe; font-weight:700; cursor:pointer; white-space:nowrap;">
+              ✏️ Sửa
+            </button>
             <button type="button" onclick="deleteGalleryPhoto('${pidEsc}')" title="${isAdmin ? 'Admin xóa bài viết' : 'Xóa bài viết của đơn vị mình'}" style="font-size:11.5px; padding:5px 9px; border-radius:8px; background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:700; cursor:pointer; white-space:nowrap;">
               🗑️ Xóa
             </button>
@@ -41033,10 +41036,205 @@ window.deleteGalleryPhoto = async function (photoId) {
   }, 'Delete gallery post ' + pid);
 };
 
+window._editPostExistingImages = [];
+window._editPostNewFiles = [];
+
+window.renderEditPostPhotosGrid = function () {
+  const grid = document.getElementById('edit-post-photos-grid');
+  const countEl = document.getElementById('edit-post-photos-count');
+  const existing = Array.isArray(window._editPostExistingImages) ? window._editPostExistingImages : [];
+  const added = Array.isArray(window._editPostNewFiles) ? window._editPostNewFiles : [];
+  const total = existing.length + added.length;
+  if (countEl) countEl.textContent = `${total} / 10 ảnh`;
+  if (!grid) return;
+
+  const existingHtml = existing.map((src, idx) => `
+    <div style="position:relative; border-radius:9px; overflow:hidden; border:1px solid #cbd5e1; background:#0f172a; aspect-ratio:4/3;">
+      <img src="${escapeHtml(src)}" alt="Ảnh ${idx + 1}" style="width:100%; height:100%; object-fit:cover; display:block;" />
+      <span style="position:absolute; bottom:3px; left:3px; background:rgba(15,23,42,0.75); color:#fff; font-size:10px; font-weight:800; padding:1px 5px; border-radius:4px;">#${idx + 1}</span>
+      <button type="button" onclick="removeEditPostExistingImage(${idx})" title="Xóa ảnh này khỏi bài viết" style="position:absolute; top:3px; right:3px; width:22px; height:22px; border-radius:50%; border:none; background:rgba(220,38,38,0.92); color:#fff; font-size:11px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;">✕</button>
+    </div>
+  `).join('');
+
+  const addedHtml = added.map((file, idx) => {
+    const objUrl = URL.createObjectURL(file);
+    return `
+      <div style="position:relative; border-radius:9px; overflow:hidden; border:2px solid #22c55e; background:#0f172a; aspect-ratio:4/3;">
+        <img src="${objUrl}" alt="Ảnh mới ${idx + 1}" style="width:100%; height:100%; object-fit:cover; display:block;" />
+        <span style="position:absolute; bottom:3px; left:3px; background:#16a34a; color:#fff; font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:4px;">Mới</span>
+        <button type="button" onclick="removeEditPostNewFile(${idx})" title="Bỏ ảnh mới này" style="position:absolute; top:3px; right:3px; width:22px; height:22px; border-radius:50%; border:none; background:rgba(220,38,38,0.92); color:#fff; font-size:11px; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0;">✕</button>
+      </div>
+    `;
+  }).join('');
+
+  grid.innerHTML = (existingHtml + addedHtml) || '<div style="grid-column:1/-1; text-align:center; padding:14px; color:#dc2626; font-size:12.5px; font-weight:700;">Bài viết cần ít nhất 1 ảnh! Hãy thêm ảnh mới.</div>';
+};
+
+window.removeEditPostExistingImage = function (idx) {
+  if (!Array.isArray(window._editPostExistingImages)) return;
+  window._editPostExistingImages.splice(idx, 1);
+  window.renderEditPostPhotosGrid();
+};
+
+window.removeEditPostNewFile = function (idx) {
+  if (!Array.isArray(window._editPostNewFiles)) return;
+  window._editPostNewFiles.splice(idx, 1);
+  window.renderEditPostPhotosGrid();
+};
+
+window.handleEditPostAddFiles = function (inputEl) {
+  const picked = inputEl && inputEl.files ? Array.from(inputEl.files).filter(f => f && f.type && f.type.startsWith('image/')) : [];
+  if (!picked.length) return;
+  const existingCount = Array.isArray(window._editPostExistingImages) ? window._editPostExistingImages.length : 0;
+  const currentNew = Array.isArray(window._editPostNewFiles) ? [...window._editPostNewFiles] : [];
+  const slotsLeft = Math.max(0, 10 - existingCount - currentNew.length);
+  if (slotsLeft <= 0) {
+    showToast('⚠️ Mỗi bài viết tối đa 10 ảnh! Hãy xóa bớt ảnh cũ nếu muốn thêm mới.', 'warning');
+  } else {
+    if (picked.length > slotsLeft) {
+      showToast(`⚠️ Chỉ thêm được tối đa ${slotsLeft} ảnh nữa (giới hạn 10 ảnh/bài)!`, 'warning');
+    }
+    window._editPostNewFiles = [...currentNew, ...picked.slice(0, slotsLeft)];
+  }
+  if (inputEl) inputEl.value = '';
+  window.renderEditPostPhotosGrid();
+};
+
+window.openEditGalleryPostModal = function (postId) {
+  const actor = getCurrentGalleryActor();
+  if (!actor) return;
+  const pid = String(postId);
+  const photos = getPhotoGalleryList();
+  const target = photos.find(p => String(p.id) === pid);
+  if (!target || target.isDefault) return;
+  if (actor.role !== 'admin' && String(target.uploader_id) !== String(actor.id)) {
+    showToast('Bạn chỉ có thể chỉnh sửa bài viết do chính đơn vị mình đăng!', 'warning');
+    return;
+  }
+
+  window._editPostExistingImages = [...getPostImages(target)];
+  window._editPostNewFiles = [];
+  const pidEsc = escapeHtml(pid);
+  const root = document.getElementById('modal-root');
+  if (!root) return;
+
+  root.innerHTML = `
+    <div class="modal-backdrop" onclick="closeModal()" style="position:fixed; inset:0; background:rgba(15, 23, 42, 0.68); backdrop-filter:blur(4px); z-index:99999; display:flex; align-items:center; justify-content:center; padding:14px; box-sizing:border-box;">
+      <div class="modal-content" onclick="event.stopPropagation()" style="background:#ffffff; border-radius:16px; overflow:hidden; max-width:580px; width:100%; max-height:92dvh; display:flex; flex-direction:column; box-shadow:0 24px 60px rgba(15,23,42,0.38); border:1px solid #e2e8f0;">
+        <div style="background:linear-gradient(135deg, #0b2259 0%, #1552be 100%); color:#fff; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-shrink:0;">
+          <div style="display:flex; align-items:center; gap:9px;">
+            <span style="font-size:19px;">✏️</span>
+            <div>
+              <h3 style="margin:0; font-size:15.5px; font-weight:800; color:#fff;">Chỉnh Sửa Bài Viết &amp; Ảnh</h3>
+              <div style="font-size:11.5px; color:#bfdbfe; margin-top:1px;">Sửa nội dung, xóa bớt hoặc thêm ảnh trực tiếp rồi lưu lại</div>
+            </div>
+          </div>
+          <button type="button" onclick="closeModal()" style="width:32px; height:32px; border-radius:8px; border:1px solid rgba(255,255,255,0.28); background:rgba(255,255,255,0.14); color:#fff; font-size:16px; font-weight:800; cursor:pointer; flex-shrink:0;">✕</button>
+        </div>
+
+        <div style="padding:16px 18px; background:#ffffff; overflow-y:auto; display:flex; flex-direction:column; gap:13px; box-sizing:border-box;">
+          <div>
+            <label for="edit-post-title-input" style="display:block; font-size:12.5px; font-weight:800; color:#1e293b; margin-bottom:5px;">Tiêu đề bài viết <span style="color:#dc2626;">*</span></label>
+            <input type="text" id="edit-post-title-input" value="${escapeHtml(target.title || '')}" style="width:100%; box-sizing:border-box; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:9px; font-size:13.5px; color:#0f172a; background:#fff;" />
+          </div>
+
+          <div>
+            <label for="edit-post-desc-input" style="display:block; font-size:12.5px; font-weight:800; color:#1e293b; margin-bottom:5px;">Mô tả / Nội dung bài viết</label>
+            <textarea id="edit-post-desc-input" rows="3" style="width:100%; box-sizing:border-box; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:9px; font-size:13px; color:#0f172a; background:#fff; resize:vertical; font-family:inherit;">${escapeHtml(target.description || '')}</textarea>
+          </div>
+
+          <div>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:7px; gap:8px;">
+              <label style="font-size:12.5px; font-weight:800; color:#1e293b;">
+                Danh sách ảnh trong bài (<span id="edit-post-photos-count">${window._editPostExistingImages.length} / 10 ảnh</span>)
+              </label>
+              <label for="edit-post-add-files" style="display:inline-flex; align-items:center; gap:5px; padding:5px 10px; border-radius:8px; background:#eff6ff; color:#0052cc; border:1px solid #93c5fd; font-size:12px; font-weight:800; cursor:pointer;">
+                ➕ Thêm ảnh
+                <input type="file" id="edit-post-add-files" accept="image/*" multiple onchange="handleEditPostAddFiles(this)" style="display:none;" />
+              </label>
+            </div>
+            <div id="edit-post-photos-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(96px, 1fr)); gap:8px; padding:10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;"></div>
+          </div>
+        </div>
+
+        <div style="padding:12px 18px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; align-items:center; gap:8px; flex-shrink:0;">
+          <button type="button" class="btn btn-outline" onclick="closeModal()" style="padding:8px 16px; border-radius:9px; font-size:13px; font-weight:700; color:#475569; border-color:#cbd5e1; background:#fff;">Hủy</button>
+          <button type="button" id="btn-save-edit-post" class="btn btn-primary" onclick="submitEditGalleryPost('${pidEsc}')" style="padding:8px 18px; border-radius:9px; font-size:13px; font-weight:800; background:linear-gradient(135deg, #0052cc 0%, #0284c7 100%); border:none; color:#fff; box-shadow:0 3px 10px rgba(0,82,204,0.28);">💾 Lưu Thay Đổi</button>
+        </div>
+      </div>
+    </div>
+  `;
+  window.renderEditPostPhotosGrid();
+};
+
+window.submitEditGalleryPost = async function (postId) {
+  const actor = getCurrentGalleryActor();
+  if (!actor) return;
+  const pid = String(postId);
+  const titleEl = document.getElementById('edit-post-title-input');
+  const descEl = document.getElementById('edit-post-desc-input');
+  const newTitle = (titleEl && titleEl.value || '').trim();
+  const newDesc = (descEl && descEl.value || '').trim();
+  const existing = Array.isArray(window._editPostExistingImages) ? [...window._editPostExistingImages] : [];
+  const newFiles = Array.isArray(window._editPostNewFiles) ? [...window._editPostNewFiles] : [];
+
+  if (!newTitle) { showToast('Tiêu đề bài viết không được để trống!', 'warning'); return; }
+  if (existing.length + newFiles.length === 0) { showToast('Bài viết cần ít nhất 1 ảnh (hoặc bấm Xóa bài viết)!', 'warning'); return; }
+
+  // Cập nhật tức thì trên giao diện (Optimistic UI)
+  const tempNewUrls = newFiles.map(f => URL.createObjectURL(f));
+  const optimisticImages = [...existing, ...tempNewUrls].slice(0, 10);
+  state.photoGallery = (state.photoGallery || []).map(p => String(p.id) === pid
+    ? { ...p, title: newTitle, description: newDesc, src: optimisticImages[0], images: optimisticImages }
+    : p
+  );
+  window._editPostExistingImages = [];
+  window._editPostNewFiles = [];
+  closeModal();
+  renderApp();
+  showToast('⚡ Đã cập nhật bài viết tức thì! Đang lưu lên đám mây...', 'info');
+
+  try {
+    const compressedNew = newFiles.length > 0
+      ? await Promise.all(newFiles.map(f => compressGalleryImageFast(f, (existing.length + newFiles.length) > 1)))
+      : [];
+    const finalImages = [...existing, ...compressedNew].slice(0, 10);
+
+    const res = await mutateCloudDB((db) => {
+      if (!Array.isArray(db.photo_gallery)) return;
+      db.photo_gallery = db.photo_gallery.map(p => {
+        if (!p || String(p.id) !== pid) return p;
+        return {
+          ...p,
+          title: newTitle,
+          description: newDesc,
+          src: finalImages[0],
+          images: finalImages,
+          updated_at: nowISO(),
+        };
+      });
+    }, 'Edit gallery post ' + pid);
+
+    if (res && res.ok) {
+      state.photoGallery = (state.photoGallery || []).map(p => String(p.id) === pid
+        ? { ...p, title: newTitle, description: newDesc, src: finalImages[0], images: finalImages }
+        : p
+      );
+      showToast('🟢 Đã lưu thay đổi bài viết thành công!', 'success');
+      renderApp();
+    } else {
+      showToast('Không thể lưu thay đổi lên đám mây, vui lòng thử lại!', 'error');
+    }
+    setTimeout(() => tempNewUrls.forEach(u => { try { URL.revokeObjectURL(u); } catch (e) {} }), 2000);
+  } catch (e) {
+    showToast('Lỗi cập nhật bài viết: ' + (e.message || e), 'error');
+  }
+};
+
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795074036060;
+    const CURRENT_BUILD_TS = 1795074106939;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;
