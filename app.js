@@ -1902,6 +1902,125 @@ function getMyPresenceSessionId() {
   return window._myPresenceSessionId;
 }
 
+function getGlobalPresenceCounts() {
+  const onlineList = [];
+  const offlineList = [];
+
+  const adminOnline = window.isUnitOnline ? window.isUnitOnline(0) : false;
+  const adminEntry = {
+    id: 0,
+    name: 'Ban Thường vụ Đoàn UBND Tỉnh (Admin)',
+    role: 'admin',
+    isOnline: adminOnline
+  };
+  if (adminOnline) onlineList.push(adminEntry);
+  else offlineList.push(adminEntry);
+
+  (state.units || []).forEach(u => {
+    if (!u || u.id === 0) return;
+    const isOn = window.isUnitOnline ? window.isUnitOnline(u.id) : false;
+    const entry = {
+      id: u.id,
+      name: u.unit_name,
+      code: u.unit_code || '',
+      role: 'unit',
+      isOnline: isOn
+    };
+    if (isOn) onlineList.push(entry);
+    else offlineList.push(entry);
+  });
+
+  return {
+    onlineCount: onlineList.length,
+    offlineCount: offlineList.length,
+    onlineList,
+    offlineList,
+    total: onlineList.length + offlineList.length
+  };
+}
+
+window.openPresenceDirectoryModal = function(tab = 'online', isLiveRefresh = false) {
+  const modalRoot = document.getElementById('modal-root');
+  if (!modalRoot) return;
+
+  const prevScrollEl = document.getElementById('presence-directory-scroll');
+  const prevScrollTop = (prevScrollEl && isLiveRefresh) ? prevScrollEl.scrollTop : 0;
+
+  window._activePresenceModalTab = tab;
+  if (!isLiveRefresh && typeof window.fetchPresenceFromCloud === 'function') {
+    window.fetchPresenceFromCloud(true);
+  }
+
+  const { onlineCount, offlineCount, onlineList, offlineList, total } = getGlobalPresenceCounts();
+  const isGuest = Boolean(state.user && state.user.role === 'guest');
+  const myId = state.user ? (state.user.role === 'admin' ? 0 : Number(state.user.id)) : -1;
+  const displayList = tab === 'online' ? onlineList : (tab === 'offline' ? offlineList : [...onlineList, ...offlineList]);
+
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()" style="z-index:9999999;">
+      <div class="modal-box" onclick="event.stopPropagation()" style="max-width:560px; width:95%; border-radius:12px; overflow:hidden; box-shadow:0 18px 42px rgba(0,0,0,0.32); background:#fff; margin:20px auto; max-height:88vh; display:flex; flex-direction:column;">
+        <div class="modal-header" style="background:linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%); color:#fff; padding:13px 18px; display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-weight:800; font-size:14px; display:flex; align-items:center; gap:8px;">
+            <span>📡</span>
+            <span>TRẠNG THÁI TRỰC TUYẾN TỨC THÌ (${total} TÀI KHOẢN)</span>
+          </div>
+          <button type="button" onclick="closeModal()" style="background:transparent; border:none; color:#fff; font-size:18px; font-weight:800; cursor:pointer; padding:2px 6px;">✕</button>
+        </div>
+
+        <div style="padding:10px 16px; background:#f8fafc; border-bottom:1px solid #e2e8f0; display:flex; gap:8px; flex-wrap:wrap;">
+          <button type="button" onclick="openPresenceDirectoryModal('online')" style="flex:1; min-width:110px; padding:8px 10px; border-radius:8px; font-weight:800; font-size:12.5px; cursor:pointer; border:1.5px solid ${tab === 'online' ? '#16a34a' : '#cbd5e1'}; background:${tab === 'online' ? '#dcfce7' : '#fff'}; color:${tab === 'online' ? '#15803d' : '#334155'};">
+            🟢 Đang Online (${onlineCount})
+          </button>
+          <button type="button" onclick="openPresenceDirectoryModal('offline')" style="flex:1; min-width:110px; padding:8px 10px; border-radius:8px; font-weight:800; font-size:12.5px; cursor:pointer; border:1.5px solid ${tab === 'offline' ? '#475569' : '#cbd5e1'}; background:${tab === 'offline' ? '#e2e8f0' : '#fff'}; color:${tab === 'offline' ? '#0f172a' : '#475569'};">
+            ⚪ Đang Offline (${offlineCount})
+          </button>
+          <button type="button" onclick="openPresenceDirectoryModal('all')" style="padding:8px 12px; border-radius:8px; font-weight:700; font-size:12px; cursor:pointer; border:1.5px solid ${tab === 'all' ? '#0284c7' : '#cbd5e1'}; background:${tab === 'all' ? '#e0f2fe' : '#fff'}; color:${tab === 'all' ? '#0369a1' : '#475569'};">
+            Tất cả (${total})
+          </button>
+        </div>
+
+        <div id="presence-directory-scroll" style="padding:10px 14px; overflow-y:auto; flex:1 1 auto; background:#f1f5f9; display:flex; flex-direction:column; gap:6px;">
+          ${displayList.length === 0 ? `
+            <div style="text-align:center; padding:32px 16px; color:#64748b; background:#fff; border-radius:8px; font-size:13px;">
+              ${tab === 'online' ? 'Hiện chưa có đơn vị nào đang Online.' : 'Không có đơn vị nào đang Offline.'}
+            </div>
+          ` : displayList.map(item => `
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:9px 12px; background:#fff; border-radius:8px; border:1px solid ${item.isOnline ? '#bbf7d0' : '#e2e8f0'};">
+              <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
+                <span style="font-size:12px; flex-shrink:0;">${item.isOnline ? '🟢' : '⚪'}</span>
+                <div style="min-width:0;">
+                  <div style="font-weight:700; font-size:12.5px; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                    ${item.role === 'admin' ? '👑 ' : '🏢 '}${escapeHtml(item.name)}
+                    ${item.id === myId ? '<span style="font-size:10px; color:#0284c7; font-weight:800; margin-left:4px;">(Bạn)</span>' : ''}
+                  </div>
+                  <div style="font-size:11px; font-weight:700; color:${item.isOnline ? '#16a34a' : '#64748b'};">
+                    ${item.isOnline ? 'Đang hoạt động trực tuyến' : 'Ngoại tuyến (Offline)'}
+                  </div>
+                </div>
+              </div>
+              ${(!isGuest && item.id !== myId) ? `
+                <button type="button" onclick="closeModal(); state.chatOpen=true; state.chatTab='private'; state.chatPrivatePartnerId=${item.id}; if(state.user && state.user.role==='admin'){state.chatPrivateUnitId=${item.id};} renderApp(); setTimeout(()=>{if(typeof scrollChatToBottom==='function')scrollChatToBottom();},40);" style="background:#eff6ff; color:#1d4ed8; border:1px solid #93c5fd; border-radius:6px; padding:4px 10px; font-size:11.5px; font-weight:700; cursor:pointer; white-space:nowrap; flex-shrink:0;">
+                  💬 Chat riêng
+                </button>
+              ` : ''}
+            </div>
+          `).join('')}
+        </div>
+
+        <div class="modal-footer" style="padding:10px 16px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:11px; color:#64748b;">⚡ Tự động cập nhật tức thì khi có tài khoản vào/thoát</span>
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal()" style="font-weight:700; padding:6px 16px;">Đóng</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  if (prevScrollTop > 0) {
+    const newScrollEl = document.getElementById('presence-directory-scroll');
+    if (newScrollEl) newScrollEl.scrollTop = prevScrollTop;
+  }
+};
+
 window.isUnitOnline = function(unitId) {
   if (!state.user) return false;
   const myId = state.user.role === 'admin' ? 0 : state.user.id;
@@ -2035,6 +2154,18 @@ window.patchLiveChatDOM = function(hasNewIncomingMsg = false) {
     if (curTabs && newTabs && curTabs.innerHTML !== newTabs.innerHTML) {
       curTabs.innerHTML = newTabs.innerHTML;
     }
+
+    // 4. Cập nhật trực tiếp số lượng Online / Offline trên thanh Header và Modal danh sách (nếu đang mở)
+    const pCounts = typeof getGlobalPresenceCounts === 'function' ? getGlobalPresenceCounts() : null;
+    if (pCounts) {
+      const onPill = document.getElementById('header-online-pill');
+      const offPill = document.getElementById('header-offline-pill');
+      if (onPill) onPill.innerHTML = `🟢 ${pCounts.onlineCount} Online`;
+      if (offPill) offPill.innerHTML = `⚪ ${pCounts.offlineCount} Offline`;
+    }
+    if (window._activePresenceModalTab && typeof openPresenceDirectoryModal === 'function') {
+      openPresenceDirectoryModal(window._activePresenceModalTab, true);
+    }
   } catch (e) {}
 };
 
@@ -2132,7 +2263,7 @@ function ingestLiveChatFromPresence(parsed) {
 window.fetchPresenceFromCloud = async function(force = false) {
   if (typeof fetch !== 'function') return;
   const now = Date.now();
-  if (!force && window._lastCloudPresenceFetchTs && (now - window._lastCloudPresenceFetchTs < 2200)) return;
+  if (!force && window._lastCloudPresenceFetchTs && (now - window._lastCloudPresenceFetchTs < 1200)) return;
   window._lastCloudPresenceFetchTs = now;
 
   try {
@@ -2168,7 +2299,7 @@ window.syncPresenceToCloud = function(isOnline = true, targetUser = null) {
   const sid = getMyPresenceSessionId();
 
   const task = async () => {
-    for (let attempt = 0; attempt < 4; attempt++) {
+    for (let attempt = 0; attempt < 6; attempt++) {
       try {
         const now = Date.now();
         const getUrl = `https://api.github.com/repos/${CLOUD_OWNER}/${CLOUD_REPO}/contents/presence.json?ref=${PRESENCE_BRANCH}&t=${now}`;
@@ -2305,8 +2436,9 @@ window.recordMyPresence = function(force = false, justJoined = false) {
     window.syncPresenceToCloud(true);
   }
 
-  // Làm mới danh sách Online & Tin nhắn trực tiếp mỗi 2.5 giây khi đang mở Chat, hoặc mỗi 15 giây ở nền
-  const pollInterval = (state.chatOpen || state.activeTab === 'units') ? 2500 : 15000;
+  // Làm mới danh sách Online & Tin nhắn trực tiếp mỗi 1.5 giây khi đang mở Chat/Bảng Online, hoặc mỗi 8 giây ở nền
+  const isViewingPresence = Boolean(state.chatOpen || state.activeTab === 'units' || window._activePresenceModalTab);
+  const pollInterval = isViewingPresence ? 1500 : 8000;
   if (!window._lastCloudPresenceFetchTs || (now - window._lastCloudPresenceFetchTs >= pollInterval)) {
     window.fetchPresenceFromCloud();
   }
@@ -5412,16 +5544,24 @@ function renderHeader() {
           Đăng xuất
         </button>
 
-        <!-- ONLINE & ĐỒNG HỒ NẰM CHUNG HÀNG VỚI NÚT THAO TÁC, GỌN GÀNG ĐẸP MẮT -->
-        <div class="header-status-box" style="display: inline-flex; align-items: center; gap: 4px; height: 27px; padding: 2px 8px; background: rgba(0,0,0,0.28); border-radius: 6px; border: 1px solid rgba(255,255,255,0.25); flex-shrink: 0;">
-          <span style="font-size: 10.5px; font-weight: 700; color: ${state.cloudOnline ? '#4ade80' : '#facc15'}; display: inline-flex; align-items: center; gap: 3px;">
-            ${state.cloudOnline ? '🟢 Online' : '🟡 Offline'}
-          </span>
-          <span style="color: rgba(255,255,255,0.35); font-size: 10px; margin: 0 1px;">|</span>
-          <span style="color: #ffffff; font-weight: 700; font-family: monospace; font-size: 10.5px;" id="live-realtime-clock" title="Đồng hồ thời gian thực">
-            ⏱️ ${new Date().toLocaleTimeString('vi-VN')}
-          </span>
-        </div>
+        <!-- DANH SÁCH ONLINE / OFFLINE TỨC THÌ CỦA CƠ SỞ ĐOÀN & ADMIN + ĐỒNG HỒ -->
+        ${(() => {
+          const pCounts = typeof getGlobalPresenceCounts === 'function' ? getGlobalPresenceCounts() : { onlineCount: 0, offlineCount: 0 };
+          return `
+            <div class="header-status-box" style="display: inline-flex; align-items: center; gap: 4px; height: 27px; padding: 2px 6px; background: rgba(0,0,0,0.28); border-radius: 6px; border: 1px solid rgba(255,255,255,0.25); flex-shrink: 0;">
+              <button type="button" id="header-online-pill" onclick="openPresenceDirectoryModal('online')" title="Bấm để xem danh sách các cơ sở Đoàn & Admin đang Online tức thì" style="background: rgba(22,163,74,0.28); border: 1px solid rgba(74,222,128,0.65); color: #86efac; font-size: 10.5px; font-weight: 800; padding: 1px 7px; border-radius: 5px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; white-space: nowrap;">
+                🟢 ${pCounts.onlineCount} Online
+              </button>
+              <button type="button" id="header-offline-pill" onclick="openPresenceDirectoryModal('offline')" title="Bấm để xem danh sách các cơ sở Đoàn & Admin đang Offline" style="background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.28); color: #e2e8f0; font-size: 10.5px; font-weight: 700; padding: 1px 7px; border-radius: 5px; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; white-space: nowrap;">
+                ⚪ ${pCounts.offlineCount} Offline
+              </button>
+              <span style="color: rgba(255,255,255,0.35); font-size: 10px; margin: 0 1px;">|</span>
+              <span style="color: #ffffff; font-weight: 700; font-family: monospace; font-size: 10.5px;" id="live-realtime-clock" title="Đồng hồ thời gian thực">
+                ⏱️ ${new Date().toLocaleTimeString('vi-VN')}
+              </span>
+            </div>
+          `;
+        })()}
       </div>
 
     </header>
@@ -8860,6 +9000,7 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
 window.closeModal = function () {
 
   window._activeChatDetailsMsgId = null;
+  window._activePresenceModalTab = null;
 
   document.getElementById('modal-root').innerHTML = '';
 
@@ -20202,6 +20343,14 @@ window.sendChatMessage = async function() {
   const text = input.value.trim();
 
   if (!text) return;
+
+  // Chống gửi lặp nhiều lần khi bấm liên tiếp hoặc chạm đúp trên điện thoại
+  const sendNowTs = Date.now();
+  if (window._lastChatSendTs && (sendNowTs - window._lastChatSendTs < 800) && window._lastChatSendText === text) {
+    return;
+  }
+  window._lastChatSendTs = sendNowTs;
+  window._lastChatSendText = text;
 
 
 
