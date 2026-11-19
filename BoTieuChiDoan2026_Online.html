@@ -7561,28 +7561,19 @@ window.isUnitOnline = function(unitId) {
   const rtSeen = Number(rtPresence[unitId] || rtPresence[String(unitId)] || 0);
   const offAt = Number(rtOffline[unitId] || rtOffline[String(unitId)] || 0);
 
-  // Nếu đơn vị vừa đăng xuất / đóng ứng dụng gần hơn lần ping cuối -> Offline ngay lập tức
+  // Nếu đơn vị vừa thoát app / ẩn tab / đăng xuất / chuyển tài khoản gần hơn lần ping cuối -> Offline ngay lập tức
   if (offAt > 0 && offAt >= rtSeen && (now - offAt < 600000)) {
     return false;
   }
 
-  // 1. Kiểm tra tín hiệu realtime qua Live Bridge trong vòng 45 giây
-  if (rtSeen > 0 && (now - rtSeen < 45000)) {
+  // Chỉ tính Online khi thiết bị đang thực sự mở app & hoạt động (ping mỗi 10s, quá 25s không ping là Offline)
+  if (rtSeen > 0 && (now - rtSeen < 25000)) {
     return true;
   }
 
   const presence = state.onlinePresence || {};
   const lastSeen = Number(presence[unitId] || presence[String(unitId)] || 0);
-  if (lastSeen > 0 && (now - lastSeen < 45000)) {
-    return true;
-  }
-
-  // 2. Kiểm tra nếu đơn vị vừa gửi tin nhắn trong vòng 2 phút qua (trừ khi đã offline)
-  const recentMsg = (state.chatMessages || []).slice(-40).reverse().find(m => {
-    if (unitId === 0) return m.sender_role === 'admin';
-    return m.sender_id === unitId;
-  });
-  if (recentMsg && recentMsg.timestamp && (now - recentMsg.timestamp < 120000)) {
+  if (lastSeen > 0 && (now - lastSeen < 25000)) {
     return true;
   }
 
@@ -7591,6 +7582,7 @@ window.isUnitOnline = function(unitId) {
 
 window.recordMyPresence = function(force = false, justJoined = false) {
   if (!state.user || state.user.role === 'guest') return;
+  if (typeof document !== 'undefined' && document.hidden && !force) return;
   const myId = state.user.role === 'admin' ? 0 : Number(state.user.id);
   const now = Date.now();
   state.realtimePresence = state.realtimePresence || {};
@@ -7599,7 +7591,7 @@ window.recordMyPresence = function(force = false, justJoined = false) {
   state.onlinePresence[myId] = now;
   if (state.realtimeOffline) delete state.realtimeOffline[myId];
 
-  if (!force && window._lastPresenceBroadcastTs && (now - window._lastPresenceBroadcastTs < 18000)) {
+  if (!force && window._lastPresenceBroadcastTs && (now - window._lastPresenceBroadcastTs < 10000)) {
     return;
   }
   window._lastPresenceBroadcastTs = now;
@@ -7612,7 +7604,11 @@ window.broadcastMyOffline = function() {
   if (!state.user || state.user.role === 'guest') return;
   const myId = state.user.role === 'admin' ? 0 : Number(state.user.id);
   const now = Date.now();
-  const payload = { type: 'PRESENCE_OFFLINE', payload: { unitId: myId, ts: now }, sender_id: state.user.id, ts: now };
+  if (state.realtimePresence) delete state.realtimePresence[myId];
+  if (state.onlinePresence) delete state.onlinePresence[myId];
+  state.realtimeOffline = state.realtimeOffline || {};
+  state.realtimeOffline[myId] = now;
+  const payloadStr = JSON.stringify({ type: 'PRESENCE_OFFLINE', payload: { unitId: myId, ts: now }, sender_id: state.user.id, ts: now });
 
   if (typeof BroadcastChannel !== 'undefined') {
     try {
@@ -7623,12 +7619,15 @@ window.broadcastMyOffline = function() {
   }
 
   try {
+    if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+      navigator.sendBeacon(`https://ntfy.sh/${LIVE_REALTIME_TOPIC}`, new Blob([payloadStr], { type: 'text/plain' }));
+    }
     if (typeof fetch === 'function') {
       fetch(`https://ntfy.sh/${LIVE_REALTIME_TOPIC}`, {
         method: 'POST',
         keepalive: true,
         headers: { 'Title': 'PRESENCE_OFFLINE', 'Priority': 'high' },
-        body: JSON.stringify(payload)
+        body: payloadStr
       }).catch(() => {});
     }
   } catch (e) {}
@@ -9328,7 +9327,10 @@ window.switchAccountQuick = function (val) {
 
   if (!val) return;
 
-
+  // Báo Offline tài khoản cũ ngay trước khi chuyển tài khoản
+  if (typeof window.broadcastMyOffline === 'function') {
+    window.broadcastMyOffline();
+  }
 
   state.aiChatSelectedUnitId = null;
   state.aiChatHistory = [];
@@ -9365,6 +9367,8 @@ window.switchAccountQuick = function (val) {
 
     showToast('Đã quay về quyền Quản trị viên (Admin)', 'info');
 
+    if (typeof window.recordMyPresence === 'function') window.recordMyPresence(true, true);
+
     renderApp();
 
     return;
@@ -9390,6 +9394,8 @@ window.switchAccountQuick = function (val) {
     state.activeTab = 'unit_submit';
 
     showToast(`Đang xem dưới góc nhìn của: <b>${escapeHtml(u.unit_name)}</b>`, 'info');
+
+    if (typeof window.recordMyPresence === 'function') window.recordMyPresence(true, true);
 
     renderApp();
 
@@ -33000,7 +33006,7 @@ window.initRealtimeLiveBridge = function() {
   if (_liveEventSource) return;
 
   try {
-    _liveEventSource = new EventSource(`https://ntfy.sh/${LIVE_REALTIME_TOPIC}/sse`);
+    _liveEventSource = new EventSource(`https://ntfy.sh/${LIVE_REALTIME_TOPIC}/sse?since=30s`);
 
     _liveEventSource.onmessage = function(event) {
       try {
@@ -33136,8 +33142,8 @@ function handleIncomingPresencePing(payload) {
   state.onlinePresence[uid] = Math.max(Number(state.onlinePresence[uid]) || 0, ts);
   if (state.realtimeOffline) delete state.realtimeOffline[uid];
 
-  // Nếu có đơn vị/Admin khác vừa mới mở web -> phản hồi lại 1 lần để họ thấy mình đang Online ngay lập tức
-  if (payload.justJoined && state.user && state.user.role !== 'guest') {
+  // Nếu có đơn vị/Admin khác vừa mới mở web trong 5 giây gần đây -> phản hồi lại 1 lần để họ thấy mình đang Online ngay lập tức
+  if (payload.justJoined && (Date.now() - ts < 5000) && state.user && state.user.role !== 'guest') {
     const myId = state.user.role === 'admin' ? 0 : Number(state.user.id);
     if (uid !== myId) {
       setTimeout(() => {
@@ -33243,14 +33249,21 @@ function handleIncomingRealtimeChat(msg) {
   if (!alreadyNotified && window.playNotificationChime) window.playNotificationChime();
 }
 
-// Tự động kết nối lại khi người dùng mở lại điện thoại / chuyển tab
+// Tự động báo Online khi mở lại / Offline ngay khi ẩn tab, tắt app hoặc không sử dụng
 document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'visible') {
     if (!_liveEventSource && window.initRealtimeLiveBridge) {
       window.initRealtimeLiveBridge();
     }
+    if (typeof window.recordMyPresence === 'function') {
+      window.recordMyPresence(true, true);
+    }
     if (typeof window.syncFromCloudNow === 'function') {
       window.syncFromCloudNow(true);
+    }
+  } else if (document.visibilityState === 'hidden') {
+    if (typeof window.broadcastMyOffline === 'function') {
+      window.broadcastMyOffline();
     }
   }
 });
