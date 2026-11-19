@@ -2020,13 +2020,11 @@ function ingestCloudDB(db) {
   const oldFeaturedUrl = (state.settings && state.settings.admin_featured_youtube_url) || '';
   state.settings = settings;
 
-  // Nếu Admin cập nhật bài hát cố định trên đám mây, chỉ đổi khi là tệp âm thanh trực tiếp để không làm gián đoạn nhạc đang nghe
+  // Nếu Admin cập nhật bài hát cố định trên đám mây (YouTube hoặc âm thanh trực tiếp), tự động đồng bộ phát ngay
   if (typeof window !== 'undefined' && window.BgMusicManager) {
     const newFeaturedUrl = settings.admin_featured_youtube_url || '';
     if (newFeaturedUrl !== oldFeaturedUrl && !window.BgMusicManager.isLocallyPaused()) {
-      if (!extractYouTubeId(newFeaturedUrl)) {
-        window.BgMusicManager.syncWithSettings(true);
-      }
+      window.BgMusicManager.syncWithSettings(true);
     }
   }
 
@@ -18337,6 +18335,8 @@ window.toggleChatWidget = function() {
   }
 
   if (state.chatOpen) {
+    if (typeof fetchPresenceSnapshot === 'function') fetchPresenceSnapshot();
+    if (typeof window.recordMyPresence === 'function') window.recordMyPresence(true, true);
 
     try {
 
@@ -18449,6 +18449,11 @@ window.switchChatTab = function(tab) {
 
   state.chatTab = tab;
   try { localStorage.setItem('doan2026_chat_tab', tab); } catch (e) {}
+
+  if (tab === 'private') {
+    if (typeof fetchPresenceSnapshot === 'function') fetchPresenceSnapshot();
+    if (typeof window.recordMyPresence === 'function') window.recordMyPresence(true, true);
+  }
 
   setChatRoomAsRead(getChatRoomKey());
 
@@ -29609,38 +29614,7 @@ window.executeSaveAutoScore = async function(criterionId) {
 // 5. Độc lập âm lượng và tắt/bật tiếng riêng cho từng máy (Máy A, Máy B không ảnh hưởng nhau)
 // =========================================================================
 
-const DEFAULT_BG_PLAYLIST = [
-  {
-    id: 'khat-vong-tuoi-tre',
-    title: 'Khát Vọng Tuổi Trẻ (Vũ Hoàng)',
-    url: './assets/khat-vong-tuoi-tre.mp3',
-    fallbackUrl: 'https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/assets/khat-vong-tuoi-tre.mp3',
-    videoId: '8gvtAeGTNZQ',
-    gdriveUrl: 'https://drive.google.com/file/d/1Hz6-QTMJ3KgEI11s49hUtUly0ezuPzhu/view',
-    size: '3.1 MB',
-    isPreset: true
-  },
-  {
-    id: 'doan-ca',
-    title: 'Thanh Niên Làm Theo Lời Bác (Đoàn Ca)',
-    url: './assets/doan-ca.mp3',
-    fallbackUrl: 'https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/assets/doan-ca.mp3',
-    videoId: 'xpywMmWws0U',
-    gdriveUrl: 'https://drive.google.com/file/d/15bdDOqa3AsP0kHSMZl4iEJOOVQIzwUSq/view',
-    size: '1.1 MB',
-    isPreset: true
-  },
-  {
-    id: 'tien-quan-ca',
-    title: 'Tiến Quân Ca (Quốc Ca Việt Nam)',
-    url: './assets/tien-quan-ca.mp3',
-    fallbackUrl: 'https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/assets/tien-quan-ca.mp3',
-    videoId: 'gy7_kS8PJHo',
-    gdriveUrl: 'https://drive.google.com/file/d/1PYhB_0tGcqtla3TaAtuLvuDMMQRIQdkJ/view',
-    size: '1.6 MB',
-    isPreset: true
-  }
-];
+const DEFAULT_BG_PLAYLIST = [];
 
 function getAdminFeaturedTrack() {
   const settings = (state && state.settings) ? state.settings : {};
@@ -29874,15 +29848,16 @@ window.BgMusicManager = {
 
   getCurrentTrack() {
     const playlist = getBgMusicPlaylist();
+    if (!playlist || playlist.length === 0) return null;
     if (this.currentIndex < 0 || this.currentIndex >= playlist.length) {
       this.currentIndex = 0;
     }
-    return playlist[this.currentIndex] || DEFAULT_BG_PLAYLIST[0];
+    return playlist[this.currentIndex] || null;
   },
 
   getCurrentTitle() {
     const track = this.getCurrentTrack();
-    return track ? track.title : 'Khát Vọng Tuổi Trẻ (Vũ Hoàng)';
+    return track ? track.title : 'Chưa gắn nhạc nền';
   },
 
   getLocalVolume() {
@@ -29923,26 +29898,30 @@ window.BgMusicManager = {
     }
 
     const playlist = getBgMusicPlaylist();
-    if (!playlist || playlist.length === 0) return;
+    if (!playlist || playlist.length === 0) {
+      this.pauseAll();
+      this.currentTrack = null;
+      this.isPlaying = false;
+      this.hasLoadError = false;
+      this.updateUI();
+      return;
+    }
 
     if (this.currentTrack && !forceFreshStart) {
       return;
     }
 
-    // ƯU TIÊN TUYỆT ĐỐI CHO TỰ ĐỘNG PHÁT KHI MỞ ỨNG DỤNG:
-    // Các tệp MP3 HTML5 Audio chạy được 100% trên mọi nền tảng (iPhone, iPad, Android, Máy tính)
+    // ƯU TIÊN SỐ 1: Link nhạc cố định do Admin gắn (YouTube hoặc Audio trực tiếp)
     const adminFeatured = getAdminFeaturedTrack();
-    if (adminFeatured && adminFeatured.type !== 'youtube' && !extractYouTubeId(adminFeatured.url)) {
+    if (adminFeatured) {
       this.currentIndex = 0;
       this.playTrack(adminFeatured, false);
       return;
     }
 
-    // Nếu không có tệp MP3 gán cố định, tự động phát bài hát truyền thống Đoàn (Khát Vọng Tuổi Trẻ / Đoàn Ca)
-    const defaultHtml5Track = playlist.find(t => t.type !== 'youtube' && !extractYouTubeId(t.url)) || DEFAULT_BG_PLAYLIST[0];
-    const foundIdx = playlist.findIndex(t => t.id === defaultHtml5Track.id);
-    this.currentIndex = foundIdx >= 0 ? foundIdx : 0;
-    this.playTrack(defaultHtml5Track, false);
+    // ƯU TIÊN SỐ 2: Bài hát do cơ sở Đoàn tự gắn trong Album / máy hiện tại
+    this.currentIndex = 0;
+    this.playTrack(playlist[0], false);
   },
 
   playTrack(track, forceUserPlay = true) {
@@ -30094,13 +30073,29 @@ window.BgMusicManager = {
             fs: 0,
             modestbranding: 1,
             playsinline: 1,
-            rel: 0
+            rel: 0,
+            origin: (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : undefined
           },
           events: {
             onReady: (event) => {
               event.target.setVolume(vol);
               if (muted) event.target.mute(); else event.target.unMute();
-              if (!this.isLocallyPaused()) event.target.playVideo();
+              if (!this.isLocallyPaused()) {
+                event.target.playVideo();
+                // Nếu trình duyệt chặn tự động phát có tiếng, chuyển sang phát tắt tiếng và mở tiếng ngay khi chạm/click lần đầu
+                setTimeout(() => {
+                  try {
+                    if (!this.isLocallyPaused() && this.ytPlayer && typeof this.ytPlayer.getPlayerState === 'function') {
+                      const st = this.ytPlayer.getPlayerState();
+                      if (st !== 1 && st !== 3) {
+                        this.ytPlayer.mute();
+                        this.ytPlayer.playVideo();
+                        this.setupAutoplayOnInteraction();
+                      }
+                    }
+                  } catch (e) {}
+                }, 500);
+              }
               this.updateUI();
             },
             onStateChange: (event) => {
@@ -30116,9 +30111,10 @@ window.BgMusicManager = {
               }
             },
             onError: (e) => {
-              console.warn('[BgMusic] YouTube Player Error:', e, 'Auto-falling back to standard track');
-              this.currentType = 'html5';
-              this.playTrack(DEFAULT_BG_PLAYLIST[0], true);
+              console.warn('[BgMusic] YouTube Player Error:', e);
+              this.isPlaying = false;
+              this.hasLoadError = true;
+              this.updateUI();
             }
           }
         });
@@ -30136,6 +30132,13 @@ window.BgMusicManager = {
   },
 
   tryPlay() {
+    if (!this.currentTrack) {
+      const playlist = getBgMusicPlaylist();
+      if (!playlist || playlist.length === 0) return;
+      this.syncWithSettings(true);
+      return;
+    }
+
     if (this.currentType === 'youtube') {
       if (this.ytPlayer && typeof this.ytPlayer.playVideo === 'function') {
         try {
@@ -30150,12 +30153,13 @@ window.BgMusicManager = {
     }
 
     if (!this.audio) {
-      this.audio = window._preloadedBgAudio || new Audio('./assets/khat-vong-tuoi-tre.mp3');
+      this.audio = new Audio();
       this.setupAudioListeners();
     }
-    if (!this.audio.src) {
-      this.audio.src = './assets/khat-vong-tuoi-tre.mp3';
+    if (!this.audio.src && this.currentTrackUrl) {
+      this.audio.src = this.currentTrackUrl;
     }
+    if (!this.audio.src) return;
 
     this.audio.volume = this.getLocalVolume();
     this.audio.muted = this.isLocallyMuted();
@@ -30519,7 +30523,7 @@ function openBgMusicSettingsModal() {
                     <button type="button" class="btn btn-sm" onclick="window.BgMusicManager.playTrack(getAdminFeaturedTrack(), true)" style="background:#15803d; color:#fff; font-weight:700; font-size:11px; padding:5px 10px; border:none; border-radius:5px; cursor:pointer;">
                       ▶ Nghe thử
                     </button>
-                    <button type="button" class="btn btn-sm" onclick="window.deleteAdminFeaturedMusic()" style="background:#fee2e2; color:#b91c1c; border:1px solid #f87171; font-weight:800; font-size:11px; padding:5px 11px; border-radius:5px; cursor:pointer;" title="Xóa bỏ link cố định, quay về phát 3 bài Đoàn truyền thống">
+                    <button type="button" class="btn btn-sm" onclick="window.deleteAdminFeaturedMusic()" style="background:#fee2e2; color:#b91c1c; border:1px solid #f87171; font-weight:800; font-size:11px; padding:5px 11px; border-radius:5px; cursor:pointer;" title="Xóa bỏ link nhạc cố định toàn hệ thống">
                       🗑️ Xóa link cố định
                     </button>
                   </div>
@@ -30578,7 +30582,13 @@ function openBgMusicSettingsModal() {
                     </tr>
                   </thead>
                   <tbody>
-                    ${playlist.map((s, idx) => {
+                    ${playlist.length === 0 ? `
+                      <tr>
+                        <td colspan="3" style="padding:20px 12px; text-align:center; color:#64748b; font-size:12.5px; background:#fff;">
+                          🎵 Chưa có bài hát nào. ${isAdmin ? 'Admin có thể gắn link cố định phía trên hoặc dán link YouTube để phát.' : 'Chờ Admin gắn link nhạc cố định hoặc bạn có thể tự dán link YouTube phía trên để nghe.'}
+                        </td>
+                      </tr>
+                    ` : playlist.map((s, idx) => {
                       const isCurrent = (currentIdx === idx || currentTitle === s.title);
                       return `
                         <tr style="border-bottom:1px solid #f1f5f9; background:${isCurrent ? '#ede9fe' : '#fff'};">

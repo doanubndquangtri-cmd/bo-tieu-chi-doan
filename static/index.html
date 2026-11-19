@@ -18,36 +18,18 @@
   <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
   <link rel="icon" type="image/png" href="./favicon.png" />
 
-    <!-- Khởi động âm thanh nền tức thì 0ms cho mọi thiết bị (iPhone, iPad, Android, PC) -->
+    <!-- Khởi động âm thanh nền tức thì khi có link nhạc Admin hoặc đơn vị tự gắn -->
   <script>
     (function() {
       try {
-        var audio = new Audio('./assets/khat-vong-tuoi-tre.mp3');
-        audio.preload = 'auto';
-        audio.loop = true;
-        audio.volume = 0.5;
-        window._preloadedBgAudio = audio;
-        var p = audio.play();
-        if (p && p.catch) {
-          p.catch(function() {
-            audio.muted = true;
-            audio.play().catch(function(){});
-          });
-        }
         var unlock = function() {
           try {
             if (localStorage.getItem('doan2026_bg_music_muted') === '1' || localStorage.getItem('doan2026_bg_music_paused') === '1') {
               return;
             }
           } catch(e) {}
-          if (window.BgMusicManager && !window.BgMusicManager.isLocallyMuted() && !window.BgMusicManager.isLocallyPaused()) {
+          if (window.BgMusicManager && window.BgMusicManager.currentTrack && !window.BgMusicManager.isLocallyMuted() && !window.BgMusicManager.isLocallyPaused()) {
             window.BgMusicManager.unlockAndPlay();
-          } else if (window._preloadedBgAudio) {
-            window._preloadedBgAudio.muted = false;
-            window._preloadedBgAudio.volume = 0.5;
-            if (window._preloadedBgAudio.paused) {
-              window._preloadedBgAudio.play().catch(function(){});
-            }
           }
           ['click', 'touchstart', 'touchend', 'pointerdown', 'mousedown', 'keydown'].forEach(function(evt) {
             window.removeEventListener(evt, unlock, true);
@@ -61,7 +43,7 @@
       } catch(e) {}
     })();
   </script>
-  <link rel="stylesheet" href="./styles.css?v=20261119_chat_1795057387977" />
+  <link rel="stylesheet" href="./styles.css?v=20261119_chat_1795057910489" />
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
@@ -74,7 +56,7 @@
   <div id="app"></div>
   <div id="modal-root" style="position:relative; z-index:9999999 !important;"></div>
   <div id="toast-root" class="toast-container"></div>
-  <script src="./app.js?v=20261119_chat_1795057387977"></script>
+  <script src="./app.js?v=20261119_chat_1795057910489"></script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại
     const CURRENT_BUILD_TS = 1794888442829;
