@@ -1898,43 +1898,85 @@ function sortCriteriaChronologically(list) {
 window.isUnitOnline = function(unitId) {
   if (!state.user) return false;
   const myId = state.user.role === 'admin' ? 0 : state.user.id;
-  if (myId === unitId) return true; // Người đang truy cập trên trình duyệt luôn Online 100%
+  if (myId === unitId && state.user.role !== 'guest') return true; // Người đang truy cập trên trình duyệt luôn Online 100%
 
-  const presence = state.onlinePresence || {};
-  const lastSeen = Number(presence[unitId] || presence[String(unitId)] || 0);
   const now = Date.now();
+  const rtPresence = state.realtimePresence || {};
+  const rtOffline = state.realtimeOffline || {};
+  const rtSeen = Number(rtPresence[unitId] || rtPresence[String(unitId)] || 0);
+  const offAt = Number(rtOffline[unitId] || rtOffline[String(unitId)] || 0);
 
-  // 1. Kiểm tra heartbeat gửi lên máy chủ trong vòng 4 phút (240.000 ms)
-  if (lastSeen > 0 && (now - lastSeen < 240000)) {
+  // Nếu đơn vị vừa đăng xuất / đóng ứng dụng gần hơn lần ping cuối -> Offline ngay lập tức
+  if (offAt > 0 && offAt >= rtSeen && (now - offAt < 600000)) {
+    return false;
+  }
+
+  // 1. Kiểm tra tín hiệu realtime qua Live Bridge trong vòng 45 giây
+  if (rtSeen > 0 && (now - rtSeen < 45000)) {
     return true;
   }
 
-  // 2. Kiểm tra nếu đơn vị có tin nhắn gửi đi trong vòng 5 phút qua
+  const presence = state.onlinePresence || {};
+  const lastSeen = Number(presence[unitId] || presence[String(unitId)] || 0);
+  if (lastSeen > 0 && (now - lastSeen < 45000)) {
+    return true;
+  }
+
+  // 2. Kiểm tra nếu đơn vị vừa gửi tin nhắn trong vòng 2 phút qua (trừ khi đã offline)
   const recentMsg = (state.chatMessages || []).slice(-40).reverse().find(m => {
     if (unitId === 0) return m.sender_role === 'admin';
     return m.sender_id === unitId;
   });
-  if (recentMsg && recentMsg.timestamp && (now - recentMsg.timestamp < 300000)) {
+  if (recentMsg && recentMsg.timestamp && (now - recentMsg.timestamp < 120000)) {
     return true;
-  }
-
-  // 3. Kiểm tra nếu có nộp báo cáo / minh chứng trong vòng 8 phút qua
-  const recentReport = (state.writtenReports || []).slice(-20).reverse().find(r => r.unit_id === unitId);
-  if (recentReport && recentReport.created_at) {
-    const repTime = new Date(recentReport.created_at).getTime();
-    if (!isNaN(repTime) && (now - repTime < 480000)) {
-      return true;
-    }
   }
 
   return false;
 };
 
-window.recordMyPresence = function() {
-  if (!state.user) return;
-  const myId = state.user.role === 'admin' ? 0 : state.user.id;
+window.recordMyPresence = function(force = false, justJoined = false) {
+  if (!state.user || state.user.role === 'guest') return;
+  const myId = state.user.role === 'admin' ? 0 : Number(state.user.id);
+  const now = Date.now();
+  state.realtimePresence = state.realtimePresence || {};
+  state.realtimePresence[myId] = now;
   state.onlinePresence = state.onlinePresence || {};
-  state.onlinePresence[myId] = Date.now();
+  state.onlinePresence[myId] = now;
+  if (state.realtimeOffline) delete state.realtimeOffline[myId];
+
+  if (!force && window._lastPresenceBroadcastTs && (now - window._lastPresenceBroadcastTs < 18000)) {
+    return;
+  }
+  window._lastPresenceBroadcastTs = now;
+  if (window.broadcastLiveEvent) {
+    window.broadcastLiveEvent('PRESENCE_PING', { unitId: myId, ts: now, justJoined: Boolean(justJoined) });
+  }
+};
+
+window.broadcastMyOffline = function() {
+  if (!state.user || state.user.role === 'guest') return;
+  const myId = state.user.role === 'admin' ? 0 : Number(state.user.id);
+  const now = Date.now();
+  const payload = { type: 'PRESENCE_OFFLINE', payload: { unitId: myId, ts: now }, sender_id: state.user.id, ts: now };
+
+  if (typeof BroadcastChannel !== 'undefined') {
+    try {
+      const bc = new BroadcastChannel('doan_live_channel');
+      bc.postMessage({ type: 'PRESENCE_OFFLINE', data: { unitId: myId, ts: now } });
+      bc.close();
+    } catch (e) {}
+  }
+
+  try {
+    if (typeof fetch === 'function') {
+      fetch(`https://ntfy.sh/${LIVE_REALTIME_TOPIC}`, {
+        method: 'POST',
+        keepalive: true,
+        headers: { 'Title': 'PRESENCE_OFFLINE', 'Priority': 'high' },
+        body: JSON.stringify(payload)
+      }).catch(() => {});
+    }
+  } catch (e) {}
 };
 
 function ingestCloudDB(db) {
@@ -2074,7 +2116,21 @@ function ingestCloudDB(db) {
 
   state.writtenReports = Array.isArray(db.written_reports) ? db.written_reports : [];
 
-  state.onlinePresence = (db.online_presence && typeof db.online_presence === 'object') ? db.online_presence : {};
+  state.onlinePresence = (db.online_presence && typeof db.online_presence === 'object') ? Object.assign({}, db.online_presence) : {};
+  if (state.realtimePresence && typeof state.realtimePresence === 'object') {
+    Object.keys(state.realtimePresence).forEach(k => {
+      const rt = Number(state.realtimePresence[k]) || 0;
+      const cur = Number(state.onlinePresence[k]) || 0;
+      if (rt > cur) state.onlinePresence[k] = rt;
+    });
+  }
+  if (state.realtimeOffline && typeof state.realtimeOffline === 'object') {
+    Object.keys(state.realtimeOffline).forEach(k => {
+      const offAt = Number(state.realtimeOffline[k]) || 0;
+      const seen = Number(state.onlinePresence[k]) || 0;
+      if (offAt >= seen) delete state.onlinePresence[k];
+    });
+  }
 
 
 
@@ -3352,6 +3408,10 @@ async function performLogin(username, password) {
 
     showToast(`Xin chào: <b>Ban Thường vụ Đoàn UBND tỉnh (Quản trị viên)</b>`, 'success');
 
+    if (typeof window.recordMyPresence === 'function') {
+      window.recordMyPresence(true, true);
+    }
+
     renderApp();
 
     syncFromCloudNow(true).catch(() => {});
@@ -3487,6 +3547,10 @@ function loginAsUnit(unitObj) {
 
   showToast(`Xin chào: <b>${escapeHtml(unitObj.unit_name)}</b>`, 'success');
 
+  if (typeof window.recordMyPresence === 'function') {
+    window.recordMyPresence(true, true);
+  }
+
   renderApp();
 
 }
@@ -3494,6 +3558,9 @@ function loginAsUnit(unitObj) {
 
 
 window.handleLogout = function () {
+  if (typeof window.broadcastMyOffline === 'function') {
+    window.broadcastMyOffline();
+  }
   if (window.WebPushManager && window.WebPushManager.logoutUser) {
     window.WebPushManager.logoutUser();
   }
@@ -27212,6 +27279,10 @@ window.initRealtimeLiveBridge = function() {
           handleIncomingRealtimeChat(evt.payload);
         } else if (evt.type === 'CHAT_READ' && evt.payload) {
           handleIncomingChatRead(evt.payload);
+        } else if (evt.type === 'PRESENCE_PING' && evt.payload) {
+          handleIncomingPresencePing(evt.payload);
+        } else if (evt.type === 'PRESENCE_OFFLINE' && evt.payload) {
+          handleIncomingPresenceOffline(evt.payload);
         } else if (evt.type === 'DONATION_PENDING_SUBMITTED') {
           // CHỈ MÁY NÀO ĐANG ĐĂNG NHẬP ADMIN MỚI NHẬN THÔNG BÁO NÀY
           if (state.user && state.user.role === 'admin') {
@@ -27283,13 +27354,83 @@ window.initRealtimeLiveBridge = function() {
           handleIncomingRealtimeChat(e.data.data);
         } else if (e.data && e.data.type === 'CHAT_READ' && e.data.data) {
           handleIncomingChatRead(e.data.data);
+        } else if (e.data && e.data.type === 'PRESENCE_PING' && e.data.data) {
+          handleIncomingPresencePing(e.data.data);
+        } else if (e.data && e.data.type === 'PRESENCE_OFFLINE' && e.data.data) {
+          handleIncomingPresenceOffline(e.data.data);
         } else if (e.data && (e.data.type === 'REPORT_SUBMITTED' || e.data.type === 'NEW_CRITERIA' || e.data.type === 'ADMIN_DOC' || e.data.type === 'PROOF_APPROVED' || e.data.type === 'PROOF_REJECTED')) {
           if (typeof window.syncFromCloudNow === 'function') window.syncFromCloudNow(true);
         }
       };
     } catch (e) {}
   }
+
+  // Đăng ký báo Offline ngay lập tức khi đóng tab hoặc tắt trình duyệt/app
+  if (!window._presenceUnloadBound && typeof window !== 'undefined' && window.addEventListener) {
+    window._presenceUnloadBound = true;
+    const onUnload = () => {
+      if (typeof window.broadcastMyOffline === 'function') window.broadcastMyOffline();
+    };
+    window.addEventListener('beforeunload', onUnload);
+    window.addEventListener('pagehide', onUnload);
+  }
+
+  // Phát tín hiệu Online tức thì khi vừa kết nối
+  setTimeout(() => {
+    if (typeof window.recordMyPresence === 'function') {
+      window.recordMyPresence(true, true);
+    }
+  }, 350);
 };
+
+function handleIncomingPresencePing(payload) {
+  if (!payload || payload.unitId === undefined || payload.unitId === null) return;
+  const uid = Number(payload.unitId);
+  const ts = Number(payload.ts) || Date.now();
+  const prevOnline = window.isUnitOnline ? window.isUnitOnline(uid) : false;
+
+  state.realtimePresence = state.realtimePresence || {};
+  state.realtimePresence[uid] = Math.max(Number(state.realtimePresence[uid]) || 0, ts);
+  state.onlinePresence = state.onlinePresence || {};
+  state.onlinePresence[uid] = Math.max(Number(state.onlinePresence[uid]) || 0, ts);
+  if (state.realtimeOffline) delete state.realtimeOffline[uid];
+
+  // Nếu có đơn vị/Admin khác vừa mới mở web -> phản hồi lại 1 lần để họ thấy mình đang Online ngay lập tức
+  if (payload.justJoined && state.user && state.user.role !== 'guest') {
+    const myId = state.user.role === 'admin' ? 0 : Number(state.user.id);
+    if (uid !== myId) {
+      setTimeout(() => {
+        if (window.broadcastLiveEvent && state.user && state.user.role !== 'guest') {
+          window.broadcastLiveEvent('PRESENCE_PING', { unitId: myId, ts: Date.now(), justJoined: false });
+        }
+      }, 200 + Math.floor(Math.random() * 800));
+    }
+  }
+
+  if (!prevOnline && (state.chatOpen || state.activeTab === 'units') && typeof renderApp === 'function') {
+    const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
+    if (!activeEl || (activeEl.id !== 'chat-input-field' && activeEl.tagName !== 'SELECT' && activeEl.tagName !== 'INPUT' && activeEl.tagName !== 'TEXTAREA')) {
+      renderApp();
+    }
+  }
+}
+
+function handleIncomingPresenceOffline(payload) {
+  if (!payload || payload.unitId === undefined || payload.unitId === null) return;
+  const uid = Number(payload.unitId);
+  const ts = Number(payload.ts) || Date.now();
+  state.realtimeOffline = state.realtimeOffline || {};
+  state.realtimeOffline[uid] = ts;
+  if (state.realtimePresence) delete state.realtimePresence[uid];
+  if (state.onlinePresence) delete state.onlinePresence[uid];
+
+  if ((state.chatOpen || state.activeTab === 'units') && typeof renderApp === 'function') {
+    const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
+    if (!activeEl || (activeEl.id !== 'chat-input-field' && activeEl.tagName !== 'SELECT' && activeEl.tagName !== 'INPUT' && activeEl.tagName !== 'TEXTAREA')) {
+      renderApp();
+    }
+  }
+}
 
 function handleIncomingChatRead(payload) {
   if (!payload || !payload.fullKey) return;
