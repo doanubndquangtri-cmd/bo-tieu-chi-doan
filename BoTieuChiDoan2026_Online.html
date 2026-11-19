@@ -38982,8 +38982,8 @@ window.openChatMessageDetailsModal = function(msgId) {
 
 </script>
   <script>
-    // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại
-    const CURRENT_BUILD_TS = 1794888442829;
+    // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
+    const CURRENT_BUILD_TS = 1795058862020;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;
@@ -38999,7 +38999,9 @@ window.openChatMessageDetailsModal = function(msgId) {
               await r.update().catch(() => {});
             }
           }
-// Updated in background without reloading
+          if (lastTs > 0) {
+            window.location.reload();
+          }
         }
       } catch (e) {}
     })();
