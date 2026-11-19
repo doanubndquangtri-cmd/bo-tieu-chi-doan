@@ -7437,53 +7437,66 @@ function showToast(msg, type = 'info') {
    ========================================================================= */
 
 async function fetchCloudDB(forWrite = false) {
-  // Khi chỉ đồng bộ / đọc ngầm (background sync), tải trực tiếp qua raw.githubusercontent.com
-  // TUYỆT ĐỐI KHÔNG tiêu tốn hạn ngạch 5000 request/giờ của GitHub API!
-  if (!forWrite) {
-    try {
-      const rawUrl = `https://raw.githubusercontent.com/${CLOUD_OWNER}/${CLOUD_REPO}/${CLOUD_BRANCH}/cloud_db.json?t=${Date.now()}`;
-      const res = await fetch(rawUrl, { cache: 'no-store' });
-      if (res.ok) {
-        const text = await res.text();
-        const db = JSON.parse(text);
-        return { sha: state.cloudSha || '', db };
+  const token = _getCloudToken();
+  // Dùng GitHub Git Trees + Git Blobs API:
+  // 1) KHÔNG bị giới hạn 1MB của /contents/cloud_db.json (hỗ trợ đến 100MB!)
+  // 2) KHÔNG bị trễ cache 5 phút của raw.githubusercontent.com -> F5 thấy bài đăng mới NGAY TỨC THÌ!
+  // 3) Dùng If-None-Match (ETag) khi đọc ngầm -> 304 Not Modified không tốn hạn ngạch API và không tải lại dữ liệu!
+  try {
+    const treeUrl = `https://api.github.com/repos/${CLOUD_OWNER}/${CLOUD_REPO}/git/trees/${CLOUD_BRANCH}?t=${Date.now()}`;
+    const headers = {
+      Authorization: `token ${token}`,
+      Accept: 'application/vnd.github.v3+json',
+    };
+    if (!forWrite && window._cloudTreeEtag && state.cloudDB) {
+      headers['If-None-Match'] = window._cloudTreeEtag;
+    }
+    const treeRes = await fetch(treeUrl, { headers, cache: 'no-store' });
+    if (treeRes.status === 304 && !forWrite && state.cloudDB) {
+      return { sha: state.cloudSha || '', db: state.cloudDB, notModified: true };
+    }
+    if (treeRes.ok) {
+      const etag = treeRes.headers.get('ETag');
+      if (etag) window._cloudTreeEtag = etag;
+      const treeMeta = await treeRes.json();
+      const entry = Array.isArray(treeMeta.tree) ? treeMeta.tree.find(f => f.path === 'cloud_db.json') : null;
+      if (entry && entry.sha) {
+        if (!forWrite && state.cloudSha && state.cloudSha === entry.sha && state.cloudDB) {
+          return { sha: entry.sha, db: state.cloudDB, notModified: true };
+        }
+        const blobUrl = `https://api.github.com/repos/${CLOUD_OWNER}/${CLOUD_REPO}/git/blobs/${entry.sha}`;
+        const blobRes = await fetch(blobUrl, {
+          headers: {
+            Authorization: `token ${token}`,
+            Accept: 'application/vnd.github.v3+json',
+          },
+          cache: 'no-store',
+        });
+        if (blobRes.ok) {
+          const blobMeta = await blobRes.json();
+          const jsonStr = base64ToUtf8(blobMeta.content || '');
+          const db = JSON.parse(jsonStr);
+          state.cloudSha = entry.sha;
+          return { sha: entry.sha, db };
+        }
       }
-    } catch(e) {
-      console.warn('Raw fetch fallback to API:', e);
+    }
+  } catch (e) {
+    console.warn('Git Trees/Blobs fetch fallback:', e);
+  }
+
+  // Fallback sang raw.githubusercontent.com nếu GitHub API tạm thời gián đoạn
+  if (!forWrite) {
+    const rawUrl = `https://raw.githubusercontent.com/${CLOUD_OWNER}/${CLOUD_REPO}/${CLOUD_BRANCH}/cloud_db.json?t=${Date.now()}`;
+    const res = await fetch(rawUrl, { cache: 'no-store' });
+    if (res.ok) {
+      const text = await res.text();
+      const db = JSON.parse(text);
+      return { sha: state.cloudSha || '', db };
     }
   }
 
-  // Khi ghi (mutateCloudDB) hoặc khi raw lỗi: gọi GitHub API để lấy SHA chuẩn xác của tệp cho lệnh PUT
-  const url = `https://api.github.com/repos/${CLOUD_OWNER}/${CLOUD_REPO}/contents/cloud_db.json?ref=${CLOUD_BRANCH}&t=${Date.now()}`;
-  const res = await fetch(url, {
-    headers: {
-      Authorization: `token ${_getCloudToken()}`,
-      Accept: 'application/vnd.github.v3+json',
-    },
-    cache: 'no-store',
-  });
-  if (!res.ok) {
-    throw new Error(`Cloud HTTP ${res.status}`);
-  }
-  const meta = await res.json();
-  let b64 = meta.content;
-  if (!b64) {
-    const blobUrl = `https://api.github.com/repos/${CLOUD_OWNER}/${CLOUD_REPO}/git/blobs/${meta.sha}`;
-    const blobRes = await fetch(blobUrl, {
-      headers: {
-        Authorization: `token ${_getCloudToken()}`,
-        Accept: 'application/vnd.github.v3+json',
-      },
-      cache: 'no-store',
-    });
-    if (!blobRes.ok) throw new Error(`Blob HTTP ${blobRes.status}`);
-    const blobMeta = await blobRes.json();
-    b64 = blobMeta.content;
-  }
-  const jsonStr = base64ToUtf8(b64);
-  const db = JSON.parse(jsonStr);
-  state.cloudSha = meta.sha;
-  return { sha: meta.sha, db };
+  throw new Error('Không thể tải dữ liệu mới nhất từ đám mây');
 }
 
 
@@ -7952,6 +7965,7 @@ function mutateCloudDB(mutatorFn, commitMsg = 'Update data') {
 
         const putMeta = await res.json();
         state.cloudSha = putMeta.content.sha;
+        window._cloudTreeEtag = null;
         state.cloudVersion = Number(db.version) || state.cloudVersion || 0;
         window._lastCloudMutationTs = Date.now();
         state.cloudOnline = true;
@@ -40774,8 +40788,8 @@ function compressGalleryImageFast(file, isBatch) {
     const img = new Image();
     img.onload = () => {
       try {
-        const maxW = isBatch ? 1080 : 1280;
-        const quality = isBatch ? 0.72 : 0.78;
+        const maxW = isBatch ? 920 : 1200;
+        const quality = isBatch ? 0.68 : 0.76;
         const scale = img.width > maxW ? (maxW / img.width) : 1;
         const canvas = document.createElement('canvas');
         canvas.width = Math.max(1, Math.round(img.width * scale));
@@ -40913,7 +40927,7 @@ window.deleteGalleryPhoto = async function (photoId) {
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795073361994;
+    const CURRENT_BUILD_TS = 1795073741318;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;
