@@ -33259,7 +33259,15 @@ function handleIncomingPresenceOffline(payload, silent = false) {
     delete state.presenceSessionsByUnit[uid];
   }
 
-  const stillHasActiveSession = window.isUnitOnline ? window.isUnitOnline(uid) : false;
+  let stillHasActiveSession = false;
+  const unitSessions = state.presenceSessionsByUnit && state.presenceSessionsByUnit[uid];
+  if (unitSessions && typeof unitSessions === 'object') {
+    const now = Date.now();
+    stillHasActiveSession = Object.keys(unitSessions).some(k => {
+      const sTs = Number(unitSessions[k]) || 0;
+      return sTs > 0 && (now - sTs < 30000);
+    });
+  }
   if (!stillHasActiveSession) {
     state.realtimeOffline = state.realtimeOffline || {};
     state.realtimeOffline[uid] = Math.max(Number(state.realtimeOffline[uid]) || 0, ts);
