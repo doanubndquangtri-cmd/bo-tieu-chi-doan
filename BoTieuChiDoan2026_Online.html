@@ -22674,11 +22674,20 @@ function renderNotificationDropdown() {
   const readList = userNotifs.filter(n => !isNotificationUnread(n, user));
   const unreadCount = unreadList.length;
 
-  // Tìm các thông báo nộp bài đang thực sự chờ duyệt (loại trừ đã duyệt, từ chối/hủy, hoặc văn bản)
+  // Tìm các thông báo nộp bài & ủng hộ đang thực sự chờ duyệt (loại trừ đã duyệt, từ chối/hủy, hoặc văn bản)
   const pendingNotifs = [];
   const seenPendingKeys = new Set();
+  const currentDonations = typeof getDonationsList === 'function' ? getDonationsList() : [];
   userNotifs.forEach(n => {
     if (n.is_rejected || n.is_admin_approval || n.type === 'admin_doc' || n.type === 'new_criterion') return;
+    if (n.type === 'donation_pending' && n.donation_id) {
+      const don = currentDonations.find(d => String(d.id) === String(n.donation_id));
+      if (don && don.status === 'pending') {
+        seenPendingKeys.add('don_' + don.id);
+        pendingNotifs.push(n);
+      }
+      return;
+    }
     if (n.criterion_id && n.unit_id) {
       const uId = Number(n.unit_id);
       const cId = Number(n.criterion_id);
@@ -22697,6 +22706,30 @@ function renderNotificationDropdown() {
       }
     }
   });
+  // Bổ sung các lượt ủng hộ đang chờ duyệt ngay cả khi chưa có bản ghi notification tương ứng
+  if (isAdminUser) {
+    currentDonations.filter(d => d.status === 'pending').forEach(don => {
+      if (!seenPendingKeys.has('don_' + don.id)) {
+        seenPendingKeys.add('don_' + don.id);
+        pendingNotifs.unshift({
+          id: 'notif_don_pend_' + don.id,
+          type: 'donation_pending',
+          donation_id: don.id,
+          target_role: 'admin',
+          title: `💰 [CHỜ DUYỆT ỦNG HỘ] ${don.unit_name || 'Đơn vị'} (${typeof formatMoneyVN === 'function' ? formatMoneyVN(don.amount) : don.amount}đ)`,
+          message: `${don.unit_name || 'Đơn vị'} vừa báo chuyển ${typeof formatMoneyVN === 'function' ? formatMoneyVN(don.amount) : don.amount} VNĐ (${don.add_info || ''}). Bấm vào đây để vào Bảng Vàng kiểm tra và duyệt tiền.`,
+          unit_id: don.unit_id,
+          unit_name: don.unit_name,
+          amount: don.amount,
+          created_at: don.created_at || '',
+          submitted_at: don.created_at || '',
+          timestamp: don.timestamp || Date.now(),
+          read: false,
+          url: './#donations'
+        });
+      }
+    });
+  }
 
   // Tìm các thông báo đã duyệt điểm
   const approvedNotifs = userNotifs.filter(n => {
@@ -33113,12 +33146,26 @@ window.initRealtimeLiveBridge = function() {
         } else if (evt.type === 'DONATION_PENDING_SUBMITTED') {
           // CHỈ MÁY NÀO ĐANG ĐĂNG NHẬP ADMIN MỚI NHẬN THÔNG BÁO NÀY
           if (state.user && state.user.role === 'admin') {
+            if (evt.payload && evt.payload.donation) {
+              const incDon = evt.payload.donation;
+              state.donations = Array.isArray(state.donations) ? state.donations : [];
+              if (!state.donations.some(d => String(d.id) === String(incDon.id))) {
+                state.donations.push(incDon);
+              }
+            }
+            if (evt.payload && evt.payload.notif) {
+              state.notifications = Array.isArray(state.notifications) ? state.notifications : [];
+              if (!state.notifications.some(n => String(n.id) === String(evt.payload.notif.id))) {
+                state.notifications.unshift(evt.payload.notif);
+              }
+            }
             if (window.playNotificationChime) window.playNotificationChime();
             const uName = (evt.payload && evt.payload.unitName) || 'Một đơn vị';
             const uAmt = (evt.payload && evt.payload.amount) ? (typeof formatMoneyVN === 'function' ? formatMoneyVN(evt.payload.amount) : evt.payload.amount) : '0';
             if (typeof showToast === 'function') {
               showToast(`💰 <b>${escapeHtml(uName)}</b> vừa nộp ${uAmt}đ! <button type="button" onclick="setTab('donations')" style="color:#fde047; font-weight:800; background:none; border:none; text-decoration:underline; cursor:pointer; margin-left:6px;">👉 Xem duyệt ngay</button>`, 'info');
             }
+            if (typeof renderApp === 'function') renderApp();
             if (typeof window.syncFromCloudNow === 'function') {
               window.syncFromCloudNow(true);
             }
@@ -37648,6 +37695,7 @@ window.handleDonationSuccessConfirm = function() {
       if (window.broadcastLiveEvent) {
         window.broadcastLiveEvent('DONATION_PENDING_SUBMITTED', {
           donation: newDonation,
+          notif: donNotif,
           unitName: unitName,
           amount: amt,
           addInfo: addInfo
