@@ -6099,7 +6099,7 @@ body.dark-mode .master-table-fixed-banner {
   }
 }
 
-/* Nền video động cho tab Thư Viện Ảnh: chỉ nâng z-index các thanh đầu trang, TUYỆT ĐỐI không đụng vào khung chat cố định */
+/* Nền video động cho tab Thư Viện Ảnh: chỉ nâng z-index đúng các thanh Header/Banner/Tab, TUYỆT ĐỐI không chạm khung Chat nổi */
 .admin-view-as-banner {
   position: relative !important;
   z-index: 960 !important;
@@ -41937,7 +41937,7 @@ window.submitEditGalleryPost = async function (postId) {
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795077770239;
+    const CURRENT_BUILD_TS = 1795078097777;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;

@@ -6053,7 +6053,7 @@ body.dark-mode .master-table-fixed-banner {
   }
 }
 
-/* Nền video động cho tab Thư Viện Ảnh: chỉ nâng z-index các thanh đầu trang, TUYỆT ĐỐI không đụng vào khung chat cố định */
+/* Nền video động cho tab Thư Viện Ảnh: chỉ nâng z-index đúng các thanh Header/Banner/Tab, TUYỆT ĐỐI không chạm khung Chat nổi */
 .admin-view-as-banner {
   position: relative !important;
   z-index: 960 !important;
