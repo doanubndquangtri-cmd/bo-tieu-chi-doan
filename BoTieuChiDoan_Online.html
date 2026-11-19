@@ -2308,6 +2308,10 @@ thead th.sticky-col-total {
   padding: var(--chat-body-pad, 16px 18px) !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
+  overscroll-behavior: contain !important;
+  overflow-anchor: none !important;
+  scroll-behavior: auto !important;
+  -webkit-overflow-scrolling: touch !important;
   width: 100% !important;
   box-sizing: border-box !important;
   background: #f8fafc;
@@ -3968,6 +3972,10 @@ body.dark-mode #tts-result-box {
 .chat-messages-body {
   overflow-y: auto !important;
   overflow-x: hidden !important;
+  overscroll-behavior: contain !important;
+  overflow-anchor: none !important;
+  scroll-behavior: auto !important;
+  -webkit-overflow-scrolling: touch !important;
   -webkit-overflow-scrolling: touch !important;
   touch-action: pan-y !important;
   overscroll-behavior-y: contain !important;
@@ -7778,22 +7786,51 @@ window.patchLiveChatDOM = function(hasNewIncomingMsg = false) {
       return;
     }
 
+    const isScrolling = Boolean(window._lastUserScrollTs && (Date.now() - window._lastUserScrollTs < 700));
+    if (isScrolling) {
+      if (hasNewIncomingMsg) window._pendingChatScrollNewMsg = true;
+      if (!window._deferredChatPatchTimer) {
+        window._deferredChatPatchTimer = setTimeout(() => {
+          window._deferredChatPatchTimer = null;
+          const hadNew = Boolean(window._pendingChatScrollNewMsg);
+          window._pendingChatScrollNewMsg = false;
+          if (typeof window.patchLiveChatDOM === 'function') window.patchLiveChatDOM(hadNew);
+        }, 750);
+      }
+      return;
+    }
+
+    const roomKey = (typeof getChatRoomKey === 'function') ? getChatRoomKey() : state.chatTab;
+    const roomMsgs = (state.chatMessages && Array.isArray(state.chatMessages[roomKey])) ? state.chatMessages[roomKey] : [];
+    const reads = (typeof getMergedChatReadStatus === 'function') ? getMergedChatReadStatus() : {};
+    const roomReads = (reads && reads[roomKey]) ? reads[roomKey] : {};
+    const chatBodySig = `${state.chatTab}|${state.chatPrivatePartnerId || ''}|${state.chatSearchQuery || ''}|${roomMsgs.map(m => m.id + ':' + (m.text || '').length).join(',')}|${JSON.stringify(roomReads)}`;
+    const onlineIdsSig = pCounts ? `${pCounts.onlineList.map(x => x.id).join(',')}|${unreadChatCount}|${state.chatTab}|${state.chatPrivatePartnerId || ''}` : '';
+
+    const bodyChanged = (chatBodySig !== window._lastPatchedChatBodySig);
+    const barChanged = (onlineIdsSig !== window._lastPatchedPrivBarSig);
+    if (!bodyChanged && !barChanged) return;
+
     const tmp = document.createElement('div');
     tmp.innerHTML = renderFloatingChatWidget();
 
-    // 3. Cập nhật trực tiếp danh sách tin nhắn (#chat-messages-body) mà KHÔNG động chạm tới ô gõ #chat-input-field
-    const curBody = document.getElementById('chat-messages-body');
-    const newBody = tmp.querySelector('#chat-messages-body');
-    if (curBody && newBody && curBody.innerHTML !== newBody.innerHTML) {
-      const wasNearBottom = (curBody.scrollHeight - curBody.scrollTop - curBody.clientHeight) < 150;
-      const prevTop = curBody.scrollTop;
-      curBody.innerHTML = newBody.innerHTML;
-      if (hasNewIncomingMsg && wasNearBottom) {
-        curBody.scrollTop = curBody.scrollHeight + 1000;
-      } else {
-        curBody.scrollTop = prevTop;
+    // 3. Cập nhật trực tiếp danh sách tin nhắn (#chat-messages-body) chỉ khi dữ liệu tin nhắn thực sự đổi (không động chạm khi đang cuộn)
+    if (bodyChanged) {
+      const curBody = document.getElementById('chat-messages-body');
+      const newBody = tmp.querySelector('#chat-messages-body');
+      if (curBody && newBody) {
+        const wasNearBottom = (curBody.scrollHeight - curBody.scrollTop - curBody.clientHeight) < 150;
+        const prevTop = curBody.scrollTop;
+        curBody.innerHTML = newBody.innerHTML;
+        if (hasNewIncomingMsg && wasNearBottom) {
+          curBody.scrollTop = curBody.scrollHeight + 1000;
+        } else {
+          curBody.scrollTop = prevTop;
+        }
       }
+      window._lastPatchedChatBodySig = chatBodySig;
     }
+    window._lastPatchedPrivBarSig = onlineIdsSig;
 
     // 4. Cập nhật trực tiếp thanh Online / Offline (.chat-private-unit-bar) ngay lập tức không cần F5
     const curPrivBar = document.querySelector('.chat-private-unit-bar');
@@ -26690,7 +26727,7 @@ function renderFloatingChatWidget() {
 
         <!-- NỘI DUNG DANH SÁCH TIN NHẮN -->
 
-        <div class="chat-messages-body" id="chat-messages-body">
+        <div class="chat-messages-body" id="chat-messages-body" onscroll="window._lastUserScrollTs = Date.now();">
 
           ${state.chatTab === 'tts' ? renderTtsStudioContent() : state.chatTab === 'qr' ? renderQrGeneratorTabContent() : state.chatTab === 'ai' ? renderAiChatTabContent() : `
 
@@ -39380,7 +39417,7 @@ window.openChatMessageDetailsModal = function(msgId) {
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795062844698;
+    const CURRENT_BUILD_TS = 1795063589410;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;
