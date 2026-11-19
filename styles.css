@@ -2394,10 +2394,14 @@ thead th.sticky-col-total {
   min-width: 0 !important;
   border: 1.5px solid #cbd5e1;
   border-radius: 8px;
-  padding: 0 14px !important;
+  padding: 9px 14px !important;
   font-size: var(--chat-input-font, 14px) !important;
-  height: var(--chat-input-h, 42px) !important;
+  line-height: 1.4 !important;
+  height: var(--chat-input-h, 42px);
   min-height: var(--chat-input-h, 42px) !important;
+  max-height: 120px !important;
+  resize: none !important;
+  overflow-y: auto !important;
   font-family: inherit;
   outline: none;
   transition: border-color 0.2s;

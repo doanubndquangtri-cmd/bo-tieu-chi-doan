@@ -1837,6 +1837,8 @@ function mutateCloudDB(mutatorFn, commitMsg = 'Update data') {
 
         const putMeta = await res.json();
         state.cloudSha = putMeta.content.sha;
+        state.cloudVersion = Number(db.version) || state.cloudVersion || 0;
+        window._lastCloudMutationTs = Date.now();
         state.cloudOnline = true;
         state.lastSyncTime = new Date().toLocaleTimeString('vi-VN');
         ingestCloudDB(db);
@@ -1971,18 +1973,24 @@ function ingestCloudDB(db) {
   state.donations = Array.isArray(db.donations) ? db.donations : [];
 
   state.cloudDB = db;
-  // Hợp nhất tin nhắn Cloud DB: Cloud DB là nguồn chân lý duy nhất (Single Source of Truth)
+  // Hợp nhất tin nhắn Cloud DB: Cloud DB + các tin nhắn đã xóa cục bộ (tombstone) để không bao giờ bị CDN cache làm sống lại
   const clearedAtMap = (db && db.chat_cleared_at) || {};
   const deletedIdsSet = new Set(Array.isArray(db && db.deleted_msg_ids) ? db.deleted_msg_ids.map(String) : []);
+  getGlobalDeletedChatIds().forEach(id => deletedIdsSet.add(id));
+  const myHiddenSet = getMyHiddenChatIds();
 
   const isMsgGloballyCleared = (m) => {
     if (!m) return true;
-    if (m.id && deletedIdsSet.has(String(m.id))) return true;
+    const mId = m.id ? String(m.id) : '';
+    if (mId && (deletedIdsSet.has(mId) || myHiddenSet.has(mId))) return true;
     const rKey = m.room || 'public';
     const clearedTime = Math.max(
       Number(clearedAtMap[rKey]) || 0,
       Number(clearedAtMap['all']) || 0,
-      rKey.startsWith('private_') ? (Number(clearedAtMap['private']) || 0) : 0
+      rKey.startsWith('private_') ? (Number(clearedAtMap['private']) || 0) : 0,
+      getLocalGlobalClearedAt(rKey),
+      getLocalGlobalClearedAt('all'),
+      rKey.startsWith('private_') ? getLocalGlobalClearedAt('private') : 0
     );
     if (clearedTime > 0) {
       const mTime = getMsgTimestamp(m);
@@ -2194,6 +2202,13 @@ window.forceClearCacheAndReload = async function () {
 window.syncFromCloudNow = async function (silent = false) {
   try {
     const { sha, db } = await fetchCloudDB();
+    const incomingVer = Number(db && db.version) || 0;
+    if (state.cloudVersion && incomingVer > 0 && incomingVer < state.cloudVersion) {
+      return;
+    }
+    if (incomingVer > (state.cloudVersion || 0)) {
+      state.cloudVersion = incomingVer;
+    }
     const changed = sha !== state.cloudSha;
     state.cloudSha = sha;
     state.cloudOnline = true;
@@ -17646,24 +17661,107 @@ function isMsgInRoom(m, roomKey) {
 
 
 
+function getMyHiddenChatIds() {
+  const uKey = typeof getChatUserStorageKey === 'function' ? getChatUserStorageKey() : 'guest';
+  const set = new Set();
+  try {
+    const raw = localStorage.getItem(`doan2026_hidden_chat_msgs_${uKey}`);
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) arr.forEach(id => set.add(String(id)));
+    }
+  } catch (e) {}
+  const cloudHidden = state.cloudDB && state.cloudDB.user_hidden_msgs && state.cloudDB.user_hidden_msgs[uKey];
+  if (Array.isArray(cloudHidden)) {
+    cloudHidden.forEach(id => set.add(String(id)));
+  }
+  return set;
+}
+
+function addMyHiddenChatId(msgId) {
+  if (!msgId) return;
+  const uKey = typeof getChatUserStorageKey === 'function' ? getChatUserStorageKey() : 'guest';
+  const targetId = String(msgId);
+  try {
+    const raw = localStorage.getItem(`doan2026_hidden_chat_msgs_${uKey}`);
+    let arr = [];
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) arr = parsed.map(String);
+    }
+    if (!arr.includes(targetId)) {
+      arr.push(targetId);
+      if (arr.length > 2000) arr = arr.slice(-2000);
+      localStorage.setItem(`doan2026_hidden_chat_msgs_${uKey}`, JSON.stringify(arr));
+    }
+  } catch (e) {}
+}
+
+function getGlobalDeletedChatIds() {
+  const set = new Set();
+  try {
+    const raw = localStorage.getItem('doan2026_global_deleted_chat_msgs');
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) arr.forEach(id => set.add(String(id)));
+    }
+  } catch (e) {}
+  return set;
+}
+
+function addGlobalDeletedChatId(msgId) {
+  if (!msgId) return;
+  const targetId = String(msgId);
+  try {
+    const raw = localStorage.getItem('doan2026_global_deleted_chat_msgs');
+    let arr = [];
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) arr = parsed.map(String);
+    }
+    if (!arr.includes(targetId)) {
+      arr.push(targetId);
+      if (arr.length > 2000) arr = arr.slice(-2000);
+      localStorage.setItem('doan2026_global_deleted_chat_msgs', JSON.stringify(arr));
+    }
+  } catch (e) {}
+}
+
+function getLocalGlobalClearedAt(roomKey) {
+  try {
+    return Number(localStorage.getItem(`doan2026_global_chat_cleared_${roomKey}`)) || 0;
+  } catch (e) {
+    return 0;
+  }
+}
+
+function setLocalGlobalClearedAt(roomKey, ts) {
+  try {
+    localStorage.setItem(`doan2026_global_chat_cleared_${roomKey}`, String(ts));
+  } catch (e) {}
+}
+
 function isMsgClearedForMe(m, roomKey) {
+  if (!m) return true;
+  const mId = m.id ? String(m.id) : '';
+  if (mId && (getMyHiddenChatIds().has(mId) || getGlobalDeletedChatIds().has(mId))) {
+    return true;
+  }
 
   const isAdmin = state.user && state.user.role === 'admin';
-
   const myKey = isAdmin ? 'admin' : `unit_${state.user ? state.user.id : 0}`;
-
-  const clearedAt = Number(localStorage.getItem(`doan2026_chat_cleared_${myKey}_${roomKey}`)) || 0;
+  const clearedAt = Math.max(
+    Number(localStorage.getItem(`doan2026_chat_cleared_${myKey}_${roomKey}`)) || 0,
+    getLocalGlobalClearedAt(roomKey),
+    getLocalGlobalClearedAt('all')
+  );
 
   if (clearedAt > 0) {
-
-    const mTime = new Date(m.created_at).getTime() || 0;
-
+    const mTime = getMsgTimestamp(m);
     if (mTime <= clearedAt) return true;
-
   }
 
   return false;
-
 }
 
 
@@ -18162,18 +18260,12 @@ window.clearChatSearch = function() {
 
 
 
-// XỬ LÝ PHÍM ENTER TRÊN BÀN PHÍM ĐỂ GỬI TIN NHẮN (Ảnh 1)
-
+// XỬ LÝ PHÍM ENTER TRONG KHUNG CHAT: BẤM ENTER ĐỂ XUỐNG DÒNG, CHỈ BẤM NÚT GỬI MỚI GỬI
 window.onChatKeydown = function(e) {
-
-  if (e.key === 'Enter' && !e.shiftKey) {
-
-    e.preventDefault();
-
-    sendChatMessage();
-
+  // Không gửi khi nhấn Enter; để trình duyệt tự xuống dòng trong textarea
+  if (e.key === 'Enter') {
+    e.stopPropagation();
   }
-
 };
 
 
@@ -18623,6 +18715,7 @@ window.unhideClearedChatForMe = function(myKey, roomKey) {
   closeModal();
   try {
     localStorage.removeItem(`doan2026_chat_cleared_${myKey}_${roomKey}`);
+    localStorage.removeItem(`doan2026_hidden_chat_msgs_${myKey}`);
     // Xóa sạch các cờ clear liên quan đến phòng này
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i);
@@ -18631,6 +18724,13 @@ window.unhideClearedChatForMe = function(myKey, roomKey) {
       }
     }
   } catch (e) {}
+  if (typeof mutateCloudDB === 'function' && state.user && state.user.role !== 'guest') {
+    mutateCloudDB(db => {
+      if (db.user_hidden_msgs && db.user_hidden_msgs[myKey]) {
+        db.user_hidden_msgs[myKey] = [];
+      }
+    }, 'Unhide chat messages for ' + myKey).catch(() => {});
+  }
   showToast('Đã khôi phục toàn bộ tin nhắn!', 'success');
   renderApp();
   setTimeout(() => { if (typeof scrollChatToBottom === 'function') scrollChatToBottom(); }, 60);
@@ -18650,7 +18750,12 @@ window.clearChatForAll = async function(roomKey) {
   showToast('Đang xóa toàn bộ lịch sử trò chuyện trên máy chủ...', 'info');
 
   const nowTs = Date.now();
-  // 1. Xóa ngay lập tức trên máy cục bộ
+  // 1. Lưu mốc xóa toàn cục vào localStorage để CDN cache cũ không bao giờ làm sống lại tin nhắn
+  setLocalGlobalClearedAt(roomKey, nowTs);
+  if (roomKey === 'public') {
+    setLocalGlobalClearedAt('all', nowTs);
+  }
+  // Xóa ngay lập tức trên máy cục bộ
   state.chatMessages = (state.chatMessages || []).filter(m => !isMsgInRoom(m, roomKey));
   try {
     const raw = localStorage.getItem('doan2026_local_chat_messages');
@@ -19444,15 +19549,11 @@ window.sendChatMessage = async function() {
   // NẾU ĐANG Ở TAB TRỢ LÝ AI: CHUYỂN SANG HỎI ĐÁP VỚI GEMINI PRO
 
   if (state.chatTab === 'ai') {
-
     input.value = '';
-
+    input.style.height = '';
     state.chatDraft = '';
-
     askAiAssistant(text);
-
     return;
-
   }
 
 
@@ -19518,7 +19619,7 @@ window.sendChatMessage = async function() {
 
 
   input.value = '';
-
+  input.style.height = '';
   state.chatDraft = '';
 
   state.emojiPickerOpen = false;
@@ -20186,8 +20287,8 @@ function renderFloatingChatWidget() {
                   <div class="chat-message-time" style="display:flex; align-items:center; gap:6px; justify-content:${isMine ? 'flex-end' : 'flex-start'};">
                     <span>${escapeHtml(m.time_str || '')}</span>
                     <button type="button" onclick="openChatMessageDetailsModal('${escapeHtml(m.id)}')" title="Xem chi tiết: ai đã xem, thời gian xem, ai chưa xem" style="background:none; border:none; padding:1px 4px; font-size:11px; cursor:pointer; opacity:0.8; line-height:1; display:inline-flex; align-items:center;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">👁️</button>
-                    ${(isMine || isAdmin) ? `
-                      <button type="button" onclick="deleteChatMessage('${escapeHtml(m.id)}')" title="Xóa tin nhắn này" style="background:none; border:none; padding:1px 4px; font-size:11px; cursor:pointer; opacity:0.75; color:#ef4444; line-height:1; display:inline-flex; align-items:center;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.75'">🗑️</button>
+                    ${!isGuest ? `
+                      <button type="button" onclick="deleteChatMessage('${escapeHtml(m.id)}')" title="${isAdmin ? 'Xóa tin nhắn này (chọn xóa bên mình hoặc xóa cả đoàn cơ sở)' : 'Xóa hẳn tin nhắn này bên bạn'}" style="background:none; border:none; padding:1px 4px; font-size:11px; cursor:pointer; opacity:0.75; color:#ef4444; line-height:1; display:inline-flex; align-items:center;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.75'">🗑️</button>
                     ` : ''}
                   </div>
 
@@ -20259,23 +20360,21 @@ function renderFloatingChatWidget() {
 
             `}
 
-            <input
-
-              type="text"
+            <textarea
 
               id="chat-input-field"
 
               class="chat-input-field"
 
-              value="${escapeHtml(state.chatDraft || '')}"
+              rows="1"
 
-              oninput="state.chatDraft = this.value;"
+              oninput="state.chatDraft = this.value; this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 120) + 'px';"
 
-              placeholder="${state.chatTab === 'ai' ? 'Hỏi Trợ lý AI về Điều lệ Đoàn, tiêu chí, kế hoạch... (Enter để gửi)' : 'Nhập nội dung tin nhắn trao đổi... (Enter để gửi)'}"
+              placeholder="${state.chatTab === 'ai' ? 'Hỏi Trợ lý AI... (Enter xuống dòng, bấm Gửi AI để gửi)' : 'Nhập nội dung tin nhắn... (Enter để xuống dòng, bấm Gửi để gửi)'}"
 
               onkeydown="onChatKeydown(event)"
 
-            />
+            >${escapeHtml(state.chatDraft || '')}</textarea>
 
             <button class="chat-send-btn" onclick="sendChatMessage()" style="${state.chatTab === 'ai' ? 'background:linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);' : ''}">
 
@@ -32255,10 +32354,105 @@ function formatChatMessageText(text) {
 window.formatChatMessageText = formatChatMessageText;
 
 window.deleteChatMessage = async function(msgId) {
-  if (!confirm('Bạn có chắc chắn muốn XÓA VĨNH VIỄN tin nhắn này cho toàn bộ phòng trao đổi không?')) return;
+  if (!state.user || state.user.role === 'guest') return;
+  const targetId = String(msgId);
+  const isAdmin = state.user.role === 'admin';
+
+  if (isAdmin) {
+    openDeleteChatMessageModal(targetId);
+    return;
+  }
+
+  if (!confirm('Bạn muốn xóa hẳn tin nhắn này bên phía đơn vị mình không?\n(Tin nhắn sẽ bị xóa vĩnh viễn trên tài khoản của bạn; Ban Thường vụ và các cơ sở Đoàn khác vẫn xem được bình thường.)')) {
+    return;
+  }
+  await deleteChatMessageForMeOnly(targetId);
+};
+
+window.openDeleteChatMessageModal = function(msgId) {
+  const modalRoot = document.getElementById('modal-root');
+  if (!modalRoot) return;
+  const targetId = String(msgId);
+  const msg = (state.chatMessages || []).find(m => String(m.id) === targetId);
+  const previewText = msg && msg.text ? (msg.text.length > 90 ? msg.text.slice(0, 90) + '...' : msg.text) : (msg && msg.file_name ? `[Tệp: ${msg.file_name}]` : 'Tin nhắn đã chọn');
+
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" onclick="closeModal()" style="z-index:9999999;">
+      <div class="modal-box" onclick="event.stopPropagation()" style="max-width:440px; width:94%; border-radius:12px; overflow:hidden; box-shadow:0 20px 50px rgba(0,0,0,0.35);">
+        <div class="modal-header" style="background:linear-gradient(135deg, #0052cc 0%, #0284c7 100%); color:#fff; padding:14px 18px; display:flex; justify-content:space-between; align-items:center;">
+          <div style="font-weight:800; font-size:14.5px; display:flex; align-items:center; gap:8px;">
+            <span>🗑️</span>
+            <span>Xóa Tin Nhắn Trao Đổi (Admin)</span>
+          </div>
+          <button type="button" onclick="closeModal()" style="background:transparent; border:none; color:#fff; font-size:18px; font-weight:800; cursor:pointer; padding:2px 6px;">✕</button>
+        </div>
+        <div class="modal-body" style="padding:16px 18px; background:#fff;">
+          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; font-size:12.5px; color:#334155; margin-bottom:14px; line-height:1.45; white-space:pre-wrap; word-break:break-word;">
+            ${escapeHtml(previewText)}
+          </div>
+
+          <button type="button" class="btn btn-outline" onclick="deleteChatMessageForMeOnly('${escapeHtml(targetId)}')" style="width:100%; text-align:left; padding:11px 14px; border-radius:9px; border:1.5px solid #0284c7; background:#f0f9ff; color:#0369a1; font-weight:700; font-size:13px; cursor:pointer; margin-bottom:10px; display:block;">
+            <div>👤 Chỉ xóa bên mình (Admin)</div>
+            <div style="font-size:11.5px; font-weight:500; color:#475569; margin-top:3px;">Xóa hẳn trên màn hình của Admin, các cơ sở Đoàn vẫn xem được bình thường.</div>
+          </button>
+
+          <button type="button" class="btn btn-danger" onclick="deleteChatMessageForAll('${escapeHtml(targetId)}')" style="width:100%; text-align:left; padding:11px 14px; border-radius:9px; border:1.5px solid #fca5a5; background:#fef2f2; color:#b91c1c; font-weight:700; font-size:13px; cursor:pointer; display:block;">
+            <div>⚠️ Xóa cả bên mình và các Đoàn cơ sở</div>
+            <div style="font-size:11.5px; font-weight:500; color:#991b1b; margin-top:3px;">Xóa vĩnh viễn trên toàn bộ hệ thống (cả Admin và tất cả 40 cơ sở Đoàn).</div>
+          </button>
+        </div>
+        <div class="modal-footer" style="padding:10px 18px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal()" style="font-weight:600; padding:6px 14px;">Hủy</button>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+window.deleteChatMessageForMeOnly = async function(msgId) {
+  closeModal();
+  const targetId = String(msgId);
+  const uKey = typeof getChatUserStorageKey === 'function' ? getChatUserStorageKey() : 'guest';
+
+  // 1. Lưu tombstone cục bộ ngay lập tức để sync/CDN cache không bao giờ làm hiện lại
+  addMyHiddenChatId(targetId);
+
+  // 2. Xóa ngay lập tức khỏi bộ nhớ hiển thị
+  state.chatMessages = (state.chatMessages || []).filter(m => String(m.id) !== targetId);
+  try {
+    const raw = localStorage.getItem('doan2026_local_chat_messages');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        localStorage.setItem('doan2026_local_chat_messages', JSON.stringify(parsed.filter(m => String(m.id) !== targetId)));
+      }
+    }
+  } catch (e) {}
+  renderApp();
+  showToast('Đã xóa hẳn tin nhắn bên phía bạn!', 'success');
+
+  // 3. Đồng bộ danh sách ẩn riêng của tài khoản này lên Cloud DB (để F5 hay đổi máy cũng không hiện lại)
+  if (typeof mutateCloudDB === 'function') {
+    mutateCloudDB(db => {
+      db.user_hidden_msgs = db.user_hidden_msgs || {};
+      const list = Array.isArray(db.user_hidden_msgs[uKey]) ? db.user_hidden_msgs[uKey].map(String) : [];
+      if (!list.includes(targetId)) {
+        list.push(targetId);
+      }
+      db.user_hidden_msgs[uKey] = list.slice(-2000);
+    }, 'Hide chat message ' + targetId + ' for ' + uKey).catch(() => {});
+  }
+};
+
+window.deleteChatMessageForAll = async function(msgId) {
+  closeModal();
   const targetId = String(msgId);
 
-  // 1. Xóa ngay lập tức trên máy cục bộ
+  // 1. Lưu tombstone cục bộ ngay lập tức để CDN cache không bao giờ làm sống lại
+  addGlobalDeletedChatId(targetId);
+  addMyHiddenChatId(targetId);
+
+  // 2. Xóa ngay lập tức trên máy cục bộ
   state.chatMessages = (state.chatMessages || []).filter(m => String(m.id) !== targetId);
   try {
     const raw = localStorage.getItem('doan2026_local_chat_messages');
@@ -32271,7 +32465,7 @@ window.deleteChatMessage = async function(msgId) {
   } catch(e) {}
   renderApp();
 
-  // 2. Ghi nhận vĩnh viễn lên Cloud DB để toàn bộ 40 cơ sở Đoàn đều bị xóa
+  // 3. Ghi nhận xóa vĩnh viễn lên Cloud DB để toàn bộ 40 cơ sở Đoàn đều bị xóa
   if (typeof mutateCloudDB === 'function') {
     const res = await mutateCloudDB(db => {
       db.chat_messages = (db.chat_messages || []).filter(m => String(m.id) !== targetId);
@@ -32285,7 +32479,7 @@ window.deleteChatMessage = async function(msgId) {
     }, 'Xóa vĩnh viễn tin nhắn trao đổi ' + targetId);
 
     if (res && res.ok) {
-      showToast('Đã xóa vĩnh viễn tin nhắn trên toàn bộ hệ thống!', 'success');
+      showToast('Đã xóa vĩnh viễn tin nhắn cho cả Admin và các Đoàn cơ sở!', 'success');
     } else {
       showToast('Đã xóa tin nhắn.', 'info');
     }
