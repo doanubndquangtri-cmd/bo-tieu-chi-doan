@@ -7611,11 +7611,12 @@ window.isUnitOnline = function(unitId) {
 };
 
 const PRESENCE_BRANCH = 'presence-data';
+let _presenceCloudQueue = Promise.resolve();
 
-window.fetchPresenceFromCloud = async function() {
+window.fetchPresenceFromCloud = async function(force = false) {
   if (typeof fetch !== 'function') return;
   const now = Date.now();
-  if (window._lastCloudPresenceFetchTs && (now - window._lastCloudPresenceFetchTs < 4000)) return;
+  if (!force && window._lastCloudPresenceFetchTs && (now - window._lastCloudPresenceFetchTs < 3500)) return;
   window._lastCloudPresenceFetchTs = now;
 
   try {
@@ -7636,7 +7637,7 @@ window.fetchPresenceFromCloud = async function() {
       const prevSig = JSON.stringify(state.cloudPresenceMap || {});
       state.cloudPresenceMap = parsed;
       const newSig = JSON.stringify(parsed);
-      if (prevSig !== newSig && (state.chatOpen || state.activeTab === 'units') && typeof renderApp === 'function') {
+      if ((force || prevSig !== newSig) && (state.chatOpen || state.activeTab === 'units') && typeof renderApp === 'function') {
         if (window._lastUserScrollTs && (Date.now() - window._lastUserScrollTs < 700)) return;
         const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
         if (!activeEl || (activeEl.id !== 'chat-input-field' && activeEl.tagName !== 'SELECT' && activeEl.tagName !== 'INPUT' && activeEl.tagName !== 'TEXTAREA')) {
@@ -7647,18 +7648,17 @@ window.fetchPresenceFromCloud = async function() {
   } catch (e) {}
 };
 
-window.syncPresenceToCloud = async function(isOnline = true) {
-  if (!state.user || state.user.role === 'guest' || typeof fetch !== 'function') return;
-  const myId = String(state.user.role === 'admin' ? 0 : Number(state.user.id));
+window.syncPresenceToCloud = function(isOnline = true, targetUser = null) {
+  const userObj = targetUser || state.user;
+  if (!userObj || userObj.role === 'guest' || typeof fetch !== 'function') return Promise.resolve();
+  const myId = String(userObj.role === 'admin' ? 0 : Number(userObj.id));
   const sid = getMyPresenceSessionId();
-  const now = Date.now();
 
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      let sha = window._presenceCloudSha;
-      let data = state.cloudPresenceMap ? JSON.parse(JSON.stringify(state.cloudPresenceMap)) : null;
-      if (!sha || !data || attempt > 0) {
-        const getUrl = `https://api.github.com/repos/${CLOUD_OWNER}/${CLOUD_REPO}/contents/presence.json?ref=${PRESENCE_BRANCH}&t=${Date.now()}`;
+  const task = async () => {
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try {
+        const now = Date.now();
+        const getUrl = `https://api.github.com/repos/${CLOUD_OWNER}/${CLOUD_REPO}/contents/presence.json?ref=${PRESENCE_BRANCH}&t=${now}`;
         const getRes = await fetch(getUrl, {
           headers: {
             Authorization: `token ${_getCloudToken()}`,
@@ -7668,68 +7668,81 @@ window.syncPresenceToCloud = async function(isOnline = true) {
         });
         if (!getRes.ok) return;
         const meta = await getRes.json();
-        sha = meta.sha;
-        data = meta.content ? JSON.parse(base64ToUtf8(meta.content)) : {};
-      }
+        const sha = meta.sha;
+        let data = meta.content ? JSON.parse(base64ToUtf8(meta.content)) : {};
 
-      data = (data && typeof data === 'object') ? data : {};
-      data[myId] = data[myId] && typeof data[myId] === 'object' ? data[myId] : {};
-      data[myId].sessions = data[myId].sessions && typeof data[myId].sessions === 'object' ? data[myId].sessions : {};
+        data = (data && typeof data === 'object') ? data : {};
+        data[myId] = data[myId] && typeof data[myId] === 'object' ? data[myId] : {};
+        data[myId].sessions = data[myId].sessions && typeof data[myId].sessions === 'object' ? data[myId].sessions : {};
 
-      // Dọn các session quá hạn > 100s
-      Object.keys(data[myId].sessions).forEach(k => {
-        if (now - (Number(data[myId].sessions[k] && data[myId].sessions[k].ts) || 0) > 100000) {
-          delete data[myId].sessions[k];
+        // Dọn các session quá hạn > 100s trên toàn bộ các đơn vị
+        Object.keys(data).forEach(uKey => {
+          const uEntry = data[uKey];
+          if (uEntry && uEntry.sessions && typeof uEntry.sessions === 'object') {
+            Object.keys(uEntry.sessions).forEach(k => {
+              if (now - (Number(uEntry.sessions[k] && uEntry.sessions[k].ts) || 0) > 100000) {
+                delete uEntry.sessions[k];
+              }
+            });
+          }
+        });
+
+        if (isOnline) {
+          data[myId].sessions[sid] = { ts: now, online: true };
+          data[myId].ts = now;
+          data[myId].online = true;
+        } else {
+          delete data[myId].sessions[sid];
+          data[myId].ts = now;
+          data[myId].online = Object.keys(data[myId].sessions).length > 0;
         }
-      });
 
-      if (isOnline) {
-        data[myId].sessions[sid] = { ts: now, online: true };
-        data[myId].ts = now;
-        data[myId].online = true;
-      } else {
-        delete data[myId].sessions[sid];
-        data[myId].ts = now;
-        data[myId].online = Object.keys(data[myId].sessions).length > 0;
-      }
+        const prevSig = JSON.stringify(state.cloudPresenceMap || {});
+        state.cloudPresenceMap = data;
 
-      state.cloudPresenceMap = data;
-
-      const putUrl = `https://api.github.com/repos/${CLOUD_OWNER}/${CLOUD_REPO}/contents/presence.json`;
-      const putRes = await fetch(putUrl, {
-        method: 'PUT',
-        keepalive: !isOnline,
-        headers: {
-          Authorization: `token ${_getCloudToken()}`,
-          Accept: 'application/vnd.github.v3+json',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: `${isOnline ? 'Online' : 'Offline'}: ${myId}`,
-          content: utf8ToBase64(JSON.stringify(data)),
-          sha: sha,
-          branch: PRESENCE_BRANCH,
-        }),
-      });
-      if (putRes.status === 409) {
-        window._presenceCloudSha = null;
-        await new Promise(r => setTimeout(r, 200 * (attempt + 1)));
-        continue;
+        const putUrl = `https://api.github.com/repos/${CLOUD_OWNER}/${CLOUD_REPO}/contents/presence.json`;
+        const putRes = await fetch(putUrl, {
+          method: 'PUT',
+          keepalive: !isOnline,
+          headers: {
+            Authorization: `token ${_getCloudToken()}`,
+            Accept: 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: `${isOnline ? 'Online' : 'Offline'}: ${myId}`,
+            content: utf8ToBase64(JSON.stringify(data)),
+            sha: sha,
+            branch: PRESENCE_BRANCH,
+          }),
+        });
+        if (putRes.status === 409) {
+          await new Promise(r => setTimeout(r, 250 * (attempt + 1)));
+          continue;
+        }
+        if (putRes.ok) {
+          const putMeta = await putRes.json();
+          window._presenceCloudSha = putMeta.content && putMeta.content.sha;
+          if (prevSig !== JSON.stringify(data) && (state.chatOpen || state.activeTab === 'units') && typeof renderApp === 'function') {
+            const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
+            if (!activeEl || (activeEl.id !== 'chat-input-field' && activeEl.tagName !== 'SELECT' && activeEl.tagName !== 'INPUT' && activeEl.tagName !== 'TEXTAREA')) {
+              renderApp();
+            }
+          }
+        }
+        return;
+      } catch (e) {
+        return;
       }
-      if (putRes.ok) {
-        const putMeta = await putRes.json();
-        window._presenceCloudSha = putMeta.content && putMeta.content.sha;
-      }
-      return;
-    } catch (e) {
-      return;
     }
-  }
+  };
+
+  _presenceCloudQueue = _presenceCloudQueue.then(task, task);
+  return _presenceCloudQueue;
 };
 
 window.recordMyPresence = function(force = false, justJoined = false) {
   if (!state.user || state.user.role === 'guest') return;
-  if (typeof document !== 'undefined' && document.hidden && !force) return;
   const myId = state.user.role === 'admin' ? 0 : Number(state.user.id);
   const sid = getMyPresenceSessionId();
   const now = Date.now();
@@ -7742,14 +7755,15 @@ window.recordMyPresence = function(force = false, justJoined = false) {
   state.onlinePresence[myId] = now;
   if (state.realtimeOffline) delete state.realtimeOffline[myId];
 
-  // Đồng bộ lên nhánh presence-data (khi mới vào/mở lại hoặc mỗi 45 giây)
-  if (force || !window._lastCloudPresenceWriteTs || (now - window._lastCloudPresenceWriteTs >= 45000)) {
+  // Đồng bộ lên nhánh presence-data (khi mới vào/mở lại hoặc mỗi 30 giây kể cả khi tab chạy nền)
+  if (force || !window._lastCloudPresenceWriteTs || (now - window._lastCloudPresenceWriteTs >= 30000)) {
     window._lastCloudPresenceWriteTs = now;
     window.syncPresenceToCloud(true);
   }
 
-  // Nếu đang mở Chat hoặc tab Quản lý đơn vị, tự động làm mới danh sách Online mỗi 6 giây
-  if ((state.chatOpen || state.activeTab === 'units') && (!window._lastCloudPresenceFetchTs || (now - window._lastCloudPresenceFetchTs >= 6000))) {
+  // Làm mới danh sách Online mỗi 4 giây khi đang mở Chat / Quản lý đơn vị, hoặc mỗi 20 giây ở nền
+  const pollInterval = (state.chatOpen || state.activeTab === 'units') ? 4000 : 20000;
+  if (!window._lastCloudPresenceFetchTs || (now - window._lastCloudPresenceFetchTs >= pollInterval)) {
     window.fetchPresenceFromCloud();
   }
 
@@ -8694,7 +8708,7 @@ async function initApp() {
 
   // TỰ ĐỘNG ĐỒNG BỘ THỜI GIAN THỰC ĐỘ TRỄ CỰC THẤP (TỨC THÌ)
   setInterval(() => {
-    if (window.recordMyPresence && !document.hidden && state.user) window.recordMyPresence();
+    if (window.recordMyPresence && state.user) window.recordMyPresence();
     if (!state.isSyncing) {
       const isChatActive = state.chatOpen;
       const isVisible = typeof document !== 'undefined' ? !document.hidden : true;
@@ -24105,7 +24119,7 @@ window.toggleChatWidget = function() {
   }
 
   if (state.chatOpen) {
-    if (typeof window.fetchPresenceFromCloud === 'function') window.fetchPresenceFromCloud();
+    if (typeof window.fetchPresenceFromCloud === 'function') window.fetchPresenceFromCloud(true);
     if (typeof fetchPresenceSnapshot === 'function') fetchPresenceSnapshot();
     if (typeof window.recordMyPresence === 'function') window.recordMyPresence(true, true);
 
@@ -24222,7 +24236,7 @@ window.switchChatTab = function(tab) {
   try { localStorage.setItem('doan2026_chat_tab', tab); } catch (e) {}
 
   if (tab === 'private') {
-    if (typeof window.fetchPresenceFromCloud === 'function') window.fetchPresenceFromCloud();
+    if (typeof window.fetchPresenceFromCloud === 'function') window.fetchPresenceFromCloud(true);
     if (typeof fetchPresenceSnapshot === 'function') fetchPresenceSnapshot();
     if (typeof window.recordMyPresence === 'function') window.recordMyPresence(true, true);
   }
@@ -33351,12 +33365,15 @@ window.initRealtimeLiveBridge = function() {
     window.addEventListener('pagehide', onUnload);
   }
 
-  // Phát tín hiệu Online tức thì khi vừa kết nối
+  // Phát tín hiệu Online tức thì khi vừa kết nối và tải danh sách Online từ máy chủ
   setTimeout(() => {
+    if (typeof window.fetchPresenceFromCloud === 'function') {
+      window.fetchPresenceFromCloud(true);
+    }
     if (typeof window.recordMyPresence === 'function') {
       window.recordMyPresence(true, true);
     }
-  }, 350);
+  }, 200);
 };
 
 async function fetchPresenceSnapshot() {
@@ -33539,21 +33556,20 @@ function handleIncomingRealtimeChat(msg) {
   if (!alreadyNotified && window.playNotificationChime) window.playNotificationChime();
 }
 
-// Tự động báo Online khi mở lại / Offline ngay khi ẩn tab, tắt app hoặc không sử dụng
+// Tự động cập nhật Online khi mở lại tab (KHÔNG báo Offline khi chỉ chuyển sang tab/cửa sổ khác để các thiết bị luôn thấy nhau)
 document.addEventListener('visibilitychange', function() {
   if (document.visibilityState === 'visible') {
     if (!_liveEventSource && window.initRealtimeLiveBridge) {
       window.initRealtimeLiveBridge();
+    }
+    if (typeof window.fetchPresenceFromCloud === 'function') {
+      window.fetchPresenceFromCloud(true);
     }
     if (typeof window.recordMyPresence === 'function') {
       window.recordMyPresence(true, true);
     }
     if (typeof window.syncFromCloudNow === 'function') {
       window.syncFromCloudNow(true);
-    }
-  } else if (document.visibilityState === 'hidden') {
-    if (typeof window.broadcastMyOffline === 'function') {
-      window.broadcastMyOffline();
     }
   }
 });
@@ -38983,7 +38999,7 @@ window.openChatMessageDetailsModal = function(msgId) {
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795058862020;
+    const CURRENT_BUILD_TS = 1795059377096;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;
