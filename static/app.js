@@ -2282,24 +2282,38 @@ function ingestLiveChatFromPresence(parsed) {
 }
 
 window.fetchPresenceFromCloud = async function(force = false) {
-  if (typeof fetch !== 'function') return;
+  if (typeof fetch !== 'function' || window._isFetchingPresenceCloud) return;
   const now = Date.now();
-  if (!force && window._lastCloudPresenceFetchTs && (now - window._lastCloudPresenceFetchTs < 800)) return;
+  if (!force && window._lastCloudPresenceFetchTs && (now - window._lastCloudPresenceFetchTs < 500)) return;
   window._lastCloudPresenceFetchTs = now;
+  window._isFetchingPresenceCloud = true;
 
   try {
-    const url = `https://api.github.com/repos/${CLOUD_OWNER}/${CLOUD_REPO}/contents/presence.json?ref=${PRESENCE_BRANCH}&t=${now}`;
-    const res = await fetch(url, {
-      headers: {
-        Authorization: `token ${_getCloudToken()}`,
-        Accept: 'application/vnd.github.v3+json',
-      },
-      cache: 'no-store',
-    });
-    if (!res.ok) return;
+    const url = `https://api.github.com/repos/${CLOUD_OWNER}/${CLOUD_REPO}/contents/presence.json?ref=${PRESENCE_BRANCH}`;
+    const headers = {
+      Authorization: `token ${_getCloudToken()}`,
+      Accept: 'application/vnd.github.v3+json',
+    };
+    if (!force && window._presenceCloudEtag) {
+      headers['If-None-Match'] = window._presenceCloudEtag;
+    }
+    const res = await fetch(url, { headers, cache: 'no-store' });
+    if (res.status === 304) {
+      window._isFetchingPresenceCloud = false;
+      return;
+    }
+    if (!res.ok) {
+      window._isFetchingPresenceCloud = false;
+      return;
+    }
+    const etag = res.headers && typeof res.headers.get === 'function' ? res.headers.get('etag') : null;
+    if (etag) window._presenceCloudEtag = etag;
     const meta = await res.json();
     window._presenceCloudSha = meta.sha;
-    if (!meta.content) return;
+    if (!meta.content) {
+      window._isFetchingPresenceCloud = false;
+      return;
+    }
     const parsed = JSON.parse(base64ToUtf8(meta.content));
     if (parsed && typeof parsed === 'object') {
       const prevSig = JSON.stringify(state.cloudPresenceMap || {});
@@ -2311,6 +2325,7 @@ window.fetchPresenceFromCloud = async function(force = false) {
       }
     }
   } catch (e) {}
+  window._isFetchingPresenceCloud = false;
 };
 
 window.syncPresenceToCloud = function(isOnline = true, targetUser = null) {
@@ -2455,15 +2470,15 @@ window.recordMyPresence = function(force = false, justJoined = false) {
   state.onlinePresence[myId] = now;
   if (state.realtimeOffline) delete state.realtimeOffline[myId];
 
-  // Đồng bộ lên nhánh presence-data (khi mới vào/mở lại hoặc mỗi 30 giây kể cả khi tab chạy nền)
-  if (force || !window._lastCloudPresenceWriteTs || (now - window._lastCloudPresenceWriteTs >= 30000)) {
+  // Đồng bộ lên nhánh presence-data (khi mới vào/mở lại hoặc mỗi 45 giây kể cả khi tab chạy nền)
+  if (force || !window._lastCloudPresenceWriteTs || (now - window._lastCloudPresenceWriteTs >= 45000)) {
     window._lastCloudPresenceWriteTs = now;
     window.syncPresenceToCloud(true);
   }
 
-  // Làm mới danh sách Online & Tin nhắn trực tiếp mỗi 1 giây khi đang mở Chat/Bảng Online, hoặc mỗi 2.5 giây khi đóng Chat
+  // Làm mới danh sách Online & Tin nhắn trực tiếp siêu tốc mỗi 0.6 giây (304 ETag chỉ ~150ms) khi đang mở Chat, hoặc mỗi 2.5 giây khi đóng Chat
   const isViewingPresence = Boolean(state.chatOpen || state.activeTab === 'units' || window._activePresenceModalTab);
-  const pollInterval = isViewingPresence ? 1000 : 2500;
+  const pollInterval = isViewingPresence ? 600 : 2500;
   if (!window._lastCloudPresenceFetchTs || (now - window._lastCloudPresenceFetchTs >= pollInterval)) {
     window.fetchPresenceFromCloud();
   }
