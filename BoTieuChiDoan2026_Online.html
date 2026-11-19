@@ -12196,7 +12196,7 @@ function renderNavTabs() {
           📂 Hệ Thống Văn Bản
         </div>
         <div class="nav-tab ${state.activeTab === 'gallery' ? 'active' : ''}" onclick="setTab('gallery')" title="Thư Viện Ảnh Tập Thể & Hoạt Động Đoàn UBND Tỉnh">
-          📸 Thư Viện Ảnh
+          📸 Bản Tin / Thư Viện Ảnh
         </div>
         <div class="nav-tab ${state.activeTab === 'admin_password' ? 'active' : ''}" onclick="setTab('admin_password')" title="Đổi Mật Khẩu Quản Trị Viên">
           🔐 Đổi Mật Khẩu
@@ -12217,7 +12217,7 @@ function renderNavTabs() {
           📂 Hệ Thống Văn Bản
         </div>
         <div class="nav-tab ${state.activeTab === 'gallery' ? 'active' : ''}" onclick="setTab('gallery')">
-          📸 Thư Viện Ảnh
+          📸 Bản Tin / Thư Viện Ảnh
         </div>
       </nav>
     `;
@@ -12238,7 +12238,7 @@ function renderNavTabs() {
           📂 Hệ Thống Văn Bản
         </div>
         <div class="nav-tab ${state.activeTab === 'gallery' ? 'active' : ''}" onclick="setTab('gallery')">
-          📸 Thư Viện Ảnh
+          📸 Bản Tin / Thư Viện Ảnh
         </div>
         <div class="nav-tab ${state.activeTab === 'unit_password' ? 'active' : ''}" onclick="setTab('unit_password')">
           🔐 Đổi Mật Khẩu Đơn Vị
@@ -41221,7 +41221,7 @@ window.submitEditGalleryPost = async function (postId) {
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795074335703;
+    const CURRENT_BUILD_TS = 1795074519136;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;

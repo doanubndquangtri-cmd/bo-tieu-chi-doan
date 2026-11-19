@@ -6065,7 +6065,7 @@ function renderNavTabs() {
           📂 Hệ Thống Văn Bản
         </div>
         <div class="nav-tab ${state.activeTab === 'gallery' ? 'active' : ''}" onclick="setTab('gallery')" title="Thư Viện Ảnh Tập Thể & Hoạt Động Đoàn UBND Tỉnh">
-          📸 Thư Viện Ảnh
+          📸 Bản Tin / Thư Viện Ảnh
         </div>
         <div class="nav-tab ${state.activeTab === 'admin_password' ? 'active' : ''}" onclick="setTab('admin_password')" title="Đổi Mật Khẩu Quản Trị Viên">
           🔐 Đổi Mật Khẩu
@@ -6086,7 +6086,7 @@ function renderNavTabs() {
           📂 Hệ Thống Văn Bản
         </div>
         <div class="nav-tab ${state.activeTab === 'gallery' ? 'active' : ''}" onclick="setTab('gallery')">
-          📸 Thư Viện Ảnh
+          📸 Bản Tin / Thư Viện Ảnh
         </div>
       </nav>
     `;
@@ -6107,7 +6107,7 @@ function renderNavTabs() {
           📂 Hệ Thống Văn Bản
         </div>
         <div class="nav-tab ${state.activeTab === 'gallery' ? 'active' : ''}" onclick="setTab('gallery')">
-          📸 Thư Viện Ảnh
+          📸 Bản Tin / Thư Viện Ảnh
         </div>
         <div class="nav-tab ${state.activeTab === 'unit_password' ? 'active' : ''}" onclick="setTab('unit_password')">
           🔐 Đổi Mật Khẩu Đơn Vị
