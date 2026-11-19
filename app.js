@@ -34315,7 +34315,7 @@ function renderPhotoGalleryTab() {
             </div>
             <div style="margin-top:10px; padding-top:10px; border-top:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between; gap:8px;">
               <button type="button" onclick="openAddGalleryPhotoModal()" style="flex:1 1 auto; display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:8px 12px; border-radius:9px; border:none; background:#eff6ff; color:#0052cc; font-size:13px; font-weight:800; cursor:pointer;">
-                <span>🖼️</span> Đăng Bài &amp; Bộ Ảnh (Tối đa 10 ảnh/bài)
+                <span>🖼️</span> Đăng Bài &amp; Bộ Ảnh Hoạt Động
               </button>
             </div>
           </div>
@@ -34615,11 +34615,11 @@ window.renderGalleryUploadPreviews = function () {
   const files = Array.isArray(window._selectedGalleryFiles) ? window._selectedGalleryFiles : [];
   if (!files.length) {
     if (previewBox) { previewBox.style.display = 'none'; previewBox.innerHTML = ''; }
-    if (fileNameEl) fileNameEl.textContent = 'Bấm để chọn ảnh (tối đa 10 ảnh mỗi lần)...';
+    if (fileNameEl) fileNameEl.textContent = 'Bấm để chọn ảnh từ máy tính hoặc điện thoại...';
     return;
   }
   const totalKB = files.reduce((s, f) => s + (f.size || 0), 0) / 1024;
-  if (fileNameEl) fileNameEl.textContent = `✅ Đã chọn ${files.length} / 10 ảnh (${totalKB >= 1024 ? (totalKB / 1024).toFixed(1) + ' MB' : totalKB.toFixed(0) + ' KB'}) — Bấm để chọn thêm`;
+  if (fileNameEl) fileNameEl.textContent = `✅ Đã chọn ${files.length} ảnh (${totalKB >= 1024 ? (totalKB / 1024).toFixed(1) + ' MB' : totalKB.toFixed(0) + ' KB'}) — Bấm để chọn thêm`;
   if (previewBox) {
     previewBox.style.display = 'grid';
     previewBox.innerHTML = files.map((file, idx) => {
@@ -34645,11 +34645,7 @@ window.previewGalleryUploadFile = function (inputEl) {
   const picked = inputEl && inputEl.files ? Array.from(inputEl.files).filter(f => f && f.type && f.type.startsWith('image/')) : [];
   if (!picked.length) return;
   const current = Array.isArray(window._selectedGalleryFiles) ? [...window._selectedGalleryFiles] : [];
-  const merged = [...current, ...picked];
-  if (merged.length > 10) {
-    showToast('⚠️ Tối đa 10 ảnh mỗi lần đăng — đã tự động lấy 10 ảnh đầu tiên!', 'warning');
-  }
-  window._selectedGalleryFiles = merged.slice(0, 10);
+  window._selectedGalleryFiles = [...current, ...picked];
   if (inputEl) inputEl.value = '';
   window.renderGalleryUploadPreviews();
 };
@@ -34668,7 +34664,7 @@ window.openAddGalleryPhotoModal = function () {
           <div style="display:flex; align-items:center; gap:9px;">
             <span style="font-size:20px;">📸</span>
             <div>
-              <h3 style="margin:0; font-size:15.5px; font-weight:800; color:#fff;">Đăng Ảnh Hoạt Động Đoàn (Tối đa 10 ảnh)</h3>
+              <h3 style="margin:0; font-size:15.5px; font-weight:800; color:#fff;">Đăng Bài &amp; Ảnh Hoạt Động Đoàn</h3>
               <div style="font-size:11.5px; color:#bfdbfe; margin-top:1px;">Đăng công khai với tên: <b>${escapeHtml(actor.name)}</b></div>
             </div>
           </div>
@@ -34678,11 +34674,11 @@ window.openAddGalleryPhotoModal = function () {
         <div style="padding:18px; background:#ffffff; overflow-y:auto; display:flex; flex-direction:column; gap:14px; box-sizing:border-box;">
           <div>
             <label style="display:block; font-size:12.5px; font-weight:800; color:#1e293b; margin-bottom:6px;">
-              1. Chọn 1 hoặc nhiều ảnh (tối đa 10 ảnh/lần) <span style="color:#dc2626;">*</span>
+              1. Chọn 1 hoặc nhiều ảnh hoạt động <span style="color:#dc2626;">*</span>
             </label>
             <label for="gallery-file-input" style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:14px 12px; border:2px dashed #93c5fd; border-radius:12px; background:#f0f7ff; cursor:pointer; text-align:center; transition:all 0.2s ease;">
               <span style="font-size:26px;">🖼️</span>
-              <span id="gallery-upload-file-name" style="font-size:12.5px; font-weight:700; color:#0b2259;">Bấm để chọn ảnh (tối đa 10 ảnh mỗi lần)...</span>
+              <span id="gallery-upload-file-name" style="font-size:12.5px; font-weight:700; color:#0b2259;">Bấm để chọn ảnh từ máy tính hoặc điện thoại...</span>
               <span style="font-size:11px; color:#64748b;">Hỗ trợ chọn cùng lúc nhiều ảnh JPG, PNG, WebP • Nén song song siêu nhanh</span>
               <input type="file" id="gallery-file-input" accept="image/*" multiple onchange="previewGalleryUploadFile(this)" style="display:none;" />
             </label>
@@ -34776,7 +34772,7 @@ window.submitAddGalleryPhoto = async function () {
   const actor = getCurrentGalleryActor();
   if (!actor) return;
   const isAdmin = actor.role === 'admin';
-  const files = Array.isArray(window._selectedGalleryFiles) ? window._selectedGalleryFiles.slice(0, 10) : [];
+  const files = Array.isArray(window._selectedGalleryFiles) ? [...window._selectedGalleryFiles] : [];
   const titleEl = document.getElementById('gallery-title-input');
   const descEl = document.getElementById('gallery-desc-input');
   const dateEl = document.getElementById('gallery-date-input');
@@ -34788,7 +34784,7 @@ window.submitAddGalleryPhoto = async function () {
   const dateStr = rawDate ? formatDateVN(rawDate) : '';
   const featured = Boolean(isAdmin && featEl && featEl.checked);
 
-  if (!files.length) { showToast('Vui lòng chọn ít nhất 1 tệp ảnh (tối đa 10 ảnh)!', 'warning'); return; }
+  if (!files.length) { showToast('Vui lòng chọn ít nhất 1 tệp ảnh!', 'warning'); return; }
   if (!baseTitle) { showToast('Vui lòng nhập tiêu đề cho bộ ảnh!', 'warning'); return; }
 
   // BƯỚC 1: HIỂN THỊ TỨC THÌ TRONG 0 GIÂY bằng ObjectURL (không bắt người dùng đợi nén hay đợi mạng!)
@@ -34914,7 +34910,7 @@ window.renderEditPostPhotosGrid = function () {
   const existing = Array.isArray(window._editPostExistingImages) ? window._editPostExistingImages : [];
   const added = Array.isArray(window._editPostNewFiles) ? window._editPostNewFiles : [];
   const total = existing.length + added.length;
-  if (countEl) countEl.textContent = `${total} / 10 ảnh`;
+  if (countEl) countEl.textContent = `${total} ảnh`;
   if (!grid) return;
 
   const existingHtml = existing.map((src, idx) => `
@@ -34954,17 +34950,8 @@ window.removeEditPostNewFile = function (idx) {
 window.handleEditPostAddFiles = function (inputEl) {
   const picked = inputEl && inputEl.files ? Array.from(inputEl.files).filter(f => f && f.type && f.type.startsWith('image/')) : [];
   if (!picked.length) return;
-  const existingCount = Array.isArray(window._editPostExistingImages) ? window._editPostExistingImages.length : 0;
   const currentNew = Array.isArray(window._editPostNewFiles) ? [...window._editPostNewFiles] : [];
-  const slotsLeft = Math.max(0, 10 - existingCount - currentNew.length);
-  if (slotsLeft <= 0) {
-    showToast('⚠️ Mỗi bài viết tối đa 10 ảnh! Hãy xóa bớt ảnh cũ nếu muốn thêm mới.', 'warning');
-  } else {
-    if (picked.length > slotsLeft) {
-      showToast(`⚠️ Chỉ thêm được tối đa ${slotsLeft} ảnh nữa (giới hạn 10 ảnh/bài)!`, 'warning');
-    }
-    window._editPostNewFiles = [...currentNew, ...picked.slice(0, slotsLeft)];
-  }
+  window._editPostNewFiles = [...currentNew, ...picked];
   if (inputEl) inputEl.value = '';
   window.renderEditPostPhotosGrid();
 };
@@ -35015,7 +35002,7 @@ window.openEditGalleryPostModal = function (postId) {
           <div>
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:7px; gap:8px;">
               <label style="font-size:12.5px; font-weight:800; color:#1e293b;">
-                Danh sách ảnh trong bài (<span id="edit-post-photos-count">${window._editPostExistingImages.length} / 10 ảnh</span>)
+                Danh sách ảnh trong bài (<span id="edit-post-photos-count">${window._editPostExistingImages.length} ảnh</span>)
               </label>
               <label for="edit-post-add-files" style="display:inline-flex; align-items:center; gap:5px; padding:5px 10px; border-radius:8px; background:#eff6ff; color:#0052cc; border:1px solid #93c5fd; font-size:12px; font-weight:800; cursor:pointer;">
                 ➕ Thêm ảnh
@@ -35052,7 +35039,7 @@ window.submitEditGalleryPost = async function (postId) {
 
   // Cập nhật tức thì trên giao diện (Optimistic UI)
   const tempNewUrls = newFiles.map(f => URL.createObjectURL(f));
-  const optimisticImages = [...existing, ...tempNewUrls].slice(0, 10);
+  const optimisticImages = [...existing, ...tempNewUrls];
   state.photoGallery = (state.photoGallery || []).map(p => String(p.id) === pid
     ? { ...p, title: newTitle, description: newDesc, src: optimisticImages[0], images: optimisticImages }
     : p
@@ -35067,7 +35054,7 @@ window.submitEditGalleryPost = async function (postId) {
     const compressedNew = newFiles.length > 0
       ? await Promise.all(newFiles.map(f => compressGalleryImageFast(f, (existing.length + newFiles.length) > 1)))
       : [];
-    const finalImages = [...existing, ...compressedNew].slice(0, 10);
+    const finalImages = [...existing, ...compressedNew];
 
     const res = await mutateCloudDB((db) => {
       if (!Array.isArray(db.photo_gallery)) return;
