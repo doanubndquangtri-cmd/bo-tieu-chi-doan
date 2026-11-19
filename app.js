@@ -20518,7 +20518,8 @@ window.sendChatMessage = async function() {
 
   if (!input) return;
 
-  const text = input.value.trim();
+  const rawText = input.value.trim();
+  const text = typeof convertEmoticonsToEmoji === 'function' ? convertEmoticonsToEmoji(rawText) : rawText;
 
   if (!text) return;
 
@@ -34108,6 +34109,89 @@ function renderFacebookPhotoCollage(postId, imgs, fallback) {
 
 window._expandedGalleryComments = window._expandedGalleryComments || {};
 
+const GALLERY_COMMENT_EMOJIS = [
+  '😀','😃','😄','😁','😆','😅','🤣','😂',
+  '🙂','😊','😇','🥰','😍','🤩','😘','😋',
+  '😜','🤪','🤗','🤭','🥳','😎','🥺','😭',
+  '😤','😡','👍','👎','👌','✌️','🤞','👏',
+  '🙌','🤝','❤️','🧡','💛','💙','🔥','🎉',
+  '✨','🌟','💪','🌹','🚩','🇻🇳','🙏','💯'
+];
+
+function convertEmoticonsToEmoji(str) {
+  if (!str || typeof str !== 'string') return str || '';
+  const rules = [
+    [/(\s|^)(:-?\))(?=\s|$|[.,!?])/g, '$1😊'],
+    [/(\s|^)(:-?D)(?=\s|$|[.,!?])/g, '$1😄'],
+    [/(\s|^)(:'\()(?=\s|$|[.,!?])/g, '$1😢'],
+    [/(\s|^)(:-?\()(?=\s|$|[.,!?])/g, '$1😞'],
+    [/(\s|^)(;-?\))(?=\s|$|[.,!?])/g, '$1😉'],
+    [/(\s|^)(:-?[Pp])(?=\s|$|[.,!?])/g, '$1😜'],
+    [/(\s|^)(:-\*|\:\*)(?=\s|$|[.,!?])/g, '$1😘'],
+    [/(\s|^)(:-?[Oo])(?=\s|$|[.,!?])/g, '$1😮'],
+    [/(\s|^)(<3)(?=\s|$|[.,!?])/g, '$1❤️'],
+    [/(\s|^)(\^_\^|\^\^)(?=\s|$|[.,!?])/g, '$1😁'],
+    [/(\s|^)(B\)|8\))(?=\s|$|[.,!?])/g, '$1😎'],
+    [/(\s|^)(\(y\)|\(Y\))(?=\s|$|[.,!?])/g, '$1👍'],
+  ];
+  let out = str;
+  for (const [re, rep] of rules) {
+    out = out.replace(re, rep);
+  }
+  return out;
+}
+
+window.toggleCommentEmojiPicker = function (inputId, btnEl) {
+  const existing = document.getElementById('comment-emoji-popover');
+  if (existing) {
+    const sameTarget = existing.dataset.targetInput === inputId;
+    existing.remove();
+    if (sameTarget) return;
+  }
+  const rect = btnEl ? btnEl.getBoundingClientRect() : null;
+  const pop = document.createElement('div');
+  pop.id = 'comment-emoji-popover';
+  pop.dataset.targetInput = inputId;
+  const width = Math.min(310, window.innerWidth - 20);
+  let left = rect ? Math.min(Math.max(10, rect.left - width + 36), window.innerWidth - width - 10) : 16;
+  let top = rect ? (rect.top - 224) : 120;
+  if (top < 12 && rect) top = rect.bottom + 8;
+  pop.style.cssText = `position:fixed; left:${left}px; top:${top}px; width:${width}px; z-index:9999999; background:#ffffff; border:1px solid #cbd5e1; border-radius:14px; box-shadow:0 12px 34px rgba(15,23,42,0.24); padding:10px; box-sizing:border-box;`;
+  pop.onclick = (e) => e.stopPropagation();
+  pop.innerHTML = `
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:7px; padding-bottom:6px; border-bottom:1px solid #f1f5f9;">
+      <span style="font-size:12px; font-weight:800; color:#0b2259;">😊 Biểu cảm nhanh (gõ :) → 😊)</span>
+      <button type="button" onclick="document.getElementById('comment-emoji-popover')?.remove()" style="border:none; background:#f1f5f9; color:#475569; width:22px; height:22px; border-radius:50%; font-size:12px; font-weight:800; cursor:pointer;">✕</button>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(8, 1fr); gap:4px; max-height:164px; overflow-y:auto;">
+      ${GALLERY_COMMENT_EMOJIS.map(em => `
+        <button type="button" onclick="insertCommentEmoji('${escapeHtml(inputId)}', '${em}')" style="border:none; background:transparent; font-size:21px; padding:4px 0; border-radius:8px; cursor:pointer; transition:transform 0.12s, background 0.12s;" onmouseover="this.style.background='#eff6ff'; this.style.transform='scale(1.18)'" onmouseout="this.style.background='transparent'; this.style.transform='scale(1)'">${em}</button>
+      `).join('')}
+    </div>
+  `;
+  document.body.appendChild(pop);
+  setTimeout(() => {
+    const closeOutside = (ev) => {
+      if (!pop.contains(ev.target) && ev.target !== btnEl) {
+        pop.remove();
+        document.removeEventListener('click', closeOutside);
+      }
+    };
+    document.addEventListener('click', closeOutside);
+  }, 10);
+};
+
+window.insertCommentEmoji = function (inputId, emoji) {
+  const inp = document.getElementById(inputId);
+  if (!inp) return;
+  const start = inp.selectionStart ?? inp.value.length;
+  const end = inp.selectionEnd ?? inp.value.length;
+  inp.value = inp.value.slice(0, start) + emoji + inp.value.slice(end);
+  inp.focus();
+  const pos = start + emoji.length;
+  try { inp.setSelectionRange(pos, pos); } catch (e) {}
+};
+
 function renderFacebookPostSocialSection(item) {
   const isAdmin = Boolean(state.user && state.user.role === 'admin');
   const actor = getCurrentGalleryActor();
@@ -34170,7 +34254,7 @@ function renderFacebookPostSocialSection(item) {
               <div style="flex:1 1 auto; min-width:0;">
                 <div style="display:inline-block; max-width:100%; background:#f0f2f5; border-radius:14px; padding:7px 12px;">
                   <div style="font-size:12.5px; font-weight:800; color:${cIsAdmin ? '#b91c1c' : '#0f172a'}; text-align:left;">${escapeHtml(c.author_name)}</div>
-                  <div style="font-size:13px; color:#1e293b; line-height:1.4; white-space:pre-wrap; word-break:break-word; margin-top:2px; text-align:left;">${escapeHtml(c.text)}</div>
+                  <div style="font-size:13px; color:#1e293b; line-height:1.4; white-space:pre-wrap; word-break:break-word; margin-top:2px; text-align:left;">${escapeHtml(convertEmoticonsToEmoji(c.text))}</div>
                 </div>
                 <div style="font-size:11px; color:#64748b; margin-top:3px; padding-left:10px; display:flex; align-items:center; gap:10px;">
                   <span>${escapeHtml(c.created_at || '')}</span>
@@ -34182,19 +34266,20 @@ function renderFacebookPostSocialSection(item) {
         }).join('')}
 
         ${actor ? `
-          <div style="display:flex; align-items:center; gap:8px; margin-top:2px;">
+          <div style="display:flex; align-items:center; gap:6px; margin-top:2px;">
             <div style="width:30px; height:30px; border-radius:50%; background:${actor.role === 'admin' ? '#fee2e2' : '#dbeafe'}; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0;">
               ${actor.role === 'admin' ? '👑' : '🏢'}
             </div>
             <input
               type="text"
               id="post-cmt-input-${pidEsc}"
-              placeholder="Viết bình luận công khai với tư cách ${escapeHtml(actor.name)}..."
+              placeholder="Viết bình luận (gõ :) → 😊)..."
               onkeydown="if(event.key==='Enter'){submitInlinePostComment('${pidEsc}');}"
-              style="flex:1 1 auto; padding:8px 13px; border:1px solid #cbd5e1; border-radius:20px; background:#f0f2f5; font-size:13px; color:#0f172a; outline:none;"
+              style="flex:1 1 auto; min-width:0; padding:8px 13px; border:1px solid #cbd5e1; border-radius:20px; background:#f0f2f5; font-size:13px; color:#0f172a; outline:none;"
               onfocus="this.style.background='#ffffff'; this.style.borderColor='#0052cc';"
               onblur="this.style.background='#f0f2f5'; this.style.borderColor='#cbd5e1';"
             />
+            <button type="button" onclick="toggleCommentEmojiPicker('post-cmt-input-${pidEsc}', this)" title="Chọn biểu cảm" style="width:34px; height:34px; border-radius:50%; border:1px solid #e2e8f0; background:#fffbeb; font-size:18px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">😊</button>
             <button type="button" onclick="submitInlinePostComment('${pidEsc}')" style="background:#0052cc; color:#fff; border:none; padding:8px 14px; border-radius:20px; font-size:12.5px; font-weight:800; cursor:pointer; white-space:nowrap;">
               Gửi
             </button>
@@ -34343,9 +34428,11 @@ window.submitInlinePostComment = async function (photoId) {
   const actor = getCurrentGalleryActor();
   if (!actor) return;
   const input = document.getElementById('post-cmt-input-' + photoId);
-  const text = (input && input.value || '').trim();
+  const rawText = (input && input.value || '').trim();
+  const text = convertEmoticonsToEmoji(rawText);
   if (!text) return;
   if (input) input.value = '';
+  document.getElementById('comment-emoji-popover')?.remove();
 
   const pid = String(photoId);
   const nowStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString('vi-VN');
@@ -34580,7 +34667,7 @@ window.openGalleryCommentsModal = function (photoId) {
                           ${canDelCmt ? `<button type="button" onclick="deleteGalleryComment('${escapeHtml(String(item.id))}', '${escapeHtml(String(c.id))}')" title="Xóa bình luận" style="border:none; background:transparent; color:#dc2626; cursor:pointer; font-size:12px; padding:0 2px;">🗑️</button>` : ''}
                         </div>
                       </div>
-                      <div style="font-size:13px; color:#1e293b; line-height:1.45; white-space:pre-wrap; word-break:break-word;">${escapeHtml(c.text)}</div>
+                      <div style="font-size:13px; color:#1e293b; line-height:1.45; white-space:pre-wrap; word-break:break-word; text-align:left;">${escapeHtml(convertEmoticonsToEmoji(c.text))}</div>
                     </div>
                   `;
                 }).join('')}
@@ -34590,14 +34677,15 @@ window.openGalleryCommentsModal = function (photoId) {
         </div>
 
         ${actor ? `
-          <div style="padding:10px 14px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; align-items:center; gap:8px; flex-shrink:0;">
+          <div style="padding:10px 14px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; align-items:center; gap:7px; flex-shrink:0;">
             <input
               type="text"
               id="gallery-new-comment-input"
-              placeholder="Viết bình luận giao lưu công khai..."
+              placeholder="Viết bình luận (gõ :) → 😊)..."
               onkeydown="if(event.key==='Enter'){submitGalleryComment('${escapeHtml(String(item.id))}');}"
-              style="flex:1 1 auto; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:20px; font-size:13px; color:#0f172a; background:#ffffff; outline:none;"
+              style="flex:1 1 auto; min-width:0; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:20px; font-size:13px; color:#0f172a; background:#ffffff; outline:none;"
             />
+            <button type="button" onclick="toggleCommentEmojiPicker('gallery-new-comment-input', this)" title="Chọn biểu cảm" style="width:36px; height:36px; border-radius:50%; border:1px solid #e2e8f0; background:#fffbeb; font-size:18px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;">😊</button>
             <button type="button" id="btn-send-gallery-cmt" onclick="submitGalleryComment('${escapeHtml(String(item.id))}')" style="background:linear-gradient(135deg, #0052cc 0%, #0284c7 100%); color:#fff; border:none; padding:9px 16px; border-radius:20px; font-size:12.5px; font-weight:800; cursor:pointer; white-space:nowrap;">
               Gửi 💬
             </button>
@@ -34613,8 +34701,10 @@ window.submitGalleryComment = async function (photoId) {
   if (!actor) return;
   const input = document.getElementById('gallery-new-comment-input');
   const btn = document.getElementById('btn-send-gallery-cmt');
-  const text = (input && input.value || '').trim();
+  const rawText = (input && input.value || '').trim();
+  const text = convertEmoticonsToEmoji(rawText);
   if (!text) return;
+  document.getElementById('comment-emoji-popover')?.remove();
 
   const pid = String(photoId);
   const nowStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString('vi-VN');
