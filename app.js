@@ -2592,6 +2592,7 @@ function ingestCloudDB(db) {
   state.notifications = Array.isArray(db.notifications) ? db.notifications : [];
   state.donations = Array.isArray(db.donations) ? db.donations : [];
   state.photoGallery = Array.isArray(db.photo_gallery) ? db.photo_gallery : [];
+  state.photoGalleryInteractions = (db.photo_gallery_interactions && typeof db.photo_gallery_interactions === 'object') ? db.photo_gallery_interactions : {};
 
   state.cloudDB = db;
   // Hợp nhất tin nhắn Cloud DB: Cloud DB + các tin nhắn đã xóa cục bộ (tombstone) để không bao giờ bị CDN cache làm sống lại
@@ -33858,10 +33859,40 @@ window.openChatMessageDetailsModal = function(msgId) {
 };
 
 /* =========================================================================
-   THƯ VIỆN ẢNH TẬP THỂ & HOẠT ĐỘNG ĐOÀN UBND TỈNH QUẢNG TRỊ
+   THƯ VIỆN ẢNH TẬP THỂ & GIAO LƯU HOẠT ĐỘNG ĐOÀN UBND TỈNH QUẢNG TRỊ
    ========================================================================= */
 const DEFAULT_HERO_PHOTO_URL = './assets/doan_ubnd_quangtri_hero.jpg';
 const DEFAULT_HERO_PHOTO_FALLBACK = 'https://raw.githubusercontent.com/doanubndquangtri-cmd/bo-tieu-chi-doan/main/assets/doan_ubnd_quangtri_hero.jpg';
+
+function getPhotoGalleryInteractionsMap() {
+  if (state.photoGalleryInteractions && typeof state.photoGalleryInteractions === 'object') {
+    return state.photoGalleryInteractions;
+  }
+  if (state.cloudDB && state.cloudDB.photo_gallery_interactions && typeof state.cloudDB.photo_gallery_interactions === 'object') {
+    return state.cloudDB.photo_gallery_interactions;
+  }
+  return {};
+}
+
+function getPhotoInteraction(photoId) {
+  const map = getPhotoGalleryInteractionsMap();
+  const entry = map[String(photoId)] || {};
+  return {
+    likes: Array.isArray(entry.likes) ? entry.likes : [],
+    comments: Array.isArray(entry.comments) ? entry.comments : [],
+  };
+}
+
+function getCurrentGalleryActor() {
+  if (!state.user || state.user.role === 'guest') return null;
+  const isAdmin = state.user.role === 'admin';
+  return {
+    id: isAdmin ? 'admin_0' : ('unit_' + state.user.id),
+    unit_id: isAdmin ? 0 : state.user.id,
+    name: isAdmin ? 'Ban Thường vụ Đoàn UBND Tỉnh' : (state.user.unit_name || ('Đơn vị #' + state.user.id)),
+    role: isAdmin ? 'admin' : 'unit',
+  };
+}
 
 function getPhotoGalleryList() {
   const defaultHero = {
@@ -33871,6 +33902,9 @@ function getPhotoGalleryList() {
     src: DEFAULT_HERO_PHOTO_URL,
     fallback: DEFAULT_HERO_PHOTO_FALLBACK,
     date: '2026',
+    uploader_id: 'admin_0',
+    uploader_name: 'Ban Thường vụ Đoàn UBND Tỉnh',
+    uploader_role: 'admin',
     isDefault: true,
     featured: true,
   };
@@ -33886,8 +33920,89 @@ function getPhotoGalleryList() {
   return [defaultHero, ...custom];
 }
 
+function renderPhotoSocialBar(item, idx, isHero) {
+  const isAdmin = Boolean(state.user && state.user.role === 'admin');
+  const actor = getCurrentGalleryActor();
+  const inter = getPhotoInteraction(item.id);
+  const likeCount = inter.likes.length;
+  const cmtCount = inter.comments.length;
+  const iLiked = Boolean(actor && inter.likes.some(l => String(l.id) === String(actor.id)));
+  const likeNamesTooltip = likeCount > 0
+    ? ('Đã thả tim: ' + inter.likes.map(l => l.name).join(', '))
+    : 'Hãy là người đầu tiên thả tim cho ảnh này!';
+  const canDelete = Boolean(!item.isDefault && (isAdmin || (actor && item.uploader_id && String(item.uploader_id) === String(actor.id))));
+  const latestComments = inter.comments.slice(-2);
+
+  return `
+    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; padding-top:10px; border-top:1px solid #e2e8f0; margin-top:10px;">
+      <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+        <button
+          type="button"
+          onclick="toggleGalleryLike('${escapeHtml(String(item.id))}')"
+          title="${escapeHtml(likeNamesTooltip)}"
+          style="display:inline-flex; align-items:center; gap:5px; padding:${isHero ? '7px 13px' : '5px 10px'}; border-radius:20px; font-size:${isHero ? '12.5px' : '11.5px'}; font-weight:800; cursor:pointer; border:1.5px solid ${iLiked ? '#fda4af' : '#e2e8f0'}; background:${iLiked ? '#fff1f2' : '#f8fafc'}; color:${iLiked ? '#e11d48' : '#334155'}; transition:all 0.16s ease;"
+        >
+          <span>${iLiked ? '❤️' : '🤍'}</span>
+          <span>${likeCount > 0 ? likeCount : 'Tim'}</span>
+        </button>
+
+        <button
+          type="button"
+          onclick="openGalleryCommentsModal('${escapeHtml(String(item.id))}')"
+          title="Xem và gửi bình luận giao lưu"
+          style="display:inline-flex; align-items:center; gap:5px; padding:${isHero ? '7px 13px' : '5px 10px'}; border-radius:20px; font-size:${isHero ? '12.5px' : '11.5px'}; font-weight:700; cursor:pointer; border:1.5px solid #cbd5e1; background:#f8fafc; color:#1e293b;"
+        >
+          <span>💬</span>
+          <span>${cmtCount > 0 ? `${cmtCount} bình luận` : 'Bình luận'}</span>
+        </button>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+        <button type="button" class="btn btn-sm btn-outline" onclick="openGalleryLightbox(${idx})" style="font-size:${isHero ? '12px' : '11.5px'}; padding:${isHero ? '6px 11px' : '4px 9px'}; border-radius:8px;">
+          🔍 ${isHero ? 'Phóng to' : 'Xem'}
+        </button>
+        <button type="button" class="btn btn-sm btn-outline" onclick="downloadGalleryImage(${idx})" style="font-size:${isHero ? '12px' : '11.5px'}; padding:${isHero ? '6px 11px' : '4px 9px'}; border-radius:8px;">
+          ⬇️ ${isHero ? 'Tải ảnh' : 'Tải'}
+        </button>
+        ${isAdmin && !isHero ? `
+          <button type="button" class="btn btn-sm" onclick="setGalleryFeaturedPhoto('${escapeHtml(String(item.id))}')" title="Admin chọn ảnh này làm Ảnh Bìa Chính" style="font-size:11.5px; padding:4px 9px; border-radius:8px; background:#fef3c7; color:#b45309; border:1px solid #fcd34d; font-weight:700; cursor:pointer;">
+            ⭐ Đặt ảnh bìa
+          </button>
+        ` : ''}
+        ${canDelete ? `
+          <button type="button" class="btn btn-sm" onclick="deleteGalleryPhoto('${escapeHtml(String(item.id))}')" style="font-size:${isHero ? '12px' : '11.5px'}; padding:${isHero ? '6px 10px' : '4px 9px'}; border-radius:8px; background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-weight:700; cursor:pointer;">
+            🗑️ Xóa
+          </button>
+        ` : ''}
+      </div>
+    </div>
+
+    ${likeCount > 0 ? `
+      <div onclick="openGalleryCommentsModal('${escapeHtml(String(item.id))}')" style="margin-top:7px; font-size:11.5px; color:#be123c; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+        <span>❤️</span>
+        <span style="overflow:hidden; text-overflow:ellipsis;">${escapeHtml(inter.likes.slice(0, 3).map(l => l.name).join(', '))}${likeCount > 3 ? ` và ${likeCount - 3} đơn vị khác` : ''} đã thả tim</span>
+      </div>
+    ` : ''}
+
+    ${latestComments.length > 0 ? `
+      <div onclick="openGalleryCommentsModal('${escapeHtml(String(item.id))}')" style="margin-top:8px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:8px 10px; display:flex; flex-direction:column; gap:5px; cursor:pointer;">
+        ${cmtCount > 2 ? `<div style="font-size:11px; color:#0052cc; font-weight:700;">Xem tất cả ${cmtCount} bình luận...</div>` : ''}
+        ${latestComments.map(c => `
+          <div style="font-size:12px; color:#334155; line-height:1.35;">
+            <span style="font-weight:800; color:${c.author_role === 'admin' ? '#b91c1c' : '#0b2259'};">
+              ${c.author_role === 'admin' ? '👑' : '🏢'} ${escapeHtml(c.author_name)}:
+            </span>
+            <span>${escapeHtml(c.text)}</span>
+          </div>
+        `).join('')}
+      </div>
+    ` : ''}
+  `;
+}
+
 function renderPhotoGalleryTab() {
   const isAdmin = Boolean(state.user && state.user.role === 'admin');
+  const isGuest = Boolean(!state.user || state.user.role === 'guest');
   const photos = getPhotoGalleryList();
   const hero = photos[0];
   const album = photos.slice(1);
@@ -33901,20 +34016,20 @@ function renderPhotoGalleryTab() {
             TỈNH ĐOÀN QUẢNG TRỊ • ĐOÀN ỦY BAN NHÂN DÂN TỈNH
           </div>
           <h2 style="margin:3px 0 2px 0; font-size:clamp(16px, 2.2vw, 21px); font-weight:900; color:#fff; display:flex; align-items:center; gap:8px;">
-            <span>📸</span> Thư Viện Ảnh &amp; Khoảnh Khắc Hoạt Động Đoàn
+            <span>📸</span> Thư Viện Ảnh &amp; Giao Lưu Hoạt Động Đoàn
           </h2>
           <div style="font-size:12.5px; color:#dbeafe;">
-            Lưu giữ hình ảnh tập thể và các hoạt động tiêu biểu của Đoàn UBND tỉnh &amp; các cơ sở Đoàn trực thuộc (${photos.length} ảnh)
+            Không gian công khai chia sẻ hình ảnh hoạt động, thả tim &amp; bình luận giao lưu giữa toàn bộ 40 cơ sở Đoàn và Admin (${photos.length} ảnh)
           </div>
         </div>
-        ${isAdmin ? `
+        ${!isGuest ? `
           <button type="button" class="btn" onclick="openAddGalleryPhotoModal()" style="background:linear-gradient(135deg, #f59e0b 0%, #ea580c 100%); color:#fff; border:1px solid rgba(254,240,138,0.75); font-weight:800; font-size:13px; padding:9px 16px; border-radius:10px; box-shadow:0 3px 10px rgba(234,88,12,0.35); cursor:pointer; display:inline-flex; align-items:center; gap:6px; white-space:nowrap;">
-            ➕ Đăng Thêm Ảnh Hoạt Động
+            ➕ Đăng Ảnh Hoạt Động
           </button>
         ` : ''}
       </div>
 
-      <!-- ẢNH TẬP THỂ CHÍNH (HERO SHOWCASE) -->
+      <!-- ẢNH BÌA TẬP THỂ CHÍNH (HERO SHOWCASE) -->
       ${hero ? `
         <div style="background:#ffffff; border-radius:16px; overflow:hidden; border:1px solid #e2e8f0; box-shadow:0 8px 28px rgba(15, 23, 42, 0.1); margin-bottom:20px;">
           <div style="position:relative; background:#0f172a; cursor:zoom-in; overflow:hidden;" onclick="openGalleryLightbox(0)">
@@ -33927,47 +34042,39 @@ function renderPhotoGalleryTab() {
               onmouseover="this.style.transform='scale(1.015)'"
               onmouseout="this.style.transform='scale(1)'"
             />
-            <div style="position:absolute; top:12px; left:12px; background:rgba(11, 34, 89, 0.78); backdrop-filter:blur(8px); color:#fde047; font-size:11.5px; font-weight:800; padding:5px 12px; border-radius:20px; border:1px solid rgba(253,224,71,0.45); box-shadow:0 2px 8px rgba(0,0,0,0.28);">
-              ⭐ ẢNH TẬP THỂ CHÍNH
+            <div style="position:absolute; top:12px; left:12px; background:rgba(11, 34, 89, 0.82); backdrop-filter:blur(8px); color:#fde047; font-size:11.5px; font-weight:800; padding:5px 12px; border-radius:20px; border:1px solid rgba(253,224,71,0.45); box-shadow:0 2px 8px rgba(0,0,0,0.28);">
+              ⭐ ẢNH BÌA CHÍNH
             </div>
             <div style="position:absolute; bottom:12px; right:12px; background:rgba(15,23,42,0.72); backdrop-filter:blur(6px); color:#fff; font-size:12px; font-weight:700; padding:6px 12px; border-radius:9px; border:1px solid rgba(255,255,255,0.25);">
               🔍 Bấm vào ảnh để phóng to
             </div>
           </div>
 
-          <div style="padding:14px 18px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; background:linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);">
-            <div style="flex:1 1 280px; min-width:0;">
-              <div style="font-size:17px; font-weight:900; color:#0b2259; line-height:1.3;">
-                ${escapeHtml(hero.title)}
+          <div style="padding:14px 18px; background:linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);">
+            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-bottom:4px;">
+              <span style="font-size:11.5px; font-weight:700; color:${hero.uploader_role === 'admin' ? '#b91c1c' : '#0284c7'};">
+                ${hero.uploader_role === 'admin' ? '👑' : '🏢'} ${escapeHtml(hero.uploader_name || 'Ban Thường vụ Đoàn UBND Tỉnh')}
+              </span>
+              ${hero.date ? `<span style="font-size:11.5px; color:#64748b; font-weight:600;">📅 ${escapeHtml(hero.date)}</span>` : ''}
+            </div>
+            <div style="font-size:17.5px; font-weight:900; color:#0b2259; line-height:1.3;">
+              ${escapeHtml(hero.title)}
+            </div>
+            ${hero.description ? `
+              <div style="font-size:13px; color:#475569; margin-top:4px; line-height:1.45;">
+                ${escapeHtml(hero.description)}
               </div>
-              ${hero.description ? `
-                <div style="font-size:13px; color:#475569; margin-top:4px; line-height:1.45;">
-                  ${escapeHtml(hero.description)}
-                </div>
-              ` : ''}
-            </div>
-            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-              <button type="button" class="btn btn-primary btn-sm" onclick="openGalleryLightbox(0)" style="padding:8px 14px; font-size:12.5px; font-weight:700; border-radius:9px;">
-                🔍 Xem Toàn Màn Hình
-              </button>
-              <button type="button" class="btn btn-outline btn-sm" onclick="downloadGalleryImage(0)" style="padding:8px 14px; font-size:12.5px; font-weight:700; border-radius:9px; border-color:#cbd5e1; color:#0f172a; background:#fff;">
-                ⬇️ Tải Ảnh Gốc
-              </button>
-              ${isAdmin && !hero.isDefault ? `
-                <button type="button" class="btn btn-sm" onclick="deleteGalleryPhoto('${escapeHtml(String(hero.id))}')" style="padding:8px 12px; font-size:12.5px; font-weight:700; border-radius:9px; background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;">
-                  🗑️ Xóa
-                </button>
-              ` : ''}
-            </div>
+            ` : ''}
+            ${renderPhotoSocialBar(hero, 0, true)}
           </div>
         </div>
       ` : ''}
 
-      <!-- ALBUM ẢNH HOẠT ĐỘNG KHÁC -->
+      <!-- ALBUM ẢNH HOẠT ĐỘNG CÔNG KHAI -->
       <div>
         <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
           <h3 style="margin:0; font-size:15.5px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:7px;">
-            <span>🖼️</span> Album Hoạt Động Đoàn (${album.length})
+            <span>🖼️</span> Album Ảnh Hoạt Động Toàn Khối (${album.length})
           </h3>
         </div>
 
@@ -33976,16 +34083,16 @@ function renderPhotoGalleryTab() {
             <div style="font-size:28px; margin-bottom:6px;">📷</div>
             <div style="font-size:14px; font-weight:700; color:#334155;">Chưa có thêm ảnh hoạt động mới trong album</div>
             <div style="font-size:12.5px; margin-top:4px;">
-              ${isAdmin ? 'Bấm nút <b>"➕ Đăng Thêm Ảnh Hoạt Động"</b> ở góc trên để bổ sung hình ảnh các chương trình, hoạt động cho toàn khối cùng xem.' : 'Các hình ảnh hoạt động mới của Đoàn UBND tỉnh sẽ được Ban Thường vụ cập nhật tại đây.'}
+              ${!isGuest ? 'Các cơ sở Đoàn và Admin đều có thể bấm <b>"➕ Đăng Ảnh Hoạt Động"</b> ở góc trên để chia sẻ hình ảnh, thả tim và bình luận giao lưu cùng toàn khối!' : 'Hình ảnh hoạt động của các cơ sở Đoàn và Ban Thường vụ sẽ hiển thị công khai tại đây.'}
             </div>
           </div>
         ` : `
-          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:14px;">
+          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(310px, 1fr)); gap:16px;">
             ${album.map((item, i) => {
               const realIdx = i + 1;
               return `
                 <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:14px; overflow:hidden; box-shadow:0 3px 12px rgba(15,23,42,0.06); display:flex; flex-direction:column;">
-                  <div style="position:relative; height:200px; background:#0f172a; cursor:zoom-in; overflow:hidden;" onclick="openGalleryLightbox(${realIdx})">
+                  <div style="position:relative; height:215px; background:#0f172a; cursor:zoom-in; overflow:hidden;" onclick="openGalleryLightbox(${realIdx})">
                     <img
                       src="${escapeHtml(item.src)}"
                       onerror="if(this.dataset.fb && this.src!==this.dataset.fb){this.src=this.dataset.fb;}"
@@ -33994,25 +34101,20 @@ function renderPhotoGalleryTab() {
                       style="width:100%; height:100%; object-fit:cover; display:block;"
                     />
                     ${item.date ? `
-                      <span style="position:absolute; top:8px; right:8px; background:rgba(15,23,42,0.72); color:#fff; font-size:11px; font-weight:700; padding:3px 8px; border-radius:6px;">
+                      <span style="position:absolute; top:8px; right:8px; background:rgba(15,23,42,0.75); color:#fff; font-size:11px; font-weight:700; padding:3px 8px; border-radius:6px;">
                         📅 ${escapeHtml(item.date)}
                       </span>
                     ` : ''}
                   </div>
-                  <div style="padding:12px 14px; flex:1 1 auto; display:flex; flex-direction:column; justify-content:space-between; gap:8px;">
+                  <div style="padding:12px 14px; flex:1 1 auto; display:flex; flex-direction:column; justify-content:space-between;">
                     <div>
-                      <div style="font-size:14px; font-weight:800; color:#0f172a; line-height:1.35;">${escapeHtml(item.title)}</div>
-                      ${item.description ? `<div style="font-size:12px; color:#64748b; margin-top:4px; line-height:1.4;">${escapeHtml(item.description)}</div>` : ''}
-                    </div>
-                    <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; padding-top:8px; border-top:1px solid #f1f5f9;">
-                      <div style="display:flex; gap:6px;">
-                        <button type="button" class="btn btn-sm btn-outline" onclick="openGalleryLightbox(${realIdx})" style="font-size:11.5px; padding:4px 9px; border-radius:7px;">🔍 Xem</button>
-                        <button type="button" class="btn btn-sm btn-outline" onclick="downloadGalleryImage(${realIdx})" style="font-size:11.5px; padding:4px 9px; border-radius:7px;">⬇️ Tải</button>
+                      <div style="font-size:11.5px; font-weight:700; color:${item.uploader_role === 'admin' ? '#b91c1c' : '#0284c7'}; margin-bottom:4px;">
+                        ${item.uploader_role === 'admin' ? '👑' : '🏢'} ${escapeHtml(item.uploader_name || 'Cơ sở Đoàn')}
                       </div>
-                      ${isAdmin && !item.isDefault ? `
-                        <button type="button" class="btn btn-sm" onclick="deleteGalleryPhoto('${escapeHtml(String(item.id))}')" style="font-size:11.5px; padding:4px 9px; border-radius:7px; background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;">🗑️ Xóa</button>
-                      ` : ''}
+                      <div style="font-size:14.5px; font-weight:800; color:#0f172a; line-height:1.35;">${escapeHtml(item.title)}</div>
+                      ${item.description ? `<div style="font-size:12.5px; color:#64748b; margin-top:4px; line-height:1.4;">${escapeHtml(item.description)}</div>` : ''}
                     </div>
+                    ${renderPhotoSocialBar(item, realIdx, false)}
                   </div>
                 </div>
               `;
@@ -34023,6 +34125,215 @@ function renderPhotoGalleryTab() {
     </div>
   `;
 }
+
+window.toggleGalleryLike = async function (photoId) {
+  const actor = getCurrentGalleryActor();
+  if (!actor) {
+    showToast('Vui lòng đăng nhập tài khoản Đoàn hoặc Admin để thả tim!', 'warning');
+    return;
+  }
+  const pid = String(photoId);
+  if (!state.photoGalleryInteractions) state.photoGalleryInteractions = {};
+  if (!state.photoGalleryInteractions[pid]) state.photoGalleryInteractions[pid] = { likes: [], comments: [] };
+  const localLikes = Array.isArray(state.photoGalleryInteractions[pid].likes) ? [...state.photoGalleryInteractions[pid].likes] : [];
+  const existed = localLikes.some(l => String(l.id) === String(actor.id));
+  state.photoGalleryInteractions[pid].likes = existed
+    ? localLikes.filter(l => String(l.id) !== String(actor.id))
+    : [...localLikes, { id: actor.id, name: actor.name, role: actor.role, ts: Date.now() }];
+  renderApp();
+  if (document.getElementById('gallery-comments-modal-body')) {
+    openGalleryCommentsModal(pid);
+  }
+
+  const res = await mutateCloudDB((db) => {
+    if (!db.photo_gallery_interactions || typeof db.photo_gallery_interactions !== 'object') {
+      db.photo_gallery_interactions = {};
+    }
+    if (!db.photo_gallery_interactions[pid]) db.photo_gallery_interactions[pid] = { likes: [], comments: [] };
+    const arr = Array.isArray(db.photo_gallery_interactions[pid].likes) ? db.photo_gallery_interactions[pid].likes : [];
+    const has = arr.some(l => String(l.id) === String(actor.id));
+    db.photo_gallery_interactions[pid].likes = has
+      ? arr.filter(l => String(l.id) !== String(actor.id))
+      : [...arr, { id: actor.id, name: actor.name, role: actor.role, ts: Date.now() }];
+  }, 'Toggle gallery like ' + pid);
+
+  if (res && res.ok) {
+    renderApp();
+    if (document.getElementById('gallery-comments-modal-body')) {
+      openGalleryCommentsModal(pid);
+    }
+  }
+};
+
+window.openGalleryCommentsModal = function (photoId) {
+  const photos = getPhotoGalleryList();
+  const item = photos.find(p => String(p.id) === String(photoId));
+  if (!item) return;
+  const isAdmin = Boolean(state.user && state.user.role === 'admin');
+  const actor = getCurrentGalleryActor();
+  const inter = getPhotoInteraction(item.id);
+  const iLiked = Boolean(actor && inter.likes.some(l => String(l.id) === String(actor.id)));
+
+  const root = document.getElementById('modal-root');
+  if (!root) return;
+  root.innerHTML = `
+    <div class="modal-backdrop" onclick="closeModal()" style="position:fixed; inset:0; background:rgba(15, 23, 42, 0.68); backdrop-filter:blur(4px); z-index:99999; display:flex; align-items:center; justify-content:center; padding:12px; box-sizing:border-box;">
+      <div class="modal-content" onclick="event.stopPropagation()" style="background:#ffffff; border-radius:16px; overflow:hidden; max-width:600px; width:100%; max-height:92dvh; display:flex; flex-direction:column; box-shadow:0 24px 60px rgba(15,23,42,0.38); border:1px solid #e2e8f0;">
+        <div style="background:linear-gradient(135deg, #0b2259 0%, #1552be 100%); color:#fff; padding:13px 16px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-shrink:0;">
+          <div style="min-width:0;">
+            <div style="font-size:14.5px; font-weight:800; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">💬 Giao Lưu &amp; Bình Luận Ảnh</div>
+            <div style="font-size:11.5px; color:#bfdbfe; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(item.title)}</div>
+          </div>
+          <button type="button" onclick="closeModal()" style="width:32px; height:32px; border-radius:8px; border:1px solid rgba(255,255,255,0.28); background:rgba(255,255,255,0.14); color:#fff; font-size:16px; font-weight:800; cursor:pointer; flex-shrink:0;">✕</button>
+        </div>
+
+        <div id="gallery-comments-modal-body" style="padding:14px 16px; overflow-y:auto; flex:1 1 auto; display:flex; flex-direction:column; gap:12px; background:#ffffff;">
+          <div style="border-radius:10px; overflow:hidden; background:#0f172a; border:1px solid #e2e8f0;">
+            <img src="${escapeHtml(item.src)}" onerror="if(this.dataset.fb && this.src!==this.dataset.fb){this.src=this.dataset.fb;}" data-fb="${escapeHtml(item.fallback || '')}" alt="${escapeHtml(item.title)}" style="width:100%; max-height:220px; object-fit:contain; display:block;" />
+          </div>
+
+          <!-- DANH SÁCH THẢ TIM CÔNG KHAI -->
+          <div style="background:#fff1f2; border:1px solid #fecdd3; border-radius:10px; padding:10px 12px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:${inter.likes.length > 0 ? '6px' : '0'};">
+              <span style="font-size:12.5px; font-weight:800; color:#be123c;">❤️ ${inter.likes.length} lượt thả tim</span>
+              ${actor ? `
+                <button type="button" onclick="toggleGalleryLike('${escapeHtml(String(item.id))}')" style="padding:4px 11px; border-radius:16px; font-size:12px; font-weight:800; cursor:pointer; border:1px solid ${iLiked ? '#f43f5e' : '#fda4af'}; background:${iLiked ? '#e11d48' : '#ffffff'}; color:${iLiked ? '#ffffff' : '#e11d48'};">
+                  ${iLiked ? '❤️ Đã tim' : '🤍 Thả tim'}
+                </button>
+              ` : ''}
+            </div>
+            ${inter.likes.length > 0 ? `
+              <div style="display:flex; flex-wrap:wrap; gap:5px;">
+                ${inter.likes.map(l => `
+                  <span style="font-size:11px; font-weight:700; background:#ffffff; color:${l.role === 'admin' ? '#b91c1c' : '#334155'}; border:1px solid #fecdd3; padding:2px 8px; border-radius:12px;">
+                    ${l.role === 'admin' ? '👑' : '🏢'} ${escapeHtml(l.name)}
+                  </span>
+                `).join('')}
+              </div>
+            ` : ''}
+          </div>
+
+          <!-- DANH SÁCH BÌNH LUẬN CÔNG KHAI -->
+          <div>
+            <div style="font-size:12.5px; font-weight:800; color:#1e293b; margin-bottom:8px;">💬 Bình luận (${inter.comments.length})</div>
+            ${inter.comments.length === 0 ? `
+              <div style="text-align:center; padding:18px 10px; color:#64748b; font-size:12.5px; background:#f8fafc; border-radius:10px; border:1px dashed #cbd5e1;">
+                Chưa có bình luận nào. Hãy để lại lời nhắn giao lưu đầu tiên!
+              </div>
+            ` : `
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                ${inter.comments.map(c => {
+                  const canDelCmt = Boolean(isAdmin || (actor && String(c.author_id) === String(actor.id)));
+                  return `
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:9px 11px;">
+                      <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; margin-bottom:3px;">
+                        <span style="font-size:12px; font-weight:800; color:${c.author_role === 'admin' ? '#b91c1c' : '#0b2259'};">
+                          ${c.author_role === 'admin' ? '👑' : '🏢'} ${escapeHtml(c.author_name)}
+                        </span>
+                        <div style="display:inline-flex; align-items:center; gap:6px;">
+                          <span style="font-size:10.5px; color:#64748b;">${escapeHtml(c.created_at || '')}</span>
+                          ${canDelCmt ? `<button type="button" onclick="deleteGalleryComment('${escapeHtml(String(item.id))}', '${escapeHtml(String(c.id))}')" title="Xóa bình luận" style="border:none; background:transparent; color:#dc2626; cursor:pointer; font-size:12px; padding:0 2px;">🗑️</button>` : ''}
+                        </div>
+                      </div>
+                      <div style="font-size:13px; color:#1e293b; line-height:1.45; white-space:pre-wrap; word-break:break-word;">${escapeHtml(c.text)}</div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            `}
+          </div>
+        </div>
+
+        ${actor ? `
+          <div style="padding:10px 14px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; align-items:center; gap:8px; flex-shrink:0;">
+            <input
+              type="text"
+              id="gallery-new-comment-input"
+              placeholder="Viết bình luận giao lưu công khai..."
+              onkeydown="if(event.key==='Enter'){submitGalleryComment('${escapeHtml(String(item.id))}');}"
+              style="flex:1 1 auto; padding:9px 12px; border:1.5px solid #cbd5e1; border-radius:20px; font-size:13px; color:#0f172a; background:#ffffff; outline:none;"
+            />
+            <button type="button" id="btn-send-gallery-cmt" onclick="submitGalleryComment('${escapeHtml(String(item.id))}')" style="background:linear-gradient(135deg, #0052cc 0%, #0284c7 100%); color:#fff; border:none; padding:9px 16px; border-radius:20px; font-size:12.5px; font-weight:800; cursor:pointer; white-space:nowrap;">
+              Gửi 💬
+            </button>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+};
+
+window.submitGalleryComment = async function (photoId) {
+  const actor = getCurrentGalleryActor();
+  if (!actor) return;
+  const input = document.getElementById('gallery-new-comment-input');
+  const btn = document.getElementById('btn-send-gallery-cmt');
+  const text = (input && input.value || '').trim();
+  if (!text) return;
+
+  const pid = String(photoId);
+  const nowStr = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' ' + new Date().toLocaleDateString('vi-VN');
+  const newCmt = {
+    id: 'cmt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    author_id: actor.id,
+    author_name: actor.name,
+    author_role: actor.role,
+    text,
+    created_at: nowStr,
+  };
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+  const res = await mutateCloudDB((db) => {
+    if (!db.photo_gallery_interactions || typeof db.photo_gallery_interactions !== 'object') {
+      db.photo_gallery_interactions = {};
+    }
+    if (!db.photo_gallery_interactions[pid]) db.photo_gallery_interactions[pid] = { likes: [], comments: [] };
+    if (!Array.isArray(db.photo_gallery_interactions[pid].comments)) db.photo_gallery_interactions[pid].comments = [];
+    db.photo_gallery_interactions[pid].comments.push(newCmt);
+  }, 'Comment on gallery photo ' + pid);
+
+  if (res && res.ok) {
+    renderApp();
+    openGalleryCommentsModal(pid);
+    const body = document.getElementById('gallery-comments-modal-body');
+    if (body) body.scrollTop = body.scrollHeight;
+  } else {
+    showToast('Không thể gửi bình luận, vui lòng thử lại!', 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Gửi 💬'; }
+  }
+};
+
+window.deleteGalleryComment = async function (photoId, commentId) {
+  const actor = getCurrentGalleryActor();
+  if (!actor) return;
+  const pid = String(photoId);
+  const res = await mutateCloudDB((db) => {
+    if (db.photo_gallery_interactions && db.photo_gallery_interactions[pid] && Array.isArray(db.photo_gallery_interactions[pid].comments)) {
+      db.photo_gallery_interactions[pid].comments = db.photo_gallery_interactions[pid].comments.filter(c => String(c.id) !== String(commentId));
+    }
+  }, 'Delete gallery comment ' + commentId);
+  if (res && res.ok) {
+    renderApp();
+    openGalleryCommentsModal(pid);
+  }
+};
+
+window.setGalleryFeaturedPhoto = async function (photoId) {
+  if (!state.user || state.user.role !== 'admin') return;
+  const pid = String(photoId);
+  const res = await mutateCloudDB((db) => {
+    if (!Array.isArray(db.photo_gallery)) db.photo_gallery = [];
+    db.photo_gallery.forEach(p => {
+      if (p) p.featured = (String(p.id) === pid);
+    });
+  }, 'Set featured gallery cover ' + pid);
+  if (res && res.ok) {
+    showToast('⭐ Đã cập nhật Ảnh Bìa Chính thành công!', 'success');
+    renderApp();
+  } else {
+    showToast('Không thể cập nhật ảnh bìa!', 'error');
+  }
+};
 
 window.openGalleryLightbox = function (idx) {
   const photos = getPhotoGalleryList();
@@ -34056,7 +34367,7 @@ window.openGalleryLightbox = function (idx) {
     <div onclick="event.stopPropagation()" style="margin-top:14px; text-align:center; max-width:780px; color:#fff;">
       <div style="font-size:16px; font-weight:800; color:#fde047;">${escapeHtml(item.title)}</div>
       ${item.description ? `<div style="font-size:13px; color:#e2e8f0; margin-top:4px;">${escapeHtml(item.description)}</div>` : ''}
-      <div style="font-size:11.5px; color:#94a3b8; margin-top:4px;">Ảnh ${safeIdx + 1} / ${photos.length}${item.date ? ' • ' + escapeHtml(item.date) : ''}</div>
+      <div style="font-size:11.5px; color:#94a3b8; margin-top:4px;">Ảnh ${safeIdx + 1} / ${photos.length}${item.uploader_name ? ' • ' + escapeHtml(item.uploader_name) : ''}${item.date ? ' • ' + escapeHtml(item.date) : ''}</div>
     </div>
   `;
   document.body.appendChild(overlay);
@@ -34096,7 +34407,9 @@ window.previewGalleryUploadFile = function (inputEl) {
 };
 
 window.openAddGalleryPhotoModal = function () {
-  if (!state.user || state.user.role !== 'admin') return;
+  const actor = getCurrentGalleryActor();
+  if (!actor) return;
+  const isAdmin = actor.role === 'admin';
   const root = document.getElementById('modal-root');
   if (!root) return;
   root.innerHTML = `
@@ -34106,8 +34419,8 @@ window.openAddGalleryPhotoModal = function () {
           <div style="display:flex; align-items:center; gap:9px;">
             <span style="font-size:20px;">📸</span>
             <div>
-              <h3 style="margin:0; font-size:15.5px; font-weight:800; color:#fff;">Đăng Thêm Ảnh Hoạt Động Đoàn</h3>
-              <div style="font-size:11.5px; color:#bfdbfe; margin-top:1px;">Hiển thị ngay cho toàn bộ 40 cơ sở Đoàn cùng xem</div>
+              <h3 style="margin:0; font-size:15.5px; font-weight:800; color:#fff;">Đăng Ảnh Hoạt Động Đoàn</h3>
+              <div style="font-size:11.5px; color:#bfdbfe; margin-top:1px;">Đăng công khai với tên: <b>${escapeHtml(actor.name)}</b></div>
             </div>
           </div>
           <button type="button" onclick="closeModal()" style="width:32px; height:32px; border-radius:8px; border:1px solid rgba(255,255,255,0.28); background:rgba(255,255,255,0.14); color:#fff; font-size:16px; font-weight:800; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;" title="Đóng">✕</button>
@@ -34148,10 +34461,14 @@ window.openAddGalleryPhotoModal = function () {
               <label for="gallery-date-input" style="font-size:12.5px; font-weight:700; color:#334155;">📅 Ngày chụp:</label>
               <input type="date" id="gallery-date-input" value="${todayISO()}" style="padding:6px 9px; border:1.5px solid #cbd5e1; border-radius:8px; font-size:12.5px; color:#0f172a; background:#fff;" />
             </div>
-            <label style="display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:700; color:#0b2259; cursor:pointer; user-select:none;">
-              <input type="checkbox" id="gallery-featured-input" style="width:16px; height:16px; accent-color:#0052cc; cursor:pointer;" />
-              <span>⭐ Đặt làm ảnh bìa chính</span>
-            </label>
+            ${isAdmin ? `
+              <label style="display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:700; color:#0b2259; cursor:pointer; user-select:none;">
+                <input type="checkbox" id="gallery-featured-input" style="width:16px; height:16px; accent-color:#0052cc; cursor:pointer;" />
+                <span>⭐ Đặt làm ảnh bìa chính</span>
+              </label>
+            ` : `
+              <span style="font-size:11.5px; color:#64748b; font-style:italic;">🌐 Hiển thị công khai trong Album toàn khối</span>
+            `}
           </div>
         </div>
 
@@ -34165,6 +34482,9 @@ window.openAddGalleryPhotoModal = function () {
 };
 
 window.submitAddGalleryPhoto = async function () {
+  const actor = getCurrentGalleryActor();
+  if (!actor) return;
+  const isAdmin = actor.role === 'admin';
   const fileEl = document.getElementById('gallery-file-input');
   const titleEl = document.getElementById('gallery-title-input');
   const descEl = document.getElementById('gallery-desc-input');
@@ -34177,7 +34497,7 @@ window.submitAddGalleryPhoto = async function () {
   const description = (descEl && descEl.value || '').trim();
   const rawDate = (dateEl && dateEl.value || '').trim();
   const dateStr = rawDate ? formatDateVN(rawDate) : '';
-  const featured = Boolean(featEl && featEl.checked);
+  const featured = Boolean(isAdmin && featEl && featEl.checked);
 
   if (!file) { showToast('Vui lòng chọn 1 tệp ảnh!', 'warning'); return; }
   if (!title) { showToast('Vui lòng nhập tiêu đề cho ảnh!', 'warning'); return; }
@@ -34211,6 +34531,9 @@ window.submitAddGalleryPhoto = async function () {
       description,
       src: dataUrl,
       date: dateStr,
+      uploader_id: actor.id,
+      uploader_name: actor.name,
+      uploader_role: actor.role,
       featured,
       created_at: nowISO(),
     };
@@ -34223,7 +34546,7 @@ window.submitAddGalleryPhoto = async function () {
 
     if (res && res.ok) {
       closeModal();
-      showToast('🟢 Đã đăng ảnh vào Thư Viện Ảnh thành công!', 'success');
+      showToast('🟢 Đã đăng ảnh công khai vào Thư Viện Ảnh!', 'success');
       renderApp();
     } else {
       showToast('Không thể lưu ảnh lên đám mây, vui lòng thử lại!', 'error');
@@ -34236,11 +34559,19 @@ window.submitAddGalleryPhoto = async function () {
 };
 
 window.deleteGalleryPhoto = async function (photoId) {
-  if (!state.user || state.user.role !== 'admin') return;
+  const actor = getCurrentGalleryActor();
+  if (!actor) return;
+  const photos = getPhotoGalleryList();
+  const target = photos.find(p => String(p.id) === String(photoId));
+  if (!target || target.isDefault) return;
+  if (actor.role !== 'admin' && String(target.uploader_id) !== String(actor.id)) return;
   if (!confirm('Bạn có chắc muốn xóa ảnh này khỏi Thư Viện Ảnh không?')) return;
   const res = await mutateCloudDB((db) => {
     if (Array.isArray(db.photo_gallery)) {
       db.photo_gallery = db.photo_gallery.filter(p => String(p.id) !== String(photoId));
+    }
+    if (db.photo_gallery_interactions && db.photo_gallery_interactions[String(photoId)]) {
+      delete db.photo_gallery_interactions[String(photoId)];
     }
   }, 'Delete gallery photo ' + photoId);
   if (res && res.ok) {
