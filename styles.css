@@ -768,6 +768,18 @@ thead th.sticky-col-total {
   border: 1px solid #fcd34d;
 }
 
+.evidence-dot.no-attachment {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px dashed #f59e0b;
+  width: auto;
+  min-width: 20px;
+  padding: 0 3px;
+  border-radius: 9px;
+  font-size: 9px;
+  font-weight: 800;
+}
+
 /* Badges */
 .badge {
   display: inline-flex;

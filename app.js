@@ -6543,43 +6543,47 @@ function renderMasterScoreCell(unit, crit, isAdmin) {
 
 
 
-  // Show green dot for ALL cells that have points (including just entered) OR have submission content
+  // Chỉ hiển thị biểu tượng đính kèm khi ô CÓ ĐIỂM (hoặc có bài đơn vị đang chờ duyệt); ô trống hoàn toàn ẩn biểu tượng đính kèm
+  const hasScore = numVal !== null && val !== '' && !Number.isNaN(numVal);
 
-  const hasScore = numVal !== null && val !== '';
+  const hasAttachment = Boolean(sc && (
+    (sc.file_path && String(sc.file_path).trim() !== '') ||
+    (sc.file_name && String(sc.file_name).trim() !== '') ||
+    (sc.evidence_link && String(sc.evidence_link).trim() !== '') ||
+    (Array.isArray(sc.attachments) && sc.attachments.length > 0)
+  ));
 
-  const hasContent = sc && Boolean(
+  const hasNoteOrReport = Boolean(sc && (
+    (sc.report_content && String(sc.report_content).trim() !== '') ||
+    (sc.admin_note && String(sc.admin_note).trim() !== '')
+  ));
 
-    (sc.report_content && sc.report_content.trim() !== '') ||
-
-    (sc.evidence_link && sc.evidence_link.trim() !== '') ||
-
-    (sc.file_path && sc.file_path.trim() !== '') ||
-
-    sc.updated_by === 'unit'
-
-  );
-
-
-
-  const shouldShowDot = hasScore || hasContent;
+  const isPendingUnitSub = Boolean(sc && sc.approval_status === 'pending' && (hasAttachment || hasNoteOrReport));
 
   const isLate = sc && Number(sc.is_on_time) === 0;
 
-
-
-  const dotHtml = shouldShowDot
-
-    ? `<span
-
+  let dotHtml = '';
+  if (hasScore || isPendingUnitSub) {
+    if (hasAttachment || isPendingUnitSub) {
+      dotHtml = `<span
         class="evidence-dot ${isLate ? 'late' : 'ontime'}"
-
         onclick="openSubmissionDetailModal(${unit.id}, ${crit.id})"
-
-        title="Xem chi tiết báo cáo, lý do cho điểm & minh chứng đính kèm"
-
-      >📎</span>`
-
-    : '';
+        title="Đã có tệp/minh chứng đính kèm — Bấm để xem chi tiết"
+      >📎</span>`;
+    } else if (isAdmin) {
+      dotHtml = `<span
+        class="evidence-dot no-attachment"
+        onclick="openSubmissionDetailModal(${unit.id}, ${crit.id})"
+        title="Ô đã có điểm (chưa có tệp đính kèm) — Bấm để thêm tệp nếu cần"
+      >+📎</span>`;
+    } else if (hasNoteOrReport) {
+      dotHtml = `<span
+        class="evidence-dot ${isLate ? 'late' : 'ontime'}"
+        onclick="openSubmissionDetailModal(${unit.id}, ${crit.id})"
+        title="Xem chi tiết nhận xét & lý do chấm điểm"
+      >📎</span>`;
+    }
+  }
 
 
 
@@ -6816,21 +6820,28 @@ window.onAdminInlineScoreChange = async function (inputEl) {
   }, 'Admin score U' + unitId + ' C' + critId);
 
   if (res.ok) {
-    // Immediately update evidence-dot on the cell
+    // Cập nhật ngay biểu tượng đính kèm trên ô: ô trống thì ẩn hẳn, ô có điểm thì phân biệt đã có tệp (📎) vs chưa có tệp (+📎)
     const cellTd = document.getElementById('cell-' + unitId + '-' + critId);
+    const updatedSc = getScoreObj(unitId, critId);
+    const hasAttachment = Boolean(updatedSc && (
+      (updatedSc.file_path && String(updatedSc.file_path).trim() !== '') ||
+      (updatedSc.file_name && String(updatedSc.file_name).trim() !== '') ||
+      (updatedSc.evidence_link && String(updatedSc.evidence_link).trim() !== '') ||
+      (Array.isArray(updatedSc.attachments) && updatedSc.attachments.length > 0)
+    ));
     if (cellTd) {
       const existingDot = cellTd.querySelector('.evidence-dot');
-      if (numVal !== null && !existingDot) {
-        const dotSpan = document.createElement('span');
-        dotSpan.className = 'evidence-dot ontime';
+      if (numVal !== null) {
+        const dotSpan = existingDot || document.createElement('span');
+        dotSpan.className = hasAttachment ? 'evidence-dot ontime' : 'evidence-dot no-attachment';
         dotSpan.onclick = () => openSubmissionDetailModal(unitId, critId);
-        dotSpan.title = 'Xem chi tiết báo cáo, lý do cho điểm & minh chứng đính kèm';
-        dotSpan.innerHTML = '📎';
-        cellTd.prepend(dotSpan);
-      } else if (numVal === null && existingDot) {
-        const sc = getScoreObj(unitId, critId);
-        const hasContent = sc && (sc.report_content || sc.evidence_link || sc.file_path);
-        if (!hasContent) existingDot.remove();
+        dotSpan.title = hasAttachment
+          ? 'Đã có tệp/minh chứng đính kèm — Bấm để xem chi tiết'
+          : 'Ô đã có điểm (chưa có tệp đính kèm) — Bấm để thêm tệp nếu cần';
+        dotSpan.innerHTML = hasAttachment ? '📎' : '+📎';
+        if (!existingDot) cellTd.prepend(dotSpan);
+      } else if (existingDot) {
+        existingDot.remove();
       }
     }
 
@@ -6838,10 +6849,60 @@ window.onAdminInlineScoreChange = async function (inputEl) {
     if (state.sortBy !== 'order') {
       setTimeout(() => renderApp(), 400);
     }
-    showToast('🟢 Đã cập nhật điểm thành công!', 'success');
+
+    // Khi Admin vừa chấm điểm cho ô chưa có tệp đính kèm -> hiển thị thanh hỏi nhanh (không chặn nhập liệu)
+    if (numVal !== null && !hasAttachment && typeof window.showAdminScoreAttachmentPrompt === 'function') {
+      window.showAdminScoreAttachmentPrompt(unitId, critId, numVal);
+    } else {
+      showToast('🟢 Đã cập nhật điểm thành công!', 'success');
+    }
   } else {
     showToast('Lỗi khi đồng bộ điểm lên đám mây!', 'error');
   }
+};
+
+window.showAdminScoreAttachmentPrompt = function (unitId, critId, numVal) {
+  if (typeof document === 'undefined') return;
+  try {
+    const oldEl = document.getElementById('admin-score-attach-prompt');
+    if (oldEl) oldEl.remove();
+    if (window._adminScoreAttachTimer) {
+      clearTimeout(window._adminScoreAttachTimer);
+      window._adminScoreAttachTimer = null;
+    }
+
+    const unit = (state.units || []).find(u => u.id === unitId);
+    const crit = (state.criteria || []).find(c => c.id === critId);
+    const shortName = unit ? unit.unit_name : ('Đơn vị #' + unitId);
+    const colLabel = crit ? (crit.col_label || ('Cột ' + critId)) : '';
+
+    const bar = document.createElement('div');
+    bar.id = 'admin-score-attach-prompt';
+    bar.style.cssText = 'position:fixed; bottom:18px; left:50%; transform:translateX(-50%); z-index:999999; background:#0f172a; color:#f8fafc; padding:10px 14px; border-radius:12px; box-shadow:0 10px 30px rgba(15,23,42,0.38); border:1px solid rgba(148,163,184,0.35); display:flex; align-items:center; flex-wrap:wrap; justify-content:center; gap:10px; max-width:calc(100vw - 24px); font-size:12.5px;';
+    bar.innerHTML = `
+      <span style="font-weight:700; color:#86efac;">✅ Đã lưu ${escapeHtml(String(formatScore(numVal)))}đ</span>
+      <span style="color:#e2e8f0;">(${escapeHtml(colLabel)} • ${escapeHtml(shortName)}): <b>Thêm tệp đính kèm?</b></span>
+      <div style="display:inline-flex; align-items:center; gap:6px;">
+        <button type="button" id="btn-prompt-add-att" style="background:#0284c7; color:#fff; border:none; padding:5px 11px; border-radius:7px; font-weight:700; font-size:12px; cursor:pointer; white-space:nowrap;">📎 Thêm đính kèm</button>
+        <button type="button" id="btn-prompt-skip-att" style="background:rgba(255,255,255,0.14); color:#e2e8f0; border:1px solid rgba(255,255,255,0.22); padding:5px 10px; border-radius:7px; font-weight:600; font-size:12px; cursor:pointer; white-space:nowrap;">Không cần</button>
+      </div>
+    `;
+    document.body.appendChild(bar);
+
+    const closeBar = () => {
+      if (bar && bar.parentNode) bar.remove();
+      if (window._adminScoreAttachTimer) {
+        clearTimeout(window._adminScoreAttachTimer);
+        window._adminScoreAttachTimer = null;
+      }
+    };
+    const addBtn = bar.querySelector('#btn-prompt-add-att');
+    const skipBtn = bar.querySelector('#btn-prompt-skip-att');
+    if (addBtn) addBtn.onclick = () => { closeBar(); openSubmissionDetailModal(unitId, critId); };
+    if (skipBtn) skipBtn.onclick = closeBar;
+
+    window._adminScoreAttachTimer = setTimeout(closeBar, 6500);
+  } catch (e) {}
 };
 
 
