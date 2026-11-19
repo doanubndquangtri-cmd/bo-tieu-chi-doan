@@ -34169,12 +34169,8 @@ function renderFacebookPostSocialSection(item) {
               </div>
               <div style="flex:1 1 auto; min-width:0;">
                 <div style="display:inline-block; max-width:100%; background:#f0f2f5; border-radius:14px; padding:7px 12px;">
-                  <div style="font-size:12.5px; font-weight:800; color:${cIsAdmin ? '#b91c1c' : '#0f172a'};">
-                    ${escapeHtml(c.author_name)}
-                  </div>
-                  <div style="font-size:13px; color:#1e293b; line-height:1.4; white-space:pre-wrap; word-break:break-word; margin-top:1px;">
-                    ${escapeHtml(c.text)}
-                  </div>
+                  <div style="font-size:12.5px; font-weight:800; color:${cIsAdmin ? '#b91c1c' : '#0f172a'}; text-align:left;">${escapeHtml(c.author_name)}</div>
+                  <div style="font-size:13px; color:#1e293b; line-height:1.4; white-space:pre-wrap; word-break:break-word; margin-top:2px; text-align:left;">${escapeHtml(c.text)}</div>
                 </div>
                 <div style="font-size:11px; color:#64748b; margin-top:3px; padding-left:10px; display:flex; align-items:center; gap:10px;">
                   <span>${escapeHtml(c.created_at || '')}</span>
@@ -35240,13 +35236,50 @@ window.submitAddGalleryPhoto = async function () {
       if (!db.photo_gallery.some(p => String(p.id) === postId)) {
         db.photo_gallery.unshift(finalPost);
       }
+      // Gửi thông báo công khai vào chuông Thông báo cho toàn bộ máy tính & điện thoại đang đăng nhập
+      db.notifications = Array.isArray(db.notifications) ? db.notifications : [];
+      const mediaTag = uploadedVideoUrl && compressedList.length
+        ? `(Video + ${compressedList.length} ảnh)`
+        : (uploadedVideoUrl ? '(Video)' : (compressedList.length ? `(${compressedList.length} ảnh)` : ''));
+      db.notifications.unshift({
+        id: 'notif_gallery_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        type: 'gallery_post',
+        target_all: true,
+        target_role: 'all',
+        sender_id: actor.id,
+        title: `📸 Bản Tin / Thư Viện Ảnh mới`,
+        message: `${actor.name} vừa đăng bài mới ${mediaTag}: "${baseTitle}"`,
+        content: `${actor.name} vừa đăng bài mới ${mediaTag}: "${baseTitle}"`,
+        post_id: postId,
+        url: './#gallery',
+        submitted_at: nowISO(),
+        created_at: nowISO(),
+        read: actor.role === 'admin',
+        read_by_units: actor.role === 'unit' ? [Number(actor.unit_id)] : [],
+      });
+      if (db.notifications.length > 200) db.notifications.length = 200;
     }, `Add gallery post: ${baseTitle}`);
 
     window._pendingGalleryPosts = (window._pendingGalleryPosts || []).filter(p => String(p.id) !== postId);
     if (res && res.ok) {
       state.photoGallery = (state.photoGallery || []).map(p => String(p.id) === postId ? finalPost : p);
-      showToast('🟢 Đã lưu công khai bài viết lên đám mây thành công!', 'success');
-      renderApp();
+      // Bắn thông báo đẩy (Web Push + Live Event) tới toàn bộ điện thoại và máy tính đang đăng nhập!
+      if (window.broadcastLiveEvent) {
+        window.broadcastLiveEvent('GALLERY_POST', { title: baseTitle, author: actor.name, postId });
+      }
+      if (window.WebPushManager && typeof window.WebPushManager.sendPushNotification === 'function') {
+        const mediaTag = uploadedVideoUrl && compressedList.length
+          ? `(Video + ${compressedList.length} ảnh)`
+          : (uploadedVideoUrl ? '(Video)' : (compressedList.length ? `(${compressedList.length} ảnh)` : ''));
+        window.WebPushManager.sendPushNotification({
+          title: '📸 Bản Tin / Thư Viện Ảnh Mới',
+          message: `${actor.name} vừa đăng ${mediaTag}: "${baseTitle}"`,
+          targetRole: null,
+          url: './#gallery',
+        });
+      }
+      showToast('🟢 Đã đăng bài & gửi thông báo đến toàn bộ cơ sở Đoàn!', 'success');
+      patchGalleryPostCard(postId);
     } else {
       state.photoGallery = (state.photoGallery || []).filter(p => String(p.id) !== postId);
       renderApp();
