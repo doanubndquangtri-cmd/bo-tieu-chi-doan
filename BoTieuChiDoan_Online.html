@@ -7681,6 +7681,15 @@ function ingestCloudDB(db) {
   try {
     localStorage.setItem('doan2026_local_chat_messages', JSON.stringify(mergedMsgs.slice(-1000)));
   } catch (e) {}
+  // Hợp nhất trạng thái đã đọc từ Realtime Bridge để CDN cache cũ không bao giờ ghi đè mất lượt đã xem
+  db.chat_read_status = db.chat_read_status || {};
+  if (state.realtimeReadStatus && typeof state.realtimeReadStatus === 'object') {
+    Object.keys(state.realtimeReadStatus).forEach(k => {
+      const rtVal = Number(state.realtimeReadStatus[k]) || 0;
+      const dbVal = Number(db.chat_read_status[k]) || 0;
+      if (rtVal > dbVal) db.chat_read_status[k] = rtVal;
+    });
+  }
   if (db.chat_read_status && state.user) {
     const uKey = getChatUserStorageKey();
     if (db.chat_read_status[uKey]) {
@@ -7690,6 +7699,11 @@ function ingestCloudDB(db) {
         localStorage.setItem(`doan2026_chat_all_read_${uKey}`, String(cRead));
       }
     }
+  }
+  if (window._activeChatDetailsMsgId && typeof openChatMessageDetailsModal === 'function') {
+    setTimeout(() => {
+      if (window._activeChatDetailsMsgId) openChatMessageDetailsModal(window._activeChatDetailsMsgId);
+    }, 30);
   }
 
   state.deletedMonthKeys = Array.isArray(db.deleted_month_keys) ? db.deleted_month_keys : [];
@@ -13908,6 +13922,8 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
 
 
 window.closeModal = function () {
+
+  window._activeChatDetailsMsgId = null;
 
   document.getElementById('modal-root').innerHTML = '';
 
@@ -23518,25 +23534,81 @@ function getChatLastReadTime(roomKey) {
   } catch (e) { return 0; }
 }
 
+function getMergedChatReadStatus() {
+  const merged = Object.assign({}, (state.cloudDB && state.cloudDB.chat_read_status) || {});
+  if (state.realtimeReadStatus && typeof state.realtimeReadStatus === 'object') {
+    Object.keys(state.realtimeReadStatus).forEach(k => {
+      const rt = Number(state.realtimeReadStatus[k]) || 0;
+      const cur = Number(merged[k]) || 0;
+      if (rt > cur) merged[k] = rt;
+    });
+  }
+  return merged;
+}
+
 function setChatRoomAsRead(roomKey) {
   try {
+    if (!state.user || state.user.role === 'guest') return;
     const now = Date.now();
     const userKey = getChatUserStorageKey();
-    localStorage.setItem(`doan2026_chat_read_${userKey}_${roomKey}`, String(now));
+    const fullKey = `${userKey}_${roomKey}`;
+
+    const prevCloudVal = (state.cloudDB && state.cloudDB.chat_read_status && Number(state.cloudDB.chat_read_status[fullKey])) || 0;
+    const prevCloudAll = (state.cloudDB && state.cloudDB.chat_read_status && Number(state.cloudDB.chat_read_status[userKey])) || 0;
+
+    localStorage.setItem(`doan2026_chat_read_${fullKey}`, String(now));
+    state.realtimeReadStatus = state.realtimeReadStatus || {};
+    state.realtimeReadStatus[fullKey] = now;
     if (state.cloudDB) {
       state.cloudDB.chat_read_status = state.cloudDB.chat_read_status || {};
-      state.cloudDB.chat_read_status[`${userKey}_${roomKey}`] = now;
+      state.cloudDB.chat_read_status[fullKey] = now;
     }
+
     // Cập nhật App Badge tức thì
     if (typeof updateSystemAppBadge === 'function') {
       setTimeout(() => updateSystemAppBadge(getTotalBadgeCount()), 50);
     }
-    // Read status saved locally without burning GitHub API quota
+
+    // Tìm thời điểm tin nhắn mới nhất trong phòng
+    const roomMsgs = (state.chatMessages || []).filter(m => isMsgInRoom(m, roomKey));
+    let latestMsgTs = 0;
+    for (const m of roomMsgs) {
+      const ts = getMsgTimestamp(m);
+      if (ts > latestMsgTs) latestMsgTs = ts;
+    }
+
+    // Chỉ phát sóng & lưu Cloud khi thực sự có tin nhắn mới chưa được đồng bộ đã xem
+    window._lastCloudSyncedReadMap = window._lastCloudSyncedReadMap || {};
+    const lastSynced = Number(window._lastCloudSyncedReadMap[fullKey]) || 0;
+    const knownCloudRead = Math.max(lastSynced, prevCloudVal, prevCloudAll);
+
+    if (latestMsgTs > 0 && latestMsgTs > knownCloudRead - 3000) {
+      window._lastCloudSyncedReadMap[fullKey] = now;
+
+      // 1. Phát sóng tức thì qua Realtime Live Bridge (0.05s như Zalo)
+      if (window.broadcastLiveEvent) {
+        window.broadcastLiveEvent('CHAT_READ', { userKey, roomKey, fullKey, readAt: now });
+      }
+
+      // 2. Lưu vĩnh viễn lên Cloud DB (debounce 1.2s để không bao giờ spam API)
+      window._chatReadSyncTimers = window._chatReadSyncTimers || {};
+      if (window._chatReadSyncTimers[fullKey]) clearTimeout(window._chatReadSyncTimers[fullKey]);
+      window._chatReadSyncTimers[fullKey] = setTimeout(() => {
+        if (typeof mutateCloudDB === 'function') {
+          mutateCloudDB(db => {
+            db.chat_read_status = db.chat_read_status || {};
+            const prev = Number(db.chat_read_status[fullKey]) || 0;
+            if (now > prev) db.chat_read_status[fullKey] = now;
+          }, `Read room ${roomKey} for ${userKey}`).catch(() => {});
+        }
+      }, 1200);
+    }
   } catch (e) {}
 }
 
 window.markAllChatAsRead = function() {
   try {
+    if (!state.user || state.user.role === 'guest') return;
     const now = Date.now();
     const userKey = getChatUserStorageKey();
     localStorage.setItem(`doan2026_chat_all_read_${userKey}`, String(now));
@@ -23547,14 +23619,27 @@ window.markAllChatAsRead = function() {
         localStorage.setItem(`doan2026_chat_read_${userKey}_${getPrivateRoomKey(state.user.id, u.id)}`, String(now));
       }
     });
+    state.realtimeReadStatus = state.realtimeReadStatus || {};
+    state.realtimeReadStatus[userKey] = now;
+    state.realtimeReadStatus[`${userKey}_public`] = now;
     if (state.cloudDB) {
       state.cloudDB.chat_read_status = state.cloudDB.chat_read_status || {};
       state.cloudDB.chat_read_status[userKey] = now;
+      state.cloudDB.chat_read_status[`${userKey}_public`] = now;
     }
     if (typeof updateSystemAppBadge === 'function') {
       updateSystemAppBadge(0);
     }
-    // Read status saved locally without burning GitHub API quota
+    if (window.broadcastLiveEvent) {
+      window.broadcastLiveEvent('CHAT_READ', { userKey, roomKey: 'all', fullKey: userKey, readAt: now });
+    }
+    if (typeof mutateCloudDB === 'function') {
+      mutateCloudDB(db => {
+        db.chat_read_status = db.chat_read_status || {};
+        db.chat_read_status[userKey] = Math.max(Number(db.chat_read_status[userKey]) || 0, now);
+        db.chat_read_status[`${userKey}_public`] = Math.max(Number(db.chat_read_status[`${userKey}_public`]) || 0, now);
+      }, `Mark all chat read for ${userKey}`).catch(() => {});
+    }
   } catch (e) {}
   renderApp();
   if (window.showToast) showToast('Đã đánh dấu tất cả tin nhắn là đã đọc!', 'success');
@@ -25941,7 +26026,26 @@ function renderFloatingChatWidget() {
 
                   <div class="chat-message-time" style="display:flex; align-items:center; gap:6px; justify-content:${isMine ? 'flex-end' : 'flex-start'};">
                     <span>${escapeHtml(m.time_str || '')}</span>
-                    <button type="button" onclick="openChatMessageDetailsModal('${escapeHtml(m.id)}')" title="Xem chi tiết: ai đã xem, thời gian xem, ai chưa xem" style="background:none; border:none; padding:1px 4px; font-size:11px; cursor:pointer; opacity:0.8; line-height:1; display:inline-flex; align-items:center;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.8'">👁️</button>
+                    ${(() => {
+                      const rs = getMergedChatReadStatus();
+                      const mTs = getMsgTimestamp(m);
+                      let seenCount = 0;
+                      if (m.room === 'public' || !m.room) {
+                        const aTime = Number(rs['admin_public'] || rs['admin'] || 0);
+                        if (m.sender_role === 'admin' || aTime >= (mTs - 3000)) seenCount++;
+                        (state.units || []).forEach(u => {
+                          if (u.id === 0) return;
+                          const uTime = Number(rs['unit_' + u.id + '_public'] || rs['unit_' + u.id] || 0);
+                          if (u.id === m.sender_id || uTime >= (mTs - 3000)) seenCount++;
+                        });
+                      } else {
+                        const pId = Number(String(m.room).replace('private_', '').split('_').find(id => Number(id) !== (m.sender_id || 0))) || 0;
+                        const pKey = pId === 0 ? 'admin' : ('unit_' + pId);
+                        const pTime = Number(rs[pKey + '_' + m.room] || rs[pKey] || 0);
+                        if (pTime >= (mTs - 3000)) seenCount++;
+                      }
+                      return `<button type="button" onclick="openChatMessageDetailsModal('${escapeHtml(m.id)}')" title="Xem chi tiết: ai đã xem (${seenCount}), ai chưa xem" style="background:none; border:none; padding:1px 4px; font-size:11px; cursor:pointer; opacity:0.85; line-height:1; display:inline-flex; align-items:center; gap:2px; color:#0284c7; font-weight:700;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.85'"><span>👁️</span>${seenCount > 0 ? `<span style="font-size:10px;">${seenCount}</span>` : ''}</button>`;
+                    })()}
                     ${!isGuest ? `
                       <button type="button" onclick="deleteChatMessage('${escapeHtml(m.id)}')" title="${isAdmin ? 'Xóa tin nhắn này (chọn xóa bên mình hoặc xóa cả đoàn cơ sở)' : 'Xóa hẳn tin nhắn này bên bạn'}" style="background:none; border:none; padding:1px 4px; font-size:11px; cursor:pointer; opacity:0.75; color:#ef4444; line-height:1; display:inline-flex; align-items:center;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.75'">🗑️</button>
                     ` : ''}
@@ -32761,6 +32865,8 @@ window.initRealtimeLiveBridge = function() {
 
         if (evt.type === 'CHAT_MSG' && evt.payload) {
           handleIncomingRealtimeChat(evt.payload);
+        } else if (evt.type === 'CHAT_READ' && evt.payload) {
+          handleIncomingChatRead(evt.payload);
         } else if (evt.type === 'DONATION_PENDING_SUBMITTED') {
           // CHỈ MÁY NÀO ĐANG ĐĂNG NHẬP ADMIN MỚI NHẬN THÔNG BÁO NÀY
           if (state.user && state.user.role === 'admin') {
@@ -32830,6 +32936,8 @@ window.initRealtimeLiveBridge = function() {
       bcListen.onmessage = function(e) {
         if (e.data && e.data.type === 'CHAT_MSG' && e.data.data) {
           handleIncomingRealtimeChat(e.data.data);
+        } else if (e.data && e.data.type === 'CHAT_READ' && e.data.data) {
+          handleIncomingChatRead(e.data.data);
         } else if (e.data && (e.data.type === 'REPORT_SUBMITTED' || e.data.type === 'NEW_CRITERIA' || e.data.type === 'ADMIN_DOC' || e.data.type === 'PROOF_APPROVED' || e.data.type === 'PROOF_REJECTED')) {
           if (typeof window.syncFromCloudNow === 'function') window.syncFromCloudNow(true);
         }
@@ -32837,6 +32945,26 @@ window.initRealtimeLiveBridge = function() {
     } catch (e) {}
   }
 };
+
+function handleIncomingChatRead(payload) {
+  if (!payload || !payload.fullKey) return;
+  const readAt = Number(payload.readAt) || Date.now();
+  const fullKey = String(payload.fullKey);
+  state.realtimeReadStatus = state.realtimeReadStatus || {};
+  state.realtimeReadStatus[fullKey] = Math.max(Number(state.realtimeReadStatus[fullKey]) || 0, readAt);
+  if (state.cloudDB) {
+    state.cloudDB.chat_read_status = state.cloudDB.chat_read_status || {};
+    state.cloudDB.chat_read_status[fullKey] = Math.max(Number(state.cloudDB.chat_read_status[fullKey]) || 0, readAt);
+  }
+  if (window._activeChatDetailsMsgId && typeof openChatMessageDetailsModal === 'function') {
+    openChatMessageDetailsModal(window._activeChatDetailsMsgId);
+  } else if (state.chatOpen && typeof renderApp === 'function') {
+    const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
+    if (!activeEl || activeEl.id !== 'chat-input-field') {
+      renderApp();
+    }
+  }
+}
 
 function handleIncomingRealtimeChat(msg) {
   if (!msg || !msg.id) return;
@@ -38152,9 +38280,10 @@ window.openChatMessageDetailsModal = function(msgId) {
     if (typeof showToast === 'function') showToast('Không tìm thấy tin nhắn này!', 'error');
     return;
   }
+  window._activeChatDetailsMsgId = targetId;
 
-  const msgTs = Number(msg.timestamp) || (new Date(msg.created_at).getTime()) || 0;
-  const readStatus = (state.cloudDB && state.cloudDB.chat_read_status) || {};
+  const msgTs = getMsgTimestamp(msg);
+  const readStatus = getMergedChatReadStatus();
   const isPublic = (msg.room === 'public' || !msg.room);
 
   const readList = [];
