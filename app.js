@@ -2425,6 +2425,11 @@ window.syncFromCloudNow = async function (silent = false) {
         if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT')) {
           return;
         }
+
+        // D. Không re-render khi người dùng đang kéo thanh cuộn ngang/dọc để tránh giật màn hình
+        if (window._lastUserScrollTs && (Date.now() - window._lastUserScrollTs < 700)) {
+          return;
+        }
       }
 
       // Bảo toàn chính xác con trỏ & văn bản đang gõ (không bao giờ bị mất chữ hay mất tiêu điểm)
@@ -2449,7 +2454,11 @@ window.syncFromCloudNow = async function (silent = false) {
 
       if (hasNewMsgs) {
         if (state.chatOpen && typeof scrollChatToBottom === 'function') {
-          setTimeout(scrollChatToBottom, 40);
+          const chatBox = typeof document !== 'undefined' ? document.getElementById('chat-messages-body') : null;
+          const isNearBottom = !chatBox || (chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight < 140);
+          if (isNearBottom) {
+            setTimeout(scrollChatToBottom, 40);
+          }
         }
 
         // Chỉ thông báo 1 lần duy nhất cho tin nhắn thực sự mới (chưa từng thông báo) trong 3 phút gần đây
@@ -3015,14 +3024,25 @@ function renderApp() {
 
 
 
+  // Theo dõi thao tác cuộn của người dùng để không làm giật thanh kéo
+  if (typeof window !== 'undefined' && !window._scrollActivityTracked && typeof window.addEventListener === 'function') {
+    window._scrollActivityTracked = true;
+    const markScrolling = () => { window._lastUserScrollTs = Date.now(); };
+    window.addEventListener('scroll', markScrolling, { passive: true, capture: true });
+    window.addEventListener('wheel', markScrolling, { passive: true });
+    window.addEventListener('touchmove', markScrolling, { passive: true });
+  }
+
   // 1. TỰ ĐỘNG BẢO TOÀN VỊ TRÍ CUỘN CỦA TOÀN BỘ TRANG VÀ MỌI BẢNG DỮ LIỆU (CHỐNG NHẢY VỀ ĐẦU TRANG KHI ĐANG ĐỌC)
   const savedWindowScroll = {
     x: typeof window !== 'undefined' ? (window.scrollX || window.pageXOffset || 0) : 0,
     y: typeof window !== 'undefined' ? (window.scrollY || window.pageYOffset || 0) : 0
   };
 
+  const savedById = {};
   const savedScrollPositions = [];
   const scrollSelectors = [
+    '.master-table-container',
     '.criteria-table-container',
     '.unit-submit-table-container',
     '.ranking-table-container',
@@ -3031,12 +3051,27 @@ function renderApp() {
     '.admin-docs-table-container',
     '#reports-spreadsheet-wrapper',
     '#reports-bottom-section',
+    '.donation-desktop-table',
+    '.notification-list',
+    '.nav-tabs',
+    '.month-pills',
+    '#chat-messages-body',
     '.main-container',
     '.panel-body',
     '.fullscreen-table-panel'
   ];
 
   if (typeof document !== 'undefined') {
+    if (appEl) {
+      try {
+        const allEls = appEl.querySelectorAll('[id]');
+        allEls.forEach(el => {
+          if (el && el.id && (el.scrollTop > 0 || el.scrollLeft > 0)) {
+            savedById[el.id] = { top: el.scrollTop, left: el.scrollLeft };
+          }
+        });
+      } catch (e) {}
+    }
     scrollSelectors.forEach(sel => {
       try {
         const els = document.querySelectorAll(sel);
@@ -3135,8 +3170,6 @@ function renderApp() {
 
       window.initChatDrag();
 
-      window.scrollChatToBottom();
-
     }, 30);
 
   }
@@ -3144,8 +3177,21 @@ function renderApp() {
   // 2. PHỤC HỒI CHÍNH XÁC VỊ TRÍ CUỘN (GIỮ NGUYÊN VỊ TRÍ ĐANG ĐỌC, KHÔNG BAO GIỜ BỊ NHẢY)
   const restoreScrollPositions = () => {
     if (typeof window !== 'undefined' && (savedWindowScroll.x > 0 || savedWindowScroll.y > 0)) {
-      window.scrollTo(savedWindowScroll.x, savedWindowScroll.y);
+      try {
+        window.scrollTo({ left: savedWindowScroll.x, top: savedWindowScroll.y, behavior: 'instant' });
+      } catch (e) {
+        window.scrollTo(savedWindowScroll.x, savedWindowScroll.y);
+      }
     }
+    Object.keys(savedById).forEach(id => {
+      try {
+        const el = document.getElementById(id);
+        if (el) {
+          el.scrollTop = savedById[id].top;
+          el.scrollLeft = savedById[id].left;
+        }
+      } catch (e) {}
+    });
     savedScrollPositions.forEach(item => {
       try {
         const els = document.querySelectorAll(item.selector);
@@ -27584,6 +27630,7 @@ function handleIncomingPresencePing(payload, silent = false) {
   }
 
   if (!silent && !prevOnline && (state.chatOpen || state.activeTab === 'units') && typeof renderApp === 'function') {
+    if (window._lastUserScrollTs && (Date.now() - window._lastUserScrollTs < 700)) return;
     const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
     if (!activeEl || (activeEl.id !== 'chat-input-field' && activeEl.tagName !== 'SELECT' && activeEl.tagName !== 'INPUT' && activeEl.tagName !== 'TEXTAREA')) {
       renderApp();
@@ -27623,6 +27670,7 @@ function handleIncomingPresenceOffline(payload, silent = false) {
   }
 
   if (!silent && (state.chatOpen || state.activeTab === 'units') && typeof renderApp === 'function') {
+    if (window._lastUserScrollTs && (Date.now() - window._lastUserScrollTs < 700)) return;
     const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
     if (!activeEl || (activeEl.id !== 'chat-input-field' && activeEl.tagName !== 'SELECT' && activeEl.tagName !== 'INPUT' && activeEl.tagName !== 'TEXTAREA')) {
       renderApp();
