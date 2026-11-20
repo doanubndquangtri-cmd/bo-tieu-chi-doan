@@ -35,3 +35,6 @@
     1. Lỗi thanh chữ chạy ngang (`marquee-ticker-bar`) cắt xuyên qua bảng thông báo: Chuyển `.notification-dropdown` ra root level của `#app`, loại bỏ `backdrop-filter` trên `.header-featured-hub`, đặt `z-index: 99999999` trên root stacking context.
     2. Lỗi bảng thông báo bị lệch thụt vào trong màn hình: Căn chỉnh vị trí cố định `top: 56px; right: 14px; left: auto; width: 620px;`, sát mép phải màn hình ngay ngắn, chuẩn xác cả trên Desktop lẫn Mobile.
   - Sửa lỗi màn hình trắng tinh khi tải trang: Khai báo biến `isGuest` trong phạm vi hàm `renderApp()`, loại bỏ hoàn toàn `ReferenceError: isGuest is not defined`.
+  - Khắc phục lỗi thanh chat Trao đổi Đoàn và chữ chạy thông báo:
+    1. Đưa `z-index: 99999995 !important;` cho `.chat-widget-box`, đảm bảo kéo khung chat lên đỉnh màn hình luôn nằm phía trước thanh header xanh, không bao giờ bị che/ẩn sau header.
+    2. Gỡ bỏ trạng thái dừng chạy `:hover` trên `.marquee-ticker-bar`, đảm bảo dòng chữ thông báo luôn cuộn liên tục mượt mà, không bị khựng lại hay chặn đứng khi người dùng kéo rê khung chat qua lại.

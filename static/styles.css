@@ -1885,7 +1885,7 @@ thead th.sticky-col-total {
 }
 
 .chat-widget-box {
-  position: fixed;
+  position: fixed !important;
   bottom: 24px;
   right: 24px;
   width: 580px;
@@ -1898,7 +1898,7 @@ thead th.sticky-col-total {
   border-radius: 14px;
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.32);
   border: 1.5px solid #cbd5e1;
-  z-index: 995;
+  z-index: 99999995 !important;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -4625,7 +4625,7 @@ body.dark-mode #tts-result-box {
   animation-iteration-count: infinite;
 }
 
-.marquee-ticker-bar:hover .marquee-text-track,
+/* Dòng chữ chạy liên tục mượt mà, không bị chặn hay dừng khi rê chuột hoặc kéo cửa sổ qua */
 .marquee-text-track.paused {
   animation-play-state: paused !important;
 }
