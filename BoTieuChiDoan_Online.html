@@ -9757,6 +9757,8 @@ function renderApp() {
 
   const isViewingAsUnit = isAdminSession && state.user && state.user.role !== 'admin';
 
+  const isGuest = Boolean(state.user && state.user.role === 'guest');
+
 
 
   // Theo dõi thao tác cuộn của người dùng để không làm giật thanh kéo
@@ -42228,7 +42230,7 @@ window.submitEditGalleryPost = async function (postId) {
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795170150519;
+    const CURRENT_BUILD_TS = 1795175584421;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;

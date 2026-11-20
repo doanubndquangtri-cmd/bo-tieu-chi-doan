@@ -3602,6 +3602,8 @@ function renderApp() {
 
   const isViewingAsUnit = isAdminSession && state.user && state.user.role !== 'admin';
 
+  const isGuest = Boolean(state.user && state.user.role === 'guest');
+
 
 
   // Theo dõi thao tác cuộn của người dùng để không làm giật thanh kéo
