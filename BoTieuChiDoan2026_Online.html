@@ -1718,50 +1718,67 @@ thead th.sticky-col-total {
 }
 
 .notification-backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: transparent !important;
-  backdrop-filter: none !important;
-  z-index: 999990 !important;
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: rgba(15, 23, 42, 0.2) !important;
+  backdrop-filter: blur(2px) !important;
+  z-index: 99999990 !important;
 }
 
 .notification-dropdown {
-  position: fixed;
-  top: 50px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 780px;
-  max-width: calc(100vw - 32px);
-  max-height: calc(100vh - 72px);
+  position: fixed !important;
+  top: 56px !important;
+  right: 14px !important;
+  left: auto !important;
+  bottom: auto !important;
+  transform: none !important;
+  width: 620px !important;
+  max-width: calc(100vw - 28px) !important;
+  max-height: calc(100vh - 72px) !important;
   background: #ffffff !important;
-  border-radius: 12px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2), 0 0 0 1px #cbd5e1;
-  border: 2px solid #0052cc;
-  z-index: 999999 !important;
-  overflow: hidden;
-  color: #0f172a;
-  text-align: left;
-  display: flex;
-  flex-direction: column;
+  border-radius: 14px !important;
+  box-shadow: 0 20px 60px rgba(0, 15, 50, 0.3), 0 0 0 1px #cbd5e1 !important;
+  border: 2px solid #0052cc !important;
+  z-index: 99999999 !important;
+  overflow: hidden !important;
+  color: #0f172a !important;
+  text-align: left !important;
+  display: flex !important;
+  flex-direction: column !important;
+  animation: notifFadeSlideDown 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+@keyframes notifFadeSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (max-width: 768px) {
   .notification-dropdown {
-    position: fixed;
-    top: 46px;
-    left: 8px;
-    right: 8px;
-    bottom: auto;
-    width: auto;
-    transform: none;
-    max-width: calc(100vw - 16px);
-    max-height: calc(100vh - 56px);
-    height: auto;
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    position: fixed !important;
+    top: 52px !important;
+    left: 8px !important;
+    right: 8px !important;
+    bottom: auto !important;
+    width: auto !important;
+    transform: none !important;
+    min-width: 0 !important;
+    max-width: calc(100vw - 16px) !important;
+    max-height: calc(100vh - 60px) !important;
+    height: auto !important;
+    border-radius: 12px !important;
+    z-index: 99999999 !important;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35) !important;
   }
 }
 
@@ -5558,8 +5575,7 @@ body.dark-mode .master-table-fixed-banner {
   display: inline-flex !important;
   align-items: center !important;
   gap: 7px !important;
-  background: rgba(255, 255, 255, 0.08) !important;
-  backdrop-filter: blur(12px) !important;
+  background: rgba(0, 24, 70, 0.65) !important;
   padding: 5px 7px !important;
   border-radius: 12px !important;
   border: 1px solid rgba(255, 255, 255, 0.18) !important;
@@ -5896,15 +5912,15 @@ body.dark-mode .master-table-fixed-banner {
   /* 6. Khung Thông báo căn giữa gọn trên màn hình điện thoại, không bị lệch mép */
   .notification-dropdown {
     position: fixed !important;
-    top: 56px !important;
+    top: 52px !important;
     left: 8px !important;
     right: 8px !important;
     width: auto !important;
     min-width: 0 !important;
     max-width: calc(100vw - 16px) !important;
-    max-height: 78dvh !important;
-    border-radius: 14px !important;
-    z-index: 999999 !important;
+    max-height: calc(100vh - 60px) !important;
+    border-radius: 12px !important;
+    z-index: 99999999 !important;
     box-shadow: 0 14px 40px rgba(15, 23, 42, 0.35) !important;
   }
 
@@ -6109,6 +6125,7 @@ body.dark-mode .master-table-fixed-banner {
   z-index: 950;
 }
 .marquee-bar,
+.marquee-ticker-bar,
 .donation-marquee-bar {
   position: relative;
   z-index: 940;
@@ -9866,6 +9883,7 @@ function renderApp() {
 
     ${renderFloatingChatWidget()}
     ${renderFloatingBgMusicWidget()}
+    ${(!isGuest && state.notificationsOpen) ? renderNotificationDropdown() : ''}
 
   `;
 
@@ -11693,13 +11711,12 @@ function renderHeader() {
           </button>
 
           ${!isGuest ? `
-            <div class="notification-bell-container" id="notif-bell-container" style="position: relative; flex-shrink: 0; z-index: 999999 !important;">
+            <div class="notification-bell-container" id="notif-bell-container" style="position: relative; flex-shrink: 0;">
               <button class="hub-btn hub-btn-notif" onclick="toggleNotificationPanel(event)" title="Xem thông báo hệ thống và văn bản chỉ đạo mới">
                 <span style="font-size:15px;">🔔</span>
                 <span>Thông báo</span>
                 ${unreadNotifCount > 0 ? `<span class="notification-badge" style="background:#ef4444; color:#fff; font-size:10.5px; font-weight:800; padding:1px 6px; border-radius:10px; margin-left:2px; box-shadow:0 0 6px rgba(239,68,68,0.8);">${unreadNotifCount > 99 ? '99+' : unreadNotifCount}</span>` : ''}
               </button>
-              ${state.notificationsOpen ? renderNotificationDropdown() : ''}
             </div>
           ` : ''}
 
@@ -23912,7 +23929,7 @@ function renderNotificationDropdown() {
   }
 
   return `
-    <div class="notification-backdrop" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:transparent !important; backdrop-filter:none !important; z-index:999990;" onclick="state.notificationsOpen = false; renderApp();"></div>
+    <div class="notification-backdrop" style="position:fixed; inset:0; top:0; left:0; width:100vw; height:100vh; background:rgba(15,23,42,0.2) !important; backdrop-filter:blur(2px) !important; z-index:99999990 !important;" onclick="state.notificationsOpen = false; renderApp();"></div>
     <div class="notification-dropdown" onclick="event.stopPropagation()">
       <div class="notification-header" style="flex-shrink:0;">
         <div style="display:flex; align-items:center; gap:8px;">
@@ -34181,7 +34198,7 @@ if (typeof document !== 'undefined') {
 
 document.addEventListener('click', function (e) {
   if (state.notificationsOpen) {
-    if (e.target && e.target.closest && e.target.closest('#notif-bell-container')) {
+    if (e.target && e.target.closest && (e.target.closest('#notif-bell-container') || e.target.closest('.notification-dropdown'))) {
       return;
     }
     state.notificationsOpen = false;
@@ -42211,7 +42228,7 @@ window.submitEditGalleryPost = async function (postId) {
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795078742026;
+    const CURRENT_BUILD_TS = 1795170150519;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;

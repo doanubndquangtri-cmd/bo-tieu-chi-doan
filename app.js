@@ -3728,6 +3728,7 @@ function renderApp() {
 
     ${renderFloatingChatWidget()}
     ${renderFloatingBgMusicWidget()}
+    ${(!isGuest && state.notificationsOpen) ? renderNotificationDropdown() : ''}
 
   `;
 
@@ -5555,13 +5556,12 @@ function renderHeader() {
           </button>
 
           ${!isGuest ? `
-            <div class="notification-bell-container" id="notif-bell-container" style="position: relative; flex-shrink: 0; z-index: 999999 !important;">
+            <div class="notification-bell-container" id="notif-bell-container" style="position: relative; flex-shrink: 0;">
               <button class="hub-btn hub-btn-notif" onclick="toggleNotificationPanel(event)" title="Xem thông báo hệ thống và văn bản chỉ đạo mới">
                 <span style="font-size:15px;">🔔</span>
                 <span>Thông báo</span>
                 ${unreadNotifCount > 0 ? `<span class="notification-badge" style="background:#ef4444; color:#fff; font-size:10.5px; font-weight:800; padding:1px 6px; border-radius:10px; margin-left:2px; box-shadow:0 0 6px rgba(239,68,68,0.8);">${unreadNotifCount > 99 ? '99+' : unreadNotifCount}</span>` : ''}
               </button>
-              ${state.notificationsOpen ? renderNotificationDropdown() : ''}
             </div>
           ` : ''}
 
@@ -17774,7 +17774,7 @@ function renderNotificationDropdown() {
   }
 
   return `
-    <div class="notification-backdrop" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:transparent !important; backdrop-filter:none !important; z-index:999990;" onclick="state.notificationsOpen = false; renderApp();"></div>
+    <div class="notification-backdrop" style="position:fixed; inset:0; top:0; left:0; width:100vw; height:100vh; background:rgba(15,23,42,0.2) !important; backdrop-filter:blur(2px) !important; z-index:99999990 !important;" onclick="state.notificationsOpen = false; renderApp();"></div>
     <div class="notification-dropdown" onclick="event.stopPropagation()">
       <div class="notification-header" style="flex-shrink:0;">
         <div style="display:flex; align-items:center; gap:8px;">
@@ -28043,7 +28043,7 @@ if (typeof document !== 'undefined') {
 
 document.addEventListener('click', function (e) {
   if (state.notificationsOpen) {
-    if (e.target && e.target.closest && e.target.closest('#notif-bell-container')) {
+    if (e.target && e.target.closest && (e.target.closest('#notif-bell-container') || e.target.closest('.notification-dropdown'))) {
       return;
     }
     state.notificationsOpen = false;
