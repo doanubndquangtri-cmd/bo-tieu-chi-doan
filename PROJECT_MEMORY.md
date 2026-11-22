@@ -58,5 +58,6 @@
     1. Đổi tiêu đề modal và nút xác nhận thành dạng: `🙋 Nộp Điểm Danh / Kê Khai Số Lượng (${crit.col_label})` và `🙋 Xác Nhận Nộp Điểm Danh Online` (đối với tiêu chí Điểm danh `is_report === 3`), thay vì chữ "báo cáo".
     2. Đổi ô link Facebook thành ô **Nhập số lượng đoàn viên tham gia thực tế** (`id="sub-attendance-pres"`, ví dụ: 2, 5, 6...) có đối soát công thức `= (Đến / Phân bổ) * max_score`.
     3. Chuyển đổi khung đính kèm tệp thành chuyên biệt **"📷 Đính kèm hình ảnh minh chứng"** (`accept="image/*"`): đoàn viên chọn và gửi các hình ảnh chụp hoạt động / ảnh tập thể có mặt để chứng minh số lượng người tham gia thực tế cho Admin đối chiếu duyệt điểm.
-    4. Cập nhật nhãn nút tại danh sách tiêu chí của cơ sở Đoàn thành `[🙋 Nộp Điểm Danh]` / `[✏️ Sửa điểm danh]`.
+    4. Đồng bộ nhãn nút theo vai trò: Với đoàn cơ sở luôn hiển thị `[🙋 Nộp Điểm Danh]`, chỉ với Admin mới hiển thị `[✏️ Sửa điểm danh]`.
     5. Cập nhật modal Chi tiết báo cáo (`openSubmissionDetailModal`) hiển thị số lượng kê khai và album ảnh minh chứng trực quan khi xem tiêu chí Điểm danh.
+    6. Chuẩn hóa ô điểm trên Bảng Tổng Hợp Chấm Điểm (`renderMasterScoreCell`): Loại bỏ khối render dị biệt ở tiêu chí điểm danh, đồng bộ hiển thị các ô điểm Cột 5 chuẩn đẹp 100% như các cột trước (Cột 1, 2, 3, 4, 6), căn chuẩn kích thước input, hiển thị điểm số chính xác và biểu tượng `📎` đính kèm, giữ nút `[🙋 Điểm danh Excel]` tiện lợi ở đầu cột.

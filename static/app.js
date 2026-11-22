@@ -6556,53 +6556,6 @@ function renderMasterTableTab() {
 function renderMasterScoreCell(unit, crit, isAdmin) {
 
   const sc = getScoreObj(unit.id, crit.id);
-  const isAttendance = Number(crit.is_report) === 3;
-
-  if (isAttendance) {
-    const rawScore = sc && sc.score !== null && sc.score !== undefined && sc.score !== '' ? sc.score : null;
-    const numScore = rawScore !== null ? Number(rawScore) : null;
-    const attInfo = sc && sc.report_content ? sc.report_content : '';
-    const hasAttInfo = Boolean(attInfo);
-
-    if (isAdmin) {
-      return `
-        <td class="score-cell attendance-cell" id="cell-${unit.id}-${crit.id}" style="min-width:115px; max-width:160px; padding:2px 4px; text-align:center;">
-          <div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
-            <div style="display:flex; align-items:center; justify-content:center; gap:3px; width:100%;">
-              <input
-                type="text"
-                class="score-input ${numScore !== null ? (numScore < 0 ? 'neg-score' : 'pos-score') : ''}"
-                style="text-align:center; font-size:12px; font-weight:700; padding:2px 4px; width:52px; border-radius:4px; border:1px solid #cbd5e1; background:#fff;"
-                value="${numScore !== null ? formatScore(numScore) : ''}"
-                placeholder="—"
-                data-unit="${unit.id}"
-                data-crit="${crit.id}"
-                onchange="onAdminInlineScoreChange(this)"
-                onkeydown="if(event.key==='Enter'){this.blur();}"
-                title="Điểm số tiêu chí điểm danh (Sửa trực tiếp hoặc bấm 🙋 để điểm danh Excel)"
-              />
-              <button
-                type="button"
-                onclick="openAttendanceScoreModal(${crit.id}, ${unit.id})"
-                style="background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; border-radius:4px; padding:2px 5px; font-size:10.5px; font-weight:700; cursor:pointer;"
-                title="Mở bảng điểm danh & nhập Excel cho tiêu chí này"
-              >🙋</button>
-            </div>
-            ${hasAttInfo ? `<div style="font-size:9.5px; color:#047857; font-weight:700; cursor:pointer; line-height:1.2; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" onclick="openAttendanceScoreModal(${crit.id}, ${unit.id})" title="${escapeHtml(attInfo)}">${escapeHtml(attInfo)}</div>` : ''}
-          </div>
-        </td>
-      `;
-    } else {
-      return `
-        <td class="score-cell" id="cell-${unit.id}-${crit.id}" style="min-width:90px; text-align:center; padding:4px 6px;">
-          <div style="font-size:12px; font-weight:700; color:${numScore !== null ? (numScore > 0 ? '#15803d' : '#475569') : '#94a3b8'};">
-            ${numScore !== null ? formatScore(numScore) + ' đ' : '<span style="color:#cbd5e1;">—</span>'}
-          </div>
-          ${hasAttInfo ? `<div style="font-size:9.5px; color:#047857; font-weight:700; margin-top:2px;">${escapeHtml(attInfo)}</div>` : ''}
-        </td>
-      `;
-    }
-  }
 
   const val = sc && sc.score !== null && sc.score !== undefined && sc.score !== '' ? sc.score : '';
 
@@ -6619,6 +6572,7 @@ function renderMasterScoreCell(unit, crit, isAdmin) {
     (sc.file_path && String(sc.file_path).trim() !== '') ||
     (sc.file_name && String(sc.file_name).trim() !== '') ||
     (sc.evidence_link && String(sc.evidence_link).trim() !== '') ||
+    (Array.isArray(sc.files) && sc.files.length > 0) ||
     (Array.isArray(sc.attachments) && sc.attachments.length > 0)
   ));
 
@@ -7537,10 +7491,10 @@ function renderUnitSubmitTab() {
 
                         ? (st.canSubmit
                             ? `<button class="btn btn-sm ${sc ? 'btn-outline' : 'btn-success'}" onclick="openUnitSubmitModal(${c.id})" style="font-weight:700;">
-                                ${sc ? '✏️ Sửa điểm danh' : '🙋 Nộp Điểm Danh'}
+                                ${isAdmin ? (sc ? '✏️ Sửa điểm danh' : '🙋 Nộp Điểm Danh') : '🙋 Nộp Điểm Danh'}
                               </button>`
                             : `<button class="btn btn-sm btn-outline" onclick="openUnitSubmitModal(${c.id})" style="opacity:0.85; font-size:12px; font-weight:600;" title="${st.label}">
-                                ${sc ? '👁️ Xem điểm danh' : '🔒 ' + st.label}
+                                ${isAdmin ? '✏️ Sửa điểm danh' : '👁️ Xem điểm danh'}
                               </button>`)
 
                         : isAdminScore
@@ -7777,11 +7731,11 @@ function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rank
             <div style="margin-top:2px;">
               ${isBlankContent ? (st.canSubmit ? `
                 <button class="btn ${sc ? 'btn-outline' : 'btn-success'} mobile-submit-action-btn" onclick="openUnitSubmitModal(${c.id})">
-                  ${sc ? '✏️ Cập Nhật Kê Khai Điểm Danh' : '🙋 Nộp Điểm Danh Số Lượng Tham Gia'}
+                  ${isAdmin ? (sc ? '✏️ Sửa Điểm Danh' : '🙋 Nộp Điểm Danh') : '🙋 Nộp Điểm Danh'}
                 </button>
               ` : `
                 <button class="btn btn-outline mobile-submit-action-btn" onclick="openUnitSubmitModal(${c.id})" style="opacity:0.9;">
-                  ${sc ? '👁️ Xem Lại Điểm Danh Đã Nộp' : '🔒 ' + st.label}
+                  ${isAdmin ? '✏️ Sửa Điểm Danh' : '👁️ Xem Lại Điểm Danh Đã Nộp'}
                 </button>
               `) : isAdminScore ? `
                 ${scoreVal !== null || (sc && (sc.report_content || sc.admin_note)) ? `
