@@ -5684,7 +5684,14 @@ function renderHeader() {
 
    ========================================================================= */
 
-window.exportToExcelClient = function () {
+window.exportToExcelClient = async function () {
+
+  if (typeof XLSX === 'undefined') {
+    if (window.ensureXlsxLoaded) {
+      if (typeof showToast === 'function') showToast('⏳ Đang nạp thư viện Excel...', 'info');
+      await window.ensureXlsxLoaded().catch(() => {});
+    }
+  }
 
   if (typeof XLSX === 'undefined') {
 
@@ -5803,6 +5810,13 @@ window.exportToExcelClient = function () {
 
 
 window.saveExcelToGoogleDrive = async function () {
+
+  if (typeof XLSX === 'undefined') {
+    if (window.ensureXlsxLoaded) {
+      if (typeof showToast === 'function') showToast('⏳ Đang nạp thư viện Excel...', 'info');
+      await window.ensureXlsxLoaded().catch(() => {});
+    }
+  }
 
   if (typeof XLSX === 'undefined') {
 
@@ -13945,11 +13959,70 @@ function startAppLifecycle() {
   initApp();
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', startAppLifecycle);
-} else {
-  startAppLifecycle();
-}
+// Khởi động tức thì trong 0ms: Thẻ script đặt cuối body sau #app nên DOM đã sẵn sàng!
+startAppLifecycle();
+
+// BỘ NẠP KHÔNG CHẶN (NON-BLOCKING) CHO CÁC THƯ VIỆN NẶNG (XLSX, PDF, JSZIP, MAMMOTH)
+window.ensureXlsxLoaded = function() {
+  return new Promise((resolve, reject) => {
+    if (typeof XLSX !== 'undefined') return resolve(window.XLSX);
+    const existing = document.getElementById('lib-xlsx');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(window.XLSX));
+      existing.addEventListener('error', reject);
+      return;
+    }
+    const s = document.createElement('script');
+    s.id = 'lib-xlsx';
+    s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.onload = () => resolve(window.XLSX);
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+};
+
+window.ensurePdfJsLoaded = function() {
+  return new Promise((resolve, reject) => {
+    if (typeof pdfjsLib !== 'undefined') return resolve(window.pdfjsLib);
+    const existing = document.getElementById('lib-pdfjs');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(window.pdfjsLib));
+      existing.addEventListener('error', reject);
+      return;
+    }
+    const s = document.createElement('script');
+    s.id = 'lib-pdfjs';
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload = () => resolve(window.pdfjsLib);
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+};
+
+window.loadHeavyLibrariesInBackground = function() {
+  const libs = [
+    { id: 'lib-xlsx', src: 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js' },
+    { id: 'lib-pdfjs', src: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js' },
+    { id: 'lib-jszip', src: 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js' },
+    { id: 'lib-mammoth', src: 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js' }
+  ];
+  libs.forEach(item => {
+    if (!document.getElementById(item.id)) {
+      const s = document.createElement('script');
+      s.id = item.id;
+      s.src = item.src;
+      s.async = true;
+      document.head.appendChild(s);
+    }
+  });
+};
+
+// Nạp ngầm thư viện sau khi giao diện đã hiển thị hoàn chỉnh cho người dùng (1.8s)
+setTimeout(() => {
+  if (typeof window.loadHeavyLibrariesInBackground === 'function') {
+    window.loadHeavyLibrariesInBackground();
+  }
+}, 1800);
 
 
 
@@ -28645,7 +28718,13 @@ function calculateAttendanceScore(allocated, present, maxScore = 5) {
 }
 
 // 2. Tải tệp Excel mẫu chuẩn cấu trúc (Đúng 40 cơ sở Đoàn, chuẩn công thức)
-window.downloadAttendanceExcelTemplate = function (criterionId) {
+window.downloadAttendanceExcelTemplate = async function (criterionId) {
+  if (typeof XLSX === 'undefined') {
+    if (window.ensureXlsxLoaded) {
+      if (typeof showToast === 'function') showToast('⏳ Đang nạp thư viện Excel...', 'info');
+      await window.ensureXlsxLoaded().catch(() => {});
+    }
+  }
   if (typeof XLSX === 'undefined') {
     showToast('Thư viện Excel đang tải, vui lòng thử lại sau giây lát!', 'error');
     return;
@@ -28711,6 +28790,9 @@ window.downloadAttendanceExcelTemplate = function (criterionId) {
 
 // 3. Phân tích tệp Excel điểm danh được tải lên
 async function parseAttendanceExcelFile(file, maxScore = 5) {
+  if (typeof XLSX === 'undefined' && window.ensureXlsxLoaded) {
+    await window.ensureXlsxLoaded().catch(() => {});
+  }
   if (typeof XLSX === 'undefined') {
     throw new Error('Thư viện đọc Excel chưa sẵn sàng!');
   }
@@ -30528,6 +30610,9 @@ async function parseWordFileToRows(file) {
 // BỘ BÓC TÁCH TỆP PDF QUA PDF.JS - THEO KHỐI ĐƠN VỊ & CỘT ĐIỂM CHUẨN XÁC
 // =========================================================================
 async function parsePdfFileToRows(file) {
+  if (typeof pdfjsLib === 'undefined' && window.ensurePdfJsLoaded) {
+    await window.ensurePdfJsLoaded().catch(() => {});
+  }
   if (typeof pdfjsLib === 'undefined') {
     throw new Error('Thư viện PDF.js chưa sẵn sàng! Vui lòng tải lại trang.');
   }
@@ -30665,6 +30750,9 @@ async function parsePdfFileToRows(file) {
 // BỘ BÓC TÁCH TỆP EXCEL (.XLSX, .XLS, .CSV) CHUẨN XÁC
 // =========================================================================
 async function parseExcelFileToRows(file) {
+  if (typeof XLSX === 'undefined' && window.ensureXlsxLoaded) {
+    await window.ensureXlsxLoaded().catch(() => {});
+  }
   if (typeof XLSX === 'undefined') {
     throw new Error('Thư viện đọc Excel chưa sẵn sàng!');
   }

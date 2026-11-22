@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
+  <!-- Tối ưu tốc độ mở trang cực hạn (0ms): Preload tài nguyên trọng yếu -->
+  <link rel="preload" href="./app.js?v=20261119_chat_1795326523945" as="script" />
+  <link rel="preload" href="./styles.css?v=20261119_chat_1795326523945" as="style" />
   <title>Bộ tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh - Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí</title>
   
   <!-- PWA & Mobile Web App Meta Tags -->
@@ -6140,16 +6140,54 @@ main:has(.gallery-animated-page),
 }
 
 </style>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" defer></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js" defer></script>
+  <style>
+    @keyframes skeletonLoading { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
+    @keyframes pulseDot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.85); } }
+    @keyframes spinFast { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  </style>
   <script src="./qrcode.min.js" defer></script>
   <!-- OneSignal Web Push SDK v16 (Hỗ trợ thông báo nổi màn hình khi tắt web/tắt máy) -->
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 </head>
 <body>
-  <div id="app"></div>
+  <div id="app">
+    <!-- MÀN HÌNH KHỞI ĐỘNG TỨC THÌ (0ms) - BẬT LÊN NGAY LẬP TỨC KHÔNG CHỜ JAVASCRIPT -->
+    <div id="instant-app-skeleton" style="min-height:100vh; background:#f1f5f9; font-family:'Segoe UI',system-ui,sans-serif; display:flex; flex-direction:column;">
+      <div style="background:linear-gradient(135deg, #0052cc 0%, #003d99 100%); color:#fff; padding:10px 18px; display:flex; align-items:center; justify-content:space-between; box-shadow:0 2px 10px rgba(0,0,0,0.15); height:56px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <img src="./favicon.png" style="width:34px; height:34px; border-radius:50%; object-fit:contain; background:#fff; padding:2px;" alt="Logo" />
+          <div>
+            <div style="font-size:11px; font-weight:700; letter-spacing:0.5px; opacity:0.9; text-transform:uppercase;">TỈNH ĐOÀN QUẢNG TRỊ • ĐOÀN ỦY BAN NHÂN DÂN TỈNH</div>
+            <div style="font-size:14.5px; font-weight:800; line-height:1.2;">BỘ TIÊU CHÍ CÁC TỔ CHỨC CƠ SỞ ĐOÀN TRỰC THUỘC</div>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div style="font-size:12px; background:rgba(255,255,255,0.2); padding:4px 12px; border-radius:999px; font-weight:700; display:flex; align-items:center; gap:6px;">
+            <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#22c55e; animation:pulseDot 1.5s infinite;"></span>
+            <span>Mở tức thì</span>
+          </div>
+        </div>
+      </div>
+      <div style="background:#ffffff; border-bottom:1px solid #cbd5e1; padding:0 16px; display:flex; align-items:center; gap:10px; height:42px; overflow-x:auto;">
+        <div style="padding:8px 14px; background:#eff6ff; color:#1d4ed8; font-weight:700; font-size:13px; border-bottom:2.5px solid #0052cc; white-space:nowrap;">📊 Bảng Xếp Hạng</div>
+        <div style="padding:8px 14px; color:#64748b; font-weight:600; font-size:13px; white-space:nowrap;">📋 Bảng Tổng Hợp</div>
+        <div style="padding:8px 14px; color:#64748b; font-weight:600; font-size:13px; white-space:nowrap;">📤 Nộp Báo Cáo & Tiêu Chí</div>
+        <div style="padding:8px 14px; color:#64748b; font-weight:600; font-size:13px; white-space:nowrap;">🖼️ Bản Tin Hoạt Động</div>
+      </div>
+      <div style="padding:18px 20px; flex:1; max-width:1400px; width:100%; margin:0 auto;">
+        <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:10px; padding:28px 20px; text-align:center; box-shadow:0 4px 15px rgba(0,0,0,0.03);">
+          <div style="display:inline-flex; align-items:center; justify-content:center; width:52px; height:52px; border-radius:50%; background:#eff6ff; margin-bottom:14px;">
+            <span style="font-size:26px; animation:spinFast 1.2s linear infinite; display:inline-block;">⚡</span>
+          </div>
+          <div style="font-size:16px; font-weight:800; color:#0052cc; margin-bottom:6px;">Đang mở Bộ Tiêu Chí Đoàn...</div>
+          <div style="font-size:13px; color:#64748b; margin-bottom:16px;">Hệ thống đang tải dữ liệu và kết nối đồng bộ trực tuyến.</div>
+          <div style="max-width:320px; height:5px; background:#e2e8f0; border-radius:999px; overflow:hidden; margin:0 auto;">
+            <div style="width:60%; height:100%; background:#0052cc; border-radius:999px; animation:skeletonLoading 1.2s infinite ease-in-out;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
   <div id="modal-root" style="position:relative; z-index:9999999 !important;"></div>
   <div id="toast-root" class="toast-container"></div>
   <script>
@@ -11839,7 +11877,14 @@ function renderHeader() {
 
    ========================================================================= */
 
-window.exportToExcelClient = function () {
+window.exportToExcelClient = async function () {
+
+  if (typeof XLSX === 'undefined') {
+    if (window.ensureXlsxLoaded) {
+      if (typeof showToast === 'function') showToast('⏳ Đang nạp thư viện Excel...', 'info');
+      await window.ensureXlsxLoaded().catch(() => {});
+    }
+  }
 
   if (typeof XLSX === 'undefined') {
 
@@ -11958,6 +12003,13 @@ window.exportToExcelClient = function () {
 
 
 window.saveExcelToGoogleDrive = async function () {
+
+  if (typeof XLSX === 'undefined') {
+    if (window.ensureXlsxLoaded) {
+      if (typeof showToast === 'function') showToast('⏳ Đang nạp thư viện Excel...', 'info');
+      await window.ensureXlsxLoaded().catch(() => {});
+    }
+  }
 
   if (typeof XLSX === 'undefined') {
 
@@ -20100,11 +20152,70 @@ function startAppLifecycle() {
   initApp();
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', startAppLifecycle);
-} else {
-  startAppLifecycle();
-}
+// Khởi động tức thì trong 0ms: Thẻ script đặt cuối body sau #app nên DOM đã sẵn sàng!
+startAppLifecycle();
+
+// BỘ NẠP KHÔNG CHẶN (NON-BLOCKING) CHO CÁC THƯ VIỆN NẶNG (XLSX, PDF, JSZIP, MAMMOTH)
+window.ensureXlsxLoaded = function() {
+  return new Promise((resolve, reject) => {
+    if (typeof XLSX !== 'undefined') return resolve(window.XLSX);
+    const existing = document.getElementById('lib-xlsx');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(window.XLSX));
+      existing.addEventListener('error', reject);
+      return;
+    }
+    const s = document.createElement('script');
+    s.id = 'lib-xlsx';
+    s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    s.onload = () => resolve(window.XLSX);
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+};
+
+window.ensurePdfJsLoaded = function() {
+  return new Promise((resolve, reject) => {
+    if (typeof pdfjsLib !== 'undefined') return resolve(window.pdfjsLib);
+    const existing = document.getElementById('lib-pdfjs');
+    if (existing) {
+      existing.addEventListener('load', () => resolve(window.pdfjsLib));
+      existing.addEventListener('error', reject);
+      return;
+    }
+    const s = document.createElement('script');
+    s.id = 'lib-pdfjs';
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload = () => resolve(window.pdfjsLib);
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+};
+
+window.loadHeavyLibrariesInBackground = function() {
+  const libs = [
+    { id: 'lib-xlsx', src: 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js' },
+    { id: 'lib-pdfjs', src: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js' },
+    { id: 'lib-jszip', src: 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js' },
+    { id: 'lib-mammoth', src: 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js' }
+  ];
+  libs.forEach(item => {
+    if (!document.getElementById(item.id)) {
+      const s = document.createElement('script');
+      s.id = item.id;
+      s.src = item.src;
+      s.async = true;
+      document.head.appendChild(s);
+    }
+  });
+};
+
+// Nạp ngầm thư viện sau khi giao diện đã hiển thị hoàn chỉnh cho người dùng (1.8s)
+setTimeout(() => {
+  if (typeof window.loadHeavyLibrariesInBackground === 'function') {
+    window.loadHeavyLibrariesInBackground();
+  }
+}, 1800);
 
 
 
@@ -34800,7 +34911,13 @@ function calculateAttendanceScore(allocated, present, maxScore = 5) {
 }
 
 // 2. Tải tệp Excel mẫu chuẩn cấu trúc (Đúng 40 cơ sở Đoàn, chuẩn công thức)
-window.downloadAttendanceExcelTemplate = function (criterionId) {
+window.downloadAttendanceExcelTemplate = async function (criterionId) {
+  if (typeof XLSX === 'undefined') {
+    if (window.ensureXlsxLoaded) {
+      if (typeof showToast === 'function') showToast('⏳ Đang nạp thư viện Excel...', 'info');
+      await window.ensureXlsxLoaded().catch(() => {});
+    }
+  }
   if (typeof XLSX === 'undefined') {
     showToast('Thư viện Excel đang tải, vui lòng thử lại sau giây lát!', 'error');
     return;
@@ -34866,6 +34983,9 @@ window.downloadAttendanceExcelTemplate = function (criterionId) {
 
 // 3. Phân tích tệp Excel điểm danh được tải lên
 async function parseAttendanceExcelFile(file, maxScore = 5) {
+  if (typeof XLSX === 'undefined' && window.ensureXlsxLoaded) {
+    await window.ensureXlsxLoaded().catch(() => {});
+  }
   if (typeof XLSX === 'undefined') {
     throw new Error('Thư viện đọc Excel chưa sẵn sàng!');
   }
@@ -36683,6 +36803,9 @@ async function parseWordFileToRows(file) {
 // BỘ BÓC TÁCH TỆP PDF QUA PDF.JS - THEO KHỐI ĐƠN VỊ & CỘT ĐIỂM CHUẨN XÁC
 // =========================================================================
 async function parsePdfFileToRows(file) {
+  if (typeof pdfjsLib === 'undefined' && window.ensurePdfJsLoaded) {
+    await window.ensurePdfJsLoaded().catch(() => {});
+  }
   if (typeof pdfjsLib === 'undefined') {
     throw new Error('Thư viện PDF.js chưa sẵn sàng! Vui lòng tải lại trang.');
   }
@@ -36820,6 +36943,9 @@ async function parsePdfFileToRows(file) {
 // BỘ BÓC TÁCH TỆP EXCEL (.XLSX, .XLS, .CSV) CHUẨN XÁC
 // =========================================================================
 async function parseExcelFileToRows(file) {
+  if (typeof XLSX === 'undefined' && window.ensureXlsxLoaded) {
+    await window.ensureXlsxLoaded().catch(() => {});
+  }
   if (typeof XLSX === 'undefined') {
     throw new Error('Thư viện đọc Excel chưa sẵn sàng!');
   }
@@ -43006,7 +43132,7 @@ window.submitEditGalleryPost = async function (postId) {
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795325855456;
+    const CURRENT_BUILD_TS = 1795326523945;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;
@@ -43021,9 +43147,6 @@ window.submitEditGalleryPost = async function (postId) {
             for (let r of regs) {
               await r.update().catch(() => {});
             }
-          }
-          if (lastTs > 0) {
-            window.location.reload();
           }
         }
       } catch (e) {}
