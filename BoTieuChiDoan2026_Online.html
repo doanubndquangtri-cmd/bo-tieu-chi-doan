@@ -6276,7 +6276,7 @@ function getCriterionTypeBadge(c) {
     return `<span class="badge" style="background:#fef3c7; color:#b45309; font-size:11px; border:1px solid #fde68a; font-weight:700;">👑 Admin tự chấm điểm</span>`;
   }
   if (rep === 3) {
-    return `<span class="badge" style="background:#f1f5f9; color:#475569; font-size:11px; border:1px solid #cbd5e1; font-weight:700;">📝 Nội dung trống</span>`;
+    return `<span class="badge" style="background:#ecfdf5; color:#047857; font-size:11px; border:1px solid #a7f3d0; font-weight:700;">🙋 Điểm danh</span>`;
   }
   const customCats = state.criterionCategories || (state.settings && state.settings.criterion_categories) || {};
   const label = customCats[String(rep)] || c.category_label || `Phân loại ${rep}`;
@@ -12602,9 +12602,11 @@ function renderMasterTableTab() {
                         ⏰ Hạn: ${formatShortDateVN(c.deadline)}${(c.deadline_time && c.deadline_time !== '23:59') ? ' (' + c.deadline_time + ')' : ((function(){ const m = (c.title||'').match(/(?:hạn\s*)?(\d{1,2})[h:](\d{2})/i); return m ? (' (' + m[1] + 'h' + m[2] + ')') : ''; })())}
                         ${
                           isAdmin
-                            ? `<span style="cursor:pointer; margin-left:4px; color:#0052cc; text-decoration:underline; font-weight:700;" onclick="openBatchFillModal(${c.id})" title="Chấm đồng loạt 1 mức điểm cho cột này">⚡Chấm</span>
-                               <button type="button" onclick="openAutoScoreModal(${c.id})" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-size:9px; font-weight:700; padding:1px 4px; border-radius:4px; cursor:pointer; margin-left:3px; display:inline-flex; align-items:center; gap:1px; white-space:nowrap; box-shadow:0 1px 2px rgba(0,0,0,0.05);" title="Tự động nhận diện cơ sở Đoàn & chấm điểm từ tệp PDF / Excel">📥 Nhập file</button>`
-                            : ''
+                            ? (Number(c.is_report) === 3
+                                ? `<button type="button" onclick="openAttendanceScoreModal(${c.id})" style="background:#ecfdf5; color:#047857; border:1px solid #6ee7b7; font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:4px; cursor:pointer; margin-left:3px; display:inline-flex; align-items:center; gap:2px; white-space:nowrap; box-shadow:0 1px 2px rgba(0,0,0,0.05);" title="Nhập file Excel Điểm Danh & Tự động tính điểm">🙋 Điểm danh Excel</button>`
+                                : `<span style="cursor:pointer; margin-left:4px; color:#0052cc; text-decoration:underline; font-weight:700;" onclick="openBatchFillModal(${c.id})" title="Chấm đồng loạt 1 mức điểm cho cột này">⚡Chấm</span>
+                                   <button type="button" onclick="openAutoScoreModal(${c.id})" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-size:9px; font-weight:700; padding:1px 4px; border-radius:4px; cursor:pointer; margin-left:3px; display:inline-flex; align-items:center; gap:1px; white-space:nowrap; box-shadow:0 1px 2px rgba(0,0,0,0.05);" title="Tự động nhận diện cơ sở Đoàn & chấm điểm từ tệp PDF / Excel">📥 Nhập file</button>`)
+                            : (Number(c.is_report) === 3 ? `<span style="font-size:9px; color:#047857; font-weight:700;">🙋 Điểm danh</span>` : '')
                         }
                       </span>
                       <div style="display:flex; align-items:center; justify-content:space-between; gap:2px; margin-top:3px; padding-top:2px; border-top:1px dashed rgba(203,213,225,0.8); flex-wrap:nowrap;">
@@ -12695,32 +12697,49 @@ function renderMasterTableTab() {
 function renderMasterScoreCell(unit, crit, isAdmin) {
 
   const sc = getScoreObj(unit.id, crit.id);
-  const isBlank = Number(crit.is_report) === 3;
+  const isAttendance = Number(crit.is_report) === 3;
 
-  if (isBlank) {
-    const blankVal = sc ? (sc.report_content !== undefined && sc.report_content !== null ? sc.report_content : (sc.score !== null && sc.score !== undefined ? String(sc.score) : '')) : '';
+  if (isAttendance) {
+    const rawScore = sc && sc.score !== null && sc.score !== undefined && sc.score !== '' ? sc.score : null;
+    const numScore = rawScore !== null ? Number(rawScore) : null;
+    const attInfo = sc && sc.report_content ? sc.report_content : '';
+    const hasAttInfo = Boolean(attInfo);
+
     if (isAdmin) {
       return `
-        <td class="score-cell" id="cell-${unit.id}-${crit.id}" style="min-width:120px; max-width:220px; padding:2px 4px;">
-          <input
-            type="text"
-            class="score-input"
-            style="text-align:left; font-size:12px; font-weight:600; padding:4px 6px; width:100%; border-radius:4px; border:1px solid #cbd5e1; background:#fff; color:#0f172a;"
-            value="${escapeHtml(blankVal)}"
-            placeholder="Gõ nội dung..."
-            title="Admin gõ chữ, số liệu hoặc ghi chú cho đơn vị này"
-            data-unit="${unit.id}"
-            data-crit="${crit.id}"
-            data-is-blank="1"
-            onchange="onAdminInlineScoreChange(this)"
-            onkeydown="if(event.key==='Enter'){this.blur();}"
-          />
+        <td class="score-cell attendance-cell" id="cell-${unit.id}-${crit.id}" style="min-width:115px; max-width:160px; padding:2px 4px; text-align:center;">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:2px;">
+            <div style="display:flex; align-items:center; justify-content:center; gap:3px; width:100%;">
+              <input
+                type="text"
+                class="score-input ${numScore !== null ? (numScore < 0 ? 'neg-score' : 'pos-score') : ''}"
+                style="text-align:center; font-size:12px; font-weight:700; padding:2px 4px; width:52px; border-radius:4px; border:1px solid #cbd5e1; background:#fff;"
+                value="${numScore !== null ? formatScore(numScore) : ''}"
+                placeholder="—"
+                data-unit="${unit.id}"
+                data-crit="${crit.id}"
+                onchange="onAdminInlineScoreChange(this)"
+                onkeydown="if(event.key==='Enter'){this.blur();}"
+                title="Điểm số tiêu chí điểm danh (Sửa trực tiếp hoặc bấm 🙋 để điểm danh Excel)"
+              />
+              <button
+                type="button"
+                onclick="openAttendanceScoreModal(${crit.id}, ${unit.id})"
+                style="background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; border-radius:4px; padding:2px 5px; font-size:10.5px; font-weight:700; cursor:pointer;"
+                title="Mở bảng điểm danh & nhập Excel cho tiêu chí này"
+              >🙋</button>
+            </div>
+            ${hasAttInfo ? `<div style="font-size:9.5px; color:#047857; font-weight:700; cursor:pointer; line-height:1.2; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" onclick="openAttendanceScoreModal(${crit.id}, ${unit.id})" title="${escapeHtml(attInfo)}">${escapeHtml(attInfo)}</div>` : ''}
+          </div>
         </td>
       `;
     } else {
       return `
-        <td class="score-cell" id="cell-${unit.id}-${crit.id}" style="min-width:110px; max-width:220px; text-align:left; padding:4px 8px; font-size:12px; color:#334155; font-weight:500;">
-          ${blankVal ? escapeHtml(blankVal) : '<span style="color:#94a3b8; font-style:italic;">—</span>'}
+        <td class="score-cell" id="cell-${unit.id}-${crit.id}" style="min-width:90px; text-align:center; padding:4px 6px;">
+          <div style="font-size:12px; font-weight:700; color:${numScore !== null ? (numScore > 0 ? '#15803d' : '#475569') : '#94a3b8'};">
+            ${numScore !== null ? formatScore(numScore) + ' đ' : '<span style="color:#cbd5e1;">—</span>'}
+          </div>
+          ${hasAttInfo ? `<div style="font-size:9.5px; color:#047857; font-weight:700; margin-top:2px;">${escapeHtml(attInfo)}</div>` : ''}
         </td>
       `;
     }
@@ -12885,7 +12904,7 @@ window.onAdminInlineScoreChange = async function (inputEl) {
   const unitId = Number(inputEl.getAttribute('data-unit'));
   const critId = Number(inputEl.getAttribute('data-crit'));
   const crit = (state.criteria || []).find(c => c.id === critId);
-  const isBlank = (crit && Number(crit.is_report) === 3) || inputEl.getAttribute('data-is-blank') === '1';
+  const isBlank = inputEl.getAttribute('data-is-blank') === '1';
 
   if (isBlank) {
     const textVal = inputEl.value.trim();
@@ -13830,7 +13849,7 @@ function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rank
         if (isAdminScore) {
           typeBadge = `<span class="badge" style="background:#fef3c7; color:#b45309; font-size:10.5px; border:1px solid #fde68a; font-weight:700;">👑 Admin tự chấm</span>`;
         } else if (isBlankContent) {
-          typeBadge = `<span class="badge" style="background:#f1f5f9; color:#475569; font-size:10.5px; border:1px solid #cbd5e1; font-weight:700;">📝 Nội dung trống</span>`;
+          typeBadge = `<span class="badge" style="background:#ecfdf5; color:#047857; font-size:10.5px; border:1px solid #a7f3d0; font-weight:700;">🙋 Điểm danh</span>`;
         } else if (isReport) {
           typeBadge = `<span class="badge" style="background:#fef2f2; color:#b91c1c; font-size:10.5px; border:1px solid #fecaca; font-weight:700;">📋 Báo cáo định kỳ</span>`;
         } else if (Number(c.is_report) >= 4) {
@@ -17073,7 +17092,7 @@ function renderReportsMatrixTableComponent(targetCriteria, allCriteria, reportCr
                       }
                       if (rep === 1) return '<span class="badge badge-success" style="font-size:9.5px; padding:1px 4px;">📋 Báo cáo</span>';
                       if (rep === 2) return '<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-size:9.5px; font-weight:700; padding:1px 4px;">👑 Admin chấm</span>';
-                      if (rep === 3) return '<span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-size:9.5px; font-weight:700; padding:1px 4px;">📝 Nội dung trống</span>';
+                      if (rep === 3) return '<span class="badge" style="background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; font-size:9.5px; font-weight:700; padding:1px 4px;">🙋 Điểm danh</span>';
                       return '<span class="badge" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-size:9.5px; font-weight:700; padding:1px 4px;">🎯 Hoạt động</span>';
                     })()}
                   </div>
@@ -17249,7 +17268,7 @@ function renderReportsLogTableComponent(filteredLogs, activeUnits) {
                       }
                       if (rep === 1) return '<span class="badge badge-success" style="font-size:9.5px;">📋 Báo cáo</span>';
                       if (rep === 2) return '<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-size:9.5px;">👑 Admin chấm</span>';
-                      if (rep === 3) return '<span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-size:9.5px;">📝 Nội dung trống</span>';
+                      if (rep === 3) return '<span class="badge" style="background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; font-size:9.5px;">🙋 Điểm danh</span>';
                       return '<span class="badge" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-size:9.5px;">🎯 Hoạt động</span>';
                     })()}
                   </div>
@@ -18294,7 +18313,7 @@ function renderAdminCriteriaTab() {
 
                     if (rep === 2) return '<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;" title="Ban Thường vụ tự chấm điểm">👑 Admin chấm</span>';
 
-                    if (rep === 3) return '<span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; font-weight:700;" title="Nội dung trống / Ghi chú admin">📝 Nội dung trống</span>';
+                    if (rep === 3) return '<span class="badge" style="background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; font-weight:700;" title="Điểm danh tham gia - Nhập file Excel tự tính điểm">🙋 Điểm danh</span>';
 
                     return '<span class="badge" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-weight:700;" title="Đơn vị nộp - Tự động chấm điểm">🎯 Hoạt động</span>';
 
@@ -18331,6 +18350,7 @@ function renderAdminCriteriaTab() {
 
                 <td style="text-align:center; white-space:nowrap;">
 
+                  ${Number(c.is_report) === 3 ? `<button class="btn btn-sm" onclick="openAttendanceScoreModal(${c.id})" style="margin-right:4px; background:#ecfdf5; color:#047857; border:1px solid #6ee7b7; font-weight:700;" title="Nhập file Excel Điểm danh & Tự động tính điểm">🙋 Điểm danh</button>` : ''}
                   <button class="btn btn-sm" onclick="duplicateCriterion(${c.id})" style="background:#e0e7ff; color:#3730a3; border:1px solid #c7d2fe; font-weight:700;" title="Nhân đôi tiêu chí này">📋 Nhân đôi</button>
 
                   <button class="btn btn-sm" onclick="openCriterionAttachmentsModal(${c.id})" style="margin-left:4px; background:${(c.attachments && c.attachments.length > 0) ? '#dbeafe' : '#f8fafc'}; color:${(c.attachments && c.attachments.length > 0) ? '#1d4ed8' : '#0284c7'}; border:1px solid ${(c.attachments && c.attachments.length > 0) ? '#60a5fa' : '#cbd5e1'}; font-weight:700;" title="Quản lý tệp đính kèm, văn bản, video">📎 Tệp (${(c.attachments || []).length})</button>
@@ -18479,7 +18499,7 @@ window.openCriterionEditModal = function (critId) {
                 <option value="0" ${Number(c.is_report) === 0 ? 'selected' : ''}>🎯 Hoạt động / Phong trào (Đơn vị nộp minh chứng - Tự động chấm điểm)</option>
                 <option value="1" ${Number(c.is_report) === 1 ? 'selected' : ''}>📋 Báo cáo định kỳ (Đơn vị nộp báo cáo & tài liệu - Theo dõi tiến độ)</option>
                 <option value="2" ${Number(c.is_report) === 2 ? 'selected' : ''}>👑 Admin tự chấm điểm (Ban Thường vụ tự chấm - Đơn vị không nhập điểm/tài liệu)</option>
-                <option value="3" ${Number(c.is_report) === 3 ? 'selected' : ''}>📝 Nội dung trống (Admin tự thêm nội dung vào)</option>
+                <option value="3" ${Number(c.is_report) === 3 ? 'selected' : ''}>🙋 Điểm danh (Nhập file Excel / Số lượng tham gia - Tự tính điểm)</option>
               </optgroup>
               ${Object.entries(state.criterionCategories || {}).length > 0 ? `
                 <optgroup label="Phân loại do Admin tự tạo">
@@ -19113,7 +19133,7 @@ window.openCriterionCreateModal = function () {
                 <option value="0" selected>🎯 Hoạt động / Phong trào (Đơn vị nộp minh chứng - Tự động chấm điểm)</option>
                 <option value="1">📋 Báo cáo định kỳ (Đơn vị nộp báo cáo & tài liệu - Theo dõi tiến độ)</option>
                 <option value="2">👑 Admin tự chấm điểm (Ban Thường vụ tự chấm - Đơn vị không nhập điểm/tài liệu)</option>
-                <option value="3">📝 Nội dung trống (Admin tự thêm nội dung vào)</option>
+                <option value="3">🙋 Điểm danh (Nhập file Excel / Số lượng tham gia - Tự tính điểm)</option>
               </optgroup>
               ${Object.entries(state.criterionCategories || {}).length > 0 ? `
                 <optgroup label="Phân loại do Admin tự tạo">
@@ -19122,6 +19142,21 @@ window.openCriterionCreateModal = function () {
               ` : ''}
               <option value="__NEW_CUSTOM_TYPE__">➕ [+ Tự tạo Phân loại Tiêu chí / Báo cáo mới...]</option>
             </select>
+          </div>
+
+          <div class="form-group" id="new-crit-attendance-box" style="display:none; background:#ecfdf5; border:1.5px solid #a7f3d0; border-radius:8px; padding:12px; margin-bottom:14px;">
+            <div style="font-weight:700; color:#065f46; font-size:13px; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+              <span>📊</span> <span>Tùy chọn: Nhập File Excel Điểm Danh Ngay Khi Tạo</span>
+            </div>
+            <div style="font-size:12px; color:#047857; margin-bottom:10px; line-height:1.5;">
+              💡 Bạn có thể chọn file Excel (.xlsx, .xls) điểm danh ngay bây giờ hoặc tải file mẫu chuẩn về điền. Hệ thống sẽ tự động tính điểm theo công thức: <b>Điểm = (Đến / Phân bổ) * Điểm tối đa</b>.
+            </div>
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+              <input type="file" id="new-crit-excel-attendance-file" accept=".xlsx, .xls, .csv" style="font-size:12px; max-width:270px;" />
+              <button type="button" onclick="downloadAttendanceExcelTemplate()" class="btn btn-sm" style="background:#fff; color:#047857; border:1px solid #10b981; font-weight:700; font-size:11.5px; cursor:pointer;">
+                📄 Tải File Excel Mẫu (40 đơn vị)
+              </button>
+            </div>
           </div>
 
           <div class="form-group" id="type-custom-name" style="display:none; background: #eff6ff; padding: 12px 14px; border-radius: 8px; border: 2px solid #3b82f6; margin-bottom: 12px;">
@@ -19261,6 +19296,11 @@ window.toggleCustomGroupInput = function(val) {
 
 window.onCriterionTypeChange = function (val) {
   const descEl = document.getElementById('new-crit-type-desc');
+  const attBox = document.getElementById('new-crit-attendance-box');
+  const isAtt = Number(val) === 3;
+  if (attBox) {
+    attBox.style.display = isAtt ? 'block' : 'none';
+  }
   if (val === '__NEW_CUSTOM_TYPE__') {
     if (descEl) {
       descEl.innerHTML = '✨ <b>Phân loại tự tạo:</b> Nhập tên phân loại tiêu chí/báo cáo mới vào ô màu xanh bên dưới.';
@@ -19271,8 +19311,8 @@ window.onCriterionTypeChange = function (val) {
   const typeVal = Number(val);
   if (descEl) {
     if (typeVal === 3) {
-      descEl.innerHTML = '💡 <b>Phân loại [Nội dung trống]:</b> Admin có thể tự do gõ chữ, ký tự, số liệu trực tiếp vào từng ô của đơn vị trên Bảng Tổng Hợp.';
-      descEl.style.color = '#0369a1';
+      descEl.innerHTML = '🙋 <b>Phân loại [Điểm danh]:</b> Nhập số lượng người tham gia hoặc tải tệp Excel lên, hệ thống tự tính điểm tự động theo công thức = (Đến / Phân bổ) * Điểm tối đa!';
+      descEl.style.color = '#047857';
     } else if (typeVal === 2) {
       descEl.innerHTML = '👑 <b>Phân loại [Admin tự chấm điểm]:</b> Ban Thường vụ trực tiếp vào chấm điểm cho từng đơn vị. Các cơ sở Đoàn không tự nộp tài liệu.';
       descEl.style.color = '#b45309';
@@ -19430,7 +19470,7 @@ window.saveNewCriterion = async function () {
 
 
 
-  // Khởi tạo thư mục trên Google Drive ngay lập tức nếu có Script (bỏ qua nếu là Nội dung trống hoặc Admin tự chấm)
+  // Khởi tạo thư mục trên Google Drive ngay lập tức nếu có Script (bỏ qua nếu là Điểm danh hoặc Admin tự chấm)
   const isBlank = isReport === 3;
   const isAdminScore = isReport === 2;
 
@@ -19536,6 +19576,14 @@ window.saveNewCriterion = async function () {
   }, `Create criterion ${title}`);
 
   if (res.ok) {
+    const attFileInput = document.getElementById('new-crit-excel-attendance-file');
+    if (isReport === 3 && attFileInput && attFileInput.files && attFileInput.files.length > 0 && savedCriterion) {
+      try {
+        await processAndSaveAttendanceExcel(attFileInput.files[0], savedCriterion.id, savedCriterion.max_score);
+      } catch (err) {
+        console.error('Lỗi tự động nhập Excel điểm danh:', err);
+      }
+    }
     closeModal();
     if (monthVal === '__NEW_CUSTOM__' && savedCriterion) {
       state.monthFilter = savedCriterion.month_group;
@@ -22109,7 +22157,7 @@ function renderMasterMobileCardsView(activeUnits, filteredCriteria, isAdmin, mon
 
                             if (rep === 3) {
 
-                              return `<span style="font-size:11px; color:#475569; font-weight:700; background:#f1f5f9; padding:2px 6px; border-radius:4px; border:1px solid #cbd5e1;">📝 Nội dung trống (Admin tự thêm)</span>`;
+                              return `<span style="font-size:11px; color:#047857; font-weight:700; background:#ecfdf5; padding:2px 6px; border-radius:4px; border:1px solid #a7f3d0;">🙋 Điểm danh (Tự tính điểm)</span>`;
 
                             }
 
@@ -22154,8 +22202,8 @@ function renderMasterMobileCardsView(activeUnits, filteredCriteria, isAdmin, mon
 
 
                           ${Number(c.is_report) === 3 ? (isAdmin ? `
-                            <button class="btn btn-sm btn-primary" onclick="openAdminEditBlankContentModal(${u.id}, ${c.id})" style="font-size:11.5px; padding:3px 8px; font-weight:700; background:#0284c7;">
-                              ✏️ Nhập Nội Dung
+                            <button class="btn btn-sm btn-primary" onclick="openAttendanceScoreModal(${c.id}, ${u.id})" style="font-size:11.5px; padding:3px 8px; font-weight:700; background:#047857; border-color:#047857;">
+                              🙋 Điểm Danh Excel
                             </button>
                           ` : '') : (isAdmin ? `
 
@@ -34626,7 +34674,7 @@ if (window.initRealtimeLiveBridge) {
 }
 
 
-// --- ADMIN MODAL NHẬP NỘI DUNG CHO TIÊU CHÍ NỘI DUNG TRỐNG ---
+// --- ADMIN MODAL NHẬP NỘI DUNG (HỖ TRỢ TƯƠNG THÍCH CŨ) ---
 window.openAdminEditBlankContentModal = function (unitId, critId) {
   const u = (state.units || []).find(x => x.id === unitId);
   const c = (state.criteria || []).find(x => x.id === critId);
@@ -34733,6 +34781,734 @@ window.saveAdminBlankContentModal = async function (unitId, critId) {
 };
 
 // =========================================================================
+// HỆ THỐNG TIÊU CHÍ ĐIỂM DANH: NHẬP EXCEL & TỰ ĐỘNG TÍNH ĐIỂM (THEO CÔNG THỨC)
+// =========================================================================
+
+// 1. Công thức tính điểm chuẩn theo quy định: Điểm = (Đến / Phân bổ) * Điểm tối đa
+function calculateAttendanceScore(allocated, present, maxScore = 5) {
+  const alloc = parseFloat(String(allocated !== undefined && allocated !== null ? allocated : '0').replace(',', '.')) || 0;
+  const pres = parseFloat(String(present !== undefined && present !== null ? present : '0').replace(',', '.')) || 0;
+  const maxS = parseFloat(String(maxScore !== undefined && maxScore !== null ? maxScore : '5').replace(',', '.')) || 5;
+
+  if (alloc <= 0) {
+    return pres > 0 ? maxS : 0;
+  }
+  if (pres <= 0) return 0;
+  const raw = (pres / alloc) * maxS;
+  const capped = Math.min(maxS, Math.max(0, raw));
+  return Math.round(capped * 100) / 100;
+}
+
+// 2. Tải tệp Excel mẫu chuẩn cấu trúc (Đúng 40 cơ sở Đoàn, chuẩn công thức)
+window.downloadAttendanceExcelTemplate = function (criterionId) {
+  if (typeof XLSX === 'undefined') {
+    showToast('Thư viện Excel đang tải, vui lòng thử lại sau giây lát!', 'error');
+    return;
+  }
+
+  const crit = criterionId ? (state.criteria || []).find(c => c.id === Number(criterionId)) : null;
+  const maxScore = crit ? (crit.max_score || getCriterionTargetPoints(crit) || 5) : 5;
+  const critTitle = crit ? (crit.title || 'Điểm danh') : 'Điểm danh tham gia hoạt động Đoàn';
+  const activeUnits = (state.units || []).filter(u => u.is_active !== 0);
+
+  // Tạo cấu trúc dữ liệu AOA tương thích tuyệt đối với Ảnh 2 mẫu
+  const aoa = [];
+  // Dòng 1: Tiêu đề
+  aoa.push(['', '', '', `BẢNG ĐIỂM DANH & TÍNH ĐIỂM: ${critTitle.toUpperCase()}`, '', '', '']);
+  // Dòng 2: Mức điểm tối đa tại cột G (index 6)
+  aoa.push(['', '', '', '', '', '', `${maxScore} điểm`]);
+  // Dòng 3: Tiêu đề các cột chuẩn
+  aoa.push(['', '', 'STT', 'Đơn vị', 'Phân bổ số lượng', 'đến', 'điểm']);
+
+  // Dòng 4..43: 40 cơ sở Đoàn
+  activeUnits.forEach((u, idx) => {
+    const sc = crit ? getScoreObj(u.id, crit.id) : null;
+    let alloc = 0;
+    let pres = '';
+    if (sc && sc.report_content) {
+      const m = String(sc.report_content).match(/(?:Đến|Tham gia|Có mặt)?\s*[:=]?\s*(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/i);
+      if (m) {
+        pres = Number(m[1]) || '';
+        alloc = Number(m[2]) || 0;
+      }
+    }
+    const rowNum = idx + 4; // Excel row index (1-based)
+    aoa.push([
+      '',
+      '',
+      idx + 1,
+      u.unit_name,
+      alloc !== 0 ? alloc : 4,
+      pres !== '' ? pres : '',
+      { f: `IF(E${rowNum}>0, MIN(${maxScore}, ROUND((F${rowNum}/E${rowNum})*${maxScore}, 2)), 0)` }
+    ]);
+  });
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+  // Căn chỉnh độ rộng cột
+  ws['!cols'] = [
+    { wch: 3 },
+    { wch: 3 },
+    { wch: 8 },  // STT
+    { wch: 55 }, // Đơn vị
+    { wch: 18 }, // Phân bổ số lượng
+    { wch: 12 }, // đến
+    { wch: 14 }  // điểm
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, 'DiemDanh');
+  const safeName = (critTitle.replace(/[\\/:*?"<>|]/g, '_').slice(0, 30)) || 'Tieu_Chi';
+  XLSX.writeFile(wb, `Bang_Diem_Danh_${safeName}_${todayISO()}.xlsx`);
+  showToast('📥 Đã tải file Excel mẫu điểm danh thành công!', 'success');
+};
+
+// 3. Phân tích tệp Excel điểm danh được tải lên
+async function parseAttendanceExcelFile(file, maxScore = 5) {
+  if (typeof XLSX === 'undefined') {
+    throw new Error('Thư viện đọc Excel chưa sẵn sàng!');
+  }
+
+  const arrayBuffer = await file.arrayBuffer();
+  const workbook = XLSX.read(arrayBuffer, { type: 'array', cellFormula: true });
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+
+  // Bung các ô merged nếu có
+  if (sheet['!merges']) {
+    sheet['!merges'].forEach(range => {
+      const startCellRef = XLSX.utils.encode_cell(range.s);
+      const startCell = sheet[startCellRef];
+      if (startCell && startCell.v !== undefined) {
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+          for (let C = range.s.c; C <= range.e.c; ++C) {
+            const cellRef = XLSX.utils.encode_cell({ c: C, r: R });
+            if (!sheet[cellRef]) {
+              sheet[cellRef] = { t: startCell.t, v: startCell.v, w: startCell.w };
+            }
+          }
+        }
+      }
+    });
+  }
+
+  const sheetData = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: false, defval: '' });
+  const activeUnits = (state.units || []).filter(u => u.is_active !== 0);
+
+  let unitColIdx = -1;
+  let allocColIdx = -1;
+  let presColIdx = -1;
+  let scoreColIdx = -1;
+  let startRowIdx = 0;
+
+  // Quét tìm hàng tiêu đề
+  for (let r = 0; r < Math.min(sheetData.length, 10); r++) {
+    const row = sheetData[r];
+    if (Array.isArray(row)) {
+      row.forEach((cell, idx) => {
+        const txt = String(cell || '').normalize('NFC').trim().toLowerCase();
+        if (/(đơn vị|cơ sở đoàn|tổ chức đoàn|tên cơ sở|tên đơn vị|don vi)/i.test(txt)) {
+          unitColIdx = idx;
+        }
+        if (/(phân bổ|chỉ tiêu|kế hoạch|phan bo|so luong phan bo)/i.test(txt)) {
+          allocColIdx = idx;
+        }
+        if (/^(đến|den|tham gia|có mặt|thực tế|so luong den|so nguoi den)$/i.test(txt)) {
+          presColIdx = idx;
+        }
+        if (/^(điểm|diem|kết quả|score)$/i.test(txt)) {
+          scoreColIdx = idx;
+        }
+      });
+      if (unitColIdx !== -1 && (allocColIdx !== -1 || presColIdx !== -1)) {
+        startRowIdx = r + 1;
+        break;
+      }
+    }
+  }
+
+  // Fallback nếu không thấy header cụ thể: kiểm tra vị trí mặc định theo mẫu Ảnh 2
+  if (unitColIdx === -1) {
+    if (sheetData.length > 3 && sheetData[2] && sheetData[2].length >= 5) {
+      unitColIdx = 3;
+      allocColIdx = 4;
+      presColIdx = 5;
+      scoreColIdx = 6;
+      startRowIdx = 3;
+    } else {
+      unitColIdx = 1;
+      allocColIdx = 2;
+      presColIdx = 3;
+      scoreColIdx = 4;
+      startRowIdx = 1;
+    }
+  }
+
+  const parsedResults = {};
+
+  for (let r = startRowIdx; r < sheetData.length; r++) {
+    const row = sheetData[r];
+    if (!Array.isArray(row) || row.length === 0) continue;
+
+    const unitText = String(row[unitColIdx] || '').trim();
+    if (!unitText || /^(tổng cộng|cộng|ghi chú|ban chấp hành|đoàn khối|stt)/i.test(unitText)) continue;
+
+    const match = matchUnitByName(unitText, activeUnits);
+    if (match) {
+      const u = match.unit;
+      const rawAlloc = row[allocColIdx] !== undefined ? String(row[allocColIdx]).trim() : '';
+      const rawPres = row[presColIdx] !== undefined ? String(row[presColIdx]).trim() : '';
+      const allocNum = parseFloat(rawAlloc.replace(/[^\d.-]/g, '')) || 0;
+      const presNum = parseFloat(rawPres.replace(/[^\d.-]/g, '')) || 0;
+
+      const calcScore = calculateAttendanceScore(allocNum, presNum, maxScore);
+
+      parsedResults[u.id] = {
+        unitId: u.id,
+        unitName: u.unit_name,
+        allocated: allocNum,
+        present: presNum,
+        score: calcScore,
+        rawText: unitText,
+        matched: true
+      };
+    }
+  }
+
+  return parsedResults;
+}
+
+// 4. Mở Modal Điểm Danh & Nhập File Excel
+window.openAttendanceScoreModal = function (criterionId, highlightUnitId = null) {
+  if (!state.user || state.user.role !== 'admin') {
+    showToast('Chỉ Quản trị viên (Admin) mới có quyền truy cập bảng Điểm danh!', 'error');
+    return;
+  }
+
+  const crit = (state.criteria || []).find(c => c.id === Number(criterionId));
+  if (!crit) {
+    showToast('Không tìm thấy thông tin tiêu chí điểm danh!', 'error');
+    return;
+  }
+
+  const maxScore = crit.max_score || getCriterionTargetPoints(crit) || 5;
+  const activeUnits = (state.units || []).filter(u => u.is_active !== 0);
+
+  // Tạo state tạm thời cho bảng điểm danh
+  window._currentAttendanceState = {
+    criterionId: crit.id,
+    maxScore: maxScore,
+    searchQuery: '',
+    items: activeUnits.map((u, idx) => {
+      const sc = getScoreObj(u.id, crit.id);
+      let alloc = 0;
+      let pres = 0;
+      let score = (sc && sc.score !== null && sc.score !== undefined && sc.score !== '') ? Number(sc.score) : 0;
+
+      if (sc && sc.report_content) {
+        const m = String(sc.report_content).match(/(?:Đến|Tham gia|Có mặt)?\s*[:=]?\s*(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/i);
+        if (m) {
+          pres = Number(m[1]) || 0;
+          alloc = Number(m[2]) || 0;
+        }
+      }
+
+      if (score > 0 && alloc === 0 && pres === 0) {
+        alloc = 1;
+        pres = Math.min(1, Math.round((score / maxScore) * 100) / 100);
+      }
+
+      const calculated = calculateAttendanceScore(alloc, pres, maxScore);
+
+      return {
+        unitId: u.id,
+        stt: idx + 1,
+        unitCode: u.unit_code || `DV${String(u.id).padStart(2, '0')}`,
+        unitName: u.unit_name,
+        allocated: alloc,
+        present: pres,
+        score: (sc && sc.score !== null && sc.score !== undefined && sc.score !== '') ? Number(sc.score) : calculated,
+        isHighlighted: highlightUnitId ? (u.id === Number(highlightUnitId)) : false
+      };
+    })
+  };
+
+  renderAttendanceModalUI();
+};
+
+// 5. Render Giao diện Modal Điểm Danh
+function renderAttendanceModalUI() {
+  const modalRoot = document.getElementById('modal-root');
+  if (!modalRoot || !window._currentAttendanceState) return;
+
+  const st = window._currentAttendanceState;
+  const crit = (state.criteria || []).find(c => c.id === st.criterionId);
+  if (!crit) return;
+
+  const query = (st.searchQuery || '').toLowerCase().trim();
+  const filteredItems = st.items.filter(item => {
+    if (!query) return true;
+    return item.unitName.toLowerCase().includes(query) || item.unitCode.toLowerCase().includes(query);
+  });
+
+  const totalAlloc = st.items.reduce((s, it) => s + (Number(it.allocated) || 0), 0);
+  const totalPres = st.items.reduce((s, it) => s + (Number(it.present) || 0), 0);
+  const avgPct = totalAlloc > 0 ? Math.min(100, Math.round((totalPres / totalAlloc) * 100)) : 0;
+  const totalWithScore = st.items.filter(it => it.score > 0).length;
+
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()">
+      <div class="modal-box" style="max-width: 980px; width: 96%; max-height: 94vh; display: flex; flex-direction: column; padding: 0; overflow: hidden; border-radius: 14px; box-shadow: 0 25px 65px rgba(0,0,0,0.4);">
+
+        <!-- HEADER -->
+        <div class="modal-header" style="background: linear-gradient(135deg, #047857 0%, #065f46 100%); color: #fff; padding: 14px 20px; display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid #059669;">
+          <div>
+            <div style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.85;">
+              🙋 TIÊU CHÍ ĐIỂM DANH • ${escapeHtml(crit.col_label || 'Cột')} (${escapeHtml(crit.month_label || 'Tháng')})
+            </div>
+            <div style="font-weight: 800; font-size: 16px; margin-top: 2px; display: flex; align-items: center; gap: 8px;">
+              <span>${escapeHtml(crit.title)}</span>
+              <span style="font-size: 12px; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 999px; font-weight: 700;">⭐ Tối đa ${st.maxScore} điểm</span>
+            </div>
+          </div>
+          <button class="btn btn-sm btn-outline" onclick="closeModal()" style="color:#fff; border-color:rgba(255,255,255,0.4); font-size:15px; width:32px; height:32px; padding:0; display:flex; align-items:center; justify-content:center;">✕</button>
+        </div>
+
+        <!-- TOOLBAR: NHẬP EXCEL & TẢI MẪU & TÌM KIẾM -->
+        <div style="background: #f0fdf4; padding: 12px 18px; border-bottom: 1px solid #bbf7d0; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <!-- Nút Tải lên Excel -->
+            <label class="btn btn-sm btn-primary" style="background: #059669; border-color: #059669; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+              <span>📥 Nhập File Excel Điểm Danh</span>
+              <input type="file" accept=".xlsx, .xls, .csv" style="display: none;" onchange="handleAttendanceExcelUpload(this, ${crit.id})" />
+            </label>
+
+            <!-- Nút Tải File Mẫu Chuẩn -->
+            <button type="button" class="btn btn-sm btn-outline" onclick="downloadAttendanceExcelTemplate(${crit.id})" style="background: #fff; color: #047857; border-color: #10b981; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
+              <span>📄 Tải File Excel Mẫu (40 đơn vị)</span>
+            </button>
+
+            <!-- Nút Phân Bổ Đồng Loạt -->
+            <button type="button" class="btn btn-sm btn-outline" onclick="applyBatchAttendanceAlloc()" style="background: #fff; color: #0369a1; border-color: #38bdf8; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;" title="Áp dụng cùng 1 số lượng phân bổ cho tất cả 40 đơn vị">
+              <span>⚡ Điền Nhanh Phân Bổ</span>
+            </button>
+          </div>
+
+          <!-- Ô tìm kiếm nhanh đơn vị -->
+          <div style="min-width: 220px; flex: 1; max-width: 320px;">
+            <input
+              type="text"
+              id="att-search-input"
+              value="${escapeHtml(st.searchQuery || '')}"
+              placeholder="🔍 Tìm nhanh cơ sở Đoàn..."
+              oninput="onAttendanceSearchInput(this.value)"
+              style="width: 100%; padding: 6px 12px; font-size: 13px; border: 1.5px solid #a7f3d0; border-radius: 6px; background: #fff; outline: none; box-sizing: border-box;"
+            />
+          </div>
+        </div>
+
+        <!-- CÔNG THỨC & HƯỚNG DẪN GỌN GÀNG -->
+        <div style="background: #ecfdf5; padding: 8px 18px; border-bottom: 1px solid #d1fae5; font-size: 12px; color: #065f46; display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 14px;">💡</span>
+            <span><b>Công thức tính điểm:</b> <code style="background: #fff; padding: 2px 6px; border-radius: 4px; border: 1px solid #a7f3d0; font-weight: 800; color: #047857;">Điểm = (Đến / Phân bổ) * ${st.maxScore} đ</code> (Nếu Đến ≥ Phân bổ thì đạt tối đa ${st.maxScore}đ).</span>
+          </div>
+          <div style="font-weight: 700; color: #047857;">
+            Hiển thị ${filteredItems.length} / ${st.items.length} cơ sở Đoàn
+          </div>
+        </div>
+
+        <!-- BODY: BẢNG 40 ĐƠN VỊ ĐIỂM DANH -->
+        <div style="flex: 1 1 auto; overflow-y: auto; padding: 0;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+            <thead style="background: #f8fafc; position: sticky; top: 0; z-index: 10; border-bottom: 2px solid #cbd5e1;">
+              <tr>
+                <th style="padding: 10px 8px; width: 45px; text-align: center; color: #475569; font-weight: 700;">STT</th>
+                <th style="padding: 10px 8px; width: 75px; text-align: center; color: #475569; font-weight: 700;">Mã ĐV</th>
+                <th style="padding: 10px 12px; text-align: left; color: #475569; font-weight: 700;">Tên Tổ Chức Cơ Sở Đoàn</th>
+                <th style="padding: 10px 10px; width: 140px; text-align: center; color: #047857; font-weight: 700; background: #f0fdf4;">Phân bổ số lượng</th>
+                <th style="padding: 10px 10px; width: 130px; text-align: center; color: #1d4ed8; font-weight: 700; background: #eff6ff;">Số lượng Đến</th>
+                <th style="padding: 10px 10px; width: 120px; text-align: center; color: #475569; font-weight: 700;">Tỷ lệ tham gia</th>
+                <th style="padding: 10px 12px; width: 120px; text-align: center; color: #b45309; font-weight: 800; background: #fffbeb;">Điểm đạt được</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredItems.length === 0 ? `
+                <tr>
+                  <td colspan="7" style="padding: 30px; text-align: center; color: #94a3b8; font-style: italic;">
+                    Không tìm thấy cơ sở Đoàn nào khớp với từ khóa "${escapeHtml(st.searchQuery)}"
+                  </td>
+                </tr>
+              ` : filteredItems.map((it) => {
+                const alloc = Number(it.allocated) || 0;
+                const pres = Number(it.present) || 0;
+                const pct = alloc > 0 ? Math.min(100, Math.round((pres / alloc) * 100)) : (pres > 0 ? 100 : 0);
+                const score = calculateAttendanceScore(alloc, pres, st.maxScore);
+
+                return `
+                  <tr style="border-bottom: 1px solid #e2e8f0; background: ${it.isHighlighted ? '#fef9c3' : '#fff'};" id="att-row-${it.unitId}">
+                    <td style="padding: 8px; text-align: center; font-weight: 700; color: #64748b;">${it.stt}</td>
+                    <td style="padding: 8px; text-align: center; font-weight: 800; color: #0284c7; font-size: 12px;">${escapeHtml(it.unitCode)}</td>
+                    <td style="padding: 8px 12px; font-weight: 600; color: #0f172a;">
+                      ${escapeHtml(it.unitName)}
+                    </td>
+                    <!-- Phân bổ số lượng -->
+                    <td style="padding: 6px 10px; text-align: center; background: #f0fdf4;">
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        id="att-alloc-${it.unitId}"
+                        value="${alloc}"
+                        oninput="onAttendanceRowInput(${it.unitId}, ${crit.id}, ${st.maxScore})"
+                        style="width: 80px; text-align: center; font-weight: 700; font-size: 13.5px; padding: 5px 8px; border: 1.5px solid #86efac; border-radius: 6px; background: #fff;"
+                      />
+                    </td>
+                    <!-- Số lượng Đến -->
+                    <td style="padding: 6px 10px; text-align: center; background: #eff6ff;">
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        id="att-pres-${it.unitId}"
+                        value="${pres}"
+                        oninput="onAttendanceRowInput(${it.unitId}, ${crit.id}, ${st.maxScore})"
+                        style="width: 80px; text-align: center; font-weight: 700; font-size: 13.5px; padding: 5px 8px; border: 1.5px solid #93c5fd; border-radius: 6px; background: #fff;"
+                      />
+                    </td>
+                    <!-- Tỷ lệ % -->
+                    <td style="padding: 8px 10px; text-align: center;" id="att-pct-${it.unitId}">
+                      <div style="font-size: 12px; font-weight: 800; color: ${pct >= 100 ? '#15803d' : (pct >= 50 ? '#0284c7' : '#b45309')};">
+                        ${pct}%
+                      </div>
+                      <div style="width: 100%; height: 5px; background: #e2e8f0; border-radius: 999px; overflow: hidden; margin-top: 3px;">
+                        <div style="width: ${pct}%; height: 100%; background: ${pct >= 100 ? '#22c55e' : (pct >= 50 ? '#3b82f6' : '#f59e0b')};"></div>
+                      </div>
+                    </td>
+                    <!-- Điểm tính được -->
+                    <td style="padding: 8px 12px; text-align: center; background: #fffbeb;" id="att-score-wrap-${it.unitId}">
+                      <span class="badge" id="att-score-${it.unitId}" style="background: ${score > 0 ? '#dcfce7' : '#f1f5f9'}; color: ${score > 0 ? '#15803d' : '#64748b'}; border: 1px solid ${score > 0 ? '#86efac' : '#cbd5e1'}; font-size: 13px; font-weight: 800; padding: 3px 8px;">
+                        ${formatScore(score)} đ
+                      </span>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- FOOTER: THỐNG KÊ & NÚT LƯU -->
+        <div class="modal-footer" style="padding: 12px 20px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+          <!-- Thống kê tổng hợp -->
+          <div style="display: flex; align-items: center; gap: 14px; font-size: 12.5px; color: #475569; flex-wrap: wrap;">
+            <div>📊 Tổng phân bổ: <b style="color: #047857;" id="att-stat-alloc">${totalAlloc}</b></div>
+            <div>👥 Tổng đến: <b style="color: #1d4ed8;" id="att-stat-pres">${totalPres}</b></div>
+            <div>🎯 Tỷ lệ khối: <b style="color: #0284c7;" id="att-stat-pct">${avgPct}%</b></div>
+            <div>⭐ Đơn vị có điểm: <b style="color: #b45309;" id="att-stat-scored">${totalWithScore}/${st.items.length}</b></div>
+          </div>
+
+          <!-- Nút hành động -->
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <button class="btn btn-outline" onclick="closeModal()" style="font-weight: 600;">Hủy / Đóng</button>
+            <button class="btn btn-primary" id="btn-save-attendance-scores" onclick="saveAttendanceModalScores(${crit.id})" style="font-weight: 800; background: #047857; border-color: #047857; padding: 8px 18px; box-shadow: 0 2px 6px rgba(4,120,87,0.3);">
+              💾 Lưu & Áp Dụng Điểm Cho 40 Đơn Vị
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  `;
+}
+
+// 6. Xử lý tính điểm real-time khi người dùng gõ số Phân bổ hoặc Đến trên từng hàng
+window.onAttendanceRowInput = function (unitId, critId, maxScore) {
+  if (!window._currentAttendanceState) return;
+
+  const allocInp = document.getElementById(`att-alloc-${unitId}`);
+  const presInp = document.getElementById(`att-pres-${unitId}`);
+  const pctEl = document.getElementById(`att-pct-${unitId}`);
+  const scoreEl = document.getElementById(`att-score-${unitId}`);
+
+  const alloc = parseFloat(allocInp ? allocInp.value : '0') || 0;
+  const pres = parseFloat(presInp ? presInp.value : '0') || 0;
+  const score = calculateAttendanceScore(alloc, pres, maxScore);
+  const pct = alloc > 0 ? Math.min(100, Math.round((pres / alloc) * 100)) : (pres > 0 ? 100 : 0);
+
+  // Cập nhật state nội bộ
+  const item = window._currentAttendanceState.items.find(it => it.unitId === unitId);
+  if (item) {
+    item.allocated = alloc;
+    item.present = pres;
+    item.score = score;
+  }
+
+  // Cập nhật trực quan ô tỷ lệ %
+  if (pctEl) {
+    pctEl.innerHTML = `
+      <div style="font-size: 12px; font-weight: 800; color: ${pct >= 100 ? '#15803d' : (pct >= 50 ? '#0284c7' : '#b45309')};">
+        ${pct}%
+      </div>
+      <div style="width: 100%; height: 5px; background: #e2e8f0; border-radius: 999px; overflow: hidden; margin-top: 3px;">
+        <div style="width: ${pct}%; height: 100%; background: ${pct >= 100 ? '#22c55e' : (pct >= 50 ? '#3b82f6' : '#f59e0b')};"></div>
+      </div>
+    `;
+  }
+
+  // Cập nhật điểm badge
+  if (scoreEl) {
+    scoreEl.textContent = formatScore(score) + ' đ';
+    scoreEl.style.background = score > 0 ? '#dcfce7' : '#f1f5f9';
+    scoreEl.style.color = score > 0 ? '#15803d' : '#64748b';
+    scoreEl.style.borderColor = score > 0 ? '#86efac' : '#cbd5e1';
+  }
+
+  // Cập nhật thanh thống kê tổng hợp ở footer
+  updateAttendanceModalStats();
+};
+
+// Cập nhật các con số tổng hợp ở footer modal
+function updateAttendanceModalStats() {
+  if (!window._currentAttendanceState) return;
+  const items = window._currentAttendanceState.items;
+  const totalAlloc = items.reduce((s, it) => s + (Number(it.allocated) || 0), 0);
+  const totalPres = items.reduce((s, it) => s + (Number(it.present) || 0), 0);
+  const avgPct = totalAlloc > 0 ? Math.min(100, Math.round((totalPres / totalAlloc) * 100)) : 0;
+  const totalWithScore = items.filter(it => it.score > 0).length;
+
+  const statAlloc = document.getElementById('att-stat-alloc');
+  const statPres = document.getElementById('att-stat-pres');
+  const statPct = document.getElementById('att-stat-pct');
+  const statScored = document.getElementById('att-stat-scored');
+
+  if (statAlloc) statAlloc.textContent = totalAlloc;
+  if (statPres) statPres.textContent = totalPres;
+  if (statPct) statPct.textContent = avgPct + '%';
+  if (statScored) statScored.textContent = `${totalWithScore}/${items.length}`;
+}
+
+// 7. Tìm kiếm cơ sở Đoàn trong modal
+window.onAttendanceSearchInput = function (val) {
+  if (!window._currentAttendanceState) return;
+  window._currentAttendanceState.searchQuery = val;
+  renderAttendanceModalUI();
+  const searchInp = document.getElementById('att-search-input');
+  if (searchInp) {
+    searchInp.focus();
+    searchInp.selectionStart = searchInp.selectionEnd = searchInp.value.length;
+  }
+};
+
+// 8. Điền nhanh cùng 1 mức phân bổ cho tất cả 40 đơn vị
+window.applyBatchAttendanceAlloc = function () {
+  const numStr = prompt('Nhập số lượng phân bổ đồng đều cho tất cả 40 cơ sở Đoàn (VD: 4, 5, 10):', '5');
+  if (numStr === null) return;
+  const num = parseFloat(numStr.replace(',', '.'));
+  if (isNaN(num) || num < 0) {
+    showToast('Vui lòng nhập số hợp lệ!', 'error');
+    return;
+  }
+
+  if (window._currentAttendanceState) {
+    const maxScore = window._currentAttendanceState.maxScore;
+    window._currentAttendanceState.items.forEach(it => {
+      it.allocated = num;
+      it.score = calculateAttendanceScore(it.allocated, it.present, maxScore);
+    });
+    renderAttendanceModalUI();
+    showToast(`⚡ Đã phân bổ ${num} người cho tất cả cơ sở Đoàn!`, 'success');
+  }
+};
+
+// 9. Xử lý khi Admin chọn tải file Excel điểm danh lên
+window.handleAttendanceExcelUpload = async function (fileInput, critId) {
+  const file = fileInput.files && fileInput.files[0];
+  if (!file) return;
+
+  try {
+    showToast('⏳ Đang đọc và đối soát dữ liệu từ tệp Excel...', 'info');
+    const maxScore = window._currentAttendanceState ? window._currentAttendanceState.maxScore : 5;
+    const parsedMap = await parseAttendanceExcelFile(file, maxScore);
+    const matchedCount = Object.keys(parsedMap).length;
+
+    if (matchedCount === 0) {
+      showToast('⚠️ Không tìm thấy tên cơ sở Đoàn nào khớp trong tệp Excel!', 'error');
+      return;
+    }
+
+    if (window._currentAttendanceState) {
+      window._currentAttendanceState.items.forEach(it => {
+        if (parsedMap[it.unitId]) {
+          const p = parsedMap[it.unitId];
+          it.allocated = p.allocated;
+          it.present = p.present;
+          it.score = p.score;
+        }
+      });
+      renderAttendanceModalUI();
+      showToast(`🎉 Đã nhận diện & điền thành công số lượng cho ${matchedCount}/40 cơ sở Đoàn!`, 'success');
+    }
+  } catch (err) {
+    console.error('Lỗi khi đọc file Excel:', err);
+    showToast('Lỗi khi đọc tệp Excel: ' + (err.message || 'Không xác định'), 'error');
+  } finally {
+    fileInput.value = '';
+  }
+};
+
+// 10. Lưu điểm danh của toàn bộ 40 cơ sở Đoàn vào Đám Mây & Bảng Điểm
+window.saveAttendanceModalScores = async function (criterionId) {
+  if (!window._currentAttendanceState) return;
+
+  const btn = document.getElementById('btn-save-attendance-scores');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Đang lưu Đám mây...';
+  }
+
+  const crit = (state.criteria || []).find(c => c.id === Number(criterionId));
+  const maxScore = crit ? (crit.max_score || getCriterionTargetPoints(crit) || 5) : 5;
+  const items = window._currentAttendanceState.items;
+
+  // Cập nhật bộ nhớ cục bộ (Zero-Latency)
+  items.forEach(it => {
+    const mapKey = it.unitId + '_' + criterionId;
+    const alloc = Number(it.allocated) || 0;
+    const pres = Number(it.present) || 0;
+    const pct = alloc > 0 ? Math.min(100, Math.round((pres / alloc) * 100)) : (pres > 0 ? 100 : 0);
+    const scoreVal = calculateAttendanceScore(alloc, pres, maxScore);
+    const reportText = (alloc > 0 || pres > 0) ? `Đến: ${pres}/${alloc} (${pct}%)` : '';
+
+    if (!state.scoresMap[mapKey]) {
+      state.scoresMap[mapKey] = {
+        unit_id: it.unitId,
+        criterion_id: criterionId,
+        score: scoreVal,
+        report_content: reportText,
+        approval_status: 'approved',
+        updated_by: 'admin'
+      };
+    } else {
+      state.scoresMap[mapKey].score = scoreVal;
+      state.scoresMap[mapKey].report_content = reportText;
+      state.scoresMap[mapKey].approval_status = 'approved';
+      state.scoresMap[mapKey].updated_by = 'admin';
+    }
+    updateUnitTotalCellDOM(it.unitId);
+  });
+
+  // Ghi vào Cloud DB
+  const res = await mutateCloudDB((db) => {
+    db.scores = db.scores || [];
+    items.forEach(it => {
+      const alloc = Number(it.allocated) || 0;
+      const pres = Number(it.present) || 0;
+      const pct = alloc > 0 ? Math.min(100, Math.round((pres / alloc) * 100)) : (pres > 0 ? 100 : 0);
+      const scoreVal = calculateAttendanceScore(alloc, pres, maxScore);
+      const reportText = (alloc > 0 || pres > 0) ? `Đến: ${pres}/${alloc} (${pct}%)` : '';
+
+      const idx = db.scores.findIndex(s => s.unit_id === it.unitId && s.criterion_id === criterionId);
+      if (idx >= 0) {
+        db.scores[idx].score = scoreVal;
+        db.scores[idx].report_content = reportText;
+        db.scores[idx].approval_status = 'approved';
+        db.scores[idx].updated_by = 'admin';
+        db.scores[idx].submitted_at = nowISO();
+      } else {
+        db.scores.push({
+          unit_id: it.unitId,
+          criterion_id: criterionId,
+          score: scoreVal,
+          quantity: 1,
+          self_score: scoreVal,
+          approval_status: 'approved',
+          report_content: reportText,
+          evidence_link: '',
+          file_name: '',
+          file_path: '',
+          submitted_at: nowISO(),
+          submitted_date: todayISO(),
+          is_on_time: 1,
+          updated_by: 'admin',
+          admin_note: ''
+        });
+      }
+    });
+  }, `Lưu điểm danh tiêu chí ${crit ? crit.title : criterionId}`);
+
+  closeModal();
+  renderApp();
+
+  if (res && res.success) {
+    showToast('🎉 Đã lưu và cập nhật điểm danh thành công cho 40 cơ sở Đoàn!', 'success');
+  } else {
+    showToast('Đã lưu điểm danh vào bộ nhớ ứng dụng!', 'success');
+  }
+};
+
+// 11. Hàm bổ trợ tự động bóc tách & lưu điểm danh từ file khi tạo mới tiêu chí
+async function processAndSaveAttendanceExcel(file, critId, maxScore = 5) {
+  try {
+    const parsedMap = await parseAttendanceExcelFile(file, maxScore);
+    const activeUnits = (state.units || []).filter(u => u.is_active !== 0);
+
+    await mutateCloudDB((db) => {
+      db.scores = db.scores || [];
+      activeUnits.forEach(u => {
+        const p = parsedMap[u.id];
+        const alloc = p ? p.allocated : 0;
+        const pres = p ? p.present : 0;
+        const scoreVal = p ? p.score : 0;
+        const pct = alloc > 0 ? Math.min(100, Math.round((pres / alloc) * 100)) : (pres > 0 ? 100 : 0);
+        const reportText = (alloc > 0 || pres > 0) ? `Đến: ${pres}/${alloc} (${pct}%)` : '';
+
+        const mapKey = u.id + '_' + critId;
+        state.scoresMap[mapKey] = {
+          unit_id: u.id,
+          criterion_id: critId,
+          score: scoreVal,
+          report_content: reportText,
+          approval_status: 'approved',
+          updated_by: 'admin'
+        };
+
+        const idx = db.scores.findIndex(s => s.unit_id === u.id && s.criterion_id === critId);
+        if (idx >= 0) {
+          db.scores[idx].score = scoreVal;
+          db.scores[idx].report_content = reportText;
+          db.scores[idx].approval_status = 'approved';
+          db.scores[idx].updated_by = 'admin';
+          db.scores[idx].submitted_at = nowISO();
+        } else {
+          db.scores.push({
+            unit_id: u.id,
+            criterion_id: critId,
+            score: scoreVal,
+            quantity: 1,
+            self_score: scoreVal,
+            approval_status: 'approved',
+            report_content: reportText,
+            evidence_link: '',
+            file_name: file.name || '',
+            file_path: '',
+            submitted_at: nowISO(),
+            submitted_date: todayISO(),
+            is_on_time: 1,
+            updated_by: 'admin',
+            admin_note: ''
+          });
+        }
+      });
+    }, `Auto import attendance Excel for criterion ${critId}`);
+  } catch (err) {
+    console.error('Lỗi processAndSaveAttendanceExcel:', err);
+  }
+}
+
+
+// =========================================================================
 // QUẢN LÝ / XÓA PHÂN LOẠI TIÊU CHÍ & BÁO CÁO (ADMIN)
 // =========================================================================
 window.openManageCriterionCategoriesModal = function () {
@@ -34746,7 +35522,7 @@ window.openManageCriterionCategoriesModal = function () {
     { key: '0', num: 0, label: '🎯 Hoạt động / Phong trào (Đơn vị nộp minh chứng - Tự động chấm điểm)', isStandard: true },
     { key: '1', num: 1, label: '📋 Báo cáo định kỳ (Đơn vị nộp báo cáo & tài liệu - Theo dõi tiến độ)', isStandard: true },
     { key: '2', num: 2, label: '👑 Admin tự chấm điểm (Ban Thường vụ tự chấm - Đơn vị không nhập điểm/tài liệu)', isStandard: true },
-    { key: '3', num: 3, label: '📝 Nội dung trống (Admin tự thêm nội dung vào)', isStandard: true }
+    { key: '3', num: 3, label: '🙋 Điểm danh (Nhập file Excel / Số lượng tham gia - Tự tính điểm)', isStandard: true }
   ];
 
   const customList = Object.entries(customCats)
@@ -42230,7 +43006,7 @@ window.submitEditGalleryPost = async function (postId) {
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795176098076;
+    const CURRENT_BUILD_TS = 1795325855456;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;

@@ -38,3 +38,13 @@
   - Khắc phục lỗi thanh chat Trao đổi Đoàn và chữ chạy thông báo:
     1. Đưa `z-index: 99999995 !important;` cho `.chat-widget-box`, đảm bảo kéo khung chat lên đỉnh màn hình luôn nằm phía trước thanh header xanh, không bao giờ bị che/ẩn sau header.
     2. Gỡ bỏ trạng thái dừng chạy `:hover` trên `.marquee-ticker-bar`, đảm bảo dòng chữ thông báo luôn cuộn liên tục mượt mà, không bị khựng lại hay chặn đứng khi người dùng kéo rê khung chat qua lại.
+- **22/11/2026**:
+  - Chuyển đổi phân loại tiêu chí "Nội dung trống" thành phân loại chuẩn: **"🙋 Điểm danh (Nhập file Excel / Số lượng tham gia - Tự tính điểm)"** (`is_report === 3`).
+  - Xây dựng tính năng Tiêu chí Điểm Danh tự động tính điểm theo công thức: `= (Đến / Phân bổ) * Điểm tối đa` (chuẩn theo mẫu Ảnh 2: ví dụ `= F4 / E4 * 5`, xử lý biên an toàn tránh lỗi `#DIV/0!`, điểm tối đa không vượt quá `max_score`).
+  - Tích hợp tính năng Nhập file Excel Điểm Danh & Đối soát 40 đơn vị:
+    - Nút `[🙋 Điểm danh Excel]` ngay tại tiêu đề cột trên Bảng Tổng Hợp Chấm Điểm và bảng Quản Lý Tiêu Chí.
+    - Modal Điểm Danh 40 đơn vị tương tác trực tiếp: xem và chỉnh sửa số lượng phân bổ, số người đến theo thời gian thực (tự động tính lại điểm và cập nhật thanh % tiến độ tham gia tức thì), tìm kiếm nhanh cơ sở Đoàn, công cụ `[⚡ Điền nhanh phân bổ]`.
+    - Tải tệp Excel mẫu chuẩn 40 đơn vị có sẵn công thức tính điểm (`downloadAttendanceExcelTemplate`).
+    - Đọc và bóc tách tệp Excel điểm danh tải lên (`parseAttendanceExcelFile`), tự động khớp tên 40 cơ sở Đoàn bằng `matchUnitByName`.
+    - Tùy chọn nhập file Excel điểm danh ngay khi tạo tiêu chí mới trong modal Thêm Tiêu Chí.
+    - Lưu điểm số và chi tiết số lượng vào `cloud_db.json`, tự động tính vào tổng điểm của đơn vị trên Bảng Tổng Hợp Chấm Điểm và Bảng Xếp Hạng đầy đủ như một mục tiêu chí chuẩn của hệ thống.
