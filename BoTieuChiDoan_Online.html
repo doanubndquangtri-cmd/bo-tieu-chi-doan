@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <!-- Tối ưu tốc độ mở trang cực hạn (0ms): Preload tài nguyên trọng yếu -->
-  <link rel="preload" href="./app.js?v=20261119_chat_1795339559030" as="script" />
-  <link rel="preload" href="./styles.css?v=20261119_chat_1795339559030" as="style" />
+  <link rel="preload" href="./app.js?v=20261119_chat_1795340892402" as="script" />
+  <link rel="preload" href="./styles.css?v=20261119_chat_1795340892402" as="style" />
   <title>Bộ tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh - Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí</title>
   
   <!-- PWA & Mobile Web App Meta Tags -->
@@ -12791,12 +12791,12 @@ function renderMasterScoreCell(unit, crit, isAdmin) {
   // CHỈ KHI Ô CÓ ĐIỂM (khác trống, khác 0) HOẶC CÓ BÀI NỘP CHỜ DUYỆT THÌ MỚI GẮN BIỂU TƯỢNG (Ô TRỐNG HOÀN TOÀN KHÔNG GẮN)
   if (hasScore || isPendingUnitSub) {
     if (isAttendance) {
-      // 1. Tiêu chí Điểm danh: Ô có điểm được gắn biểu tượng 🙋 của bảng điểm danh
+      // 1. Tiêu chí Điểm danh: Ô có điểm được gắn biểu tượng 🙋 của bảng điểm danh (bấm vào xem chi tiết số lượng & ảnh minh chứng nộp của đơn vị)
       dotHtml = `<span
         class="evidence-dot ontime"
         style="background:#ecfdf5; color:#047857; border:1.5px solid #059669; font-size:11px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(4,120,87,0.2); font-weight:800;"
-        onclick="openAttendanceScoreModal(${crit.id}, ${unit.id})"
-        title="Bấm để xem bảng tính điểm danh & đối soát chi tiết 40 cơ sở Đoàn"
+        onclick="openSubmissionDetailModal(${unit.id}, ${crit.id})"
+        title="Bấm để xem chi tiết kê khai số lượng & ảnh minh chứng của đơn vị"
       >🙋</span>`;
     } else {
       // 2. Còn lại các tiêu chí khác: Khôi phục lại nguyên vẹn là tệp (📎 hoặc +📎)
@@ -13080,8 +13080,8 @@ window.onAdminInlineScoreChange = async function (inputEl) {
         if (isAttendance) {
           dotSpan.className = 'evidence-dot ontime';
           dotSpan.style.cssText = 'background:#ecfdf5; color:#047857; border:1.5px solid #059669; font-size:11px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(4,120,87,0.2); font-weight:800;';
-          dotSpan.onclick = () => openAttendanceScoreModal(critId, unitId);
-          dotSpan.title = 'Bấm để xem bảng tính điểm danh & đối soát chi tiết 40 cơ sở Đoàn';
+          dotSpan.onclick = () => openSubmissionDetailModal(unitId, critId);
+          dotSpan.title = 'Bấm để xem chi tiết kê khai số lượng & ảnh minh chứng của đơn vị';
           dotSpan.innerHTML = '🙋';
         } else {
           dotSpan.className = hasAttachment ? 'evidence-dot ontime' : 'evidence-dot no-attachment';
@@ -16205,12 +16205,10 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
 
                 }
 
-                const critFiles = (crit.attachments && Array.isArray(crit.attachments)) ? crit.attachments : [];
-
                 if (unitFiles.length > 0) {
                   return `
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                      <label style="font-weight:700; color:#0f172a; margin:0;">${isAttendance ? `📷 Hình ảnh minh chứng số lượng tham gia (${unitFiles.length} ảnh):` : `📎 Hồ sơ / Minh chứng đơn vị đã nộp (${unitFiles.length} tệp):`}</label>
+                      <label style="font-weight:700; color:#0f172a; margin:0;">${isAttendance ? `📷 Hình ảnh minh chứng số lượng tham gia (${unitFiles.length} ảnh):` : `📎 Hồ sơ / Minh chứng đính kèm (${unitFiles.length} tệp):`}</label>
                       ${isAdmin ? `
                       <button type="button" class="btn btn-sm" onclick="runAiProofReviewModal(${unit.id}, ${crit.id})" style="background:linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color:#fff; border:none; font-weight:700; font-size:11px; padding:3px 9px; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; box-shadow:0 2px 4px rgba(124,58,237,0.25);" title="Gemini Pro tự động quét trích yếu, ngày tháng năm, cảnh báo con dấu và chữ ký">
                         🤖 AI Soát Lỗi Minh Chứng
@@ -16258,44 +16256,12 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
                       </div>
                     ` : ''}
                   `;
-                } else if (critFiles.length > 0) {
-                  return `
-                    <div style="background:#ecfdf5; border:1.5px solid #6ee7b7; border-radius:8px; padding:12px; margin-bottom:8px;">
-                      <div style="font-weight:700; color:#065f46; font-size:13px; display:flex; align-items:center; gap:6px; margin-bottom:4px;">
-                        <span>✅</span> <span>Đã có ${critFiles.length} tệp minh chứng chuẩn từ Ban Thường vụ (Đính kèm theo tiêu chí)</span>
-                      </div>
-                      <div style="font-size:12px; color:#047857; margin-bottom:8px; line-height:1.45;">
-                        Tiêu chí này do Ban Thường vụ ban hành và đối soát tập trung cho các cơ sở Đoàn (hồ sơ minh chứng đã được đính kèm ở mục trên). Điểm số được công nhận tự động, <b>đơn vị không cần nộp lại minh chứng</b>!
-                      </div>
-                      <div style="display:flex; flex-direction:column; gap:6px;">
-                        ${critFiles.map((cf) => {
-                          const typeInfo = getFileIconAndBadge(cf.name);
-                          return `
-                            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; background:#fff; padding:7px 10px; border-radius:6px; border:1px solid #a7f3d0;">
-                              <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
-                                <span style="font-size:16px;">${typeInfo.icon}</span>
-                                <div style="overflow:hidden;">
-                                  <div style="font-weight:700; color:#065f46; font-size:12.5px; max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                                    ${escapeHtml(cf.name)}
-                                  </div>
-                                  <div style="font-size:11px; color:#059669;">
-                                    ${typeInfo.label} ${cf.size ? '• ' + formatBytes(cf.size) : ''}
-                                  </div>
-                                </div>
-                              </div>
-                              <div style="display:flex; gap:6px; flex-shrink:0;">
-                                ${cf.url ? `<button type="button" onclick="openFileInlinePreviewModal('${escapeHtml(cf.url)}', '${escapeHtml(cf.name)}')" class="btn btn-sm btn-outline" style="font-size:11px; padding:2px 7px; color:#047857; border-color:#059669; background:#fff; font-weight:700;">👁️ Xem file</button>` : ''}
-                                ${cf.url ? `<a href="${escapeHtml(cf.url)}" download="${escapeHtml(cf.name)}" target="_blank" class="btn btn-sm btn-success" style="font-size:11px; padding:2px 7px; font-weight:700;">📥 Tải về</a>` : ''}
-                              </div>
-                            </div>
-                          `;
-                        }).join('')}
-                      </div>
-                    </div>
-                  `;
                 } else {
                   return `
-                    <div style="color:#64748b; font-size:12px; margin-bottom:6px; margin-top:4px;"><i>Chưa có tệp minh chứng đính kèm</i></div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                      <label style="font-weight:700; color:#0f172a; margin:0;">${isAttendance ? '📷 Hình ảnh minh chứng số lượng tham gia (0 ảnh):' : '📎 Hồ sơ / Minh chứng đính kèm (0 tệp):'}</label>
+                    </div>
+                    <div style="color:#64748b; font-size:12px; margin-bottom:6px; margin-top:4px;"><i>${isAttendance ? 'Chưa có hình ảnh minh chứng đính kèm' : 'Chưa có tệp minh chứng đính kèm'}</i></div>
                     ${isAdmin && (sc.report_content || sc.score !== null) ? `
                       <div style="margin-top:6px; margin-bottom:8px;">
                         <button type="button" class="btn btn-sm btn-danger" onclick="confirmResetUnitSubmission(${unit.id}, ${crit.id})" style="font-size:11.5px; padding:3px 8px; font-weight:700;">
@@ -43123,7 +43089,7 @@ window.submitEditGalleryPost = async function (postId) {
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795339559030;
+    const CURRENT_BUILD_TS = 1795340892402;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;

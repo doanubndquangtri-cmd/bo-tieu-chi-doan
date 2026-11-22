@@ -74,7 +74,11 @@
         - Thêm viền nổi và đổ bóng thanh lịch cho `.modal-box`, giữ cho toàn bộ màn hình phía sau hoàn toàn sắc nét, sáng rõ 100%, xóa bỏ dứt điểm hiện tượng bóng đen mờ xung quanh.
     11. Khắc phục dứt điểm nhận diện tệp minh chứng và đồng bộ hiển thị biểu tượng `📎` (xanh lá):
         - **Bảo toàn 100% dữ liệu:** Toàn bộ 59 hồ sơ/minh chứng của các cơ sở đoàn trên `data-v2` (`cloud_db.json`) và các tệp đính kèm của Ban Thường vụ trên các tiêu chí (161, 166, 167...) đều nguyên vẹn hoàn toàn.
-        - **Sửa nguyên nhân cốt lõi hiển thị `+📎` và báo "Chưa có tệp":**
-          - Mở rộng kiểm tra `hasAttachment` trong `renderMasterScoreCell` và `onAdminInlineScoreChange`: Tính toán cả tệp do đơn vị nộp (`sc.files`, `sc.file_path`, `sc.evidence_link`) và tệp do Ban Thường vụ đính kèm ở tiêu chí (`crit.attachments`).
-          - Khi tiêu chí đã có tệp đính kèm từ Ban Thường vụ (như Cột 1, Cột 2, Cột 3 với 2 tệp PDF & Excel phát động lan tỏa), ô điểm luôn hiển thị biểu tượng **`📎`** (ontime - màu xanh lá cây chuẩn), tuyệt đối không hiển thị `+📎` (nét đứt cam).
-          - Trong modal chi tiết bài nộp/minh chứng (`openSubmissionDetailModal`): Nếu đơn vị chưa có tệp riêng nhưng tiêu chí đã có `crit.attachments`, hiển thị thông báo trạng thái `✅ Đã có tệp minh chứng chuẩn từ Ban Thường vụ (Đính kèm theo tiêu chí)` kèm danh sách tệp đầy đủ nút `[👁️ Xem file]` và `[📥 Tải về]`, giải thích rõ ràng không bắt đơn vị nộp lại. Với Admin hiển thị nhãn thân thiện bổ sung tệp nếu cần thay vì thông báo lỗi hoặc bắt nộp lại.
+        - Mở rộng kiểm tra `hasAttachment` trong `renderMasterScoreCell` và `onAdminInlineScoreChange`: Tính toán cả tệp do đơn vị nộp và tệp do Ban Thường vụ đính kèm ở tiêu chí (`crit.attachments`).
+        - Khi tiêu chí đã có tệp đính kèm từ Ban Thường vụ (như Cột 1, Cột 2, Cột 3 với 2 tệp PDF & Excel phát động lan tỏa), ô điểm luôn hiển thị biểu tượng **`📎`** (ontime - màu xanh lá cây chuẩn), tuyệt đối không hiển thị `+📎` (nét đứt cam).
+    12. Tinh chỉnh chuẩn hóa theo phản hồi người dùng:
+        - **Khôi phục modal chi tiết báo cáo chuẩn như Ảnh 3**: Xóa bỏ hoàn toàn bảng màu xanh lá cây chèn trùng lặp 2 file PDF/Excel ở mục "Hồ sơ / Minh chứng đính kèm", vì 2 file này đã được hiển thị trang trọng ở khối "Tài liệu & Tệp hướng dẫn từ Ban Thường vụ" ở phía trên. Nếu cơ sở Đoàn chưa nộp file riêng thì hiển thị đúng thông báo "Chưa có tệp minh chứng đính kèm" và thanh xác nhận duyệt điểm màu xanh lá chuẩn 100% như Ảnh 3.
+        - **Đồng bộ luồng xem chi tiết cho Tiêu chí Điểm danh (`isAttendance`)**:
+          - Tiêu đề cột: Giữ nguyên vẹn nút `[🙋 Bảng Điểm Danh]` (mở bảng tính Excel đối soát 40 đơn vị) và nút `[📎 Tệp (x)]` (tệp đính kèm của tiêu chí).
+          - Các ô điểm phía dưới: Vẫn giữ nguyên biểu tượng **`🙋`** màu xanh lá cây trên các ô có điểm.
+          - Khi click vào biểu tượng **`🙋`** ở ô điểm của cơ sở Đoàn: Mở modal xem chi tiết của riêng cơ sở Đoàn đó (`openSubmissionDetailModal`), hiển thị số lượng đoàn viên tham gia kê khai và danh sách các hình ảnh chụp minh chứng hoạt động mà cơ sở Đoàn đã tải lên để Admin kiểm tra số lượng người tham gia thực tế trong ảnh.
