@@ -6567,13 +6567,17 @@ function renderMasterScoreCell(unit, crit, isAdmin) {
   // Chỉ hiển thị biểu tượng đính kèm khi ô CÓ ĐIỂM hiển thị (khác trống và khác 0, vì 0 hiển thị là ô trống); ô trống hoàn toàn ẩn biểu tượng đính kèm
   const hasScore = numVal !== null && val !== '' && !Number.isNaN(numVal) && numVal !== 0;
 
-  const hasAttachment = Boolean(sc && (
+  const hasUnitAttachment = Boolean(sc && (
     (sc.file_path && String(sc.file_path).trim() !== '') ||
     (sc.file_name && String(sc.file_name).trim() !== '') ||
     (sc.evidence_link && String(sc.evidence_link).trim() !== '') ||
     (Array.isArray(sc.files) && sc.files.length > 0) ||
     (Array.isArray(sc.attachments) && sc.attachments.length > 0)
   ));
+
+  const hasCritAttachment = Boolean(crit && Array.isArray(crit.attachments) && crit.attachments.length > 0);
+
+  const hasAttachment = hasUnitAttachment || hasCritAttachment;
 
   const hasNoteOrReport = Boolean(sc && (
     (sc.report_content && String(sc.report_content).trim() !== '') ||
@@ -6603,7 +6607,7 @@ function renderMasterScoreCell(unit, crit, isAdmin) {
         dotHtml = `<span
           class="evidence-dot ${isLate ? 'late' : 'ontime'}"
           onclick="openSubmissionDetailModal(${unit.id}, ${crit.id})"
-          title="Đã có tệp/minh chứng đính kèm — Bấm để xem chi tiết"
+          title="${hasUnitAttachment ? 'Đã có tệp/minh chứng của đơn vị — Bấm để xem chi tiết' : 'Đã có tệp/minh chứng từ Ban Thường vụ — Bấm để xem chi tiết'}"
         >📎</span>`;
       } else if (isAdmin) {
         dotHtml = `<span
@@ -6860,18 +6864,21 @@ window.onAdminInlineScoreChange = async function (inputEl) {
     // Cập nhật ngay biểu tượng đính kèm trên ô: ô trống thì ẩn hẳn, ô có điểm thì phân biệt đã có tệp (📎) vs chưa có tệp (+📎)
     const cellTd = document.getElementById('cell-' + unitId + '-' + critId);
     const updatedSc = getScoreObj(unitId, critId);
-    const hasAttachment = Boolean(updatedSc && (
+    const crit = (state.criteria || []).find(c => c.id === critId);
+    const hasUnitAttachment = Boolean(updatedSc && (
       (updatedSc.file_path && String(updatedSc.file_path).trim() !== '') ||
       (updatedSc.file_name && String(updatedSc.file_name).trim() !== '') ||
       (updatedSc.evidence_link && String(updatedSc.evidence_link).trim() !== '') ||
+      (Array.isArray(updatedSc.files) && updatedSc.files.length > 0) ||
       (Array.isArray(updatedSc.attachments) && updatedSc.attachments.length > 0)
     ));
+    const hasCritAttachment = Boolean(crit && Array.isArray(crit.attachments) && crit.attachments.length > 0);
+    const hasAttachment = hasUnitAttachment || hasCritAttachment;
     const hasVisibleScore = numVal !== null && !Number.isNaN(numVal) && numVal !== 0;
     if (cellTd) {
       const existingDot = cellTd.querySelector('.evidence-dot');
       if (hasVisibleScore) {
         const dotSpan = existingDot || document.createElement('span');
-        const crit = (state.criteria || []).find(c => c.id === critId);
         const isAttendance = crit && Number(crit.is_report) === 3;
         if (isAttendance) {
           dotSpan.className = 'evidence-dot ontime';
@@ -6884,7 +6891,7 @@ window.onAdminInlineScoreChange = async function (inputEl) {
           dotSpan.style.cssText = '';
           dotSpan.onclick = () => openSubmissionDetailModal(unitId, critId);
           dotSpan.title = hasAttachment
-            ? 'Đã có tệp/minh chứng đính kèm — Bấm để xem chi tiết'
+            ? (hasUnitAttachment ? 'Đã có tệp/minh chứng của đơn vị — Bấm để xem chi tiết' : 'Đã có tệp/minh chứng từ Ban Thường vụ — Bấm để xem chi tiết')
             : 'Ô đã có điểm (chưa có tệp đính kèm) — Bấm để thêm tệp nếu cần';
           dotSpan.innerHTML = hasAttachment ? '📎' : '+📎';
         }
@@ -9989,141 +9996,118 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
 
               ${(() => {
 
-                let filesList = [];
+                let unitFiles = [];
 
                 if (sc.files && Array.isArray(sc.files) && sc.files.length > 0) {
 
-                  filesList = sc.files;
+                  unitFiles = sc.files;
 
                 } else if (sc.file_path) {
 
-                  filesList = [{ name: sc.file_name || 'Tệp đính kèm', url: sc.file_path }];
+                  unitFiles = [{ name: sc.file_name || 'Tệp đính kèm', url: sc.file_path }];
 
                 }
 
-                return `
+                const critFiles = (crit.attachments && Array.isArray(crit.attachments)) ? crit.attachments : [];
 
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-
-                  <label style="font-weight:700; color:#0f172a; margin:0;">${isAttendance ? `📷 Hình ảnh minh chứng số lượng tham gia (${filesList.length} ảnh):` : `📎 Hồ sơ / Minh chứng đính kèm (${filesList.length} tệp):`}</label>
-
-                  ${isAdmin ? `
-                  <button type="button" class="btn btn-sm" onclick="runAiProofReviewModal(${unit.id}, ${crit.id})" style="background:linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color:#fff; border:none; font-weight:700; font-size:11px; padding:3px 9px; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; box-shadow:0 2px 4px rgba(124,58,237,0.25);" title="Gemini Pro tự động quét trích yếu, ngày tháng năm, cảnh báo con dấu và chữ ký">
-                    🤖 AI Soát Lỗi Minh Chứng
-                  </button>
-                  ` : ''}
-
-                </div>
-
-                ${
-
-                  filesList.length > 0
-
-                    ? `
-
-                    ${filesList.map((f, fIdx) => {
-
-                      const typeInfo = getFileIconAndBadge(f.name);
-
-                      return `
-
-                        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; background:${typeInfo.bg}; padding:8px 12px; border-radius:6px; border:1px solid ${typeInfo.border};">
-
-                          <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
-
-                            <span style="font-size:18px;">${typeInfo.icon}</span>
-
-                            <div style="overflow:hidden;">
-
-                              <div style="font-weight:700; color:${typeInfo.color}; white-space:normal; line-height:1.4; font-weight:600; color:#0f172a; word-break:break-word; max-width:280px; font-size:13px;">
-
-                                ${escapeHtml(f.name || 'Tệp đính kèm')}
-
+                if (unitFiles.length > 0) {
+                  return `
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                      <label style="font-weight:700; color:#0f172a; margin:0;">${isAttendance ? `📷 Hình ảnh minh chứng số lượng tham gia (${unitFiles.length} ảnh):` : `📎 Hồ sơ / Minh chứng đơn vị đã nộp (${unitFiles.length} tệp):`}</label>
+                      ${isAdmin ? `
+                      <button type="button" class="btn btn-sm" onclick="runAiProofReviewModal(${unit.id}, ${crit.id})" style="background:linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color:#fff; border:none; font-weight:700; font-size:11px; padding:3px 9px; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; box-shadow:0 2px 4px rgba(124,58,237,0.25);" title="Gemini Pro tự động quét trích yếu, ngày tháng năm, cảnh báo con dấu và chữ ký">
+                        🤖 AI Soát Lỗi Minh Chứng
+                      </button>
+                      ` : ''}
+                    </div>
+                    <div style="display:flex; flex-direction:column; gap:6px;">
+                      ${unitFiles.map((f, fIdx) => {
+                        const typeInfo = getFileIconAndBadge(f.name);
+                        return `
+                          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; background:${typeInfo.bg}; padding:8px 12px; border-radius:6px; border:1px solid ${typeInfo.border};">
+                            <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+                              <span style="font-size:18px;">${typeInfo.icon}</span>
+                              <div style="overflow:hidden;">
+                                <div style="font-weight:700; color:${typeInfo.color}; white-space:normal; line-height:1.4; font-weight:600; color:#0f172a; word-break:break-word; max-width:280px; font-size:13px;">
+                                  ${escapeHtml(f.name || 'Tệp đính kèm')}
+                                </div>
+                                <div style="font-size:11px; color:#64748b; display:flex; gap:6px; align-items:center;">
+                                  <span style="background:${typeInfo.border}; color:${typeInfo.color}; padding:1px 5px; border-radius:3px; font-weight:600;">${typeInfo.label}</span>
+                                  ${f.size ? `<span>${formatBytes(f.size)}</span>` : ''}
+                                </div>
                               </div>
-
-                              <div style="font-size:11px; color:#64748b; display:flex; gap:6px; align-items:center;">
-
-                                <span style="background:${typeInfo.border}; color:${typeInfo.color}; padding:1px 5px; border-radius:3px; font-weight:600;">${typeInfo.label}</span>
-
-                                ${f.size ? `<span>${formatBytes(f.size)}</span>` : ''}
-
-                              </div>
-
                             </div>
-
+                            <div style="display:flex; gap:6px; flex-shrink:0;">
+                              ${f.url ? `<button type="button" onclick="openFileInlinePreviewModal('${escapeHtml(f.url)}', '${escapeHtml(f.name || 'Tệp đính kèm')}')" class="btn btn-sm btn-outline" style="font-size:11.5px; padding:3px 8px; font-weight:600; cursor:pointer; background:#fff; color:#0284c7; border-color:#0284c7;">👁️ Xem file</button>` : ''}
+                              ${f.url ? `<a href="${escapeHtml(f.url)}" download="${escapeHtml(f.name || 'minh_chung')}" target="_blank" class="btn btn-sm btn-primary" style="font-size:11.5px; padding:3px 8px; font-weight:700;">📥 Tải về</a>` : ''}
+                              ${isAdmin ? `
+                                <button class="btn btn-sm btn-danger" onclick="confirmDeleteUnitSubmissionFile(${unit.id}, ${crit.id}, ${fIdx})" style="font-size:11.5px; padding:3px 8px; font-weight:700;" title="Xóa tệp này (có hỏi xóa trên Drive)">
+                                  🗑️ Xóa
+                                </button>
+                              ` : ''}
+                            </div>
                           </div>
-
-                          <div style="display:flex; gap:6px; flex-shrink:0;">
-
-                            ${f.url ? `<button type="button" onclick="openFileInlinePreviewModal('${escapeHtml(f.url)}', '${escapeHtml(f.name || 'Tệp đính kèm')}')" class="btn btn-sm btn-outline" style="font-size:11.5px; padding:3px 8px; font-weight:600; cursor:pointer; background:#fff; color:#0284c7; border-color:#0284c7;">👁️ Xem file</button>` : ''}
-
-                            ${f.url ? `<a href="${escapeHtml(f.url)}" download="${escapeHtml(f.name || 'minh_chung')}" target="_blank" class="btn btn-sm btn-primary" style="font-size:11.5px; padding:3px 8px; font-weight:700;">📥 Tải về</a>` : ''}
-
-                            ${isAdmin ? `
-
-                              <button class="btn btn-sm btn-danger" onclick="confirmDeleteUnitSubmissionFile(${unit.id}, ${crit.id}, ${fIdx})" style="font-size:11.5px; padding:3px 8px; font-weight:700;" title="Xóa tệp này (có hỏi xóa trên Drive)">
-
-                                🗑️ Xóa
-
-                              </button>
-
-                            ` : ''}
-
-                          </div>
-
-                        </div>
-
-                      `;
-
-                    }).join('')}
-
-                  </div>
-
-                  ${isAdmin ? `
-
-                    <div style="display:flex; gap:8px; margin-top:8px; margin-bottom:10px; flex-wrap:wrap;">
-
-                      <button type="button" class="btn btn-sm" onclick="confirmDeleteAllUnitSubmissionFiles(${unit.id}, ${crit.id})" style="background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; font-size:11.5px; font-weight:700; padding:4px 10px;">
-
-                        🗑️ Xóa toàn bộ ${filesList.length} tệp minh chứng mục này
-
-                      </button>
-
-                      <button type="button" class="btn btn-sm" onclick="confirmResetUnitSubmission(${unit.id}, ${crit.id})" style="background:#fef2f2; color:#dc2626; border:1px solid #f87171; font-size:11.5px; font-weight:700; padding:4px 10px;">
-
-                        ⚠️ Hủy toàn bộ bài nộp & gỡ điểm
-
-                      </button>
-
+                        `;
+                      }).join('')}
                     </div>
-
-                  ` : ''}
-
-                `
-
-                    : `
-
-                  <div style="color:#64748b; font-size:12px; margin-bottom:6px; margin-top:4px;"><i>Chưa có tệp minh chứng đính kèm</i></div>
-
-                  ${isAdmin && (sc.report_content || sc.score !== null) ? `
-
-                    <div style="margin-top:6px; margin-bottom:8px;">
-
-                      <button type="button" class="btn btn-sm btn-danger" onclick="confirmResetUnitSubmission(${unit.id}, ${crit.id})" style="font-size:11.5px; padding:3px 8px; font-weight:700;">
-
-                        ⚠️ Hủy bài nộp & gỡ điểm mục này
-
-                      </button>
-
+                    ${isAdmin ? `
+                      <div style="display:flex; gap:8px; margin-top:8px; margin-bottom:10px; flex-wrap:wrap;">
+                        <button type="button" class="btn btn-sm" onclick="confirmDeleteAllUnitSubmissionFiles(${unit.id}, ${crit.id})" style="background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; font-size:11.5px; font-weight:700; padding:4px 10px;">
+                          🗑️ Xóa toàn bộ ${unitFiles.length} tệp minh chứng mục này
+                        </button>
+                        <button type="button" class="btn btn-sm" onclick="confirmResetUnitSubmission(${unit.id}, ${crit.id})" style="background:#fef2f2; color:#dc2626; border:1px solid #f87171; font-size:11.5px; font-weight:700; padding:4px 10px;">
+                          ⚠️ Hủy toàn bộ bài nộp & gỡ điểm
+                        </button>
+                      </div>
+                    ` : ''}
+                  `;
+                } else if (critFiles.length > 0) {
+                  return `
+                    <div style="background:#ecfdf5; border:1.5px solid #6ee7b7; border-radius:8px; padding:12px; margin-bottom:8px;">
+                      <div style="font-weight:700; color:#065f46; font-size:13px; display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                        <span>✅</span> <span>Đã có ${critFiles.length} tệp minh chứng chuẩn từ Ban Thường vụ (Đính kèm theo tiêu chí)</span>
+                      </div>
+                      <div style="font-size:12px; color:#047857; margin-bottom:8px; line-height:1.45;">
+                        Tiêu chí này do Ban Thường vụ ban hành và đối soát tập trung cho các cơ sở Đoàn (hồ sơ minh chứng đã được đính kèm ở mục trên). Điểm số được công nhận tự động, <b>đơn vị không cần nộp lại minh chứng</b>!
+                      </div>
+                      <div style="display:flex; flex-direction:column; gap:6px;">
+                        ${critFiles.map((cf) => {
+                          const typeInfo = getFileIconAndBadge(cf.name);
+                          return `
+                            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; background:#fff; padding:7px 10px; border-radius:6px; border:1px solid #a7f3d0;">
+                              <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+                                <span style="font-size:16px;">${typeInfo.icon}</span>
+                                <div style="overflow:hidden;">
+                                  <div style="font-weight:700; color:#065f46; font-size:12.5px; max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                                    ${escapeHtml(cf.name)}
+                                  </div>
+                                  <div style="font-size:11px; color:#059669;">
+                                    ${typeInfo.label} ${cf.size ? '• ' + formatBytes(cf.size) : ''}
+                                  </div>
+                                </div>
+                              </div>
+                              <div style="display:flex; gap:6px; flex-shrink:0;">
+                                ${cf.url ? `<button type="button" onclick="openFileInlinePreviewModal('${escapeHtml(cf.url)}', '${escapeHtml(cf.name)}')" class="btn btn-sm btn-outline" style="font-size:11px; padding:2px 7px; color:#047857; border-color:#059669; background:#fff; font-weight:700;">👁️ Xem file</button>` : ''}
+                                ${cf.url ? `<a href="${escapeHtml(cf.url)}" download="${escapeHtml(cf.name)}" target="_blank" class="btn btn-sm btn-success" style="font-size:11px; padding:2px 7px; font-weight:700;">📥 Tải về</a>` : ''}
+                              </div>
+                            </div>
+                          `;
+                        }).join('')}
+                      </div>
                     </div>
-
-                  ` : ''}
-
-                `
-
+                  `;
+                } else {
+                  return `
+                    <div style="color:#64748b; font-size:12px; margin-bottom:6px; margin-top:4px;"><i>Chưa có tệp minh chứng đính kèm</i></div>
+                    ${isAdmin && (sc.report_content || sc.score !== null) ? `
+                      <div style="margin-top:6px; margin-bottom:8px;">
+                        <button type="button" class="btn btn-sm btn-danger" onclick="confirmResetUnitSubmission(${unit.id}, ${crit.id})" style="font-size:11.5px; padding:3px 8px; font-weight:700;">
+                          ⚠️ Hủy bài nộp & gỡ điểm mục này
+                        </button>
+                      </div>
+                    ` : ''}
+                  `;
                 }
-
-                `;
 
               })()}
 
@@ -10139,7 +10123,7 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
 
                   <label style="font-size:12px; font-weight:600; color:#334155; margin-bottom:4px; display:block;">
 
-                    📤 Admin tải thêm tệp đính kèm (Văn bản, Hình ảnh, Video tùy ý):
+                    📤 Admin bổ sung thêm tệp đính kèm riêng cho đơn vị này (nếu cần):
 
                   </label>
 

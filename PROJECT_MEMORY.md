@@ -72,3 +72,9 @@
         - Cập nhật `.modal-backdrop` trong `styles.css` và inline style của `openCriterionAttachmentsModal`, modal xem trước tệp sang `background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important;`.
         - Gắn trực tiếp container của modal tệp đính kèm vào `document.body` để không bị cắt xén hoặc lệch khung nhìn.
         - Thêm viền nổi và đổ bóng thanh lịch cho `.modal-box`, giữ cho toàn bộ màn hình phía sau hoàn toàn sắc nét, sáng rõ 100%, xóa bỏ dứt điểm hiện tượng bóng đen mờ xung quanh.
+    11. Khắc phục dứt điểm nhận diện tệp minh chứng và đồng bộ hiển thị biểu tượng `📎` (xanh lá):
+        - **Bảo toàn 100% dữ liệu:** Toàn bộ 59 hồ sơ/minh chứng của các cơ sở đoàn trên `data-v2` (`cloud_db.json`) và các tệp đính kèm của Ban Thường vụ trên các tiêu chí (161, 166, 167...) đều nguyên vẹn hoàn toàn.
+        - **Sửa nguyên nhân cốt lõi hiển thị `+📎` và báo "Chưa có tệp":**
+          - Mở rộng kiểm tra `hasAttachment` trong `renderMasterScoreCell` và `onAdminInlineScoreChange`: Tính toán cả tệp do đơn vị nộp (`sc.files`, `sc.file_path`, `sc.evidence_link`) và tệp do Ban Thường vụ đính kèm ở tiêu chí (`crit.attachments`).
+          - Khi tiêu chí đã có tệp đính kèm từ Ban Thường vụ (như Cột 1, Cột 2, Cột 3 với 2 tệp PDF & Excel phát động lan tỏa), ô điểm luôn hiển thị biểu tượng **`📎`** (ontime - màu xanh lá cây chuẩn), tuyệt đối không hiển thị `+📎` (nét đứt cam).
+          - Trong modal chi tiết bài nộp/minh chứng (`openSubmissionDetailModal`): Nếu đơn vị chưa có tệp riêng nhưng tiêu chí đã có `crit.attachments`, hiển thị thông báo trạng thái `✅ Đã có tệp minh chứng chuẩn từ Ban Thường vụ (Đính kèm theo tiêu chí)` kèm danh sách tệp đầy đủ nút `[👁️ Xem file]` và `[📥 Tải về]`, giải thích rõ ràng không bắt đơn vị nộp lại. Với Admin hiển thị nhãn thân thiện bổ sung tệp nếu cần thay vì thông báo lỗi hoặc bắt nộp lại.
