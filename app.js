@@ -219,9 +219,8 @@ window.showUploadProgressModal = function(title = 'Đang Tải Tệp Lên Hệ T
 
     overlay.innerHTML = `
 
-      <div style="position: fixed; inset: 0; background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(5px); z-index: 99999999; display: flex; align-items: center; justify-content: center; padding: 16px;">
-
-        <div style="background: #ffffff; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4); width: 100%; max-width: 480px; overflow: hidden; border: 1px solid #cbd5e1; font-family: inherit;">
+      <div style="position: fixed; inset: 0; background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; z-index: 99999999; display: flex; align-items: center; justify-content: center; padding: 16px;">
+        <div style="background: #ffffff; border-radius: 16px; box-shadow: 0 20px 45px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(0, 0, 0, 0.08); width: 100%; max-width: 480px; overflow: hidden; border: 1px solid #cbd5e1; font-family: inherit;">
 
           <div style="background: linear-gradient(135deg, #003d99, #0284c7); padding: 16px 20px; color: #ffffff; display: flex; align-items: center; justify-content: space-between;">
 
@@ -559,7 +558,7 @@ window.openFileInlinePreviewModal = function(fileUrl, fileName) {
 
   previewContainer.innerHTML = `
 
-    <div class="modal-backdrop" style="z-index: 999999; background: rgba(15, 23, 42, 0.75); display:flex; align-items:center; justify-content:center; padding:16px;" onclick="if(event.target===this) window.closeFileInlinePreviewModal()">
+    <div class="modal-backdrop" style="z-index: 999999; background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; display:flex; align-items:center; justify-content:center; padding:16px;" onclick="if(event.target===this) window.closeFileInlinePreviewModal()">
 
       <div class="modal-box" style="max-width: 960px; width: 95vw; max-height: 92vh; display: flex; flex-direction: column; padding: 0; border-radius: 10px; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);">
 
@@ -4878,14 +4877,14 @@ window.WebPushManager = {
       }
 
       container.innerHTML = `
-        <div class="modal-backdrop" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(15,23,42,0.75); z-index:9999998; display:flex; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(3px);" onclick="if(event.target===this) document.getElementById('notif-guide-modal-container').remove();">
-          <div class="modal-box" style="background:#fff; border-radius:14px; max-width:440px; width:100%; padding:20px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.4); max-height:92vh; overflow-y:auto; position:relative; z-index:9999999;">
+        <div class="modal-backdrop" style="position:fixed; inset:0; top:0; left:0; width:100vw; height:100vh; background:transparent !important; z-index:9999998; display:flex; align-items:center; justify-content:center; padding:16px; backdrop-filter:none !important; -webkit-backdrop-filter:none !important;" onclick="if(event.target===this) document.getElementById('notif-guide-modal-container').remove();">
+          <div class="modal-box" style="background:#fff; border-radius:14px; max-width:440px; width:100%; padding:20px; box-shadow:0 16px 40px rgba(0,0,0,0.3), 0 0 0 1px rgba(0,0,0,0.08); max-height:92vh; overflow-y:auto; position:relative; z-index:9999999;">
             ${bodyHtml}
           </div>
         </div>
       `;
 
-      modalRoot.appendChild(container);
+      document.body.appendChild(container);
     } catch (e) {
       console.warn('[WebPush] showNotificationGuideModal error:', e);
     }
@@ -29968,7 +29967,6 @@ window.openCriterionAttachmentsModal = function(criterionId) {
   }
 
   const isAdmin = state.user && state.user.role === 'admin';
-  const modalRoot = document.getElementById('modal-root') || document.body;
 
   const oldModal = document.getElementById('criterion-attachments-modal-container');
   if (oldModal) oldModal.remove();
@@ -29979,8 +29977,8 @@ window.openCriterionAttachmentsModal = function(criterionId) {
   const attList = crit.attachments;
 
   container.innerHTML = `
-    <div class="modal-backdrop" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(15,23,42,0.75); z-index:9999998; display:flex; align-items:center; justify-content:center; padding:14px; backdrop-filter:blur(3px);" onclick="if(event.target===this) window.closeCriterionAttachmentsModal()">
-      <div class="modal-box" style="background:#ffffff; border-radius:14px; max-width:680px; width:100%; box-shadow:0 25px 50px -12px rgba(0,0,0,0.4); max-height:92vh; display:flex; flex-direction:column; overflow:hidden; border:1px solid #cbd5e1; z-index:9999999; animation:slideDown 0.2s ease-out;">
+    <div class="modal-backdrop" style="position:fixed; inset:0; top:0; left:0; width:100vw; height:100vh; background:transparent !important; z-index:9999998; display:flex; align-items:center; justify-content:center; padding:14px; backdrop-filter:none !important; -webkit-backdrop-filter:none !important;" onclick="if(event.target===this) window.closeCriterionAttachmentsModal()">
+      <div class="modal-box" style="background:#ffffff; border-radius:14px; max-width:680px; width:100%; box-shadow:0 16px 45px rgba(0,0,0,0.3), 0 0 0 1px rgba(0,0,0,0.08); max-height:92vh; display:flex; flex-direction:column; overflow:hidden; border:1px solid #cbd5e1; z-index:9999999; animation:slideDown 0.2s ease-out;">
         
         <!-- HEADER -->
         <div style="background:linear-gradient(135deg, #003d99 0%, #0052cc 100%); color:#fff; padding:12px 18px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-shrink:0;">
@@ -30114,7 +30112,7 @@ window.openCriterionAttachmentsModal = function(criterionId) {
     </div>
   `;
 
-  modalRoot.appendChild(container);
+  document.body.appendChild(container);
 };
 
 window.closeCriterionAttachmentsModal = function() {
