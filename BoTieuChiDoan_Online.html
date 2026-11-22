@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <!-- Tối ưu tốc độ mở trang cực hạn (0ms): Preload tài nguyên trọng yếu -->
-  <link rel="preload" href="./app.js?v=20261119_chat_1795330676736" as="script" />
-  <link rel="preload" href="./styles.css?v=20261119_chat_1795330676736" as="style" />
+  <link rel="preload" href="./app.js?v=20261119_chat_1795331121113" as="script" />
+  <link rel="preload" href="./styles.css?v=20261119_chat_1795331121113" as="style" />
   <title>Bộ tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh - Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí</title>
   
   <!-- PWA & Mobile Web App Meta Tags -->
@@ -12779,7 +12779,7 @@ function renderMasterScoreCell(unit, crit, isAdmin) {
 
   const isLate = sc && Number(sc.is_on_time) === 0;
 
-  const isAttendance = Number(crit.is_report) === 3 || (crit.title && crit.title.toLowerCase().includes('điểm danh'));
+  const isAttendance = Number(crit.is_report) === 3;
 
   let dotHtml = '';
   // CHỈ KHI Ô CÓ ĐIỂM (khác trống, khác 0) HOẶC CÓ BÀI NỘP CHỜ DUYỆT THÌ MỚI GẮN BIỂU TƯỢNG (Ô TRỐNG HOÀN TOÀN KHÔNG GẮN)
@@ -13067,7 +13067,7 @@ window.onAdminInlineScoreChange = async function (inputEl) {
       if (hasVisibleScore) {
         const dotSpan = existingDot || document.createElement('span');
         const crit = (state.criteria || []).find(c => c.id === critId);
-        const isAttendance = crit && (Number(crit.is_report) === 3 || (crit.title && crit.title.toLowerCase().includes('điểm danh')));
+        const isAttendance = crit && Number(crit.is_report) === 3;
         if (isAttendance) {
           dotSpan.className = 'evidence-dot ontime';
           dotSpan.style.cssText = 'background:#ecfdf5; color:#047857; border:1.5px solid #059669; font-size:11px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(4,120,87,0.2); font-weight:800;';
@@ -14226,7 +14226,7 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
 
   const isAdminScore = Number(crit.is_report) === 2;
 
-  const isAttendance = Number(crit.is_report) === 3 || (crit.title && crit.title.toLowerCase().includes('điểm danh'));
+  const isAttendance = Number(crit.is_report) === 3;
 
   const isReport = Number(crit.is_report) === 1;
 
@@ -14856,7 +14856,7 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
 
 
 
-  const isAttendance = Number(crit.is_report) === 3 || (crit.title && crit.title.toLowerCase().includes('điểm danh'));
+  const isAttendance = Number(crit.is_report) === 3;
 
   let attendancePresNum = 0;
   if (isAttendance) {
@@ -15980,7 +15980,7 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
 
   const isAdmin = state.user && state.user.role === 'admin';
 
-  const isAttendance = Number(crit.is_report) === 3 || (crit.title && crit.title.toLowerCase().includes('điểm danh'));
+  const isAttendance = Number(crit.is_report) === 3;
 
   const modalRoot = document.getElementById('modal-root');
 
@@ -43138,7 +43138,7 @@ window.submitEditGalleryPost = async function (postId) {
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795330676736;
+    const CURRENT_BUILD_TS = 1795331121113;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;

@@ -6585,7 +6585,7 @@ function renderMasterScoreCell(unit, crit, isAdmin) {
 
   const isLate = sc && Number(sc.is_on_time) === 0;
 
-  const isAttendance = Number(crit.is_report) === 3 || (crit.title && crit.title.toLowerCase().includes('điểm danh'));
+  const isAttendance = Number(crit.is_report) === 3;
 
   let dotHtml = '';
   // CHỈ KHI Ô CÓ ĐIỂM (khác trống, khác 0) HOẶC CÓ BÀI NỘP CHỜ DUYỆT THÌ MỚI GẮN BIỂU TƯỢNG (Ô TRỐNG HOÀN TOÀN KHÔNG GẮN)
@@ -6873,7 +6873,7 @@ window.onAdminInlineScoreChange = async function (inputEl) {
       if (hasVisibleScore) {
         const dotSpan = existingDot || document.createElement('span');
         const crit = (state.criteria || []).find(c => c.id === critId);
-        const isAttendance = crit && (Number(crit.is_report) === 3 || (crit.title && crit.title.toLowerCase().includes('điểm danh')));
+        const isAttendance = crit && Number(crit.is_report) === 3;
         if (isAttendance) {
           dotSpan.className = 'evidence-dot ontime';
           dotSpan.style.cssText = 'background:#ecfdf5; color:#047857; border:1.5px solid #059669; font-size:11px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(4,120,87,0.2); font-weight:800;';
@@ -8032,7 +8032,7 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
 
   const isAdminScore = Number(crit.is_report) === 2;
 
-  const isAttendance = Number(crit.is_report) === 3 || (crit.title && crit.title.toLowerCase().includes('điểm danh'));
+  const isAttendance = Number(crit.is_report) === 3;
 
   const isReport = Number(crit.is_report) === 1;
 
@@ -8662,7 +8662,7 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
 
 
 
-  const isAttendance = Number(crit.is_report) === 3 || (crit.title && crit.title.toLowerCase().includes('điểm danh'));
+  const isAttendance = Number(crit.is_report) === 3;
 
   let attendancePresNum = 0;
   if (isAttendance) {
@@ -9786,7 +9786,7 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
 
   const isAdmin = state.user && state.user.role === 'admin';
 
-  const isAttendance = Number(crit.is_report) === 3 || (crit.title && crit.title.toLowerCase().includes('điểm danh'));
+  const isAttendance = Number(crit.is_report) === 3;
 
   const modalRoot = document.getElementById('modal-root');
 
