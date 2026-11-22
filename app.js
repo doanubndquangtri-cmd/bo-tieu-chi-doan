@@ -6588,32 +6588,38 @@ function renderMasterScoreCell(unit, crit, isAdmin) {
   const isAttendance = Number(crit.is_report) === 3 || (crit.title && crit.title.toLowerCase().includes('điểm danh'));
 
   let dotHtml = '';
-  if (isAttendance) {
-    dotHtml = `<span
-      class="evidence-dot ontime"
-      style="background:#ecfdf5; color:#047857; border:1.5px solid #059669; font-size:11px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(4,120,87,0.2); font-weight:800;"
-      onclick="openAttendanceScoreModal(${crit.id}, ${unit.id})"
-      title="Bấm để xem bảng tính điểm danh & phân bổ chi tiết 40 cơ sở Đoàn"
-    >🙋</span>`;
-  } else if (hasScore || isPendingUnitSub) {
-    if (hasAttachment || isPendingUnitSub) {
+  // CHỈ KHI Ô CÓ ĐIỂM (khác trống, khác 0) HOẶC CÓ BÀI NỘP CHỜ DUYỆT THÌ MỚI GẮN BIỂU TƯỢNG (Ô TRỐNG HOÀN TOÀN KHÔNG GẮN)
+  if (hasScore || isPendingUnitSub) {
+    if (isAttendance) {
+      // 1. Tiêu chí Điểm danh: Ô có điểm được gắn biểu tượng 🙋 của bảng điểm danh
       dotHtml = `<span
-        class="evidence-dot ${isLate ? 'late' : 'ontime'}"
-        onclick="openSubmissionDetailModal(${unit.id}, ${crit.id})"
-        title="Đã có tệp/minh chứng đính kèm — Bấm để xem chi tiết"
-      >📎</span>`;
-    } else if (isAdmin) {
-      dotHtml = `<span
-        class="evidence-dot no-attachment"
-        onclick="openSubmissionDetailModal(${unit.id}, ${crit.id})"
-        title="Ô đã có điểm (chưa có tệp đính kèm) — Bấm để thêm tệp nếu cần"
-      >+📎</span>`;
-    } else if (hasNoteOrReport) {
-      dotHtml = `<span
-        class="evidence-dot ${isLate ? 'late' : 'ontime'}"
-        onclick="openSubmissionDetailModal(${unit.id}, ${crit.id})"
-        title="Xem chi tiết nhận xét & lý do chấm điểm"
-      >📎</span>`;
+        class="evidence-dot ontime"
+        style="background:#ecfdf5; color:#047857; border:1.5px solid #059669; font-size:11px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(4,120,87,0.2); font-weight:800;"
+        onclick="openAttendanceScoreModal(${crit.id}, ${unit.id})"
+        title="Bấm để xem bảng tính điểm danh & đối soát chi tiết 40 cơ sở Đoàn"
+      >🙋</span>`;
+    } else {
+      // 2. Còn lại các tiêu chí khác: Khôi phục lại nguyên vẹn là tệp (📎 hoặc +📎)
+      if (hasAttachment || isPendingUnitSub) {
+        dotHtml = `<span
+          class="evidence-dot ${isLate ? 'late' : 'ontime'}"
+          onclick="openSubmissionDetailModal(${unit.id}, ${crit.id})"
+          title="Đã có tệp/minh chứng đính kèm — Bấm để xem chi tiết"
+        >📎</span>`;
+      } else if (isAdmin) {
+        dotHtml = `<span
+          class="evidence-dot no-attachment"
+          onclick="openSubmissionDetailModal(${unit.id}, ${crit.id})"
+          title="Ô đã có điểm (chưa có tệp đính kèm) — Bấm để thêm tệp nếu cần"
+        >+📎</span>`;
+      } else {
+        // Cho cơ sở Đoàn: ô có điểm thì có liên kết gắn tệp 📎 để xem chi tiết như cũ
+        dotHtml = `<span
+          class="evidence-dot ${isLate ? 'late' : 'ontime'}"
+          onclick="openSubmissionDetailModal(${unit.id}, ${crit.id})"
+          title="${hasNoteOrReport ? 'Xem chi tiết nhận xét & minh chứng' : 'Xem chi tiết tiêu chí & điểm đạt được'}"
+        >📎</span>`;
+      }
     }
   }
 
@@ -6866,12 +6872,23 @@ window.onAdminInlineScoreChange = async function (inputEl) {
       const existingDot = cellTd.querySelector('.evidence-dot');
       if (hasVisibleScore) {
         const dotSpan = existingDot || document.createElement('span');
-        dotSpan.className = hasAttachment ? 'evidence-dot ontime' : 'evidence-dot no-attachment';
-        dotSpan.onclick = () => openSubmissionDetailModal(unitId, critId);
-        dotSpan.title = hasAttachment
-          ? 'Đã có tệp/minh chứng đính kèm — Bấm để xem chi tiết'
-          : 'Ô đã có điểm (chưa có tệp đính kèm) — Bấm để thêm tệp nếu cần';
-        dotSpan.innerHTML = hasAttachment ? '📎' : '+📎';
+        const crit = (state.criteria || []).find(c => c.id === critId);
+        const isAttendance = crit && (Number(crit.is_report) === 3 || (crit.title && crit.title.toLowerCase().includes('điểm danh')));
+        if (isAttendance) {
+          dotSpan.className = 'evidence-dot ontime';
+          dotSpan.style.cssText = 'background:#ecfdf5; color:#047857; border:1.5px solid #059669; font-size:11px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(4,120,87,0.2); font-weight:800;';
+          dotSpan.onclick = () => openAttendanceScoreModal(critId, unitId);
+          dotSpan.title = 'Bấm để xem bảng tính điểm danh & đối soát chi tiết 40 cơ sở Đoàn';
+          dotSpan.innerHTML = '🙋';
+        } else {
+          dotSpan.className = hasAttachment ? 'evidence-dot ontime' : 'evidence-dot no-attachment';
+          dotSpan.style.cssText = '';
+          dotSpan.onclick = () => openSubmissionDetailModal(unitId, critId);
+          dotSpan.title = hasAttachment
+            ? 'Đã có tệp/minh chứng đính kèm — Bấm để xem chi tiết'
+            : 'Ô đã có điểm (chưa có tệp đính kèm) — Bấm để thêm tệp nếu cần';
+          dotSpan.innerHTML = hasAttachment ? '📎' : '+📎';
+        }
         if (!existingDot) cellTd.prepend(dotSpan);
       } else if (existingDot) {
         existingDot.remove();

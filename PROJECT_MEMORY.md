@@ -61,6 +61,10 @@
     4. Đồng bộ nhãn nút theo vai trò: Với đoàn cơ sở luôn hiển thị `[🙋 Nộp Điểm Danh]`, chỉ với Admin mới hiển thị `[✏️ Sửa điểm danh]`.
     5. Cập nhật modal Chi tiết báo cáo (`openSubmissionDetailModal`) hiển thị số lượng kê khai và album ảnh minh chứng trực quan khi xem tiêu chí Điểm danh.
     6. Chuẩn hóa ô điểm trên Bảng Tổng Hợp Chấm Điểm (`renderMasterScoreCell`): Loại bỏ khối render dị biệt ở tiêu chí điểm danh, đồng bộ hiển thị các ô điểm Cột 5 chuẩn đẹp 100% như các cột trước (Cột 1, 2, 3, 4, 6), căn chuẩn kích thước input, hiển thị điểm số chính xác.
-    7. Icon đính kèm `🙋` cho tiêu chí điểm danh: Với các tiêu chí điểm danh (`is_report === 3`), nút đính kèm trong ô điểm được đổi thành biểu tượng `🙋` (thay vì `📎`), khi bấm vào sẽ mở trực tiếp bảng chi tiết điểm danh và minh chứng đối soát.
+    7. Chuẩn hóa hiển thị biểu tượng liên kết trên Bảng Tổng Hợp Chấm Điểm (`renderMasterScoreCell`):
+       - **Chỉ hiển thị biểu tượng khi ô CÓ ĐIỂM** (khác trống và khác 0) hoặc có bài nộp chờ duyệt. Các ô không có điểm (ô trống, điểm 0) hoàn toàn không gắn bất kỳ biểu tượng nào.
+       - **Ô có điểm ở tiêu chí Điểm danh**: Hiển thị biểu tượng `🙋`, bấm vào mở bảng đối soát điểm danh 40 đơn vị.
+       - **Ô có điểm ở các tiêu chí khác**: Khôi phục lại nguyên vẹn biểu tượng tệp (`📎` hoặc `+📎` cho Admin), bấm vào mở chi tiết minh chứng / báo cáo như cũ.
+       - **Áp dụng đồng bộ cho cả Quản trị viên và Đoàn cơ sở**: Đoàn cơ sở cũng thấy `🙋` ở ô có điểm của tiêu chí điểm danh và thấy `📎` ở ô có điểm của tiêu chí thường để bấm vào xem liên kết chi tiết.
     8. Mở quyền xem Bảng Điểm Danh 40 đơn vị cho tất cả Cơ sở Đoàn: Cho phép toàn bộ các đơn vị cơ sở Đoàn mở xem giao diện bảng đối soát điểm danh chuẩn theo mẫu Ảnh (`STT | Mã ĐV | Tên Tổ Chức Cơ Sở Đoàn | Phân bổ | Số lượng Đến | Tỷ lệ tham gia | Điểm đạt được`), xem số liệu tổng quan của tất cả 40 đơn vị, tự động làm nổi bật (highlight) dòng đơn vị của mình và cuộn đến vị trí tương ứng. Chế độ xem của cơ sở Đoàn là trực quan, read-only an toàn và không có nút chỉnh sửa của Admin.
     9. Loại bỏ hoàn toàn lớp mờ/tối mờ xung quanh mục Thông báo: Cập nhật CSS `.notification-backdrop` và inline style sang `background: transparent !important; backdrop-filter: none !important;`, giữ cho giao diện nền luôn sắc nét, trong suốt và thanh lịch khi mở chuông Thông Báo Hệ Thống.
