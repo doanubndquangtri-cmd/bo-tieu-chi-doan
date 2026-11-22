@@ -7416,7 +7416,7 @@ function renderUnitSubmitTab() {
 
                           : isBlankContent
 
-                          ? `<span class="badge" style="background:#f0fdf4; color:#166534; font-size:11px; border:1px solid #86efac; font-weight:700;">📝 Triển khai theo nội dung</span>`
+                          ? `<span class="badge" style="background:#ecfdf5; color:#065f46; font-size:11px; border:1px solid #a7f3d0; font-weight:700;">🙋 Điểm danh (Tự tính điểm)</span>`
 
                           : isReport
 
@@ -7537,10 +7537,10 @@ function renderUnitSubmitTab() {
 
                         ? (st.canSubmit
                             ? `<button class="btn btn-sm ${sc ? 'btn-outline' : 'btn-success'}" onclick="openUnitSubmitModal(${c.id})" style="font-weight:700;">
-                                ${sc ? '✏️ Cập nhật' : '📤 Báo Cáo Thực Hiện'}
+                                ${sc ? '✏️ Sửa điểm danh' : '🙋 Nộp Điểm Danh'}
                               </button>`
                             : `<button class="btn btn-sm btn-outline" onclick="openUnitSubmitModal(${c.id})" style="opacity:0.85; font-size:12px; font-weight:600;" title="${st.label}">
-                                ${sc ? '👁️ Xem bài nộp' : '🔒 ' + st.label}
+                                ${sc ? '👁️ Xem điểm danh' : '🔒 ' + st.label}
                               </button>`)
 
                         : isAdminScore
@@ -7777,11 +7777,11 @@ function renderUnitSubmitMobileCardsView(unit, unitCriteriaList, myRankObj, rank
             <div style="margin-top:2px;">
               ${isBlankContent ? (st.canSubmit ? `
                 <button class="btn ${sc ? 'btn-outline' : 'btn-success'} mobile-submit-action-btn" onclick="openUnitSubmitModal(${c.id})">
-                  ${sc ? '✏️ Cập Nhật Báo Cáo Thực Hiện' : '📤 Báo Cáo Kết Quả Thực Hiện'}
+                  ${sc ? '✏️ Cập Nhật Kê Khai Điểm Danh' : '🙋 Nộp Điểm Danh Số Lượng Tham Gia'}
                 </button>
               ` : `
                 <button class="btn btn-outline mobile-submit-action-btn" onclick="openUnitSubmitModal(${c.id})" style="opacity:0.9;">
-                  ${sc ? '👁️ Xem Lại Báo Cáo Đã Nộp' : '🔒 ' + st.label}
+                  ${sc ? '👁️ Xem Lại Điểm Danh Đã Nộp' : '🔒 ' + st.label}
                 </button>
               `) : isAdminScore ? `
                 ${scoreVal !== null || (sc && (sc.report_content || sc.admin_note)) ? `
@@ -8052,9 +8052,26 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
 
   const isAdminScore = Number(crit.is_report) === 2;
 
-  const isActivityCrit = Number(crit.is_report) === 0;
+  const isAttendance = Number(crit.is_report) === 3 || (crit.title && crit.title.toLowerCase().includes('điểm danh'));
 
+  const isReport = Number(crit.is_report) === 1;
 
+  const isActivityCrit = !isAttendance && !isReport && !isAdminScore;
+
+  window._isCurrentModalAttendance = isAttendance;
+
+  let modalHeaderTitle = `📤 Nộp Báo Cáo / Kê Khai Tiêu Chí (${escapeHtml(crit.col_label)})`;
+  let submitBtnText = `📤 Xác Nhận Nộp Báo Cáo Online`;
+  if (isAttendance) {
+    modalHeaderTitle = `🙋 Nộp Điểm Danh / Kê Khai Số Lượng (${escapeHtml(crit.col_label)})`;
+    submitBtnText = `🙋 Xác Nhận Nộp Điểm Danh Online`;
+  } else if (isReport) {
+    modalHeaderTitle = `📋 Nộp Báo Cáo Định Kỳ (${escapeHtml(crit.col_label)})`;
+    submitBtnText = `📤 Xác Nhận Nộp Báo Cáo Online`;
+  } else if (isActivityCrit) {
+    modalHeaderTitle = `🎯 Nộp Minh Chứng Hoạt Động (${escapeHtml(crit.col_label)})`;
+    submitBtnText = `📤 Xác Nhận Nộp Minh Chứng Online`;
+  }
 
   if (isAdminScore && !isAdmin) {
 
@@ -8069,6 +8086,21 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
 
 
   const sc = getScoreObj(unitId, criterionId);
+
+  let curAlloc = 0;
+  let curPres = 0;
+  if (sc) {
+    if (sc.report_content) {
+      const m = String(sc.report_content).match(/(?:Đến|Tham gia|Có mặt)?\s*[:=]?\s*(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/i);
+      if (m) {
+        curPres = Number(m[1]) || 0;
+        curAlloc = Number(m[2]) || 0;
+      }
+    }
+    if (!curPres && sc.quantity) {
+      curPres = Number(sc.quantity) || 0;
+    }
+  }
 
   const open = isCriterionOpen(crit);
 
@@ -8126,7 +8158,7 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
 
         <div class="modal-header">
 
-          <span>📤 Nộp Báo Cáo / Kê Khai Tiêu Chí (${escapeHtml(crit.col_label)})</span>
+          <span>${modalHeaderTitle}</span>
 
           <button class="btn btn-sm btn-outline" onclick="closeModal()">✕</button>
 
@@ -8168,7 +8200,7 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
 
             <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap:6px 12px; font-size:12.5px; margin-top:8px; padding-top:8px; border-top:1px dashed #cbd5e1;">
 
-              <div>Quy định điểm: <b>${escapeHtml((crit.points_text || (crit.max_score ? crit.max_score + ' điểm' : '') || '').replace(/\n/g, ' - '))}</b></div>
+              <div>Quy định điểm: <b>${isAttendance ? `Tối đa ${crit.max_score || 5} điểm (= Đến/Phân bổ * ${crit.max_score || 5}đ)` : escapeHtml((crit.points_text || (crit.max_score ? crit.max_score + ' điểm' : '') || '').replace(/\n/g, ' - '))}</b></div>
 
               <div>Ngày bắt đầu nộp: <b style="color:#059669;">${formatDateVN(crit.start_date || '2026-01-01')}${crit.start_time && crit.start_time !== '00:00' ? ' (' + crit.start_time + ')' : ''}</b></div>
 
@@ -8181,239 +8213,158 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
 
 
           ${
-
             (() => {
-
               const startDate = crit.start_date || '2026-01-01';
-
               const isEarly = effDate < startDate && Number(crit.lock_override) !== 1;
-
               const isLate = effDate > crit.deadline && Number(crit.lock_override) !== 1;
-
               const isValid = !isEarly && !isLate;
 
-
-
               if (isEarly) {
-
                 return `
-
                   <div style="padding:10px 12px; border-radius:6px; margin-bottom:14px; font-size:13px; background:#fffbeb; color:#b45309; border:1px solid #fde68a;">
-
-                    ⏳ <b>Chưa đến thời gian mở nộp báo cáo!</b><br/>
-
+                    ⏳ <b>Chưa đến thời gian mở nộp ${isAttendance ? 'điểm danh' : 'báo cáo'}!</b><br/>
                     Ngày hiện tại (${formatDateVN(effDate)}) <b>chưa đến ngày bắt đầu nộp (${formatDateVN(startDate)})</b>. Đơn vị không thể nộp trước thời gian đã quy định.
-
                   </div>
-
                 `;
-
               } else if (isLate) {
-
                 return `
-
                   <div style="padding:10px 12px; border-radius:6px; margin-bottom:14px; font-size:13px; background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5;">
-
-                    ⚠️ <b>Đã quá thời gian hạn nộp báo cáo!</b><br/>
-
+                    ⚠️ <b>Đã quá thời gian hạn nộp ${isAttendance ? 'điểm danh' : 'báo cáo'}!</b><br/>
                     Ngày nộp (${formatDateVN(effDate)}) <b>đã vượt quá hạn chót (${formatDateVN(crit.deadline)})</b>. Tiêu chí này đã khóa, không thể nộp sau thời gian đã thống nhất (trừ khi Admin mở khóa gia hạn).
-
                   </div>
-
                 `;
-
               } else {
-
                 return `
-
                   <div style="padding:10px 12px; border-radius:6px; margin-bottom:14px; font-size:13px; background:#dcfce7; color:#15803d; border:1px solid #86efac;">
-
                     ✅ <b>Đang trong thời gian nộp hợp lệ</b> (Mở nộp: ${formatDateVN(startDate)} &le; Hôm nay: ${formatDateVN(effDate)} &le; Hạn chót: ${formatDateVN(crit.deadline)}).<br/>
-
-                    Hệ thống sẽ <b>tự động cộng điểm Online ngay lập tức</b> sau khi bấm nộp!
-
+                    ${isAttendance ? 'Hệ thống sẽ <b>tự động tính điểm</b> dựa trên số lượng kê khai và gửi kèm hình ảnh chụp hoạt động cho Admin đối chiếu duyệt điểm!' : 'Hệ thống sẽ <b>tự động cộng điểm Online ngay lập tức</b> sau khi bấm nộp!'}
                   </div>
-
                 `;
-
               }
-
             })()
-
           }
 
 
 
           ${
-
             isMulti
-
               ? `
-
             <div class="form-group">
-
               <label>Số lượng thực hiện (${escapeHtml(crit.unit_step_label)} - Mỗi đơn vị tính = ${crit.unit_step_score} điểm, tối đa ${crit.max_score} điểm):</label>
-
               <input
-
                 type="number"
-
                 id="sub-quantity"
-
                 min="1"
-
                 max="20"
-
                 step="1"
-
                 value="${curQty}"
-
                 oninput="onSubQuantityChange(${crit.unit_step_score}, ${crit.max_score})"
-
               />
-
             </div>
-
           `
-
               : ''
-
           }
 
 
 
-          <div class="form-group">
+          ${isAttendance ? `
+            <div class="form-group" style="background:#ecfdf5; border:1.5px solid #a7f3d0; border-radius:8px; padding:12px; margin-bottom:14px;">
+              <label style="font-weight:700; color:#065f46; font-size:13.5px; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+                👥 Số lượng đoàn viên tham gia (*):
+              </label>
+              <div style="font-size:12px; color:#047857; margin-bottom:8px; line-height:1.4;">
+                💡 Nhập số lượng đoàn viên thực tế của đơn vị tham gia (ví dụ: 2, 5, 6...) để hệ thống tự động đối chiếu theo công thức: <b>Điểm = (Đến / Phân bổ) * ${crit.max_score || 5}đ</b>.
+              </div>
+              <div style="display:flex; align-items:center; gap:10px;">
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  id="sub-attendance-pres"
+                  value="${curPres > 0 ? curPres : ''}"
+                  placeholder="Nhập số người tham gia (VD: 2, 5, 6...)"
+                  style="width:100%; max-width:240px; font-size:16px; font-weight:800; color:#047857; padding:9px 12px; border:2px solid #059669; border-radius:6px; background:#fff; outline:none;"
+                  required
+                />
+                <span style="font-size:13.5px; font-weight:700; color:#047857;">đoàn viên tham gia</span>
+              </div>
+              ${curAlloc > 0 ? `<div style="font-size:12px; color:#059669; margin-top:6px; font-weight:600;">📌 Chỉ tiêu phân bổ của đơn vị: <b>${curAlloc}</b> đoàn viên</div>` : ''}
+              <input type="hidden" id="sub-link" value="${escapeHtml(sc ? sc.evidence_link : '')}" />
+            </div>
+          ` : `
+            <div class="form-group">
+              <label style="font-weight:700; color:#0f172a;">Link minh chứng tại trang Facebook “Đoàn TNCS Hồ Chí Minh UBND tỉnh Quảng Trị”:</label>
+              <input
+                type="text"
+                id="sub-link"
+                placeholder="https://www.facebook.com/... (Dán đường link bài viết minh chứng)"
+                value="${escapeHtml(sc ? sc.evidence_link : '')}"
+              />
+            </div>
+          `}
 
-            <label style="font-weight:700; color:#0f172a;">Link minh chứng tại trang Facebook “Đoàn TNCS Hồ Chí Minh UBND tỉnh Quảng Trị”:</label>
-
-            <input
-
-              type="text"
-
-              id="sub-link"
-
-              placeholder="https://www.facebook.com/... (Dán đường link bài viết minh chứng)"
-
-              value="${escapeHtml(sc ? sc.evidence_link : '')}"
-
-            />
-
-          </div>
 
 
-
-          <!-- PHẦN ĐÍNH KÈM TỆP ĐA NĂNG: VĂN BẢN, HÌNH ẢNH, VIDEO KHÔNG GIỚI HẠN -->
-
+          <!-- PHẦN ĐÍNH KÈM TỆP / HÌNH ẢNH MINH CHỨNG -->
           <div class="form-group" style="margin-bottom:12px;">
-
             <label style="font-weight:700; color:#0f172a; display:flex; align-items:center; gap:6px;">
-
-              📎 Đính kèm Tệp Báo cáo / Văn bản / Hình ảnh / Video minh chứng:
-
+              ${isAttendance ? '📷 Đính kèm Hình ảnh minh chứng số lượng tham gia (*):' : '📎 Đính kèm Tệp Báo cáo / Văn bản / Hình ảnh / Video minh chứng:'}
             </label>
-
-            <div style="font-size:12px; color:#475569; margin-bottom:8px; line-height:1.4;">
-
-              ✨ Hỗ trợ nộp <b>nhiều tệp cùng lúc</b>, không giới hạn định dạng (Văn bản Word, Excel, PDF, Hình ảnh, Video, v.v.).
-
+            <div style="font-size:12px; color:${isAttendance ? '#047857' : '#475569'}; margin-bottom:8px; line-height:1.4;">
+              ${isAttendance
+                ? '📸 Đoàn viên gửi hình ảnh hoạt động / ảnh chụp tập thể để minh chứng có bao nhiêu người tham gia thực tế trong ảnh cho Admin đối chiếu duyệt điểm.'
+                : '✨ Hỗ trợ nộp <b>nhiều tệp cùng lúc</b>, không giới hạn định dạng (Văn bản Word, Excel, PDF, Hình ảnh, Video, v.v.).'}
             </div>
-
-
 
             <input
-
               type="file"
-
               id="sub-file-multi"
-
               multiple
-
-              accept="*/*"
-
+              accept="${isAttendance ? 'image/*' : '*/*'}"
               style="display:none;"
-
               onchange="onSubFilesPicked(this)"
-
             />
-
             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-
               <button
-
                 type="button"
-
                 class="btn btn-outline"
-
                 onclick="document.getElementById('sub-file-multi').click()"
-
-                style="display:inline-flex; align-items:center; gap:6px; font-weight:700; color:#0052cc; border:1.5px dashed #0052cc; background:#f0f7ff; padding:7px 14px; border-radius:6px; cursor:pointer;"
-
+                style="display:inline-flex; align-items:center; gap:6px; font-weight:700; color:${isAttendance ? '#059669' : '#0052cc'}; border:1.5px dashed ${isAttendance ? '#059669' : '#0052cc'}; background:${isAttendance ? '#ecfdf5' : '#f0f7ff'}; padding:8px 16px; border-radius:6px; cursor:pointer;"
               >
-
-                ➕ Chọn tệp đính kèm (Chọn nhiều tệp Văn bản, Ảnh, Video...)
-
+                ${isAttendance ? '📷 Chọn hình ảnh minh chứng (Chọn 1 hoặc nhiều ảnh JPG, PNG, WEBP...)' : '➕ Chọn tệp đính kèm (Chọn nhiều tệp Văn bản, Ảnh, Video...)'}
               </button>
-
             </div>
-
-
 
             <!-- Danh sách hiển thị các tệp đã chọn / đã nộp -->
-
             <div id="sub-files-container" style="margin-top:10px; display:flex; flex-direction:column; gap:6px;"></div>
-
           </div>
 
         </div>
 
         <div class="modal-footer">
-
           <button class="btn btn-outline" onclick="closeModal()">Hủy</button>
-
           ${
-
           (() => {
-
             const startDate = crit.start_date || '2026-01-01';
-
             const isEarly = effDate < startDate && Number(crit.lock_override) !== 1;
-
             const isLate = effDate > crit.deadline && Number(crit.lock_override) !== 1;
-
             const canSubmit = (!isEarly && !isLate) || (state.user && state.user.role === 'admin');
 
-
-
             if (canSubmit) {
-
               return `
-
-                <button class="btn btn-primary" id="btn-submit-report" onclick="submitUnitCriterion(${unitId}, ${criterionId})" style="font-weight:700;">
-
-                  📤 Xác Nhận Nộp Báo Cáo Online
-
+                <button class="btn btn-primary" id="btn-submit-report" onclick="submitUnitCriterion(${unitId}, ${criterionId})" style="font-weight:700; ${isAttendance ? 'background:linear-gradient(135deg, #059669 0%, #047857 100%); border-color:#047857;' : ''}">
+                  ${submitBtnText}
                 </button>
-
               `;
-
             } else {
-
               return `
-
                 <button class="btn btn-primary" id="btn-submit-report" disabled style="opacity:0.5; cursor:not-allowed; font-weight:700;" title="${isEarly ? 'Chưa đến ngày bắt đầu nộp' : 'Đã quá hạn chót nộp'}">
-
-                  🚫 ${isEarly ? 'Chưa Đến Ngày Mở Nộp' : 'Đã Quá Hạn Nộp Báo Cáo'}
-
+                  🚫 ${isEarly ? 'Chưa Đến Ngày Mở Nộp' : (isAttendance ? 'Đã Quá Hạn Nộp Điểm Danh' : 'Đã Quá Hạn Nộp Báo Cáo')}
                 </button>
-
               `;
-
             }
-
           })()
-
         }
-
         </div>
 
       </div>
@@ -8443,19 +8394,12 @@ window.renderSubFilesContainer = function () {
 
 
   if (retained.length === 0 && pending.length === 0) {
-
     container.innerHTML = `
-
       <div style="font-size:12px; color:#94a3b8; font-style:italic; padding:4px 0;">
-
-        (Chưa chọn tệp nào. Bạn có thể bấm nút phía trên để chọn một hoặc nhiều tệp)
-
+        ${window._isCurrentModalAttendance ? '📷 (Chưa chọn hình ảnh nào. Bấm nút phía trên để chọn ảnh chụp chứng minh số lượng đoàn viên có mặt)' : '(Chưa chọn tệp nào. Bạn có thể bấm nút phía trên để chọn một hoặc nhiều tệp)'}
       </div>
-
     `;
-
     return;
-
   }
 
 
@@ -8738,11 +8682,38 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
 
 
 
+  const isAttendance = Number(crit.is_report) === 3 || (crit.title && crit.title.toLowerCase().includes('điểm danh'));
+
+  let attendancePresNum = 0;
+  if (isAttendance) {
+    const presEl = document.getElementById('sub-attendance-pres');
+    if (!presEl || presEl.value.trim() === '' || isNaN(Number(presEl.value)) || Number(presEl.value) < 0) {
+      showToast('Vui lòng nhập số lượng đoàn viên tham gia thực tế (VD: 2, 5, 6...)!', 'error');
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '🙋 Xác Nhận Nộp Điểm Danh Online';
+      }
+      return;
+    }
+    attendancePresNum = Math.floor(Number(presEl.value));
+
+    const pendingFiles = window._pendingSubmissionFiles || [];
+    const retainedFiles = window._existingRetainedFiles || [];
+    if (pendingFiles.length === 0 && retainedFiles.length === 0) {
+      showToast('Vui lòng đính kèm hình ảnh minh chứng số người tham gia để Admin đối chiếu duyệt điểm!', 'error');
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '🙋 Xác Nhận Nộp Điểm Danh Online';
+      }
+      return;
+    }
+  }
+
   const scExisting = getScoreObj(unitId, criterionId);
 
   const qtyEl = document.getElementById('sub-quantity');
 
-  const quantity = qtyEl ? Number(qtyEl.value || 1) : 1;
+  const quantity = isAttendance ? attendancePresNum : (qtyEl ? Number(qtyEl.value || 1) : 1);
 
   const isMulti = Number(crit.is_multi_step) === 1;
 
@@ -8991,19 +8962,33 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
 
 
 
-    let calcScore = Math.max(Number(crit.min_score), Math.min(Number(crit.max_score), requestedScore));
-
-    calcScore = Math.round(calcScore * 100) / 100;
-
-
-
     db.scores = db.scores || [];
 
     const existingIdx = db.scores.findIndex((s) => s.unit_id === unitId && s.criterion_id === criterionId);
 
     const existingRow = existingIdx >= 0 ? db.scores[existingIdx] : null;
 
-
+    let calcScore = 0;
+    let finalReportContent = reportContent;
+    if (isAttendance) {
+      let allocNum = 0;
+      if (existingRow && existingRow.report_content) {
+        const m = String(existingRow.report_content).match(/(?:Đến|Tham gia|Có mặt)?\s*[:=]?\s*(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/i);
+        if (m) {
+          allocNum = Number(m[2]) || 0;
+        }
+      }
+      if (allocNum <= 0) {
+        allocNum = attendancePresNum > 0 ? attendancePresNum : 1;
+      }
+      const maxScore = Number(crit.max_score || 5);
+      calcScore = calculateAttendanceScore(allocNum, attendancePresNum, maxScore);
+      const pct = allocNum > 0 ? Math.min(100, Math.round((attendancePresNum / allocNum) * 100)) : 100;
+      finalReportContent = `Đến: ${attendancePresNum}/${allocNum} (${pct}%) - Đơn vị kê khai: ${attendancePresNum} người`;
+    } else {
+      calcScore = Math.max(Number(crit.min_score || 0), Math.min(Number(crit.max_score || 5), requestedScore));
+      calcScore = Math.round(calcScore * 100) / 100;
+    }
 
     const savedFileName = finalFileName || (existingRow ? existingRow.file_name : '');
 
@@ -9027,7 +9012,11 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
 
       approvalStatus = 'pending';
 
-      statusMsg = `Đã nộp thành công! Hồ sơ đang chờ Ban Thường vụ (Admin) duyệt file & xác nhận chấm điểm (+${calcScore}đ).`;
+      if (isAttendance) {
+        statusMsg = `Đã nộp điểm danh thành công! Đã gửi ${attendancePresNum} đoàn viên tham gia (+${calcScore}đ) kèm ảnh minh chứng, đang chờ Admin duyệt.`;
+      } else {
+        statusMsg = `Đã nộp thành công! Hồ sơ đang chờ Ban Thường vụ (Admin) duyệt file & xác nhận chấm điểm (+${calcScore}đ).`;
+      }
 
     } else {
 
@@ -9057,7 +9046,7 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
 
       self_score: calcScore,
 
-      report_content: reportContent,
+      report_content: finalReportContent,
 
       evidence_link: evidenceLink,
 
@@ -9117,7 +9106,7 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
 
       awarded_score: awardedScore,
 
-      report_content: reportContent,
+      report_content: finalReportContent,
 
       evidence_link: evidenceLink,
 
@@ -9149,7 +9138,7 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
       file_name: savedFileName,
       file_path: savedFileUrl,
       evidence_link: evidenceLink,
-      report_content: reportContent,
+      report_content: finalReportContent,
       self_score: calcScore,
       submitted_at: ts,
       read: false,
@@ -9181,8 +9170,8 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
     }
     if (window.WebPushManager) {
       window.WebPushManager.sendPushNotification({
-        title: `📤 ${targetUnit.unit_name || 'Cơ sở Đoàn'} vừa nộp hồ sơ/minh chứng`,
-        message: `Đã nộp minh chứng tiêu chí ${crit.col_label || ''}: "${crit.title || ''}"`,
+        title: isAttendance ? `🙋 ${targetUnit.unit_name || 'Cơ sở Đoàn'} vừa nộp điểm danh` : `📤 ${targetUnit.unit_name || 'Cơ sở Đoàn'} vừa nộp hồ sơ/minh chứng`,
+        message: isAttendance ? `Đã kê khai ${attendancePresNum} người tham gia tiêu chí ${crit.col_label || ''}: "${crit.title || ''}"` : `Đã nộp minh chứng tiêu chí ${crit.col_label || ''}: "${crit.title || ''}"`,
         targetRole: 'admin',
         targetUnitId: 0,
         url: './'
@@ -9198,7 +9187,7 @@ window.submitUnitCriterion = async function (unitId, criterionId) {
 
       btn.disabled = false;
 
-      btn.textContent = '📤 Xác Nhận Nộp Báo Cáo Online';
+      btn.textContent = isAttendance ? '🙋 Xác Nhận Nộp Điểm Danh Online' : '📤 Xác Nhận Nộp Báo Cáo Online';
 
     }
 
@@ -9817,6 +9806,8 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
 
   const isAdmin = state.user && state.user.role === 'admin';
 
+  const isAttendance = Number(crit.is_report) === 3 || (crit.title && crit.title.toLowerCase().includes('điểm danh'));
+
   const modalRoot = document.getElementById('modal-root');
 
 
@@ -9829,7 +9820,7 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
 
         <div class="modal-header" style="background: linear-gradient(135deg, #003380 0%, #0052cc 100%); color: #fff; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; flex-shrink: 0; border-top-left-radius: 10px; border-top-right-radius: 10px; gap: 8px;">
           <span style="font-weight: 800; font-size: 14px; display: flex; align-items: center; gap: 6px; color: #fff; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-            <span>📎</span> <span style="overflow:hidden; text-overflow:ellipsis;">Chi Tiết Báo Cáo (${escapeHtml(crit.col_label)})</span>
+            <span>${isAttendance ? '🙋' : '📎'}</span> <span style="overflow:hidden; text-overflow:ellipsis;">${isAttendance ? 'Chi Tiết Điểm Danh & Ảnh Minh Chứng' : 'Chi Tiết Báo Cáo'} (${escapeHtml(crit.col_label)})</span>
           </span>
           <button type="button" onclick="closeModal()" style="background: #ef4444 !important; border: 1.5px solid #dc2626 !important; color: #ffffff !important; font-size: 13px; font-weight: 800; border-radius: 6px; padding: 5px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; box-shadow: 0 2px 4px rgba(0,0,0,0.3); height: 32px;" title="Đóng cửa sổ">
             ✕ Đóng
@@ -9986,35 +9977,32 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
 
 
 
-            <!-- LINK MINH CHỨNG -->
-
-            <div class="form-group" style="margin-bottom:12px;">
-
-              <label style="font-weight:700; color:#0f172a;">🔗 Link minh chứng tại trang Facebook “Đoàn TNCS Hồ Chí Minh UBND tỉnh Quảng Trị”:</label>
-
-              ${
-
-                isAdmin
-
-                  ? `
-
-                  <input type="text" id="modal-evidence-link" value="${escapeHtml(sc.evidence_link || '')}" placeholder="https://drive.google.com/... hoặc link bài viết" style="width:100%; padding:7px 10px; border-radius:6px; border:1px solid #cbd5e1; font-size:13px;" />
-
-                  ${sc.evidence_link ? `<div style="margin-top:4px; font-size:12px;"><a href="${escapeHtml(sc.evidence_link)}" target="_blank" style="color:#0052cc; font-weight:700;">↗ Bấm xem liên kết minh chứng</a></div>` : ''}
-
-                `
-
-                  : sc.evidence_link
-
-                  ? `<div><a href="${escapeHtml(sc.evidence_link)}" target="_blank" style="color:#0052cc; font-weight:700;">${escapeHtml(sc.evidence_link)} ↗</a></div>`
-
-                  : '<div style="color:#64748b; font-size:12px;"><i>Chưa có link minh chứng</i></div>'
-
-              }
-
-            </div>
-
-
+            <!-- LINK MINH CHỨNG / SỐ LƯỢNG ĐIỂM DANH -->
+            ${isAttendance ? `
+              <div class="form-group" style="margin-bottom:12px; background:#ecfdf5; border:1.5px solid #a7f3d0; border-radius:8px; padding:10px 14px;">
+                <label style="font-weight:700; color:#065f46; display:flex; align-items:center; gap:6px;">
+                  👥 Số lượng đoàn viên tham gia kê khai:
+                </label>
+                <div style="font-size:15px; font-weight:800; color:#047857; margin-top:2px;">
+                  ${sc.quantity ? sc.quantity + ' đoàn viên tham gia' : (sc.report_content ? escapeHtml(sc.report_content) : 'Chưa có thông tin')}
+                </div>
+                ${sc.report_content ? `<div style="font-size:12px; color:#059669; margin-top:4px;">📊 Chi tiết đối soát: <b>${escapeHtml(sc.report_content)}</b></div>` : ''}
+              </div>
+            ` : `
+              <div class="form-group" style="margin-bottom:12px;">
+                <label style="font-weight:700; color:#0f172a;">🔗 Link minh chứng tại trang Facebook “Đoàn TNCS Hồ Chí Minh UBND tỉnh Quảng Trị”:</label>
+                ${
+                  isAdmin
+                    ? `
+                    <input type="text" id="modal-evidence-link" value="${escapeHtml(sc.evidence_link || '')}" placeholder="https://drive.google.com/... hoặc link bài viết" style="width:100%; padding:7px 10px; border-radius:6px; border:1px solid #cbd5e1; font-size:13px;" />
+                    ${sc.evidence_link ? `<div style="margin-top:4px; font-size:12px;"><a href="${escapeHtml(sc.evidence_link)}" target="_blank" style="color:#0052cc; font-weight:700;">↗ Bấm xem liên kết minh chứng</a></div>` : ''}
+                  `
+                    : sc.evidence_link
+                    ? `<div><a href="${escapeHtml(sc.evidence_link)}" target="_blank" style="color:#0052cc; font-weight:700;">${escapeHtml(sc.evidence_link)} ↗</a></div>`
+                    : '<div style="color:#64748b; font-size:12px;"><i>Chưa có link minh chứng</i></div>'
+                }
+              </div>
+            `}
 
             <!-- FILE BÁO CÁO ĐÍNH KÈM / MINH CHỨNG -->
 
@@ -10038,7 +10026,7 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
 
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
 
-                  <label style="font-weight:700; color:#0f172a; margin:0;">📎 Hồ sơ / Minh chứng đính kèm (${filesList.length} tệp):</label>
+                  <label style="font-weight:700; color:#0f172a; margin:0;">${isAttendance ? `📷 Hình ảnh minh chứng số lượng tham gia (${filesList.length} ảnh):` : `📎 Hồ sơ / Minh chứng đính kèm (${filesList.length} tệp):`}</label>
 
                   ${isAdmin ? `
                   <button type="button" class="btn btn-sm" onclick="runAiProofReviewModal(${unit.id}, ${crit.id})" style="background:linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color:#fff; border:none; font-weight:700; font-size:11px; padding:3px 9px; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; box-shadow:0 2px 4px rgba(124,58,237,0.25);" title="Gemini Pro tự động quét trích yếu, ngày tháng năm, cảnh báo con dấu và chữ ký">
@@ -16133,11 +16121,11 @@ function renderMasterMobileCardsView(activeUnits, filteredCriteria, isAdmin, mon
 
                           ` : (u.id === (state.user && state.user.id) ? (
 
-                            (Number(c.is_report) === 2 || Number(c.is_report) === 3) ? '' : `
+                            Number(c.is_report) === 2 ? '' : `
 
                             <button class="btn btn-sm btn-success" onclick="openUnitSubmitModal(${c.id}, ${u.id})" style="font-size:11.5px; padding:3px 8px; font-weight:700;">
 
-                              ${Number(c.is_report) === 0 ? '📤 Nộp Minh Chứng' : '📤 Nộp Báo Cáo'}
+                              ${Number(c.is_report) === 3 ? '🙋 Nộp Điểm Danh' : (Number(c.is_report) === 0 ? '📤 Nộp Minh Chứng' : '📤 Nộp Báo Cáo')}
 
                             </button>
 

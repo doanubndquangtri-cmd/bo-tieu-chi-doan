@@ -54,3 +54,9 @@
     3. Thêm Màn hình Khởi động tức thì (Instant App Shell Skeleton) ngay trong `#app` bằng CSS thuần, hiển thị giao diện thanh Header và hiệu ứng nạp thương hiệu chỉ sau 0.05 giây, xóa bỏ hoàn toàn hiện tượng màn hình trắng chờ đợi.
     4. Kích hoạt vòng đời `startAppLifecycle()` ngay lập tức (0ms) mà không phải chờ đợi sự kiện `DOMContentLoaded` bị chặn bởi các file script bên ngoài.
     5. Gỡ bỏ lệnh `window.location.reload()` gây tải đúp 2 lần không cần thiết trong hàm tự cập nhật PWA, cho phép mở và F5 mượt mà, phản hồi ngay lập tức.
+  - **Tối ưu giao diện Nộp Điểm Danh cho Cơ Sở Đoàn (Khớp chuẩn phân loại tiêu chí)**:
+    1. Đổi tiêu đề modal và nút xác nhận thành dạng: `🙋 Nộp Điểm Danh / Kê Khai Số Lượng (${crit.col_label})` và `🙋 Xác Nhận Nộp Điểm Danh Online` (đối với tiêu chí Điểm danh `is_report === 3`), thay vì chữ "báo cáo".
+    2. Đổi ô link Facebook thành ô **Nhập số lượng đoàn viên tham gia thực tế** (`id="sub-attendance-pres"`, ví dụ: 2, 5, 6...) có đối soát công thức `= (Đến / Phân bổ) * max_score`.
+    3. Chuyển đổi khung đính kèm tệp thành chuyên biệt **"📷 Đính kèm hình ảnh minh chứng"** (`accept="image/*"`): đoàn viên chọn và gửi các hình ảnh chụp hoạt động / ảnh tập thể có mặt để chứng minh số lượng người tham gia thực tế cho Admin đối chiếu duyệt điểm.
+    4. Cập nhật nhãn nút tại danh sách tiêu chí của cơ sở Đoàn thành `[🙋 Nộp Điểm Danh]` / `[✏️ Sửa điểm danh]`.
+    5. Cập nhật modal Chi tiết báo cáo (`openSubmissionDetailModal`) hiển thị số lượng kê khai và album ảnh minh chứng trực quan khi xem tiêu chí Điểm danh.
