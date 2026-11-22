@@ -6465,7 +6465,7 @@ function renderMasterTableTab() {
                                 ? `<button type="button" onclick="openAttendanceScoreModal(${c.id})" style="background:#ecfdf5; color:#047857; border:1px solid #6ee7b7; font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:4px; cursor:pointer; margin-left:3px; display:inline-flex; align-items:center; gap:2px; white-space:nowrap; box-shadow:0 1px 2px rgba(0,0,0,0.05);" title="Nhập file Excel Điểm Danh & Tự động tính điểm">🙋 Điểm danh Excel</button>`
                                 : `<span style="cursor:pointer; margin-left:4px; color:#0052cc; text-decoration:underline; font-weight:700;" onclick="openBatchFillModal(${c.id})" title="Chấm đồng loạt 1 mức điểm cho cột này">⚡Chấm</span>
                                    <button type="button" onclick="openAutoScoreModal(${c.id})" style="background:#e0f2fe; color:#0369a1; border:1px solid #7dd3fc; font-size:9px; font-weight:700; padding:1px 4px; border-radius:4px; cursor:pointer; margin-left:3px; display:inline-flex; align-items:center; gap:1px; white-space:nowrap; box-shadow:0 1px 2px rgba(0,0,0,0.05);" title="Tự động nhận diện cơ sở Đoàn & chấm điểm từ tệp PDF / Excel">📥 Nhập file</button>`)
-                            : (Number(c.is_report) === 3 ? `<span style="font-size:9px; color:#047857; font-weight:700;">🙋 Điểm danh</span>` : '')
+                            : (Number(c.is_report) === 3 ? `<button type="button" onclick="openAttendanceScoreModal(${c.id})" style="background:#ecfdf5; color:#047857; border:1px solid #6ee7b7; font-size:9.5px; font-weight:800; padding:1px 5px; border-radius:4px; cursor:pointer; margin-left:3px; display:inline-flex; align-items:center; gap:2px; white-space:nowrap; box-shadow:0 1px 2px rgba(0,0,0,0.05);" title="Xem bảng tính điểm danh & phân bổ chi tiết 40 cơ sở Đoàn">🙋 Bảng Điểm Danh</button>` : '')
                         }
                       </span>
                       <div style="display:flex; align-items:center; justify-content:space-between; gap:2px; margin-top:3px; padding-top:2px; border-top:1px dashed rgba(203,213,225,0.8); flex-wrap:nowrap;">
@@ -6585,8 +6585,17 @@ function renderMasterScoreCell(unit, crit, isAdmin) {
 
   const isLate = sc && Number(sc.is_on_time) === 0;
 
+  const isAttendance = Number(crit.is_report) === 3 || (crit.title && crit.title.toLowerCase().includes('điểm danh'));
+
   let dotHtml = '';
-  if (hasScore || isPendingUnitSub) {
+  if (isAttendance) {
+    dotHtml = `<span
+      class="evidence-dot ontime"
+      style="background:#ecfdf5; color:#047857; border:1.5px solid #059669; font-size:11px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; box-shadow:0 1px 3px rgba(4,120,87,0.2); font-weight:800;"
+      onclick="openAttendanceScoreModal(${crit.id}, ${unit.id})"
+      title="Bấm để xem bảng tính điểm danh & phân bổ chi tiết 40 cơ sở Đoàn"
+    >🙋</span>`;
+  } else if (hasScore || isPendingUnitSub) {
     if (hasAttachment || isPendingUnitSub) {
       dotHtml = `<span
         class="evidence-dot ${isLate ? 'late' : 'ontime'}"
@@ -17839,7 +17848,7 @@ function renderNotificationDropdown() {
   }
 
   return `
-    <div class="notification-backdrop" style="position:fixed; inset:0; top:0; left:0; width:100vw; height:100vh; background:rgba(15,23,42,0.2) !important; backdrop-filter:blur(2px) !important; z-index:99999990 !important;" onclick="state.notificationsOpen = false; renderApp();"></div>
+    <div class="notification-backdrop" style="position:fixed; inset:0; top:0; left:0; width:100vw; height:100vh; background:transparent !important; backdrop-filter:none !important; -webkit-backdrop-filter:none !important; z-index:99999990 !important;" onclick="state.notificationsOpen = false; renderApp();"></div>
     <div class="notification-dropdown" onclick="event.stopPropagation()">
       <div class="notification-header" style="flex-shrink:0;">
         <div style="display:flex; align-items:center; gap:8px;">
@@ -28848,17 +28857,17 @@ async function parseAttendanceExcelFile(file, maxScore = 5) {
   return parsedResults;
 }
 
-// 4. Mở Modal Điểm Danh & Nhập File Excel
+// 4. Mở Modal Điểm Danh & Nhập File Excel (Cho phép cả Admin và các cơ sở Đoàn theo dõi đối soát)
 window.openAttendanceScoreModal = function (criterionId, highlightUnitId = null) {
-  if (!state.user || state.user.role !== 'admin') {
-    showToast('Chỉ Quản trị viên (Admin) mới có quyền truy cập bảng Điểm danh!', 'error');
-    return;
-  }
-
   const crit = (state.criteria || []).find(c => c.id === Number(criterionId));
   if (!crit) {
     showToast('Không tìm thấy thông tin tiêu chí điểm danh!', 'error');
     return;
+  }
+
+  const isAdmin = Boolean(state.user && state.user.role === 'admin');
+  if (!highlightUnitId && !isAdmin && state.user && state.user.id) {
+    highlightUnitId = state.user.id;
   }
 
   const maxScore = crit.max_score || getCriterionTargetPoints(crit) || 5;
@@ -28904,6 +28913,13 @@ window.openAttendanceScoreModal = function (criterionId, highlightUnitId = null)
   };
 
   renderAttendanceModalUI();
+
+  setTimeout(() => {
+    if (highlightUnitId) {
+      const el = document.getElementById(`att-row-${highlightUnitId}`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, 150);
 };
 
 // 5. Render Giao diện Modal Điểm Danh
@@ -28914,6 +28930,8 @@ function renderAttendanceModalUI() {
   const st = window._currentAttendanceState;
   const crit = (state.criteria || []).find(c => c.id === st.criterionId);
   if (!crit) return;
+
+  const isAdmin = Boolean(state.user && state.user.role === 'admin');
 
   const query = (st.searchQuery || '').toLowerCase().trim();
   const filteredItems = st.items.filter(item => {
@@ -28947,21 +28965,30 @@ function renderAttendanceModalUI() {
         <!-- TOOLBAR: NHẬP EXCEL & TẢI MẪU & TÌM KIẾM -->
         <div style="background: #f0fdf4; padding: 12px 18px; border-bottom: 1px solid #bbf7d0; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
           <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-            <!-- Nút Tải lên Excel -->
-            <label class="btn btn-sm btn-primary" style="background: #059669; border-color: #059669; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-              <span>📥 Nhập File Excel Điểm Danh</span>
-              <input type="file" accept=".xlsx, .xls, .csv" style="display: none;" onchange="handleAttendanceExcelUpload(this, ${crit.id})" />
-            </label>
+            ${isAdmin ? `
+              <!-- Nút Tải lên Excel -->
+              <label class="btn btn-sm btn-primary" style="background: #059669; border-color: #059669; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+                <span>📥 Nhập File Excel Điểm Danh</span>
+                <input type="file" accept=".xlsx, .xls, .csv" style="display: none;" onchange="handleAttendanceExcelUpload(this, ${crit.id})" />
+              </label>
 
-            <!-- Nút Tải File Mẫu Chuẩn -->
-            <button type="button" class="btn btn-sm btn-outline" onclick="downloadAttendanceExcelTemplate(${crit.id})" style="background: #fff; color: #047857; border-color: #10b981; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
-              <span>📄 Tải File Excel Mẫu (40 đơn vị)</span>
-            </button>
+              <!-- Nút Tải File Mẫu Chuẩn -->
+              <button type="button" class="btn btn-sm btn-outline" onclick="downloadAttendanceExcelTemplate(${crit.id})" style="background: #fff; color: #047857; border-color: #10b981; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
+                <span>📄 Tải File Excel Mẫu (40 đơn vị)</span>
+              </button>
 
-            <!-- Nút Phân Bổ Đồng Loạt -->
-            <button type="button" class="btn btn-sm btn-outline" onclick="applyBatchAttendanceAlloc()" style="background: #fff; color: #0369a1; border-color: #38bdf8; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;" title="Áp dụng cùng 1 số lượng phân bổ cho tất cả 40 đơn vị">
-              <span>⚡ Điền Nhanh Phân Bổ</span>
-            </button>
+              <!-- Nút Phân Bổ Đồng Loạt -->
+              <button type="button" class="btn btn-sm btn-outline" onclick="applyBatchAttendanceAlloc()" style="background: #fff; color: #0369a1; border-color: #38bdf8; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;" title="Áp dụng cùng 1 số lượng phân bổ cho tất cả 40 đơn vị">
+                <span>⚡ Điền Nhanh Phân Bổ</span>
+              </button>
+            ` : `
+              <button type="button" class="btn btn-sm btn-outline" onclick="downloadAttendanceExcelTemplate(${crit.id})" style="background: #fff; color: #047857; border-color: #10b981; font-weight: 700; display: inline-flex; align-items: center; gap: 5px;">
+                <span>📄 Tải Bảng Điểm Danh Excel (40 đơn vị)</span>
+              </button>
+              <div style="font-size: 12.5px; color: #047857; font-weight: 700; display: flex; align-items: center; gap: 5px;">
+                <span>👥 Bảng tổng hợp đối soát của 40 cơ sở Đoàn</span>
+              </div>
+            `}
           </div>
 
           <!-- Ô tìm kiếm nhanh đơn vị -->
@@ -29016,35 +29043,48 @@ function renderAttendanceModalUI() {
                 const score = calculateAttendanceScore(alloc, pres, st.maxScore);
 
                 return `
-                  <tr style="border-bottom: 1px solid #e2e8f0; background: ${it.isHighlighted ? '#fef9c3' : '#fff'};" id="att-row-${it.unitId}">
+                  <tr style="border-bottom: 1px solid #e2e8f0; background: ${it.isHighlighted ? '#fef9c3' : '#fff'}; ${it.isHighlighted ? 'border-left: 4px solid #eab308;' : ''}" id="att-row-${it.unitId}">
                     <td style="padding: 8px; text-align: center; font-weight: 700; color: #64748b;">${it.stt}</td>
                     <td style="padding: 8px; text-align: center; font-weight: 800; color: #0284c7; font-size: 12px;">${escapeHtml(it.unitCode)}</td>
                     <td style="padding: 8px 12px; font-weight: 600; color: #0f172a;">
                       ${escapeHtml(it.unitName)}
+                      ${it.isHighlighted ? '<span class="badge" style="background:#fef08a; color:#854d0e; border:1px solid #facc15; font-size:10.5px; font-weight:800; margin-left:6px;">⭐ Đơn vị của bạn</span>' : ''}
                     </td>
                     <!-- Phân bổ số lượng -->
                     <td style="padding: 6px 10px; text-align: center; background: #f0fdf4;">
-                      <input
-                        type="number"
-                        min="0"
-                        step="1"
-                        id="att-alloc-${it.unitId}"
-                        value="${alloc}"
-                        oninput="onAttendanceRowInput(${it.unitId}, ${crit.id}, ${st.maxScore})"
-                        style="width: 80px; text-align: center; font-weight: 700; font-size: 13.5px; padding: 5px 8px; border: 1.5px solid #86efac; border-radius: 6px; background: #fff;"
-                      />
+                      ${isAdmin ? `
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          id="att-alloc-${it.unitId}"
+                          value="${alloc}"
+                          oninput="onAttendanceRowInput(${it.unitId}, ${crit.id}, ${st.maxScore})"
+                          style="width: 80px; text-align: center; font-weight: 700; font-size: 13.5px; padding: 5px 8px; border: 1.5px solid #86efac; border-radius: 6px; background: #fff;"
+                        />
+                      ` : `
+                        <div style="width: 72px; margin: 0 auto; text-align: center; font-weight: 800; font-size: 14px; padding: 5px 8px; border: 1.5px solid #86efac; border-radius: 6px; background: #fff; color: #047857; box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);">
+                          ${alloc}
+                        </div>
+                      `}
                     </td>
                     <!-- Số lượng Đến -->
                     <td style="padding: 6px 10px; text-align: center; background: #eff6ff;">
-                      <input
-                        type="number"
-                        min="0"
-                        step="1"
-                        id="att-pres-${it.unitId}"
-                        value="${pres}"
-                        oninput="onAttendanceRowInput(${it.unitId}, ${crit.id}, ${st.maxScore})"
-                        style="width: 80px; text-align: center; font-weight: 700; font-size: 13.5px; padding: 5px 8px; border: 1.5px solid #93c5fd; border-radius: 6px; background: #fff;"
-                      />
+                      ${isAdmin ? `
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          id="att-pres-${it.unitId}"
+                          value="${pres}"
+                          oninput="onAttendanceRowInput(${it.unitId}, ${crit.id}, ${st.maxScore})"
+                          style="width: 80px; text-align: center; font-weight: 700; font-size: 13.5px; padding: 5px 8px; border: 1.5px solid #93c5fd; border-radius: 6px; background: #fff;"
+                        />
+                      ` : `
+                        <div style="width: 72px; margin: 0 auto; text-align: center; font-weight: 800; font-size: 14px; padding: 5px 8px; border: 1.5px solid #93c5fd; border-radius: 6px; background: #fff; color: #1d4ed8; box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);">
+                          ${pres}
+                        </div>
+                      `}
                     </td>
                     <!-- Tỷ lệ % -->
                     <td style="padding: 8px 10px; text-align: center;" id="att-pct-${it.unitId}">
@@ -29058,7 +29098,7 @@ function renderAttendanceModalUI() {
                     <!-- Điểm tính được -->
                     <td style="padding: 8px 12px; text-align: center; background: #fffbeb;" id="att-score-wrap-${it.unitId}">
                       <span class="badge" id="att-score-${it.unitId}" style="background: ${score > 0 ? '#dcfce7' : '#f1f5f9'}; color: ${score > 0 ? '#15803d' : '#64748b'}; border: 1px solid ${score > 0 ? '#86efac' : '#cbd5e1'}; font-size: 13px; font-weight: 800; padding: 3px 8px;">
-                        ${formatScore(score)} đ
+                        ${score > 0 ? formatScore(score) + ' đ' : '—'}
                       </span>
                     </td>
                   </tr>
@@ -29080,10 +29120,16 @@ function renderAttendanceModalUI() {
 
           <!-- Nút hành động -->
           <div style="display: flex; align-items: center; gap: 8px;">
-            <button class="btn btn-outline" onclick="closeModal()" style="font-weight: 600;">Hủy / Đóng</button>
-            <button class="btn btn-primary" id="btn-save-attendance-scores" onclick="saveAttendanceModalScores(${crit.id})" style="font-weight: 800; background: #047857; border-color: #047857; padding: 8px 18px; box-shadow: 0 2px 6px rgba(4,120,87,0.3);">
-              💾 Lưu & Áp Dụng Điểm Cho 40 Đơn Vị
-            </button>
+            ${isAdmin ? `
+              <button class="btn btn-outline" onclick="closeModal()" style="font-weight: 600;">Hủy / Đóng</button>
+              <button class="btn btn-primary" id="btn-save-attendance-scores" onclick="saveAttendanceModalScores(${crit.id})" style="font-weight: 800; background: #047857; border-color: #047857; padding: 8px 18px; box-shadow: 0 2px 6px rgba(4,120,87,0.3);">
+                💾 Lưu & Áp Dụng Điểm Cho 40 Đơn Vị
+              </button>
+            ` : `
+              <button class="btn btn-primary" onclick="closeModal()" style="font-weight: 700; background: #047857; border-color: #047857; padding: 8px 22px;">
+                ✕ Đóng Bảng Điểm Danh
+              </button>
+            `}
           </div>
         </div>
 
