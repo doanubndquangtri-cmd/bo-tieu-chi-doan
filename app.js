@@ -2753,11 +2753,10 @@ function ingestCloudDB(db) {
     if (!n) continue;
     let key = '';
     if (n.unit_id && n.criterion_id) {
-      const act = n.is_rejected ? 'rej' : (n.is_admin_approval ? 'appr' : (n.approval_status || 'sub'));
-      const timeMin = (n.submitted_at || n.created_at || '').substring(0, 16);
-      key = `${n.unit_id}_${n.criterion_id}_${act}_${timeMin}`;
+      // Mỗi đơn vị trên mỗi tiêu chí chỉ giữ 1 thông báo duy nhất có trạng thái mới nhất (không lặp lại cả nộp và duyệt)
+      key = `crit_${n.unit_id}_${n.criterion_id}`;
     } else if (n.donation_id) {
-      key = `don_${n.donation_id}_${n.type}`;
+      key = `don_${n.donation_id}`;
     } else if (n.doc_id) {
       key = `doc_${n.doc_id}`;
     } else {
@@ -18011,11 +18010,10 @@ function renderNotificationDropdown() {
     if (!n) continue;
     let key = '';
     if (n.unit_id && n.criterion_id) {
-      const act = n.is_rejected ? 'rej' : (n.is_admin_approval ? 'appr' : (n.approval_status || 'sub'));
-      const timeMin = (n.submitted_at || n.created_at || '').substring(0, 16);
-      key = `${n.unit_id}_${n.criterion_id}_${act}_${timeMin}`;
+      // Mỗi đơn vị trên mỗi tiêu chí chỉ giữ 1 thông báo duy nhất có trạng thái mới nhất (không lặp lại cả nộp và duyệt)
+      key = `crit_${n.unit_id}_${n.criterion_id}`;
     } else if (n.donation_id) {
-      key = `don_${n.donation_id}_${n.type}`;
+      key = `don_${n.donation_id}`;
     } else if (n.doc_id) {
       key = `doc_${n.doc_id}`;
     } else {
@@ -18415,13 +18413,10 @@ window.approveUnitSubmission = async function(unitId, critId, scoreVal) {
     }
 
     // THÊM THÔNG BÁO VÀO MỤC THÔNG BÁO LÀ ĐÃ DUYỆT & TỰ CHẤM ĐIỂM (Ảnh 1)
-    db.notifications = db.notifications || [];
-    db.notifications.forEach(notif => {
-      if (Number(notif.unit_id) === Number(unitId) && Number(notif.criterion_id) === Number(critId)) {
-        notif.read = true;
-        notif.approval_status = 'approved';
-      }
-    });
+    // Loại bỏ hoàn toàn thông báo nộp bài cũ của cùng đơn vị & tiêu chí để không bị nhân đôi
+    db.notifications = (db.notifications || []).filter(notif => 
+      !(Number(notif.unit_id) === Number(unitId) && Number(notif.criterion_id) === Number(critId))
+    );
     db.notifications.unshift({
       id: notifId,
       unit_id: unitId,
@@ -18640,37 +18635,23 @@ window.confirmRejectUnitSubmission = async function(unitId, critId) {
         db.scores[idx].updated_by = 'admin';
       }
 
-      // THÊM THÔNG BÁO VÀO MỤC THÔNG BÁO LÀ KHÔNG DUYỆT
-      db.notifications = db.notifications || [];
-      db.notifications.forEach(notif => {
-        if (Number(notif.unit_id) === Number(unitId) && Number(notif.criterion_id) === Number(critId)) {
-          notif.read = true;
-          notif.approval_status = 'rejected';
-        }
-      });
-
-      // Chống nhân đôi thông báo nếu vừa từ chối trong 45 giây gần đây
-      const hasRecentRejNotif = db.notifications.some(n => 
-        Number(n.unit_id) === Number(unitId) && 
-        Number(n.criterion_id) === Number(critId) && 
-        n.is_rejected && 
-        (Date.now() - new Date(n.submitted_at || 0).getTime() < 45000)
+      // THÊM THÔNG BÁO VÀO MỤC THÔNG BÁO LÀ KHÔNG DUYỆT (Loại bỏ bản ghi cũ để không bị lặp lại)
+      db.notifications = (db.notifications || []).filter(notif => 
+        !(Number(notif.unit_id) === Number(unitId) && Number(notif.criterion_id) === Number(critId))
       );
-      if (!hasRecentRejNotif) {
-        db.notifications.unshift({
-          id: notifId,
-          unit_id: unitId,
-          unit_name: unit ? unit.unit_name : 'Đơn vị',
-          criterion_id: critId,
-          col_label: crit ? crit.col_label : '',
-          criterion_title: crit ? crit.title : '',
-          is_rejected: true,
-          reject_reason: reason || 'Chưa đạt yêu cầu, vui lòng nộp bổ sung minh chứng',
-          submitted_at: now,
-          read: true,
-          read_by_unit: false
-        });
-      }
+      db.notifications.unshift({
+        id: notifId,
+        unit_id: unitId,
+        unit_name: unit ? unit.unit_name : 'Đơn vị',
+        criterion_id: critId,
+        col_label: crit ? crit.col_label : '',
+        criterion_title: crit ? crit.title : '',
+        is_rejected: true,
+        reject_reason: reason || 'Chưa đạt yêu cầu, vui lòng nộp bổ sung minh chứng',
+        submitted_at: now,
+        read: true,
+        read_by_unit: false
+      });
 
       // Thêm vào nhật ký toàn khối & đồng bộ đầy đủ văn bản/tệp minh chứng
       db.logs = db.logs || [];
