@@ -100,3 +100,8 @@
           5. **Khóa chống chạy đúp tiến trình đồng bộ (`_isSyncingFromCloudNow`)**: Đảm bảo khi người dùng bấm liên tục vào nút "🔄 Đồng bộ" trên điện thoại chỉ có duy nhất 1 tiến trình xử lý, không gây nghẽn kết nối mạng.
           6. **Điều chỉnh chu kỳ đồng bộ nền**: Tối ưu chu kỳ kiểm tra ETag 304 lên 2.5s khi mở chat, 5s khi mở màn hình, 15s khi ẩn tab, tiết kiệm pin và băng thông di động tối đa.
           7. **Bảo toàn 100% hệ thống**: Toàn bộ dữ liệu điểm danh Cột 6, modal nộp bài, thông báo Từ chối, bảng xếp hạng và các tính năng khác đều hoạt động hoàn hảo và ổn định.
+      - **Hiển thị rõ ràng tên cơ sở Đoàn trong mục Đã Duyệt (23/11/2026)**:
+        - Cập nhật giao diện danh sách Thông Báo Hệ Thống (`renderNotificationDropdown`):
+          1. **Tiêu đề card**: Thay vì chỉ hiển thị dòng chữ chung chung "👑 Ban Thường vụ đã duyệt điểm", hệ thống bổ sung ngay tên cơ sở Đoàn: `👑 Đã duyệt: 🏢 [Tên Cơ Sở Đoàn]`.
+          2. **Dòng mô tả nội dung**: Bổ sung dòng nổi bật `🏢 Đơn vị được duyệt: [Tên Cơ Sở Đoàn]` ngay phía trên tên tiêu chí và điểm số được cộng `(+Xđ)`.
+          3. Áp dụng đồng bộ cho cả trường hợp Không duyệt (`🏢 Đơn vị: [Tên Cơ Sở Đoàn]`) và Nộp bài (`🏢 Đơn vị nộp: [Tên Cơ Sở Đoàn]`), tự động truy xuất tên đơn vị từ `state.units` nếu bản ghi thông báo cũ chưa có trường `unit_name`. Giúp Admin và các cơ sở Đoàn theo dõi minh bạch, chuẩn xác từng bài nộp đã được duyệt.

@@ -18061,6 +18061,8 @@ function renderNotificationDropdown() {
           const sc = (n.unit_id && n.criterion_id) ? getScoreObj(n.unit_id, n.criterion_id) : null;
           const isApproved = n.is_admin_approval || (sc && (sc.approval_status === 'approved' || (sc.score !== null && sc.score !== undefined && Number(sc.score) > 0)));
           const isRejected = n.is_rejected || (sc && sc.approval_status === 'rejected');
+          const targetUnit = (n.unit_id ? (state.units || []).find(u => Number(u.id) === Number(n.unit_id)) : null);
+          const unitDisplayName = n.unit_name || (targetUnit ? targetUnit.unit_name : '') || (n.unit_id ? `Đơn vị #${n.unit_id}` : '');
 
           // Khung Card Box riêng biệt cho mỗi nội dung
           let cardBorder = '1.5px solid #cbd5e1';
@@ -18109,7 +18111,7 @@ function renderNotificationDropdown() {
             <div class="notification-item ${isUnread ? 'unread' : 'read'}" onclick="openNotificationDetail('${n.id}')" style="background:${cardBg}; border:${cardBorder}; border-left:${cardBorderLeft}; border-radius:10px; box-shadow:${cardShadow}; padding:12px 14px; margin-bottom:0; cursor:pointer; transition:all 0.18s ease;">
               <div class="notification-title" style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
                 <span style="color:#003d99; font-weight:800; font-size:13.5px; display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
-                  ${n.type === 'admin_doc' ? '📄 Văn bản Ban Thường vụ' : (n.type === 'new_criterion' ? '🎯 Tiêu chí / Báo cáo mới' : (n.type === 'marquee_announcement' ? '📢 Thông báo Chữ chạy (Tin nổi bật)' : (isApproved ? '👑 Ban Thường vụ đã duyệt điểm' : (isRejected ? '❌ Thông báo không duyệt' : `🏢 ${escapeHtml(n.unit_name || 'Đơn vị')}`))))}
+                  ${n.type === 'admin_doc' ? '📄 Văn bản Ban Thường vụ' : (n.type === 'new_criterion' ? '🎯 Tiêu chí / Báo cáo mới' : (n.type === 'marquee_announcement' ? '📢 Thông báo Chữ chạy (Tin nổi bật)' : (isApproved ? (unitDisplayName ? `👑 Đã duyệt: 🏢 ${escapeHtml(unitDisplayName)}` : '👑 Ban Thường vụ đã duyệt điểm') : (isRejected ? (unitDisplayName ? `❌ Không duyệt: 🏢 ${escapeHtml(unitDisplayName)}` : '❌ Thông báo không duyệt') : `🏢 ${escapeHtml(unitDisplayName || 'Đơn vị')}`))))}
                   ${isUnread ? '<span class="badge" style="background:#ef4444; color:#fff; font-size:10px; font-weight:800; padding:1px 6px; border-radius:10px; margin-left:3px;">🔴 Mới</span>' : '<span class="badge" style="background:#f1f5f9; color:#64748b; font-size:10px; font-weight:600; padding:1px 6px; border-radius:10px; margin-left:3px;">✓ Đã xem</span>'}
                   ${isApproved ? '<span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; font-size:10px; font-weight:700; padding:1px 6px; border-radius:10px; margin-left:3px;">✅ Đã duyệt</span>' : ''}
                 </span>
@@ -18133,17 +18135,26 @@ function renderNotificationDropdown() {
                        </div>`
                     : (isRejected
                       ? `<div>
-                           <span style="color:#dc2626; font-weight:700;">❌ Ban Thường vụ không duyệt bài nộp:</span> <b>${escapeHtml(n.col_label || '')}</b> - ${escapeHtml(n.criterion_title || '')}
+                           ${unitDisplayName ? `<div style="margin-bottom:4px; font-size:13px; color:#1e293b;"><span style="color:#003d99; font-weight:700;">🏢 Đơn vị:</span> <b style="color:#0f172a; font-size:13.5px;">${escapeHtml(unitDisplayName)}</b></div>` : ''}
+                           <div>
+                             <span style="color:#dc2626; font-weight:700;">❌ Ban Thường vụ không duyệt bài nộp:</span> <b>${escapeHtml(n.col_label || '')}</b> - ${escapeHtml(n.criterion_title || '')}
+                           </div>
                            <div style="font-size:12px; color:#991b1b; background:#fef2f2; padding:6px 10px; border-radius:6px; border:1px solid #fecaca; margin-top:4px;">
                              <b>Lý do:</b> ${escapeHtml(n.reject_reason || (sc && sc.admin_note) || 'Chưa đạt yêu cầu, vui lòng nộp bổ sung minh chứng')}
                            </div>
                          </div>`
                       : (isApproved
                         ? `<div>
-                             <span style="color:#15803d; font-weight:700;">👑 Ban Thường vụ đã duyệt điểm:</span> <b>${escapeHtml(n.col_label || '')}</b> - ${escapeHtml(n.criterion_title || '')} (<span style="color:#15803d; font-weight:800;">+${formatScore(n.score || (sc && sc.score))}đ</span>)
+                             ${unitDisplayName ? `<div style="margin-bottom:4px; font-size:13px; color:#1e293b;"><span style="color:#003d99; font-weight:700;">🏢 Đơn vị được duyệt:</span> <b style="color:#0f172a; font-size:13.5px;">${escapeHtml(unitDisplayName)}</b></div>` : ''}
+                             <div>
+                               <span style="color:#15803d; font-weight:700;">👑 Ban Thường vụ đã duyệt điểm:</span> <b>${escapeHtml(n.col_label || '')}</b> - ${escapeHtml(n.criterion_title || '')} (<span style="color:#15803d; font-weight:800;">+${formatScore(n.score || (sc && sc.score))}đ</span>)
+                             </div>
                            </div>`
                         : `<div>
-                             <span style="color:#0369a1; font-weight:700;">📤 Đã nộp hồ sơ minh chứng:</span> <b>${escapeHtml(n.col_label || '')}</b> - ${escapeHtml(n.criterion_title || '')}
+                             ${unitDisplayName ? `<div style="margin-bottom:4px; font-size:13px; color:#1e293b;"><span style="color:#003d99; font-weight:700;">🏢 Đơn vị nộp:</span> <b style="color:#0f172a; font-size:13.5px;">${escapeHtml(unitDisplayName)}</b></div>` : ''}
+                             <div>
+                               <span style="color:#0369a1; font-weight:700;">📤 Đã nộp hồ sơ minh chứng:</span> <b>${escapeHtml(n.col_label || '')}</b> - ${escapeHtml(n.criterion_title || '')}
+                             </div>
                            </div>`
                       )
                     )
