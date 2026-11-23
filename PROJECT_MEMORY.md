@@ -82,3 +82,11 @@
           - Tiêu đề cột: Giữ nguyên vẹn nút `[🙋 Bảng Điểm Danh]` (mở bảng tính Excel đối soát 40 đơn vị) và nút `[📎 Tệp (x)]` (tệp đính kèm của tiêu chí).
           - Các ô điểm phía dưới: Vẫn giữ nguyên biểu tượng **`🙋`** màu xanh lá cây trên các ô có điểm.
           - Khi click vào biểu tượng **`🙋`** ở ô điểm của cơ sở Đoàn: Mở modal xem chi tiết của riêng cơ sở Đoàn đó (`openSubmissionDetailModal`), hiển thị số lượng đoàn viên tham gia kê khai và danh sách các hình ảnh chụp minh chứng hoạt động mà cơ sở Đoàn đã tải lên để Admin kiểm tra số lượng người tham gia thực tế trong ảnh.
+      - **Tính năng Thông báo & Quản lý bài nộp bị từ chối (23/11/2026)**:
+        - **Cơ chế hoạt động**: Khi Admin từ chối bài nộp/minh chứng của cơ sở Đoàn (`confirmRejectUnitSubmission`):
+          1. Cơ sở Đoàn nhận được chuông thông báo màu đỏ hiển thị lý do không duyệt từ Ban Thường vụ.
+          2. **Bảng 1 (Theo Dõi Báo Cáo)**: Ô tiêu chí hiển thị badge đỏ `❌ Bị từ chối` (thay vì dấu `—`), thanh lọc bổ sung nút `❌ Bị Từ Chối`, thanh chú thích có thêm chú giải `❌ Bị từ chối`.
+          3. **Bảng 2 (Nhật Ký Minh Chứng)** và **Lịch Sử Đã Nộp**: Cột trạng thái hiển thị rõ badge `❌ Bị từ chối`, cột điểm cộng là 0đ (chưa có điểm).
+          4. **Giao diện Nộp Báo Cáo & Tiêu Chí của cơ sở Đoàn**: Hiển thị lý do từ chối của Admin ngay dưới tên tiêu chí, cột điểm ghi `❌ Bị từ chối (0đ)`, và cột thao tác hiển thị nút nổi bật `[🔄 Nộp lại bài nộp]`.
+          5. **Modal xem chi tiết và Modal nộp bài**: Hiển thị banner cảnh báo bài nộp trước đó đã bị từ chối và lý do cụ thể; nút nộp đổi thành `[🔄 Xác Nhận Nộp Lại Báo Cáo / Minh Chứng]`.
+          6. **Quy tắc tính điểm**: Khi cơ sở Đoàn nộp lại, bài nộp chuyển về trạng thái `⏳ Chờ Admin duyệt` (vẫn chưa có điểm); chỉ khi Ban Thường vụ / Admin bấm `[✅ Xác Nhận Chấm Điểm]` thì mới chính thức cộng điểm và chuyển sang `✅ Đã duyệt`.

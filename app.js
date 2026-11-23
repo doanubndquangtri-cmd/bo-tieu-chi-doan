@@ -7429,17 +7429,16 @@ function renderUnitSubmitTab() {
 
                             : '')
 
-                        : (sc && (sc.report_content || sc.file_name || sc.evidence_link)
-
-                            ? `<div style="margin-top:4px; font-size:12px; color:#0369a1;">
-
-                                📎 Đã nộp (${escapeHtml(sc.submitted_date || '')}): ${escapeHtml(sc.report_content || sc.file_name || sc.evidence_link)}
-
-                                ${sc.file_path ? `<a href="${escapeHtml(sc.file_path)}" target="_blank" style="margin-left:6px; font-weight:700;">[Tải file]</a>` : ''}
-
+                        : (isRejected
+                            ? `<div style="margin-top:4px; font-size:12px; color:#dc2626; background:#fee2e2; border:1px solid #f87171; border-radius:4px; padding:4px 8px;">
+                                ❌ <b>Bài nộp bị từ chối:</b> ${escapeHtml(sc.admin_note || 'Chưa đạt yêu cầu, vui lòng nộp bổ sung minh chứng')}
                               </div>`
-
-                            : '')
+                            : (sc && (sc.report_content || sc.file_name || sc.evidence_link)
+                            ? `<div style="margin-top:4px; font-size:12px; color:#0369a1;">
+                                📎 Đã nộp (${escapeHtml(sc.submitted_date || '')}): ${escapeHtml(sc.report_content || sc.file_name || sc.evidence_link)}
+                                ${sc.file_path ? `<a href="${escapeHtml(sc.file_path)}" target="_blank" style="margin-left:6px; font-weight:700;">[Tải file]</a>` : ''}
+                              </div>`
+                            : ''))
 
                     }
 
@@ -7479,11 +7478,11 @@ function renderUnitSubmitTab() {
 
                             : `<span class="badge" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;">🔒 Admin tự chấm</span>`)
 
-                        : (isPending
-
+                        : (isRejected
+                            ? `<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #f87171; font-weight:800;">❌ Bị từ chối</span>`
+                            : (isPending
                             ? `<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;">⏳ Chờ Admin duyệt</span>`
-
-                            : `<span class="badge ${st.badgeClass}">${st.label}</span>`)
+                            : `<span class="badge ${st.badgeClass}">${st.label}</span>`))
 
                     }
 
@@ -7503,13 +7502,13 @@ function renderUnitSubmitTab() {
 
                         ? '-'
 
-                        : scoreVal !== null
-
-                        ? (Number(scoreVal) <= 0 ? '' : formatScore(scoreVal) + ' đ')
-
-                        : isPending
-                        ? `<span style="font-size:11.5px; color:#d97706; font-weight:700;">(+${formatScore(sc.self_score)}đ chờ duyệt)</span>`
-                        : '-'
+                        : (isRejected
+                            ? `<span style="font-size:11.5px; color:#dc2626; font-weight:800;">❌ Bị từ chối (0đ)</span>`
+                            : (scoreVal !== null
+                                ? (Number(scoreVal) <= 0 ? '' : formatScore(scoreVal) + ' đ')
+                                : (isPending
+                                    ? `<span style="font-size:11.5px; color:#d97706; font-weight:700;">(+${formatScore(sc.self_score)}đ chờ duyệt)</span>`
+                                    : '-')))
 
                     }
 
@@ -7541,19 +7540,17 @@ function renderUnitSubmitTab() {
 
                             : `<span style="font-size:12px; color:#64748b; font-style:italic;">🔒 Chờ Admin chấm</span>`)
 
-                        : (st.canSubmit
-
-                            ? `<button class="btn btn-sm ${sc ? 'btn-outline' : (isActivity ? 'btn-success' : 'btn-primary')}" onclick="openUnitSubmitModal(${c.id})" style="font-weight:700;">
-
-                                ${sc ? '✏️ Cập nhật' : (isActivity ? '📤 Nộp minh chứng' : '📤 Nộp báo cáo')}
-
+                        : (isRejected
+                            ? `<button class="btn btn-sm btn-danger" onclick="openUnitSubmitModal(${c.id})" style="font-weight:700; background:#dc2626; border-color:#b91c1c; color:#fff;" title="Bị từ chối: ${escapeHtml(sc.admin_note || '')}">
+                                🔄 Nộp lại bài nộp
                               </button>`
-
+                            : (st.canSubmit
+                            ? `<button class="btn btn-sm ${sc ? 'btn-outline' : (isActivity ? 'btn-success' : 'btn-primary')}" onclick="openUnitSubmitModal(${c.id})" style="font-weight:700;">
+                                ${sc ? '✏️ Cập nhật' : (isActivity ? '📤 Nộp minh chứng' : '📤 Nộp báo cáo')}
+                              </button>`
                             : `<button class="btn btn-sm btn-outline" onclick="openUnitSubmitModal(${c.id})" style="opacity:0.85; font-size:12px; font-weight:600;" title="${st.label}">
-
                                 ${sc ? '👁️ Xem bài nộp' : '🔒 ' + st.label}
-
-                              </button>`)
+                              </button>`))
 
                     }
 
@@ -8132,7 +8129,9 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
 
       : crit.default_score;
 
-
+  if (sc && sc.approval_status === 'rejected') {
+    submitBtnText = '🔄 Xác Nhận Nộp Lại Báo Cáo / Minh Chứng';
+  }
 
   const modalRoot = document.getElementById('modal-root');
 
@@ -8195,6 +8194,20 @@ window.openUnitSubmitModal = function (criterionId, forUnitId = null) {
             </div>
 
           </div>
+
+          ${(sc && sc.approval_status === 'rejected') ? `
+            <div style="padding:12px 14px; border-radius:8px; margin-bottom:14px; font-size:13px; background:#fef2f2; color:#991b1b; border:1.5px solid #f87171; box-shadow:0 1px 3px rgba(239,68,68,0.1);">
+              <div style="font-weight:800; display:flex; align-items:center; gap:6px; margin-bottom:4px; font-size:13.5px;">
+                <span>❌</span> <span>Bài nộp trước đó đã bị Ban Thường vụ TỪ CHỐI!</span>
+              </div>
+              <div style="font-size:12.5px; color:#b91c1c; margin-bottom:6px;">
+                <b>Lý do từ chối:</b> "${escapeHtml(sc.admin_note || 'Hồ sơ chưa đạt yêu cầu')}"
+              </div>
+              <div style="font-size:12px; color:#475569; font-style:italic;">
+                👉 Đơn vị vui lòng kiểm tra lại thông tin, bổ sung tài liệu / hình ảnh minh chứng đầy đủ và bấm <b>Xác Nhận Nộp Lại</b> bên dưới.
+              </div>
+            </div>
+          ` : ''}
 
 
 
@@ -9832,7 +9845,9 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
             <div style="margin-top:6px; display:flex; align-items:center; gap:8px;">
               <b>Trạng thái:</b>
               ${
-                (sc && sc.score !== null && sc.score !== '' && !isNaN(Number(sc.score)))
+                (sc && sc.approval_status === 'rejected')
+                  ? '<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #f87171; font-weight:800;">❌ Bị từ chối (Chưa có điểm)</span>'
+                  : (sc && sc.score !== null && sc.score !== '' && !isNaN(Number(sc.score)))
                   ? `<span class="badge badge-success" style="font-weight:700;">✅ Đã duyệt (+${formatScore(sc.score)} điểm)</span>`
                   : (sc && (sc.approval_status === 'pending' || (sc.score === null && ((sc.files && sc.files.length > 0) || sc.file_path || sc.report_content || sc.evidence_link))))
                   ? '<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;">⏳ Chờ Admin duyệt</span>'
@@ -10187,7 +10202,39 @@ window.openSubmissionDetailModal = function (unitId, criterionId) {
 
             </div>
 
-          ` : '')
+          ` : (sc.approval_status === 'rejected' ? `
+
+            <div style="background:#fef2f2; border:1.5px solid #f87171; border-radius:8px; padding:12px 14px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+
+              <div>
+
+                <div style="color:#991b1b; font-size:13.5px; font-weight:800; display:flex; align-items:center; gap:6px;">
+
+                  <span>❌</span> <span>Bài nộp này đã bị Ban Thường vụ TỪ CHỐI (Chưa có điểm)</span>
+
+                </div>
+
+                <div style="color:#b91c1c; font-size:12.5px; margin-top:4px;">
+
+                  <b>Lý do từ chối:</b> "${escapeHtml(sc.admin_note || 'Hồ sơ chưa đạt yêu cầu, vui lòng bổ sung minh chứng và nộp lại!')}"
+
+                </div>
+
+              </div>
+
+              <div>
+
+                <button type="button" class="btn btn-sm btn-danger" onclick="closeModal(); openUnitSubmitModal(${crit.id});" style="font-weight:700; background:#dc2626; border-color:#b91c1c; color:#fff; display:inline-flex; align-items:center; gap:6px; padding:6px 14px; box-shadow:0 1px 3px rgba(220,38,38,0.25);">
+
+                  🔄 Bổ sung minh chứng & Nộp lại ngay
+
+                </button>
+
+              </div>
+
+            </div>
+
+          ` : ''))
 
           }
 
@@ -10807,7 +10854,8 @@ function renderReportsMatrixTableComponent(targetCriteria, allCriteria, reportCr
         <div style="font-size:11px; color:#475569; display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
           <span class="badge badge-success" style="font-size:10px; font-weight:700; padding:2px 8px;">✅ Đã duyệt</span>
           <span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700; font-size:10px; padding:2px 8px;">⏳ Chờ Admin duyệt</span>
-          <span class="badge badge-danger" style="font-size:10px; font-weight:700; padding:2px 8px;">❌ Chưa nộp</span>
+          <span class="badge" style="background:#fee2e2; color:#dc2626; border:1px solid #f87171; font-weight:700; font-size:10px; padding:2px 8px;">❌ Bị từ chối</span>
+          <span class="badge badge-danger" style="font-size:10px; font-weight:700; padding:2px 8px;">— Chưa nộp</span>
         </div>
       </div>
 
@@ -10835,6 +10883,9 @@ function renderReportsMatrixTableComponent(targetCriteria, allCriteria, reportCr
           </button>
           <button class="filter-pill-btn ${state.reportsStatusFilter === 'approved' ? 'active' : ''}" onclick="setReportsStatusFilter('approved')" style="font-size:11px; padding:2px 7px; font-weight:700; ${state.reportsStatusFilter === 'approved' ? 'background:#16a34a !important; color:#fff !important;' : 'color:#15803d; background:#f0fdf4;'}">
             ✅ Đã Duyệt
+          </button>
+          <button class="filter-pill-btn ${state.reportsStatusFilter === 'rejected' ? 'active' : ''}" onclick="setReportsStatusFilter('rejected')" style="font-size:11px; padding:2px 7px; font-weight:700; ${state.reportsStatusFilter === 'rejected' ? 'background:#dc2626 !important; color:#fff !important;' : 'color:#b91c1c; background:#fef2f2;'}">
+            ❌ Bị Từ Chối
           </button>
         </div>
         <div style="display:flex; gap:6px; align-items:center; flex-shrink:0;">
@@ -10891,9 +10942,11 @@ function renderReportsMatrixTableComponent(targetCriteria, allCriteria, reportCr
                 const hasDetail = sc && (hasScore || isPending || isRejected || hasProof);
 
                 return `
-                  <td style="text-align:center; ${hasDetail ? 'cursor:pointer;' : 'cursor:default;'}" ${hasDetail ? `onclick="openSubmissionDetailModal(${u.id}, ${c.id})" title="Bấm để xem chi tiết báo cáo & minh chứng đã nộp (Chỉ xem)"` : `title="Chưa nộp báo cáo hoặc minh chứng"`}>
+                  <td style="text-align:center; ${hasDetail ? 'cursor:pointer;' : 'cursor:default;'}" ${hasDetail ? `onclick="openSubmissionDetailModal(${u.id}, ${c.id})" title="${isRejected ? 'Bài nộp bị từ chối — Bấm để xem lý do & nộp lại minh chứng' : 'Bấm để xem chi tiết báo cáo & minh chứng đã nộp'}"` : `title="Chưa nộp báo cáo hoặc minh chứng"`}>
                     ${hasValidScore
                       ? `<span class="badge badge-success" title="Đã duyệt">+${formatScore(sc.score)}đ</span>`
+                      : isRejected
+                      ? `<span class="badge" style="background:#fee2e2; color:#dc2626; border:1px solid #f87171; font-weight:800; font-size:10.5px; padding:2px 6px; box-shadow:0 1px 2px rgba(220,38,38,0.15);" title="Bài nộp bị Ban Thường vụ từ chối: ${escapeHtml(sc.admin_note || 'Yêu cầu nộp lại')}">❌ Bị từ chối</span>`
                       : isPending
                       ? `<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;" title="Đã nộp minh chứng, chờ Admin duyệt">+${formatScore(sc.self_score || getCriterionTargetPoints(c))}đ ⏳</span>`
                       : `<span style="color:#cbd5e1; font-weight:600;" title="Chưa có điểm">—</span>`}
@@ -10964,7 +11017,7 @@ function renderReportsLogCardsComponent(filteredLogs, activeUnits) {
                 </div>
                 <div>
                   ${(() => {
-                    if (isRejected) return '<span style="color:#cbd5e1; font-weight:600;">—</span>';
+                    if (isRejected) return '<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #f87171; font-weight:800; font-size:10.5px; padding:2px 6px;">❌ Bị từ chối</span>';
                     if (isApproved) return '<span class="badge badge-success" style="font-weight:700;">✅ Đã duyệt +' + formatScore(l.awarded_score) + 'đ</span>';
                     return '<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700;">⏳ Chờ duyệt</span>';
                   })()}
@@ -11055,7 +11108,7 @@ function renderReportsLogTableComponent(filteredLogs, activeUnits) {
                 </td>
                 <td style="text-align:center;">
                   ${(() => {
-                    if (l.is_rejected) return '<span style="color:#cbd5e1; font-weight:600;">—</span>';
+                    if (l.is_rejected) return '<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #f87171; font-weight:800; font-size:10.5px; padding:2px 6px;">❌ Bị từ chối</span>';
                     if (l.is_admin_approval || (l.awarded_score !== null && l.awarded_score !== undefined && Number(l.awarded_score) > 0)) {
                       return '<span class="badge badge-success" style="font-weight:700;">✅ Đã duyệt</span>';
                     }
@@ -13797,7 +13850,7 @@ function renderUnitHistoryTab() {
                     <td style="padding:8px 10px; white-space:nowrap; font-size:12px;">Nộp: <b>${formatDateVN(l.submitted_date)}</b> / Hạn: ${formatDateVN(l.deadline)}</td>
                     <td style="padding:8px 10px; text-align:center;">
                       ${(() => {
-                        if (l.is_rejected) return '<span style="color:#cbd5e1; font-weight:600;">—</span>';
+                        if (l.is_rejected) return '<span class="badge" style="background:#fee2e2; color:#b91c1c; border:1px solid #f87171; font-weight:800; font-size:10.5px; padding:2px 6px;">❌ Bị từ chối</span>';
                         if (l.is_admin_approval || (l.awarded_score !== null && l.awarded_score !== undefined && Number(l.awarded_score) > 0)) {
                           return '<span class="badge badge-success" style="font-weight:700;">✅ Đã duyệt</span>';
                         }
