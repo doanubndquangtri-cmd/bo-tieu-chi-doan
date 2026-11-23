@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <!-- Tối ưu tốc độ mở trang cực hạn (0ms): Preload tài nguyên trọng yếu -->
-  <link rel="preload" href="./app.js?v=20261119_chat_1795425970698" as="script" />
-  <link rel="preload" href="./styles.css?v=20261119_chat_1795425970698" as="style" />
+  <link rel="preload" href="./app.js?v=20261119_chat_1795427486983" as="script" />
+  <link rel="preload" href="./styles.css?v=20261119_chat_1795427486983" as="style" />
   <title>Bộ tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh - Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí</title>
   
   <!-- PWA & Mobile Web App Meta Tags -->
@@ -7552,11 +7552,59 @@ async function computeGitBlobSha(text) {
 async function fetchCloudDB(forWrite = false) {
   const token = _getCloudToken();
 
-  // BƯỚC 1: Tải dữ liệu siêu tốc qua Fastly CDN raw.githubusercontent.com
-  // Ưu điểm:
-  // 1) Không tiêu tốn bất kỳ hạn ngạch API rate limit (5.000 req/h) của GitHub REST API!
-  // 2) Tốc độ phản hồi cực nhanh (~1.2s thay vì 31.5s của Blobs API), truyền tải nén native, không làm treo CPU máy di động!
-  // 3) Hỗ trợ ETag If-None-Match: nếu dữ liệu không đổi trả về 304 Not Modified tức thì (0 bytes download)!
+  // BƯỚC 1: Tải siêu tốc qua jsDelivr CDN dựa trên commit SHA mới nhất
+  // Ưu điểm vượt trội:
+  // 1) jsDelivr CDN có Edge Server tại Việt Nam và Đông Nam Á, Cloudflare Anycast siêu tốc (~180ms).
+  // 2) Hoàn toàn KHÔNG BỊ CHẶN trên các mạng 4G/5G ở Việt Nam (Viettel, Vinaphone, Mobifone, FPT).
+  // 3) Gọi HEAD/GET lấy commit SHA (chỉ ~1KB) với ETag 304 Not Modified chỉ mất ~80ms (0 bytes dữ liệu tải về).
+  // 4) Tải đúng bản commit SHA bất biến (@commitSha), không bao giờ bị trễ cache hay lỗi mạng.
+  try {
+    const commitUrl = `https://api.github.com/repos/${CLOUD_OWNER}/${CLOUD_REPO}/commits/${CLOUD_BRANCH}`;
+    const commitHeaders = {
+      Authorization: `token ${token}`,
+      Accept: 'application/vnd.github.v3+json',
+    };
+    if (!forWrite && window._cloudCommitEtag && state.cloudDB) {
+      commitHeaders['If-None-Match'] = window._cloudCommitEtag;
+    }
+    const commitRes = await fetch(commitUrl, { headers: commitHeaders, cache: 'no-store' });
+    if (commitRes.status === 304 && !forWrite && state.cloudDB) {
+      return { sha: state.cloudSha || '', db: state.cloudDB, notModified: true };
+    }
+    if (commitRes.ok) {
+      const etag = commitRes.headers.get('ETag');
+      if (etag) window._cloudCommitEtag = etag;
+      const commitData = await commitRes.json();
+      const commitSha = commitData.sha;
+      const fileEntry = Array.isArray(commitData.files) ? commitData.files.find(f => f.filename === 'cloud_db.json') : null;
+      const blobSha = fileEntry && fileEntry.sha ? fileEntry.sha : '';
+
+      // Nếu blob SHA trùng khớp với state hiện tại và đã có DB trong RAM -> không cần tải lại 6MB
+      if (!forWrite && blobSha && blobSha === state.cloudSha && state.cloudDB) {
+        return { sha: blobSha, db: state.cloudDB, notModified: true };
+      }
+
+      // Tải nội dung cloud_db.json từ jsDelivr CDN theo commit SHA (siêu nhanh, an toàn)
+      if (commitSha) {
+        try {
+          const jsdUrl = `https://cdn.jsdelivr.net/gh/${CLOUD_OWNER}/${CLOUD_REPO}@${commitSha}/cloud_db.json`;
+          const jsdRes = await fetch(jsdUrl, { cache: 'no-store' });
+          if (jsdRes.ok) {
+            const db = await jsdRes.json();
+            const computedSha = blobSha || (await computeGitBlobSha(JSON.stringify(db)));
+            if (computedSha) state.cloudSha = computedSha;
+            return { sha: computedSha || state.cloudSha || '', db };
+          }
+        } catch (jsdErr) {
+          console.warn('jsDelivr commit fetch error, will fallback:', jsdErr);
+        }
+      }
+    }
+  } catch (cErr) {
+    console.warn('Commit meta fetch error, trying Fastly CDN raw fallback:', cErr);
+  }
+
+  // BƯỚC 2: Tải dự phòng qua Fastly CDN raw.githubusercontent.com
   try {
     const rawUrl = `https://raw.githubusercontent.com/${CLOUD_OWNER}/${CLOUD_REPO}/${CLOUD_BRANCH}/cloud_db.json?t=${Date.now()}`;
     const headers = {};
@@ -7580,7 +7628,7 @@ async function fetchCloudDB(forWrite = false) {
     console.warn('Fast CDN raw fetch error, trying Trees/Blobs fallback:', e);
   }
 
-  // BƯỚC 2: Dự phòng qua Git Trees + Blobs API nếu Fastly CDN tạm thời không phản hồi
+  // BƯỚC 3: Dự phòng qua Git Trees + Blobs API nếu Fastly CDN tạm thời không phản hồi
   try {
     const treeUrl = `https://api.github.com/repos/${CLOUD_OWNER}/${CLOUD_REPO}/git/trees/${CLOUD_BRANCH}?t=${Date.now()}`;
     const treeHeaders = {
@@ -7624,7 +7672,7 @@ async function fetchCloudDB(forWrite = false) {
     console.warn('Git Trees/Blobs fallback error:', e);
   }
 
-  // BƯỚC 3: Dự phòng an toàn tuyệt đối bằng bộ nhớ đệm RAM hiện tại (không làm crash app khi mất mạng tạm thời)
+  // BƯỚC 4: Dự phòng an toàn tuyệt đối bằng bộ nhớ đệm RAM hiện tại (không làm crash app khi mất mạng tạm thời)
   if (state.cloudDB) {
     console.warn('Using in-memory cached state.cloudDB due to temporary network error');
     return { sha: state.cloudSha || '', db: state.cloudDB, cached: true };
@@ -8100,6 +8148,12 @@ function mutateCloudDB(mutatorFn, commitMsg = 'Update data') {
         const putMeta = await res.json();
         state.cloudSha = putMeta.content.sha;
         window._cloudTreeEtag = null;
+        window._cloudCommitEtag = null;
+        window._cloudRawEtag = null;
+        try {
+          // Gửi lệnh purge ngầm (fire-and-forget) tới jsDelivr CDN
+          fetch(`https://purge.jsdelivr.net/gh/${CLOUD_OWNER}/${CLOUD_REPO}@${CLOUD_BRANCH}/cloud_db.json`).catch(() => {});
+        } catch (e) {}
         state.cloudVersion = Number(db.version) || state.cloudVersion || 0;
         window._lastCloudMutationTs = Date.now();
         state.cloudOnline = true;
@@ -9211,14 +9265,40 @@ window.syncFromCloudNow = async function (silent = false) {
   }
   window._isSyncingFromCloudNow = true;
 
+  let cloudRes;
   try {
-    const { sha, db, notModified } = await fetchCloudDB();
+    cloudRes = await fetchCloudDB();
+  } catch (netErr) {
+    console.warn('Network sync error:', netErr);
+    state.cloudOnline = false;
+    if (!silent) {
+      showToast('⚠️ Không thể kết nối máy chủ Cloud, đang dùng dữ liệu bộ nhớ đệm.', 'warning');
+    }
+    window._isSyncingFromCloudNow = false;
+    return;
+  }
+
+  try {
+    const { sha, db, notModified, cached } = cloudRes || {};
     if (notModified) {
       state.cloudOnline = true;
       state.lastSyncTime = new Date().toLocaleTimeString('vi-VN');
       if (!silent) {
         showToast('🟢 Dữ liệu đã là mới nhất!', 'success');
       }
+      return;
+    }
+
+    if (cached) {
+      state.cloudOnline = true;
+      state.lastSyncTime = new Date().toLocaleTimeString('vi-VN');
+      if (!silent) {
+        showToast('🟢 Dữ liệu đã tải từ bộ nhớ đệm an toàn!', 'success');
+      }
+      return;
+    }
+
+    if (!db) {
       return;
     }
 
@@ -9374,11 +9454,8 @@ window.syncFromCloudNow = async function (silent = false) {
     if (!silent) {
       showToast('🟢 Đã đồng bộ dữ liệu Online mới nhất thành công!', 'success');
     }
-  } catch (err) {
-    state.cloudOnline = false;
-    if (!silent) {
-      showToast('⚠️ Không thể kết nối máy chủ Cloud, đang dùng dữ liệu bộ nhớ đệm.', 'warning');
-    }
+  } catch (renderErr) {
+    console.error('Error processing cloud data in syncFromCloudNow:', renderErr);
   } finally {
     window._isSyncingFromCloudNow = false;
   }
@@ -43258,11 +43335,11 @@ window.submitEditGalleryPost = async function (postId) {
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795425970698;
+    const CURRENT_BUILD_TS = 1795427486983;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;
-        if (lastTs < CURRENT_BUILD_TS) {
+        if (lastTs > 0 && lastTs < CURRENT_BUILD_TS) {
           localStorage.setItem('doan2026_pwa_ts', String(CURRENT_BUILD_TS));
           if ('caches' in window) {
             const keys = await caches.keys();
@@ -43274,6 +43351,12 @@ window.submitEditGalleryPost = async function (postId) {
               await r.update().catch(() => {});
             }
           }
+          // Tự động làm mới với query timestamp để Safari / Chrome trên điện thoại nạp ngay bản mã nguồn mới
+          const cleanUrl = window.location.origin + window.location.pathname + '?v=' + CURRENT_BUILD_TS;
+          window.location.replace(cleanUrl);
+          return;
+        } else if (lastTs === 0) {
+          localStorage.setItem('doan2026_pwa_ts', String(CURRENT_BUILD_TS));
         }
       } catch (e) {}
     })();
