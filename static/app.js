@@ -2745,7 +2745,29 @@ function ingestCloudDB(db) {
 
   state.admin_docs = db.admin_docs || [];
 
-  state.notifications = Array.isArray(db.notifications) ? db.notifications : [];
+  // Khử trùng lặp thông báo: loại bỏ hoàn toàn các thông báo bị nhân đôi do click nhanh hoặc gửi lặp
+  const rawDbNotifs = Array.isArray(db.notifications) ? db.notifications : [];
+  const dedupedDbNotifs = [];
+  const seenDbNotifKeys = new Set();
+  for (const n of rawDbNotifs) {
+    if (!n) continue;
+    let key = '';
+    if (n.unit_id && n.criterion_id) {
+      const act = n.is_rejected ? 'rej' : (n.is_admin_approval ? 'appr' : (n.approval_status || 'sub'));
+      const timeMin = (n.submitted_at || n.created_at || '').substring(0, 16);
+      key = `${n.unit_id}_${n.criterion_id}_${act}_${timeMin}`;
+    } else if (n.donation_id) {
+      key = `don_${n.donation_id}_${n.type}`;
+    } else if (n.doc_id) {
+      key = `doc_${n.doc_id}`;
+    } else {
+      key = String(n.id || (n.title + '_' + n.message));
+    }
+    if (seenDbNotifKeys.has(key)) continue;
+    seenDbNotifKeys.add(key);
+    dedupedDbNotifs.push(n);
+  }
+  state.notifications = dedupedDbNotifs;
   state.donations = Array.isArray(db.donations) ? db.donations : [];
   const delGallerySet = new Set([
     ...(typeof getDeletedGalleryIds === 'function' ? getDeletedGalleryIds() : []),
@@ -2902,7 +2924,21 @@ function ingestCloudDB(db) {
 
 
 
-  state.logs = (db.logs || []).map((l) => {
+  // Khử trùng lặp nhật ký logs: loại bỏ các bản ghi trùng lặp do bấm đúp gửi lặp trong cùng 1-2 phút
+  const rawDbLogs = db.logs || [];
+  const dedupedDbLogs = [];
+  const seenDbLogKeys = new Set();
+  for (const l of rawDbLogs) {
+    if (!l) continue;
+    const timeMin = (l.submitted_at || '').substring(0, 16);
+    const act = l.is_rejected ? 'rej' : (l.awarded_score !== null && l.awarded_score !== undefined ? `sc_${l.awarded_score}` : 'sub');
+    const key = (l.unit_id && l.criterion_id) ? `${l.unit_id}_${l.criterion_id}_${act}_${timeMin}` : String(l.id);
+    if (seenDbLogKeys.has(key)) continue;
+    seenDbLogKeys.add(key);
+    dedupedDbLogs.push(l);
+  }
+
+  state.logs = dedupedDbLogs.map((l) => {
     const u = unitMap[l.unit_id] || {};
     const c = critMap[l.criterion_id] || {};
     const sc = state.scoresMap[`${l.unit_id}_${l.criterion_id}`] || (db.scores || []).find(s => Number(s.unit_id) === Number(l.unit_id) && Number(s.criterion_id) === Number(l.criterion_id));
@@ -11353,10 +11389,22 @@ function renderAdminReportsTab() {
     });
   });
 
-  const filteredLogs = state.logs.filter((l) => {
+  const rawFilteredLogs = state.logs.filter((l) => {
     if (Number(state.logFilterUnit) === 0) return true;
     return Number(l.unit_id) === Number(state.logFilterUnit);
   });
+  // Khử trùng lặp lượt nộp bị nhân đôi trong cùng 1-2 phút (do bấm nhanh)
+  const filteredLogs = [];
+  const seenLogFilterKeys = new Set();
+  for (const l of rawFilteredLogs) {
+    if (!l) continue;
+    const timeMin = (l.submitted_at || '').substring(0, 16);
+    const act = l.is_rejected ? 'rej' : (l.awarded_score !== null && l.awarded_score !== undefined ? `sc_${l.awarded_score}` : 'sub');
+    const key = (l.unit_id && l.criterion_id) ? `${l.unit_id}_${l.criterion_id}_${act}_${timeMin}` : String(l.id);
+    if (seenLogFilterKeys.has(key)) continue;
+    seenLogFilterKeys.add(key);
+    filteredLogs.push(l);
+  }
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
   const subMode = (state.reportsSubSection === 'log') ? 'log' : 'matrix';
@@ -17954,7 +18002,30 @@ function renderNotificationDropdown() {
   const notifs = state.notifications || [];
 
   // Lọc thông báo thuộc về vai trò người dùng hiện tại
-  const userNotifs = notifs.filter(n => isNotificationForUser(n, user));
+  const rawUserNotifs = notifs.filter(n => isNotificationForUser(n, user));
+
+  // Khử trùng lặp thông báo (Deduplicate notifications): loại bỏ hoàn toàn các thông báo bị nhân đôi do click nhanh/gửi lặp
+  const userNotifs = [];
+  const seenUserNotifKeys = new Set();
+  for (const n of rawUserNotifs) {
+    if (!n) continue;
+    let key = '';
+    if (n.unit_id && n.criterion_id) {
+      const act = n.is_rejected ? 'rej' : (n.is_admin_approval ? 'appr' : (n.approval_status || 'sub'));
+      const timeMin = (n.submitted_at || n.created_at || '').substring(0, 16);
+      key = `${n.unit_id}_${n.criterion_id}_${act}_${timeMin}`;
+    } else if (n.donation_id) {
+      key = `don_${n.donation_id}_${n.type}`;
+    } else if (n.doc_id) {
+      key = `doc_${n.doc_id}`;
+    } else {
+      key = String(n.id || (n.title + '_' + n.message));
+    }
+    if (seenUserNotifKeys.has(key)) continue;
+    seenUserNotifKeys.add(key);
+    userNotifs.push(n);
+  }
+
   const unreadList = userNotifs.filter(n => isNotificationUnread(n, user));
   const readList = userNotifs.filter(n => !isNotificationUnread(n, user));
   const unreadCount = unreadList.length;
@@ -18543,124 +18614,128 @@ window.openRejectSubmissionModal = function(unitId, critId) {
 
 
 // XÁC NHẬN TỪ CHỐI BÀI NỘP & GỬI THÔNG BÁO KHÔNG DUYỆT (Ảnh 1)
-
 window.confirmRejectUnitSubmission = async function(unitId, critId) {
+  if (window._isRejectingUnitSubmission) return;
+  window._isRejectingUnitSubmission = true;
 
-  const unit = state.units.find(u => u.id === unitId);
+  try {
+    const unit = state.units.find(u => u.id === unitId);
+    const crit = state.criteria.find(c => c.id === critId);
+    const reasonInp = document.getElementById('reject-reason-input');
+    const reason = reasonInp ? reasonInp.value.trim() : '';
 
-  const crit = state.criteria.find(c => c.id === critId);
+    showToast('Đang xử lý từ chối bài nộp...', 'info');
+    const now = nowISO();
+    const notifId = 'notif_rej_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
 
-  const reasonInp = document.getElementById('reject-reason-input');
-
-  const reason = reasonInp ? reasonInp.value.trim() : '';
-
-
-
-  showToast('Đang xử lý từ chối bài nộp...', 'info');
-
-  const now = nowISO();
-
-  const notifId = 'notif_rej_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
-
-
-
-  const res = await mutateCloudDB(db => {
-
-    db.scores = db.scores || [];
-
-    const idx = db.scores.findIndex(s => s.unit_id === unitId && s.criterion_id === critId);
-    let prevScore = null;
-    if (idx >= 0) {
-      prevScore = JSON.parse(JSON.stringify(db.scores[idx]));
-      db.scores[idx].score = null; // Điểm trong bảng điểm TRỐNG, không đánh số vào
-      db.scores[idx].approval_status = 'rejected';
-      db.scores[idx].admin_note = reason || 'Ban Thường vụ không duyệt bài nộp (vui lòng nộp lại minh chứng)';
-      db.scores[idx].updated_by = 'admin';
-    }
-
-    // THÊM THÔNG BÁO VÀO MỤC THÔNG BÁO LÀ KHÔNG DUYỆT (Ảnh 1)
-    db.notifications = db.notifications || [];
-    db.notifications.forEach(notif => {
-      if (Number(notif.unit_id) === Number(unitId) && Number(notif.criterion_id) === Number(critId)) {
-        notif.read = true;
-        notif.approval_status = 'rejected';
+    const res = await mutateCloudDB(db => {
+      db.scores = db.scores || [];
+      const idx = db.scores.findIndex(s => s.unit_id === unitId && s.criterion_id === critId);
+      let prevScore = null;
+      if (idx >= 0) {
+        prevScore = JSON.parse(JSON.stringify(db.scores[idx]));
+        db.scores[idx].score = null; // Điểm trong bảng điểm TRỐNG, không đánh số vào
+        db.scores[idx].approval_status = 'rejected';
+        db.scores[idx].admin_note = reason || 'Ban Thường vụ không duyệt bài nộp (vui lòng nộp lại minh chứng)';
+        db.scores[idx].updated_by = 'admin';
       }
-    });
-    db.notifications.unshift({
-      id: notifId,
-      unit_id: unitId,
-      unit_name: unit ? unit.unit_name : 'Đơn vị',
-      criterion_id: critId,
-      col_label: crit ? crit.col_label : '',
-      criterion_title: crit ? crit.title : '',
-      is_rejected: true,
-      reject_reason: reason || 'Chưa đạt yêu cầu, vui lòng nộp bổ sung minh chứng',
-      submitted_at: now,
-      read: true,
-      read_by_unit: false
-    });
 
-    // Thêm vào nhật ký toàn khối & đồng bộ đầy đủ văn bản/tệp minh chứng
-    db.logs = db.logs || [];
-    for (const oldLog of db.logs) {
-      if (Number(oldLog.unit_id) === Number(unitId) && Number(oldLog.criterion_id) === Number(critId)) {
-        oldLog.is_rejected = true;
-        oldLog.awarded_score = null;
-        if (!oldLog.report_content && prevScore && prevScore.report_content) oldLog.report_content = prevScore.report_content;
-        if (!oldLog.evidence_link && prevScore && prevScore.evidence_link) oldLog.evidence_link = prevScore.evidence_link;
-        if ((!oldLog.files || oldLog.files.length === 0) && prevScore && prevScore.files) oldLog.files = prevScore.files;
-        if (!oldLog.file_path && prevScore && prevScore.file_path) oldLog.file_path = prevScore.file_path;
-        if (!oldLog.file_name && prevScore && prevScore.file_name) oldLog.file_name = prevScore.file_name;
-      }
-    }
-
-    db.logs.unshift({
-      id: (db.logs[0] ? db.logs[0].id : 0) + 1,
-      unit_id: unitId,
-      criterion_id: critId,
-      submitted_at: now,
-      submitted_date: (prevScore && prevScore.submitted_date) || todayISO(),
-      deadline: crit ? crit.deadline : '',
-      is_on_time: (prevScore && prevScore.is_on_time !== undefined) ? prevScore.is_on_time : 1,
-      is_rejected: true,
-      awarded_score: null,
-      report_content: (prevScore && prevScore.report_content) || '',
-      evidence_link: (prevScore && prevScore.evidence_link) || '',
-      files: (prevScore && prevScore.files) || [],
-      file_name: (prevScore && prevScore.file_name) || '',
-      file_path: (prevScore && prevScore.file_path) || '',
-      status_text: `Ban Thường vụ không duyệt: ${reason || 'Yêu cầu nộp lại'}`
-    });
-
-  }, `Admin rejected U${unitId} C${critId}`);
-
-
-
-  if (res.ok) {
-
-    closeModal();
-
-    if (window.broadcastLiveEvent) {
-      window.broadcastLiveEvent('PROOF_REJECTED', { unit_id: unitId, criterion_id: critId, reason: reason });
-    }
-    if (window.WebPushManager) {
-      window.WebPushManager.sendPushNotification({
-        title: '⚠️ Yêu cầu bổ sung minh chứng',
-        message: `Tiêu chí ${crit ? crit.col_label : ''}: ${reason || 'Chưa đạt yêu cầu, vui lòng nộp bổ sung'}`,
-        targetUnitId: unitId,
-        url: './'
+      // THÊM THÔNG BÁO VÀO MỤC THÔNG BÁO LÀ KHÔNG DUYỆT
+      db.notifications = db.notifications || [];
+      db.notifications.forEach(notif => {
+        if (Number(notif.unit_id) === Number(unitId) && Number(notif.criterion_id) === Number(critId)) {
+          notif.read = true;
+          notif.approval_status = 'rejected';
+        }
       });
+
+      // Chống nhân đôi thông báo nếu vừa từ chối trong 45 giây gần đây
+      const hasRecentRejNotif = db.notifications.some(n => 
+        Number(n.unit_id) === Number(unitId) && 
+        Number(n.criterion_id) === Number(critId) && 
+        n.is_rejected && 
+        (Date.now() - new Date(n.submitted_at || 0).getTime() < 45000)
+      );
+      if (!hasRecentRejNotif) {
+        db.notifications.unshift({
+          id: notifId,
+          unit_id: unitId,
+          unit_name: unit ? unit.unit_name : 'Đơn vị',
+          criterion_id: critId,
+          col_label: crit ? crit.col_label : '',
+          criterion_title: crit ? crit.title : '',
+          is_rejected: true,
+          reject_reason: reason || 'Chưa đạt yêu cầu, vui lòng nộp bổ sung minh chứng',
+          submitted_at: now,
+          read: true,
+          read_by_unit: false
+        });
+      }
+
+      // Thêm vào nhật ký toàn khối & đồng bộ đầy đủ văn bản/tệp minh chứng
+      db.logs = db.logs || [];
+      for (const oldLog of db.logs) {
+        if (Number(oldLog.unit_id) === Number(unitId) && Number(oldLog.criterion_id) === Number(critId)) {
+          oldLog.is_rejected = true;
+          oldLog.awarded_score = null;
+          if (!oldLog.report_content && prevScore && prevScore.report_content) oldLog.report_content = prevScore.report_content;
+          if (!oldLog.evidence_link && prevScore && prevScore.evidence_link) oldLog.evidence_link = prevScore.evidence_link;
+          if ((!oldLog.files || oldLog.files.length === 0) && prevScore && prevScore.files) oldLog.files = prevScore.files;
+          if (!oldLog.file_path && prevScore && prevScore.file_path) oldLog.file_path = prevScore.file_path;
+          if (!oldLog.file_name && prevScore && prevScore.file_name) oldLog.file_name = prevScore.file_name;
+        }
+      }
+
+      // Chống nhân đôi nhật ký nếu vừa ghi trong 45 giây gần đây
+      const hasRecentRejLog = db.logs.some(l => 
+        Number(l.unit_id) === Number(unitId) && 
+        Number(l.criterion_id) === Number(critId) && 
+        l.is_rejected && 
+        (Date.now() - new Date(l.submitted_at || 0).getTime() < 45000)
+      );
+      if (!hasRecentRejLog) {
+        db.logs.unshift({
+          id: (db.logs[0] ? db.logs[0].id : 0) + 1,
+          unit_id: unitId,
+          criterion_id: critId,
+          submitted_at: now,
+          submitted_date: (prevScore && prevScore.submitted_date) || todayISO(),
+          deadline: crit ? crit.deadline : '',
+          is_on_time: (prevScore && prevScore.is_on_time !== undefined) ? prevScore.is_on_time : 1,
+          is_rejected: true,
+          awarded_score: null,
+          report_content: (prevScore && prevScore.report_content) || '',
+          evidence_link: (prevScore && prevScore.evidence_link) || '',
+          files: (prevScore && prevScore.files) || [],
+          file_name: (prevScore && prevScore.file_name) || '',
+          file_path: (prevScore && prevScore.file_path) || '',
+          status_text: `Ban Thường vụ không duyệt: ${reason || 'Yêu cầu nộp lại'}`
+        });
+      }
+
+    }, `Admin rejected U${unitId} C${critId}`);
+
+    if (res.ok) {
+      closeModal();
+      if (window.broadcastLiveEvent) {
+        window.broadcastLiveEvent('PROOF_REJECTED', { unit_id: unitId, criterion_id: critId, reason: reason });
+      }
+      if (window.WebPushManager) {
+        window.WebPushManager.sendPushNotification({
+          title: '⚠️ Yêu cầu bổ sung minh chứng',
+          message: `Tiêu chí ${crit ? crit.col_label : ''}: ${reason || 'Chưa đạt yêu cầu, vui lòng nộp bổ sung'}`,
+          targetUnitId: unitId,
+          url: './'
+        });
+      }
+      showToast(`Đã từ chối bài nộp của ${unit ? unit.unit_name : 'đơn vị'} và gửi thông báo thành công!`, 'success');
+      renderApp();
+    } else {
+      showToast('Lỗi khi cập nhật lên đám mây!', 'error');
     }
-    showToast(`Đã từ chối bài nộp của ${unit ? unit.unit_name : 'đơn vị'} và gửi thông báo thành công!`, 'success');
-
-    renderApp();
-
-  } else {
-
-    showToast('Lỗi khi cập nhật lên đám mây!', 'error');
-
+  } finally {
+    window._isRejectingUnitSubmission = false;
   }
-
 };
 
 // CHỨC NĂNG NHÂN ĐÔI TIÊU CHÍ (Ảnh 3)
