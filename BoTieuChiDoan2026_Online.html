@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <!-- Tối ưu tốc độ mở trang cực hạn (0ms): Preload tài nguyên trọng yếu -->
-  <link rel="preload" href="./app.js?v=20261119_chat_1795431687471" as="script" />
-  <link rel="preload" href="./styles.css?v=20261119_chat_1795431687471" as="style" />
+  <link rel="preload" href="./app.js?v=20261119_chat_1795578783071" as="script" />
+  <link rel="preload" href="./styles.css?v=20261119_chat_1795578783071" as="style" />
   <title>Bộ tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh - Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí</title>
   
   <!-- PWA & Mobile Web App Meta Tags -->
@@ -7334,6 +7334,12 @@ const state = {
 
   writtenReports: [],
 
+  admin_docs: [],
+
+  incoming_docs: [],
+
+  adminDocsSubTab: 'outbound', // 'outbound' | 'incoming'
+
   activeTab: 'ranking',
 
   monthFilter: 0,
@@ -8941,6 +8947,7 @@ function ingestCloudDB(db) {
   if (window.initRealtimeLiveBridge) window.initRealtimeLiveBridge();
 
   state.admin_docs = db.admin_docs || [];
+  state.incoming_docs = Array.isArray(db.incoming_docs) ? db.incoming_docs : [];
 
   // Khử trùng lặp thông báo: loại bỏ hoàn toàn các thông báo bị nhân đôi do click nhanh hoặc gửi lặp
   const rawDbNotifs = Array.isArray(db.notifications) ? db.notifications : [];
@@ -9357,6 +9364,7 @@ window.syncFromCloudNow = async function (silent = false) {
       c: (db.criteria || []).map(x => [x.id, x.title, x.deadline, x.start_date, x.deadline_time, x.is_report]),
       s: (db.scores || []).length,
       d: (db.admin_docs || []).length,
+      inc_d: (db.incoming_docs || []).length,
       u: (db.units || []).length,
       n: (db.notifications || []).length,
       m: db.marquee_text || '',
@@ -9403,8 +9411,12 @@ window.syncFromCloudNow = async function (silent = false) {
         if (state.activeTab === 'admin_docs') {
           const docTitle = document.getElementById('admin-doc-title');
           const docNum = document.getElementById('admin-doc-number');
-          const hasFiles = window._adminDocChosenFiles && window._adminDocChosenFiles.length > 0;
-          const hasTyped = (docTitle && docTitle.value.trim() !== '') || (docNum && docNum.value.trim() !== '');
+          const incTitle = document.getElementById('inc-doc-title');
+          const incNum = document.getElementById('inc-doc-number');
+          const incUnit = document.getElementById('inc-doc-issuing-unit');
+          const hasFiles = (window._adminDocChosenFiles && window._adminDocChosenFiles.length > 0) || (window._incDocChosenFiles && window._incDocChosenFiles.length > 0);
+          const hasTyped = (docTitle && docTitle.value.trim() !== '') || (docNum && docNum.value.trim() !== '') ||
+                           (incTitle && incTitle.value.trim() !== '') || (incNum && incNum.value.trim() !== '') || (incUnit && incUnit.value.trim() !== '');
           if (hasFiles || hasTyped) {
             return; // Đang trong quy trình soạn thảo/chọn tệp: KHÔNG làm mới cho đến khi đăng tải xong hoặc tắt/chuyển tab!
           }
@@ -22641,6 +22653,93 @@ window.renderAdminDocChosenFiles = function () {
   `;
 };
 
+/* =========================================================================
+   HỆ THỐNG VĂN BẢN ĐẾN (DÀNH RIÊNG QUẢN TRỊ VIÊN BAN THƯỜNG VỤ)
+   ========================================================================= */
+const INCOMING_DOC_TYPES = [
+  'Công văn',
+  'Kế hoạch',
+  'Hướng dẫn',
+  'Thông báo',
+  'Quyết định',
+  'Báo cáo',
+  'Tờ trình',
+  'Chỉ thị',
+  'Kết luận',
+  'Nghị quyết',
+  'Quy chế / Quy định',
+  'Giấy mời',
+  'Chương trình',
+  'Biên bản',
+  'Tài liệu khác'
+];
+
+window._incDocChosenFiles = window._incDocChosenFiles || [];
+window._incDocDraft = window._incDocDraft || {};
+
+window.onIncDocFilesChosen = function (fileList) {
+  if (!fileList || fileList.length === 0) return;
+  window._incDocChosenFiles = window._incDocChosenFiles || [];
+  for (let i = 0; i < fileList.length; i++) {
+    window._incDocChosenFiles.push(fileList[i]);
+  }
+  if (typeof window.renderIncDocChosenFiles === 'function') window.renderIncDocChosenFiles();
+};
+
+window.removeIncDocChosenFile = function (index) {
+  if (window._incDocChosenFiles && window._incDocChosenFiles[index]) {
+    window._incDocChosenFiles.splice(index, 1);
+    if (typeof window.renderIncDocChosenFiles === 'function') window.renderIncDocChosenFiles();
+  }
+};
+
+window.renderIncDocChosenFiles = function () {
+  const container = document.getElementById('inc-doc-chosen-files-container');
+  if (!container) return;
+  const files = window._incDocChosenFiles || [];
+  if (files.length === 0) {
+    container.innerHTML = `
+      <div style="font-size:12px; color:#94a3b8; font-style:italic; padding:6px 10px; background:#f8fafc; border-radius:6px; border:1px dashed #cbd5e1;">
+        Chưa có tệp đính kèm nào (không bắt buộc nếu chỉ vào sổ văn bản giấy).
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <div style="font-size:12px; font-weight:700; color:#0f172a; margin-bottom:4px;">
+      Đã chọn <b>${files.length}</b> tệp đính kèm / scan:
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:6px;">
+      ${files.map((f, idx) => {
+        const sizeStr = f.size > 1024 * 1024 ? (f.size / (1024 * 1024)).toFixed(1) + ' MB' : Math.round(f.size / 1024) + ' KB';
+        const fInfo = getFileIconAndBadge(f.name);
+        return `
+          <div style="display:inline-flex; align-items:center; gap:6px; background:#f0fdf4; border:1px solid #bbf7d0; padding:4px 9px; border-radius:6px; font-size:12px;">
+            <span style="font-size:14px;">${fInfo.icon}</span>
+            <span style="font-weight:700; color:#15803d; max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</span>
+            <span style="font-size:11px; color:#64748b;">(${sizeStr})</span>
+            <button type="button" onclick="removeIncDocChosenFile(${idx})" style="border:none; background:none; color:#ef4444; font-weight:700; cursor:pointer; padding:0 3px; font-size:13px; line-height:1;" title="Gỡ tệp này">✕</button>
+          </div>
+        `;
+      }).join('')}
+      <button type="button" class="btn btn-sm btn-outline" onclick="document.getElementById('inc-doc-file-input').click()" style="padding:3px 9px; font-size:11.5px; font-weight:700; color:#059669; border:1px dashed #059669; background:#fff; border-radius:6px; display:inline-flex; align-items:center; gap:4px; cursor:pointer;" title="Bấm để thêm tệp hoặc phụ lục scan khác">
+        ➕ Thêm tệp khác
+      </button>
+    </div>
+  `;
+};
+
+window.setAdminDocsSubTab = function (subTab) {
+  const isAdmin = state.user && state.user.role === 'admin';
+  if (!isAdmin && subTab === 'incoming') {
+    state.adminDocsSubTab = 'outbound';
+  } else {
+    state.adminDocsSubTab = subTab;
+  }
+  renderApp();
+};
+
 function renderAdminDocsTab() {
 
   const isAdmin = state.user && state.user.role === 'admin';
@@ -22680,29 +22779,295 @@ function renderAdminDocsTab() {
   });
 
   const docs = uniqueDocs;
+  const incomingDocs = (state.incoming_docs || []).slice();
+  incomingDocs.sort((a, b) => {
+    const dateA = a.arrival_date || a.doc_date || a.created_at || '1970-01-01';
+    const dateB = b.arrival_date || b.doc_date || b.created_at || '1970-01-01';
+    if (dateA !== dateB) return dateB.localeCompare(dateA);
+    return String(b.id || '').localeCompare(String(a.id || ''));
+  });
+
+  if (!isAdmin) {
+    state.adminDocsSubTab = 'outbound';
+  }
+  const isIncoming = isAdmin && state.adminDocsSubTab === 'incoming';
+
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
   const draft = window._adminDocDraft || {};
   const draftNum = draft.docNumber !== undefined ? draft.docNumber : '';
   const draftDate = draft.docDate || todayISO();
   const draftType = draft.docType || 'Hướng dẫn';
   const draftTitle = draft.title !== undefined ? draft.title : '';
-  setTimeout(() => { if (typeof window.renderAdminDocChosenFiles === 'function') window.renderAdminDocChosenFiles(); }, 50);
+
+  const draftInc = window._incDocDraft || {};
+  const draftIncArrivalDate = draftInc.arrivalDate || todayISO();
+  const draftIncNum = draftInc.docNumber !== undefined ? draftInc.docNumber : '';
+  const draftIncDate = draftInc.docDate || todayISO();
+  const draftIncType = draftInc.docType || 'Công văn';
+  const draftIncUnit = draftInc.issuingUnit !== undefined ? draftInc.issuingUnit : '';
+  const draftIncRecipient = draftInc.recipient !== undefined ? draftInc.recipient : '';
+  const draftIncTitle = draftInc.title !== undefined ? draftInc.title : '';
+
+  setTimeout(() => {
+    if (typeof window.renderAdminDocChosenFiles === 'function') window.renderAdminDocChosenFiles();
+    if (typeof window.renderIncDocChosenFiles === 'function') window.renderIncDocChosenFiles();
+  }, 50);
 
   return `
 
     <div class="panel admin-docs-panel" style="${isMobile ? 'display:flex; flex-direction:column; margin-bottom:14px; border-radius:8px; overflow:visible;' : 'display:flex; flex-direction:column; flex:1 1 auto; height:calc(100vh - 128px); min-height:520px; margin-bottom:2px; border-radius:8px; overflow:hidden;'}">
-      <div class="panel-header" style="flex-shrink:0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; background:linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color:#fff; border-radius:8px 8px 0 0; padding:10px 18px;">
+      <div class="panel-header" style="flex-shrink:0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; background:${isIncoming ? 'linear-gradient(135deg, #059669 0%, #047857 100%)' : 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)'}; color:#fff; border-radius:8px 8px 0 0; padding:10px 18px;">
         <div>
           <div class="panel-title" style="font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px;">
-            📂 HỆ THỐNG VĂN BẢN & CHỈ ĐẠO ĐOÀN CẤP TRÊN
+            ${isIncoming ? '📥 SỔ QUẢN LÝ VĂN BẢN ĐẾN (NỘI BỘ BTV & QUẢN TRỊ VIÊN)' : '📂 HỆ THỐNG VĂN BẢN & CHỈ ĐẠO ĐOÀN CẤP TRÊN'}
           </div>
           <div style="font-size:12px; opacity:0.9; margin-top:2px;">
-            Lưu trữ tập trung các Văn bản, Kế hoạch, Hướng dẫn, Thông báo chính thức trên Google Drive
+            ${isIncoming ? 'Tiếp nhận, vào sổ, theo dõi và lưu trữ văn bản đến từ các cấp, ngành, cơ quan, đơn vị' : 'Lưu trữ tập trung các Văn bản, Kế hoạch, Hướng dẫn, Thông báo chính thức trên Google Drive'}
           </div>
         </div>
       </div>
 
       <div class="panel-body" style="${isMobile ? 'padding:10px 12px; display:flex; flex-direction:column; overflow:visible;' : 'padding:12px 18px; display:flex; flex-direction:column; flex:1 1 auto; min-height:0; overflow-y:auto !important;'}">
+        
+        ${isAdmin ? `
+        <!-- Sub-Navigation chọn Văn bản đi / Văn bản đến dành cho Admin -->
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px; background:#f8fafc; padding:8px 12px; border-radius:8px; border:1px solid #e2e8f0; flex-shrink:0;">
+          <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <button type="button" class="btn ${!isIncoming ? 'btn-primary' : 'btn-outline'}" onclick="setAdminDocsSubTab('outbound')" style="font-weight:700; padding:8px 16px; font-size:13px; border-radius:7px; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+              <span>📤 Văn Bản Đi / Chỉ Đạo</span>
+              <span class="badge" style="background:${!isIncoming ? 'rgba(255,255,255,0.25)' : '#0284c7'}; color:#fff; border-radius:12px; padding:2px 8px; font-size:11px;">${docs.length}</span>
+            </button>
+            <button type="button" class="btn ${isIncoming ? 'btn-primary' : 'btn-outline'}" onclick="setAdminDocsSubTab('incoming')" style="font-weight:700; padding:8px 16px; font-size:13px; border-radius:7px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; ${isIncoming ? 'background:#059669; border-color:#059669;' : 'color:#059669; border-color:#a7f3d0; background:#f0fdf4;'}">
+              <span>📥 Sổ Quản Lý Văn Bản Đến</span>
+              <span style="font-size:11px; background:#fef3c7; color:#92400e; padding:1px 6px; border-radius:10px; font-weight:800; border:1px solid #fde68a;">🔒 Chỉ Admin</span>
+              <span class="badge" style="background:${isIncoming ? 'rgba(255,255,255,0.25)' : '#059669'}; color:#fff; border-radius:12px; padding:2px 8px; font-size:11px;">${incomingDocs.length}</span>
+            </button>
+          </div>
+          <div style="font-size:12px; color:#64748b; font-weight:600; display:flex; align-items:center; gap:6px;">
+            ${isIncoming ? '<span style="color:#059669; font-weight:700;">🛡️ Bảo mật: Dữ liệu văn bản đến chỉ dành riêng cho Admin (cơ sở Đoàn & khách không xem được)</span>' : '<span style="color:#0284c7;">🌐 Văn bản đi được công khai cho tất cả cơ sở Đoàn tra cứu & thực hiện</span>'}
+          </div>
+        </div>
+        ` : ''}
+
+        ${isIncoming ? `
+        <!-- KHỐI QUẢN LÝ VĂN BẢN ĐẾN (DÀNH RIÊNG ADMIN) -->
+        <div style="background:#ffffff; border:1.5px solid #a7f3d0; border-radius:8px; padding:14px 18px; margin-bottom:14px; box-shadow:0 1px 4px rgba(0,0,0,0.04); flex-shrink:0;">
+          <div style="font-weight:800; font-size:14px; color:#065f46; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="font-size:16px;">📥</span> Tiếp Nhận & Vào Sổ Văn Bản Đến Mới
+            </div>
+            <span style="font-size:11.5px; font-weight:600; color:#059669; background:#ecfdf5; padding:3px 8px; border-radius:6px; border:1px solid #a7f3d0;">
+              🔒 Lưu trữ nội bộ BTV (Chỉ Admin)
+            </span>
+          </div>
+
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap:12px; margin-bottom:12px;">
+            <div>
+              <label style="font-size:12px; font-weight:700; color:#374151; display:block; margin-bottom:4px;">
+                1. Ngày tháng đến (*):
+              </label>
+              <input type="date" id="inc-doc-arrival-date" value="${escapeHtml(draftIncArrivalDate)}" oninput="window._incDocDraft=window._incDocDraft||{};window._incDocDraft.arrivalDate=this.value;" style="width:100%; padding:8px 10px; border:1.5px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; color:#065f46; background:#f0fdf4;" />
+            </div>
+
+            <div>
+              <label style="font-size:12px; font-weight:700; color:#374151; display:block; margin-bottom:4px;">
+                2. Số / Ký hiệu văn bản (*):
+              </label>
+              <input type="text" id="inc-doc-number" placeholder="VD: 125-CV/TĐTN, 45/UBND..." value="${escapeHtml(draftIncNum)}" oninput="window._incDocDraft=window._incDocDraft||{};window._incDocDraft.docNumber=this.value;" style="width:100%; padding:8px 10px; border:1.5px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:700; color:#0369a1;" />
+            </div>
+
+            <div>
+              <label style="font-size:12px; font-weight:700; color:#374151; display:block; margin-bottom:4px;">
+                3. Ngày tháng của văn bản (*):
+              </label>
+              <input type="date" id="inc-doc-date" value="${escapeHtml(draftIncDate)}" oninput="window._incDocDraft=window._incDocDraft||{};window._incDocDraft.docDate=this.value;" style="width:100%; padding:8px 10px; border:1.5px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; color:#374151;" />
+            </div>
+
+            <div>
+              <label style="font-size:12px; font-weight:700; color:#374151; display:block; margin-bottom:4px;">
+                4. Tên loại văn bản (*):
+              </label>
+              <select id="inc-doc-type" onchange="window._incDocDraft=window._incDocDraft||{};window._incDocDraft.docType=this.value;" style="width:100%; padding:8px 10px; border:1.5px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; color:#374151; background:#fff; cursor:pointer;">
+                ${INCOMING_DOC_TYPES.map(t => `<option value="${t}" ${draftIncType === t ? 'selected' : ''}>${t}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:12px; margin-bottom:12px;">
+            <div>
+              <label style="font-size:12px; font-weight:700; color:#374151; display:block; margin-bottom:4px;">
+                5. Đơn vị ban hành (*):
+              </label>
+              <input type="text" id="inc-doc-issuing-unit" placeholder="VD: Tỉnh Đoàn Quảng Trị, UBND Tỉnh, Ban Bí thư TW Đoàn, Sở Nội vụ..." value="${escapeHtml(draftIncUnit)}" oninput="window._incDocDraft=window._incDocDraft||{};window._incDocDraft.issuingUnit=this.value;" style="width:100%; padding:8px 10px; border:1.5px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; color:#0f172a;" />
+            </div>
+
+            <div>
+              <label style="font-size:12px; font-weight:700; color:#374151; display:block; margin-bottom:4px;">
+                Người nhận / Nơi nhận xử lý (tùy chọn):
+              </label>
+              <input type="text" id="inc-doc-recipient" placeholder="VD: Đ/c Bí thư, Ban Thường vụ, Ban Phong trào..." value="${escapeHtml(draftIncRecipient)}" oninput="window._incDocDraft=window._incDocDraft||{};window._incDocDraft.recipient=this.value;" style="width:100%; padding:8px 10px; border:1.5px solid #cbd5e1; border-radius:6px; font-size:13px;" />
+            </div>
+          </div>
+
+          <div style="margin-bottom:12px;">
+            <label style="font-size:12px; font-weight:700; color:#374151; display:block; margin-bottom:4px;">
+              6. Trích yếu nội dung văn bản (*):
+            </label>
+            <textarea id="inc-doc-title" rows="2" placeholder="Tóm tắt trích yếu nội dung chính của văn bản đến..." oninput="window._incDocDraft=window._incDocDraft||{};window._incDocDraft.title=this.value;" style="width:100%; padding:8px 10px; border:1.5px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:500; line-height:1.45; resize:vertical;">${escapeHtml(draftIncTitle)}</textarea>
+          </div>
+
+          <div style="margin-bottom:12px;">
+            <label style="font-size:12px; font-weight:700; color:#374151; display:block; margin-bottom:6px;">
+              Tệp văn bản đính kèm / File scan (tùy chọn):
+            </label>
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
+              <input type="file" id="inc-doc-file-input" multiple style="display:none;" onchange="onIncDocFilesChosen(this.files)" />
+              <button type="button" class="btn btn-outline" onclick="document.getElementById('inc-doc-file-input').click()" style="padding:7px 14px; font-size:12.5px; font-weight:700; color:#059669; border:1.5px dashed #059669; background:#f0fdf4; border-radius:6px; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" title="Bấm để đính kèm tệp scan / văn bản PDF, Word, Ảnh">
+                <span style="font-size:16px; font-weight:900;">➕</span> Đính kèm tệp văn bản / scan
+              </button>
+              <span style="font-size:11.5px; color:#64748b;">(Hỗ trợ PDF, Word, Excel, Ảnh scan... Có thể đính kèm nhiều tệp)</span>
+            </div>
+            <div id="inc-doc-chosen-files-container"></div>
+          </div>
+
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; border-top:1px dashed #e2e8f0; padding-top:10px;">
+            <div style="font-size:11.5px; color:#64748b;">
+              💡 Dữ liệu được đồng bộ và lưu trữ bảo mật trên đám mây, chỉ tài khoản Admin mới có quyền truy cập.
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button class="btn" id="btn-save-inc-doc" onclick="saveIncomingDoc()" style="font-weight:700; padding:9px 20px; display:inline-flex; align-items:center; gap:6px; background:#059669; color:#fff; border-color:#059669; border-radius:6px; cursor:pointer;">
+                💾 Lưu Vào Sổ Văn Bản Đến
+              </button>
+              <button type="button" class="btn btn-outline" onclick="window._incDocDraft={};window._incDocChosenFiles=[];if(typeof window.renderIncDocChosenFiles==='function')window.renderIncDocChosenFiles();renderApp();" style="font-weight:700; padding:9px 16px; color:#64748b; border-color:#cbd5e1; border-radius:6px;" title="Xóa nội dung đang soạn và tệp đã chọn">
+                🔄 Đặt lại form
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- THANH CÔNG CỤ TÌM KIẾM, LỌC & XUẤT EXCEL CHO VĂN BẢN ĐẾN -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+          <div style="font-weight:800; font-size:15px; color:#065f46; display:flex; align-items:center; gap:8px;">
+            <span>📋 Sổ Theo Dõi Văn Bản Đến</span>
+            <span style="font-size:12px; background:#ecfdf5; color:#059669; padding:2px 8px; border-radius:12px; border:1px solid #a7f3d0; font-weight:700;">
+              <span id="inc-docs-count">${incomingDocs.length}</span> văn bản
+            </span>
+          </div>
+
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <select id="inc-doc-type-filter" onchange="filterIncomingDocs()" style="padding:6px 10px; font-size:13px; font-weight:600; border:1.5px solid #cbd5e1; border-radius:6px; background:#fff; color:#334155; cursor:pointer;">
+              <option value="">📁 Tất cả loại văn bản</option>
+              ${INCOMING_DOC_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}
+            </select>
+
+            <input type="text" id="inc-doc-search" oninput="filterIncomingDocs()" placeholder="🔍 Tìm số ký hiệu, trích yếu, đơn vị ban hành..." style="padding:6px 12px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:6px; width:260px;" />
+
+            <button type="button" class="btn btn-sm btn-success" onclick="exportIncomingDocsToExcel()" style="padding:6px 12px; font-size:12.5px; font-weight:700; background:#10b981; border-color:#059669; color:#fff; display:inline-flex; align-items:center; gap:5px; border-radius:6px; cursor:pointer;" title="Xuất sổ theo dõi văn bản đến ra file Excel">
+              📊 Xuất Excel Sổ Văn Bản Đến
+            </button>
+          </div>
+        </div>
+
+        <!-- BẢNG DỮ LIỆU SỔ VĂN BẢN ĐẾN -->
+        <div class="table-container inc-docs-table-container" style="background:#fff; border-radius:8px; border:1.5px solid #cbd5e1; overflow-x:auto !important; ${isMobile ? 'overflow-y:visible !important; height:auto !important; margin-bottom:24px;' : 'overflow-y:auto !important; flex:1 1 auto; min-height:260px;'} box-shadow:0 1px 3px rgba(0,0,0,0.05); -webkit-overflow-scrolling:touch;">
+          <table class="table" id="inc-docs-table" style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead style="position:sticky; top:0; z-index:15; background:#f0fdf4; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+              <tr style="background:#f0fdf4; border-bottom:2px solid #86efac;">
+                <th style="width:45px; text-align:center; color:#065f46;">STT</th>
+                <th style="width:100px; text-align:center; color:#065f46;">Ngày đến</th>
+                <th style="width:125px; color:#065f46;">Số / Ký hiệu</th>
+                <th style="width:100px; text-align:center; color:#065f46;">Ngày văn bản</th>
+                <th style="width:180px; text-align:left; color:#065f46;">Đơn vị ban hành</th>
+                <th style="width:110px; text-align:center; color:#065f46;">Tên loại</th>
+                <th style="min-width:300px; text-align:left; color:#065f46;">Trích yếu nội dung văn bản</th>
+                <th style="width:180px; text-align:left; color:#065f46;">Tệp đính kèm</th>
+                <th style="width:120px; text-align:center; color:#065f46;">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${incomingDocs.length === 0 ? `
+                <tr>
+                  <td colspan="9" style="text-align:center; padding:35px 20px; color:#94a3b8; font-style:italic;">
+                    <div style="font-size:32px; margin-bottom:8px;">📥</div>
+                    Chưa có văn bản đến nào được ghi vào sổ. Vui lòng nhập thông tin vào biểu mẫu ở trên để vào sổ văn bản đến mới.
+                  </td>
+                </tr>
+              ` : incomingDocs.map((d, idx) => {
+                const fileList = (d.files && Array.isArray(d.files) && d.files.length > 0)
+                  ? d.files
+                  : (d.file_name ? [{ name: d.file_name, url: d.file_url || '', download_url: d.download_url || '' }] : []);
+
+                return `
+                <tr style="border-bottom:1px solid #f1f5f9;" class="inc-doc-row">
+                  <td style="text-align:center; font-weight:700; color:#64748b;">${idx + 1}</td>
+                  <td style="text-align:center; font-weight:700; color:#059669; white-space:nowrap;">
+                    ${formatDateVN(d.arrival_date || todayISO())}
+                  </td>
+                  <td style="font-weight:700; color:#0369a1;" class="inc-doc-num-cell">
+                    ${escapeHtml(d.doc_number || '-')}
+                  </td>
+                  <td style="text-align:center; color:#475569; white-space:nowrap;">
+                    ${formatDateVN(d.doc_date || todayISO())}
+                  </td>
+                  <td style="font-weight:700; color:#0f172a; line-height:1.4;" class="inc-doc-unit-cell">
+                    🏢 ${escapeHtml(d.issuing_unit || '-')}
+                  </td>
+                  <td style="text-align:center;" class="inc-doc-type-cell">
+                    <span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-weight:700; padding:3px 8px; border-radius:12px; font-size:11.5px;">
+                      ${escapeHtml(d.doc_type || 'Công văn')}
+                    </span>
+                  </td>
+                  <td style="line-height:1.45; word-break:break-word;" class="inc-doc-title-cell">
+                    <div style="font-weight:600; color:#0f172a;">${escapeHtml(d.title || '-')}</div>
+                    ${d.recipient ? `<div style="font-size:11.5px; color:#475569; margin-top:3px;">👤 <b>Người/Nơi nhận:</b> ${escapeHtml(d.recipient)}</div>` : ''}
+                    ${d.notes ? `<div style="font-size:11.5px; color:#059669; margin-top:2px;">📝 <b>Ý kiến chỉ đạo:</b> ${escapeHtml(d.notes)}</div>` : ''}
+                  </td>
+                  <td style="text-align:left; padding:8px 10px;">
+                    ${fileList.length === 0 ? `
+                      <span style="font-size:11.5px; color:#94a3b8; font-style:italic;">Không đính kèm tệp</span>
+                    ` : fileList.map(f => {
+                      const fInfo = getFileIconAndBadge(f.name);
+                      const fileHref = f.url || '#';
+                      return `
+                        <div style="margin-bottom:4px; display:inline-flex; align-items:center; background:#f8fafc; padding:3px 8px; border-radius:5px; border:1px solid #e2e8f0; max-width:100%; box-sizing:border-box;">
+                          ${f.url ? `
+                            <a href="${escapeHtml(fileHref)}" target="_blank" style="font-weight:700; color:#0284c7; text-decoration:none; display:inline-flex; align-items:center; gap:5px; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:160px;" title="${escapeHtml(f.name)} (Bấm để xem)">
+                              <span style="font-size:13px; flex-shrink:0;">${fInfo.icon}</span>
+                              <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(f.name)}</span>
+                            </a>
+                          ` : `
+                            <span style="font-weight:700; color:#475569; display:inline-flex; align-items:center; gap:5px; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:160px;">
+                              <span style="font-size:13px; flex-shrink:0;">${fInfo.icon}</span>
+                              <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(f.name)}</span>
+                            </span>
+                          `}
+                        </div>
+                      `;
+                    }).join('')}
+                  </td>
+                  <td style="text-align:center; white-space:nowrap; padding:8px 8px;">
+                    <div style="display:inline-flex; align-items:center; justify-content:center; gap:5px;">
+                      ${fileList[0] && fileList[0].url ? `
+                        <a href="${escapeHtml(fileList[0].url)}" target="_blank" class="btn btn-sm btn-outline" style="padding:4px 8px; font-size:11.5px; font-weight:700; color:#0284c7; text-decoration:none; display:inline-flex; align-items:center;" title="Xem tệp văn bản">
+                          👁️
+                        </a>
+                      ` : ''}
+                      <button class="btn btn-sm btn-outline" onclick="openEditIncomingDocModal('${d.id}')" style="padding:4px 8px; font-size:11.5px; display:inline-flex; align-items:center; color:#059669; border-color:#a7f3d0;" title="Chỉnh sửa thông tin văn bản đến">
+                        ✏️
+                      </button>
+                      <button class="btn btn-sm btn-danger" onclick="deleteIncomingDoc('${d.id}')" style="padding:4px 8px; font-size:11.5px; display:inline-flex; align-items:center;" title="Xóa văn bản đến này khỏi sổ">
+                        🗑️
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+        ` : `
+        <!-- KHỐI QUẢN LÝ VĂN BẢN ĐI & CHỈ ĐẠO CẤP TRÊN (MẶC ĐỊNH) -->
         ${isAdmin ? `
         <!-- Form tải lên tài liệu mới dành cho Admin -->
         <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:12px 16px; margin-bottom:14px; box-shadow:0 1px 4px rgba(0,0,0,0.04); flex-shrink:0;">
@@ -22967,6 +23332,7 @@ function renderAdminDocsTab() {
           </table>
 
         </div>
+        `}
 
       </div>
 
@@ -23747,6 +24113,505 @@ window.saveEditAdminDoc = async function (docId) {
 
 window.renameAdminDocument = function (docId) {
   openEditAdminDocModal(docId);
+};
+
+/* =========================================================================
+   XỬ LÝ NGHIỆP VỤ SỔ VĂN BẢN ĐẾN (ADMIN LƯU TRỮ, CHỈNH SỬA, XÓA, XUẤT EXCEL)
+   ========================================================================= */
+
+window.saveIncomingDoc = async function () {
+  const arrivalInput = document.getElementById('inc-doc-arrival-date');
+  const numInput = document.getElementById('inc-doc-number');
+  const dateInput = document.getElementById('inc-doc-date');
+  const typeSelect = document.getElementById('inc-doc-type');
+  const unitInput = document.getElementById('inc-doc-issuing-unit');
+  const recipInput = document.getElementById('inc-doc-recipient');
+  const titleInput = document.getElementById('inc-doc-title');
+  const btn = document.getElementById('btn-save-inc-doc');
+
+  const title = (titleInput ? titleInput.value : '').trim();
+  const docNumber = (numInput ? numInput.value : '').trim();
+  const arrivalDate = (arrivalInput ? arrivalInput.value : '') || todayISO();
+  const docDate = (dateInput ? dateInput.value : '') || todayISO();
+  const docType = typeSelect ? typeSelect.value : 'Công văn';
+  const issuingUnit = (unitInput ? unitInput.value : '').trim();
+  const recipient = (recipInput ? recipInput.value : '').trim();
+
+  if (!docNumber) {
+    showToast('Vui lòng nhập số / ký hiệu văn bản đến!', 'error');
+    if (numInput) numInput.focus();
+    return;
+  }
+  if (!issuingUnit) {
+    showToast('Vui lòng nhập đơn vị ban hành văn bản!', 'error');
+    if (unitInput) unitInput.focus();
+    return;
+  }
+  if (!title) {
+    showToast('Vui lòng nhập trích yếu nội dung văn bản đến!', 'error');
+    if (titleInput) titleInput.focus();
+    return;
+  }
+
+  const files = window._incDocChosenFiles || [];
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '⏳ Đang lưu vào sổ...';
+  }
+
+  try {
+    const uploadedFileList = [];
+    if (files.length > 0) {
+      if (typeof showUploadProgressModal === 'function') {
+        showUploadProgressModal('Đang Tải Tệp Văn Bản Đến Lên Google Drive');
+      }
+      const gdriveUrl = getGoogleDriveScriptUrl();
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileLabel = `Tệp ${i + 1} / ${files.length}`;
+        if (typeof updateUploadProgress === 'function') {
+          updateUploadProgress({
+            percent: Math.round((i / files.length) * 100) + 5,
+            fileName: file.name,
+            fileIndex: fileLabel,
+            loaded: 0,
+            total: file.size,
+            statusText: `Đang chuẩn bị tệp (${fileLabel})...`
+          });
+        }
+
+        const b64 = await readFileAsDataURL(file);
+        let fileUrl = ADMIN_DOCS_GDRIVE_URL;
+
+        if (gdriveUrl) {
+          try {
+            const payload = {
+              action: 'admin_upload_doc',
+              isAdminDoc: true,
+              fileName: file.name,
+              docTitle: title,
+              docNumber: docNumber,
+              fileData: b64,
+              folderId: '1bjnzwoNFB-YBmN9wvhuH_qQRNYITWEcS'
+            };
+            let json = null;
+            try {
+              const resDoc = await fetch(gdriveUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(payload)
+              });
+              json = await resDoc.json();
+            } catch (fErr) {
+              json = await uploadWithXHR(gdriveUrl, payload, (pct, loaded, total) => {
+                const mapped = Math.round(((i + (pct / 100)) / files.length) * 90) + 5;
+                if (typeof updateUploadProgress === 'function') {
+                  updateUploadProgress({
+                    percent: mapped,
+                    fileName: file.name,
+                    fileIndex: fileLabel,
+                    loaded: loaded,
+                    total: total,
+                    statusText: `Đang tải lên Google Drive (${fileLabel})...`
+                  });
+                }
+              });
+            }
+            if (json && json.fileUrl) {
+              fileUrl = json.fileUrl;
+            }
+          } catch (e) {
+            console.warn('Incoming doc upload drive notice:', e);
+          }
+        }
+
+        let downloadUrl = '';
+        if (fileUrl && fileUrl.includes('/file/d/')) {
+          const m = fileUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+          if (m) downloadUrl = 'https://drive.google.com/uc?export=download&id=' + m[1];
+        }
+
+        uploadedFileList.push({
+          name: file.name,
+          url: fileUrl,
+          download_url: downloadUrl,
+          size: file.size
+        });
+      }
+
+      if (typeof updateUploadProgress === 'function') {
+        updateUploadProgress({
+          percent: 98,
+          fileName: files[0].name,
+          fileIndex: `Hoàn tất ${files.length} tệp`,
+          loaded: 100,
+          total: 100,
+          statusText: 'Đang lưu vào sổ văn bản đến...'
+        });
+      }
+    }
+
+    const incDocId = 'inc_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+    const primaryFile = uploadedFileList[0] || {};
+    const newIncDoc = {
+      id: incDocId,
+      arrival_date: arrivalDate,
+      doc_number: docNumber,
+      doc_date: docDate,
+      doc_type: docType,
+      issuing_unit: issuingUnit,
+      recipient: recipient,
+      title: title,
+      notes: '',
+      files: uploadedFileList,
+      file_name: files.length === 1 ? primaryFile.name : (files.length > 1 ? `${files.length} tệp đính kèm (${uploadedFileList.map(f => f.name).join(', ')})` : ''),
+      file_url: primaryFile.url || '',
+      download_url: primaryFile.download_url || '',
+      created_at: nowISO(),
+      created_by: 'admin'
+    };
+
+    const resDb = await mutateCloudDB((db) => {
+      db.incoming_docs = db.incoming_docs || [];
+      db.incoming_docs = db.incoming_docs.filter(d => d.id !== incDocId);
+      db.incoming_docs.unshift(newIncDoc);
+    }, `Admin add incoming doc ${docNumber} - ${title}`);
+
+    if (files.length > 0 && typeof hideUploadProgressModal === 'function') {
+      hideUploadProgressModal();
+    }
+
+    if (resDb.ok) {
+      window._incDocChosenFiles = [];
+      window._incDocDraft = {};
+      showToast(`✅ Đã vào sổ văn bản đến: ${docNumber} thành công!`, 'success');
+      renderApp();
+    } else {
+      showToast('Lỗi khi lưu vào sổ văn bản đến, vui lòng thử lại!', 'error');
+    }
+  } catch (err) {
+    console.error('Error saving incoming doc:', err);
+    if (typeof hideUploadProgressModal === 'function') hideUploadProgressModal();
+    showToast('Lỗi: ' + (err.message || 'Không thể lưu văn bản đến'), 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '💾 Lưu Vào Sổ Văn Bản Đến';
+    }
+  }
+};
+
+window.deleteIncomingDoc = async function (docId) {
+  const doc = (state.incoming_docs || []).find(d => String(d.id) === String(docId));
+  const docName = doc ? (doc.doc_number + ' - ' + (doc.title || '')) : 'văn bản này';
+  if (!confirm(`Bạn có chắc chắn muốn xóa văn bản đến:\n"${docName}"\nkhỏi sổ theo dõi không?`)) {
+    return;
+  }
+  showToast('Đang xóa văn bản đến...', 'info');
+  const res = await mutateCloudDB((db) => {
+    db.incoming_docs = (db.incoming_docs || []).filter(d => String(d.id) !== String(docId));
+  }, 'Admin delete incoming doc ' + docId);
+  if (res.ok) {
+    state.incoming_docs = (state.incoming_docs || []).filter(d => String(d.id) !== String(docId));
+    showToast('✅ Đã xóa văn bản đến thành công!', 'success');
+    renderApp();
+  } else {
+    showToast('Lỗi khi xóa văn bản đến, vui lòng thử lại!', 'error');
+  }
+};
+
+window.openEditIncomingDocModal = function (docId) {
+  const isAdmin = state.user && state.user.role === 'admin';
+  if (!isAdmin) {
+    showToast('Chỉ Quản trị viên mới có quyền chỉnh sửa văn bản đến!', 'warning');
+    return;
+  }
+  const doc = (state.incoming_docs || []).find((d) => String(d.id) === String(docId));
+  if (!doc) {
+    showToast('Không tìm thấy văn bản đến cần sửa!', 'error');
+    return;
+  }
+
+  const arrivalDate = doc.arrival_date || todayISO();
+  const docNumber = doc.doc_number || '';
+  const docDate = doc.doc_date || todayISO();
+  const docType = doc.doc_type || 'Công văn';
+  const issuingUnit = doc.issuing_unit || '';
+  const recipient = doc.recipient || '';
+  const title = doc.title || '';
+  const notes = doc.notes || '';
+
+  const modalRoot = document.getElementById('modal-root');
+  if (!modalRoot) return;
+
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal()" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(15,23,42,0.6); z-index:9999; display:flex; align-items:center; justify-content:center; padding:16px;">
+      <div class="modal-content" style="background:#fff; border-radius:12px; width:100%; max-width:620px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); overflow:hidden; border:1px solid #cbd5e1; animation:modalPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);">
+        
+        <div style="background:linear-gradient(135deg, #059669 0%, #047857 100%); color:#fff; padding:14px 20px; display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-weight:800; font-size:15px; display:flex; align-items:center; gap:8px;">
+            <span>✏️ Chỉnh Sửa Thông Tin Văn Bản Đến</span>
+          </div>
+          <button type="button" onclick="closeModal()" style="background:none; border:none; color:#fff; font-size:20px; font-weight:700; cursor:pointer; line-height:1; opacity:0.85;" title="Đóng modal">✕</button>
+        </div>
+
+        <div style="padding:18px 22px; max-height:calc(85vh - 70px); overflow-y:auto;">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:#374151; margin-bottom:4px;">
+                Ngày tháng đến (*):
+              </label>
+              <input type="date" id="edit-inc-arrival-date" value="${escapeHtml(arrivalDate)}" style="width:100%; padding:8px 10px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:6px; font-weight:600; color:#065f46; background:#f0fdf4;" />
+            </div>
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:#374151; margin-bottom:4px;">
+                Số / Ký hiệu văn bản (*):
+              </label>
+              <input type="text" id="edit-inc-doc-number" value="${escapeHtml(docNumber)}" placeholder="VD: 125-CV/TĐTN..." style="width:100%; padding:8px 10px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:6px; font-weight:700; color:#0369a1;" />
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:#374151; margin-bottom:4px;">
+                Ngày văn bản ban hành (*):
+              </label>
+              <input type="date" id="edit-inc-doc-date" value="${escapeHtml(docDate)}" style="width:100%; padding:8px 10px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:6px; font-weight:600;" />
+            </div>
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:#374151; margin-bottom:4px;">
+                Tên loại văn bản (*):
+              </label>
+              <select id="edit-inc-doc-type" style="width:100%; padding:8px 10px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:6px; font-weight:600; background:#fff; cursor:pointer;">
+                ${INCOMING_DOC_TYPES.map(t => `<option value="${t}" ${t === docType ? 'selected' : ''}>${t}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:#374151; margin-bottom:4px;">
+                Đơn vị ban hành (*):
+              </label>
+              <input type="text" id="edit-inc-issuing-unit" value="${escapeHtml(issuingUnit)}" placeholder="VD: Tỉnh Đoàn, UBND Tỉnh..." style="width:100%; padding:8px 10px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:6px; font-weight:600; color:#0f172a;" />
+            </div>
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:#374151; margin-bottom:4px;">
+                Người nhận / Nơi nhận xử lý:
+              </label>
+              <input type="text" id="edit-inc-recipient" value="${escapeHtml(recipient)}" placeholder="VD: Đ/c Bí thư, Ban Phong trào..." style="width:100%; padding:8px 10px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:6px;" />
+            </div>
+          </div>
+
+          <div style="margin-bottom:12px;">
+            <label style="display:block; font-size:12px; font-weight:700; color:#374151; margin-bottom:4px;">
+              Trích yếu nội dung văn bản (*):
+            </label>
+            <textarea id="edit-inc-title" rows="3" placeholder="Nhập trích yếu tóm tắt nội dung văn bản đến..." style="width:100%; padding:8px 10px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:6px; font-weight:500; line-height:1.45; resize:vertical;">${escapeHtml(title)}</textarea>
+          </div>
+
+          <div style="margin-bottom:12px;">
+            <label style="display:block; font-size:12px; font-weight:700; color:#374151; margin-bottom:4px;">
+              Ý kiến chỉ đạo / Ghi chú xử lý:
+            </label>
+            <input type="text" id="edit-inc-notes" value="${escapeHtml(notes)}" placeholder="VD: Giao Ban Phong trào tham mưu thực hiện trước ngày 15/12..." style="width:100%; padding:8px 10px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:6px; color:#059669; font-weight:600;" />
+          </div>
+
+          <div style="margin-top:16px; padding-top:12px; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end; gap:8px;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal()" style="font-weight:600; padding:7px 16px;">
+              Hủy bỏ
+            </button>
+            <button type="button" class="btn btn-sm" onclick="saveEditIncomingDoc('${escapeHtml(String(doc.id))}')" style="background:#059669; border-color:#047857; color:#fff; font-weight:700; padding:7px 18px; display:inline-flex; align-items:center; gap:5px; border-radius:6px; cursor:pointer;">
+              💾 Lưu Cập Nhật
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  `;
+};
+
+window.saveEditIncomingDoc = async function (docId) {
+  const arrivalInput = document.getElementById('edit-inc-arrival-date');
+  const numInput = document.getElementById('edit-inc-doc-number');
+  const dateInput = document.getElementById('edit-inc-doc-date');
+  const typeSelect = document.getElementById('edit-inc-doc-type');
+  const unitInput = document.getElementById('edit-inc-issuing-unit');
+  const recipInput = document.getElementById('edit-inc-recipient');
+  const titleInput = document.getElementById('edit-inc-title');
+  const notesInput = document.getElementById('edit-inc-notes');
+
+  const newTitle = titleInput ? titleInput.value.trim() : '';
+  const newNum = numInput ? numInput.value.trim() : '';
+  const newUnit = unitInput ? unitInput.value.trim() : '';
+
+  if (!newTitle) {
+    showToast('Vui lòng nhập trích yếu nội dung văn bản!', 'warning');
+    if (titleInput) titleInput.focus();
+    return;
+  }
+  if (!newNum) {
+    showToast('Vui lòng nhập số / ký hiệu văn bản!', 'warning');
+    if (numInput) numInput.focus();
+    return;
+  }
+  if (!newUnit) {
+    showToast('Vui lòng nhập đơn vị ban hành văn bản!', 'warning');
+    if (unitInput) unitInput.focus();
+    return;
+  }
+
+  const newArrival = arrivalInput ? arrivalInput.value.trim() : todayISO();
+  const newDate = dateInput ? dateInput.value.trim() : todayISO();
+  const newType = typeSelect ? typeSelect.value.trim() : 'Công văn';
+  const newRecip = recipInput ? recipInput.value.trim() : '';
+  const newNotes = notesInput ? notesInput.value.trim() : '';
+
+  showToast('Đang lưu thay đổi thông tin văn bản đến...', 'info');
+  if (typeof closeModal === 'function') closeModal();
+
+  const res = await mutateCloudDB((db) => {
+    db.incoming_docs = db.incoming_docs || [];
+    const d = db.incoming_docs.find(x => String(x.id) === String(docId));
+    if (d) {
+      d.arrival_date = newArrival;
+      d.doc_number = newNum;
+      d.doc_date = newDate;
+      d.doc_type = newType;
+      d.issuing_unit = newUnit;
+      d.recipient = newRecip;
+      d.title = newTitle;
+      d.notes = newNotes;
+      d.updated_at = nowISO();
+    }
+  }, `Admin edit incoming doc ${docId}: ${newNum} - ${newTitle}`);
+
+  if (res.ok) {
+    if (state.incoming_docs) {
+      const curDoc = state.incoming_docs.find(x => String(x.id) === String(docId));
+      if (curDoc) {
+        curDoc.arrival_date = newArrival;
+        curDoc.doc_number = newNum;
+        curDoc.doc_date = newDate;
+        curDoc.doc_type = newType;
+        curDoc.issuing_unit = newUnit;
+        curDoc.recipient = newRecip;
+        curDoc.title = newTitle;
+        curDoc.notes = newNotes;
+        curDoc.updated_at = nowISO();
+      }
+    }
+    showToast('✅ Đã cập nhật văn bản đến thành công!', 'success');
+    renderApp();
+  } else {
+    showToast('Lỗi khi cập nhật văn bản đến lên máy chủ!', 'error');
+  }
+};
+
+window.filterIncomingDocs = function () {
+  const typeFilter = (document.getElementById('inc-doc-type-filter') ? document.getElementById('inc-doc-type-filter').value.toLowerCase().trim() : '');
+  const search = (document.getElementById('inc-doc-search') ? document.getElementById('inc-doc-search').value.toLowerCase().trim() : '');
+  const rows = document.querySelectorAll('#inc-docs-table .inc-doc-row');
+  let visibleCount = 0;
+
+  rows.forEach((row) => {
+    const rowType = (row.querySelector('.inc-doc-type-cell') ? row.querySelector('.inc-doc-type-cell').textContent.toLowerCase().trim() : '');
+    const rowNum = (row.querySelector('.inc-doc-num-cell') ? row.querySelector('.inc-doc-num-cell').textContent.toLowerCase().trim() : '');
+    const rowTitle = (row.querySelector('.inc-doc-title-cell') ? row.querySelector('.inc-doc-title-cell').textContent.toLowerCase().trim() : '');
+    const rowUnit = (row.querySelector('.inc-doc-unit-cell') ? row.querySelector('.inc-doc-unit-cell').textContent.toLowerCase().trim() : '');
+
+    const matchType = !typeFilter || rowType.includes(typeFilter);
+    const matchSearch = !search || rowNum.includes(search) || rowTitle.includes(search) || rowUnit.includes(search);
+
+    if (matchType && matchSearch) {
+      row.style.display = '';
+      visibleCount++;
+    } else {
+      row.style.display = 'none';
+    }
+  });
+
+  const countEl = document.getElementById('inc-docs-count');
+  if (countEl) countEl.textContent = visibleCount;
+};
+
+window.exportIncomingDocsToExcel = function () {
+  const isAdmin = state.user && state.user.role === 'admin';
+  if (!isAdmin) {
+    showToast('Chỉ Quản trị viên mới có quyền xuất Sổ Văn Bản Đến!', 'warning');
+    return;
+  }
+  const incDocs = (state.incoming_docs || []).slice();
+  incDocs.sort((a, b) => {
+    const dateA = a.arrival_date || a.doc_date || a.created_at || '1970-01-01';
+    const dateB = b.arrival_date || b.doc_date || b.created_at || '1970-01-01';
+    if (dateA !== dateB) return dateB.localeCompare(dateA);
+    return String(b.id || '').localeCompare(String(a.id || ''));
+  });
+
+  const timeNow = (typeof formatDateTimeVN === 'function') ? formatDateTimeVN(new Date()) : new Date().toLocaleString('vi-VN');
+
+  const rows = [
+    ['SỔ THEO DÕI VĂN BẢN ĐẾN - BAN THƯỜNG VỤ ĐOÀN'],
+    ['Đơn vị: Ban Thường vụ Đoàn'],
+    ['Thời điểm xuất sổ: ' + timeNow],
+    ['Tổng số văn bản đến đã vào sổ: ' + incDocs.length],
+    [],
+    ['STT', 'Ngày đến', 'Số / Ký hiệu văn bản', 'Ngày ban hành', 'Tên loại văn bản', 'Đơn vị ban hành', 'Trích yếu nội dung văn bản', 'Người nhận / Nơi nhận xử lý', 'Tệp đính kèm / Lưu trữ', 'Ý kiến chỉ đạo / Ghi chú']
+  ];
+
+  incDocs.forEach((d, i) => {
+    const fileNames = (d.files && Array.isArray(d.files) && d.files.length > 0)
+      ? d.files.map(f => f.name).join(', ')
+      : (d.file_name || 'Không đính kèm tệp');
+    rows.push([
+      i + 1,
+      formatDateVN(d.arrival_date || ''),
+      d.doc_number || '',
+      formatDateVN(d.doc_date || ''),
+      d.doc_type || '',
+      d.issuing_unit || '',
+      d.title || '',
+      d.recipient || '',
+      fileNames,
+      d.notes || ''
+    ]);
+  });
+
+  if (typeof XLSX !== 'undefined') {
+    try {
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'So_Van_Ban_Den');
+      XLSX.writeFile(wb, `So_Theo_Doi_Van_Ban_Den_${Date.now()}.xlsx`);
+      showToast('✅ Đã xuất Sổ Văn Bản Đến ra file Excel thành công!', 'success');
+      return;
+    } catch (e) {
+      console.warn('[Excel] SheetJS export error, falling back to CSV:', e);
+    }
+  }
+
+  // Fallback sang CSV chuẩn UTF-8 BOM
+  let csv = '\uFEFF';
+  rows.forEach(row => {
+    const line = row.map(cell => {
+      const str = String(cell === null || cell === undefined ? '' : cell).replace(/"/g, '""');
+      return `"${str}"`;
+    }).join(',');
+    csv += line + '\r\n';
+  });
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `So_Theo_Doi_Van_Ban_Den_${Date.now()}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('✅ Đã xuất Sổ Văn Bản Đến ra file CSV thành công!', 'success');
 };
 
 /* =========================================================================
@@ -43391,7 +44256,7 @@ window.submitEditGalleryPost = async function (postId) {
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795431687471;
+    const CURRENT_BUILD_TS = 1795578783071;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;

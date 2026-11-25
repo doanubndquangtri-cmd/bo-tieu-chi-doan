@@ -123,9 +123,35 @@
           2. **Khử trùng lặp ngay khi nạp dữ liệu (`ingestCloudDB`)**: Tự động lọc sạch các bản ghi nhân đôi của `db.notifications` và `db.logs` trước khi lưu vào `state`, giữ cho số lượng đếm tab ("Tất cả", "Chờ duyệt", "Đã duyệt", "Mới") luôn chuẩn xác tuyệt đối.
           3. **Khóa chống bấm đúp (`_isRejectingUnitSubmission`) & kiểm tra trùng trước khi ghi Cloud**: Trong `confirmRejectUnitSubmission`, bổ sung cờ khóa tiến trình và kiểm tra nếu trong vòng 45 giây trước đó đã có thông báo/nhật ký từ chối cho cùng đơn vị và tiêu chí thì không ghi đè thêm bản ghi lặp.
           4. **Dọn sạch dữ liệu trùng lặp trên `cloud_db.json` (`data-v2`)**: Đã loại bỏ hoàn toàn các bản ghi thông báo và nhật ký bị nhân đôi trước đó, trả lại cơ sở dữ liệu tinh gọn và đồng bộ 100%.
-      - **Khắc phục dứt điểm nhân đôi thông báo bài nộp & đã duyệt (23/11/2026)**:
-        - **Hiện tượng**: Khi một đơn vị nộp bài (tạo 1 thông báo nộp), sau đó Admin duyệt điểm (tạo thêm 1 thông báo đã duyệt). Cả 2 thông báo này đều rơi vào mục "Đã duyệt" và hiển thị tiêu đề giống hệt nhau "👑 Đã duyệt: 🏢 [Tên đơn vị] ... (+Xđ)", khiến người dùng thấy 2 thông báo trùng lặp cách nhau 1 phút (ví dụ: 17:43 và 17:44).
-        - **Giải pháp xử lý cục bộ bảo toàn 100%**:
-          1. **Quy tắc 1 đơn vị - 1 tiêu chí - 1 thông báo duy nhất (`crit_[unit_id]_[criterion_id]`)**: Trong `renderNotificationDropdown` và `ingestCloudDB`, khử trùng lặp theo cặp `[unit_id]_[criterion_id]`, chỉ giữ lại thông báo có trạng thái mới nhất (thông báo Đã duyệt / Không duyệt mới nhất sẽ thay thế hoàn toàn thông báo nộp bài cũ).
-          2. **Tự động thay thế thông báo cũ khi Duyệt / Không duyệt**: Trong `confirmAdminApprovalScore` và `confirmRejectUnitSubmission`, tự động lọc bỏ bản ghi thông báo cũ của cùng đơn vị & tiêu chí trước khi thêm bản ghi mới vào `db.notifications`.
-          3. **Dọn sạch `cloud_db.json` (`data-v2`)**: Đã deduplicate mảng notifications trên đám mây từ 98 xuống còn 42 thông báo chuẩn xác, xóa sạch 100% các thông báo nộp bài cũ đã được duyệt điểm.
+      - **Bổ sung Sổ Quản Lý Văn Bản Đến (Dành riêng cho Quản trị viên/Admin) (25/11/2026)**:
+        - **Yêu cầu từ người dùng**:
+          "mục hệ thống văn bản, bổ sung thêm nội dung văn bản đến (chỉ cho admin xem thôi được ko). Các ý như:
+          - ngày tháng đến
+          - số ký hiệu văn bản
+          - ngày tháng của văn bản
+          - tên loại (mở các mục)
+          - trích yếu nội dung
+          - đơn vị ban hành"
+        - **Giải pháp thiết kế & triển khai cục bộ bảo toàn 100%**:
+          1. **Phân quyền bảo mật tuyệt đối cho Admin (`isAdmin`)**:
+             - Khi cơ sở Đoàn hoặc tài khoản Khách mở tab "Hệ Thống Văn Bản", giao diện giữ nguyên 100% như cũ (chỉ xem văn bản đi/chỉ đạo cấp trên), hoàn toàn không thấy nút chuyển đổi hay dữ liệu văn bản đến.
+             - Chỉ tài khoản Quản trị viên (Admin) mới nhìn thấy thanh điều hướng Sub-Tab: `[📤 Văn Bản Đi / Chỉ Đạo]` và `[📥 Sổ Quản Lý Văn Bản Đến (🔒 Chỉ Admin)]`.
+          2. **Đầy đủ các trường nghiệp vụ theo đúng chuẩn Sổ Văn Bản Đến**:
+             - Ngày tháng đến (`arrival_date`) - mặc định ngày hiện tại, định dạng `dd/mm/yyyy`.
+             - Số / Ký hiệu văn bản (`doc_number` - ví dụ: `125-CV/TĐTN`, `45/UBND`...).
+             - Ngày tháng của văn bản (`doc_date`) - ngày ban hành của văn bản đến.
+             - Tên loại văn bản (`doc_type` - danh mục mở các loại: Công văn, Kế hoạch, Hướng dẫn, Thông báo, Quyết định, Báo cáo, Tờ trình, Chỉ thị, Kết luận, Nghị quyết, Quy chế / Quy định, Giấy mời, Chương trình, Biên bản, Tài liệu khác).
+             - Đơn vị ban hành (`issuing_unit` - ví dụ: Tỉnh Đoàn Quảng Trị, UBND Tỉnh, Ban Bí thư TW Đoàn...).
+             - Trích yếu nội dung văn bản (`title` - tóm tắt nội dung chính).
+             - Người nhận / Nơi nhận xử lý (`recipient` - tùy chọn).
+             - Tệp đính kèm / scan văn bản (`files` - hỗ trợ PDF, Word, Excel, Ảnh scan nhiều tệp qua Google Drive hoặc lưu trữ đám mây).
+          3. **Bộ công cụ quản lý chuyên nghiệp cho Admin**:
+             - Biểu mẫu tiếp nhận & vào sổ văn bản đến nhanh chóng, có kiểm tra hợp lệ dữ liệu.
+             - Bảng theo dõi văn bản đến đầy đủ cột, sắp xếp theo thứ tự ngày đến mới nhất.
+             - Thanh tìm kiếm thông minh theo Số ký hiệu, Đơn vị ban hành, Trích yếu nội dung; bộ lọc theo Tên loại văn bản.
+             - Tính năng Chỉnh sửa thông tin văn bản đến (`openEditIncomingDocModal`, `saveEditIncomingDoc`).
+             - Tính năng Xóa văn bản đến có hộp thoại xác nhận an toàn (`deleteIncomingDoc`).
+             - Tính năng Xuất Excel Sổ Văn Bản Đến chuẩn hành chính văn thư (`exportIncomingDocsToExcel`).
+          4. **Đồng bộ cơ sở dữ liệu đám mây (`cloud_db.json`)**:
+             - Sử dụng khóa độc lập `db.incoming_docs`, tách bạch hoàn toàn với `db.admin_docs` để bảo toàn 100% dữ liệu văn bản đi cũ.
+             - Tự động đồng bộ thời gian thực qua `mutateCloudDB` và `ingestCloudDB`.
