@@ -155,3 +155,35 @@
           4. **Đồng bộ cơ sở dữ liệu đám mây (`cloud_db.json`)**:
              - Sử dụng khóa độc lập `db.incoming_docs`, tách bạch hoàn toàn với `db.admin_docs` để bảo toàn 100% dữ liệu văn bản đi cũ.
              - Tự động đồng bộ thời gian thực qua `mutateCloudDB` và `ingestCloudDB`.
+      - **Tích hợp Module Thẩm Định & Kiểm Tra Link Minh Chứng Facebook (26/11/2026)**:
+        - **Yêu cầu từ người dùng**:
+          Tích hợp công cụ "Thẩm Định Link Facebook — Bộ Tiêu Chí Báo Cáo Đoàn" (từ dự án KINI AI) vào phần mềm Bộ tiêu chí Đoàn.
+        - **Các tính năng đã triển khai hoàn thiện 100%**:
+          1. **Thêm Tab Điều Hướng `🔍 Thẩm Định Link FB`**:
+             - Xuất hiện trên thanh điều hướng cho cả Quản trị viên (Admin) và Đoàn cơ sở (Units).
+             - Cho phép Admin thẩm định hàng loạt link minh chứng do các đơn vị nộp lên; đồng thời giúp Đoàn cơ sở tự kiểm tra trước link bài viết của mình trước khi gửi báo cáo.
+          2. **Đầu vào thông minh & đa dạng**:
+             - Dán danh sách link trực tiếp vào Textarea (mỗi dòng 1 link).
+             - Nút `📂 Nạp file TXT/CSV/Excel`: Hỗ trợ đọc cả file Excel (.xlsx, .xls), .csv và .txt bằng thư viện SheetJS để tự động trích xuất các đường link Facebook.
+             - Nút `✨ Dán mẫu`: Tự động điền các link minh chứng và từ khóa mẫu để trải nghiệm nhanh.
+             - Đếm số lượng link nhập vào theo thời gian thực.
+          3. **Cấu hình Bộ Tiêu Chí Thẩm Định Hợp Lệ**:
+             - Từ khóa bắt buộc trong nội dung (ví dụ: `Bình dân học vụ số, Đoàn UBND, tập huấn`...).
+             - Cách khớp từ khóa: Khớp ít nhất 1 từ khóa (any) hoặc Phải khớp tất cả từ khóa (all).
+             - Giãn nhịp quét mỗi link (ms): Mặc định 500ms (có thể điều chỉnh để tránh Facebook giới hạn IP).
+             - Khoảng thời gian hợp lệ: Từ ngày ... Đến ngày (tùy chọn).
+             - Bắt buộc bài viết mở ở chế độ Công khai (Public).
+          4. **Xử lý Backend trích xuất dữ liệu & Chống CORS**:
+             - Tạo file backend `fb_checker.py`, `fb_checker_server.py` và file kích hoạt `run_fb_server.bat` ngay trong dự án.
+             - Hỗ trợ gọi SSE streaming (`/api/fb-check/stream`) trả dữ liệu tuần tự trực tiếp lên thanh tiến độ (Progress bar).
+             - Tự động kết nối linh hoạt:
+               + Chạy cục bộ / Offline: `http://127.0.0.1:8000`
+               + Duyệt Online trên web: Tự động dùng Cloudflare Tunnel `https://leaders-poster-integrating-mixture.trycloudflare.com` không bị chặn Mixed Content.
+               + Có nút `⚙️ Cấu hình Server` để xem và tùy chỉnh địa chỉ máy chủ bất kỳ lúc nào.
+          5. **Đầu ra & Xuất báo cáo chuyên nghiệp**:
+             - Bảng kết quả 8 cột: `STT | Link Facebook | Chủ tài khoản FB | Trạng thái hiển thị | Thời gian | Nội dung bài đăng | Kết luận | Lý do / Ghi chú`.
+             - Badge trực quan: Xanh lá cho Hợp lệ / Công khai; Đỏ cho Không hợp lệ / Bị khóa / Link lỗi.
+             - Bộ lọc pills: `Tất cả` | `✅ Hợp lệ` | `❌ Không hợp lệ` kèm số đếm động.
+             - Ô tìm kiếm nhanh theo tên tài khoản hoặc nội dung.
+             - Nút `📋 Copy Bảng`: Sao chép định dạng bảng TSV để dán trực tiếp vào Excel hoặc Google Sheets.
+             - Nút `📊 Xuất Excel (.xlsx)`: Xuất file Excel chuẩn đẹp mắt kèm cột, định dạng màu sắc cho hồ sơ minh chứng Đoàn.

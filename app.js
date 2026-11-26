@@ -1143,6 +1143,14 @@ const state = {
 
   adminDocsSubTab: 'outbound', // 'outbound' | 'incoming'
 
+  fbCheckerResults: [],
+
+  fbCheckerFilter: 'all',
+
+  fbCheckerRunning: false,
+
+  fbCheckerServerUrl: '',
+
   activeTab: 'ranking',
 
   monthFilter: 0,
@@ -6308,6 +6316,9 @@ function renderNavTabs() {
         <div class="nav-tab ${state.activeTab === 'admin_docs' ? 'active' : ''}" onclick="setTab('admin_docs')" title="Kho Văn Bản, Chỉ Đạo & Hướng Dẫn">
           📂 Hệ Thống Văn Bản
         </div>
+        <div class="nav-tab ${state.activeTab === 'fb_checker' ? 'active' : ''}" onclick="setTab('fb_checker')" title="Thẩm Định Link Minh Chứng Facebook">
+          🔍 Thẩm Định Link FB
+        </div>
         <div class="nav-tab ${state.activeTab === 'gallery' ? 'active' : ''}" onclick="setTab('gallery')" title="Thư Viện Ảnh Tập Thể & Hoạt Động Đoàn UBND Tỉnh">
           📸 Bản Tin / Thư Viện Ảnh
         </div>
@@ -6329,6 +6340,9 @@ function renderNavTabs() {
         <div class="nav-tab ${state.activeTab === 'admin_docs' ? 'active' : ''}" onclick="setTab('admin_docs')">
           📂 Hệ Thống Văn Bản
         </div>
+        <div class="nav-tab ${state.activeTab === 'fb_checker' ? 'active' : ''}" onclick="setTab('fb_checker')">
+          🔍 Thẩm Định Link FB
+        </div>
         <div class="nav-tab ${state.activeTab === 'gallery' ? 'active' : ''}" onclick="setTab('gallery')">
           📸 Bản Tin / Thư Viện Ảnh
         </div>
@@ -6349,6 +6363,9 @@ function renderNavTabs() {
         ${twoReportsTabs}
         <div class="nav-tab ${state.activeTab === 'admin_docs' ? 'active' : ''}" onclick="setTab('admin_docs')">
           📂 Hệ Thống Văn Bản
+        </div>
+        <div class="nav-tab ${state.activeTab === 'fb_checker' ? 'active' : ''}" onclick="setTab('fb_checker')" title="Kiểm Tra Link Minh Chứng Facebook">
+          🔍 Thẩm Định Link FB
         </div>
         <div class="nav-tab ${state.activeTab === 'gallery' ? 'active' : ''}" onclick="setTab('gallery')">
           📸 Bản Tin / Thư Viện Ảnh
@@ -6387,7 +6404,7 @@ window.setReportsSubSection = function (mode) {
 
 window.setTab = function (tabId) {
   const isGuest = state.user && state.user.role === 'guest';
-  if (isGuest && tabId !== 'master' && tabId !== 'ranking' && tabId !== 'reports' && tabId !== 'admin_docs' && tabId !== 'donations' && tabId !== 'gallery') {
+  if (isGuest && tabId !== 'master' && tabId !== 'ranking' && tabId !== 'reports' && tabId !== 'admin_docs' && tabId !== 'donations' && tabId !== 'gallery' && tabId !== 'fb_checker') {
     return;
   }
   state.activeTab = tabId;
@@ -6403,13 +6420,16 @@ function renderActiveTabContent() {
 
   const isGuest = state.user && state.user.role === 'guest';
 
-  if (isGuest && state.activeTab !== 'master' && state.activeTab !== 'ranking' && state.activeTab !== 'reports' && state.activeTab !== 'admin_docs' && state.activeTab !== 'donations' && state.activeTab !== 'gallery') {
+  if (isGuest && state.activeTab !== 'master' && state.activeTab !== 'ranking' && state.activeTab !== 'reports' && state.activeTab !== 'admin_docs' && state.activeTab !== 'donations' && state.activeTab !== 'gallery' && state.activeTab !== 'fb_checker') {
 
     state.activeTab = 'ranking';
 
   }
 
   switch (state.activeTab) {
+
+    case 'fb_checker':
+      return renderFbCheckerTab();
 
     case 'gallery':
       return renderPhotoGalleryTab();
@@ -38055,3 +38075,767 @@ window.submitEditGalleryPost = async function (postId) {
     showToast('Lỗi cập nhật bài viết: ' + (e.message || e), 'error');
   }
 };
+
+/* =========================================================================
+   MODULE: THẨM ĐỊNH & KIỂM TRA LINK MINH CHỨNG FACEBOOK
+   Tự động kiểm tra: Chủ tài khoản, Chế độ công khai, Thời gian, Từ khóa, Xuất Excel
+   ========================================================================= */
+
+window._fbCheckerAbortController = null;
+
+window.getFbCheckerServerUrl = function () {
+  if (state.fbCheckerServerUrl && state.fbCheckerServerUrl.trim()) {
+    return state.fbCheckerServerUrl.trim().replace(/\/+$/, '');
+  }
+  const stored = (typeof localStorage !== 'undefined' && localStorage.getItem('fb_checker_server_url')) || '';
+  if (stored && stored.trim()) {
+    state.fbCheckerServerUrl = stored.trim().replace(/\/+$/, '');
+    return state.fbCheckerServerUrl;
+  }
+  if (typeof window !== 'undefined' && window.location && window.location.protocol === 'https:') {
+    return 'https://leaders-poster-integrating-mixture.trycloudflare.com';
+  }
+  return 'http://127.0.0.1:8000';
+};
+
+window.setFbCheckerServerUrl = function (url) {
+  state.fbCheckerServerUrl = (url || '').trim().replace(/\/+$/, '');
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('fb_checker_server_url', state.fbCheckerServerUrl);
+  }
+};
+
+window.openFbCheckerServerConfigModal = function () {
+  const currentUrl = window.getFbCheckerServerUrl();
+  const modalRoot = document.getElementById('modal-root');
+  if (!modalRoot) return;
+
+  modalRoot.innerHTML = `
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal()" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(15,23,42,0.65); z-index:9999; display:flex; align-items:center; justify-content:center; padding:16px;">
+      <div class="modal-content" style="background:#fff; border-radius:12px; width:100%; max-width:540px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.15); overflow:hidden; border:1px solid #cbd5e1;">
+        <div style="background:linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%); color:#fff; padding:14px 20px; display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-weight:800; font-size:15px; display:flex; align-items:center; gap:8px;">
+            <span>⚙️ Cấu Hình Máy Chủ Thẩm Định Facebook</span>
+          </div>
+          <button type="button" onclick="closeModal()" style="background:none; border:none; color:#fff; font-size:20px; font-weight:700; cursor:pointer;">✕</button>
+        </div>
+        <div style="padding:18px 22px;">
+          <p style="font-size:13px; color:#475569; margin-bottom:12px; line-height:1.5;">
+            Máy chủ Backend thực hiện quét dữ liệu Facebook thực tế và tránh bị trình duyệt chặn CORS.
+          </p>
+          <div style="margin-bottom:14px;">
+            <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:6px;">Địa chỉ Server (API Endpoint):</label>
+            <input type="text" id="cfg-fb-server-url" value="${escapeHtml(currentUrl)}" placeholder="http://127.0.0.1:8000 hoặc https://leaders-poster-integrating-mixture.trycloudflare.com" style="width:100%; padding:9px 12px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:7px; font-family:monospace;" />
+          </div>
+          <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; font-size:12px; color:#64748b; margin-bottom:16px; line-height:1.5;">
+            <b>Gợi ý kết nối:</b><br/>
+            • <b>Chạy cục bộ / Offline:</b> <code>http://127.0.0.1:8000</code> (Bấm đúp file <code>run_fb_server.bat</code> trong thư mục hoặc mở KINI AI).<br/>
+            • <b>Duyệt trên web Online:</b> <code>https://leaders-poster-integrating-mixture.trycloudflare.com</code> (kết nối qua Cloudflare Tunnel không bị lỗi Mixed Content HTTPS).
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="testFbCheckerServerConnection()" style="font-size:12px; font-weight:700; color:#2563eb; border-color:#93c5fd;">
+              🔍 Kiểm tra kết nối
+            </button>
+            <div style="display:flex; gap:8px;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal()">Đóng</button>
+              <button type="button" class="btn btn-primary btn-sm" onclick="saveFbCheckerServerConfig()" style="background:#2563eb; border-color:#1d4ed8; font-weight:700;">💾 Lưu Cấu Hình</button>
+            </div>
+          </div>
+          <div id="cfg-fb-test-result" style="margin-top:10px; font-size:12px;"></div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+window.saveFbCheckerServerConfig = function () {
+  const inp = document.getElementById('cfg-fb-server-url');
+  if (inp) {
+    const val = inp.value.trim();
+    window.setFbCheckerServerUrl(val);
+    if (typeof showToast === 'function') showToast('✅ Đã lưu cấu hình máy chủ thẩm định Facebook!', 'success');
+  }
+  if (typeof closeModal === 'function') closeModal();
+  renderApp();
+};
+
+window.testFbCheckerServerConnection = async function () {
+  const inp = document.getElementById('cfg-fb-server-url');
+  const resDiv = document.getElementById('cfg-fb-test-result');
+  const target = (inp ? inp.value.trim() : '') || window.getFbCheckerServerUrl();
+  if (resDiv) resDiv.innerHTML = '<span style="color:#64748b;">⏳ Đang kiểm tra kết nối tới: ' + escapeHtml(target) + '...</span>';
+
+  try {
+    const controller = new AbortController();
+    const tid = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(target + '/api/ping', { signal: controller.signal });
+    clearTimeout(tid);
+    if (res.ok) {
+      if (resDiv) resDiv.innerHTML = '<span style="color:#16a34a; font-weight:700;">🟢 Kết nối thành công! Máy chủ thẩm định đang hoạt động tốt.</span>';
+    } else {
+      if (resDiv) resDiv.innerHTML = '<span style="color:#ea580c; font-weight:700;">🟡 Máy chủ phản hồi mã ' + res.status + '. Vui lòng kiểm tra lại dịch vụ.</span>';
+    }
+  } catch (err) {
+    if (resDiv) resDiv.innerHTML = '<span style="color:#dc2626; font-weight:700;">🔴 Không thể kết nối (' + (err.message || 'Lỗi mạng / Timeout') + '). Hãy đảm bảo bạn đã chạy file run_fb_server.bat hoặc KINI AI!</span>';
+  }
+};
+
+window.updateFbLinksCount = function () {
+  const textarea = document.getElementById('fb-links-input');
+  const countSpan = document.getElementById('fb-links-count');
+  if (textarea && countSpan) {
+    const links = textarea.value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    countSpan.textContent = links.length;
+  }
+};
+
+window.clearFbLinksInput = function () {
+  const textarea = document.getElementById('fb-links-input');
+  if (textarea) {
+    textarea.value = '';
+    window.updateFbLinksCount();
+  }
+};
+
+window.fillSampleFbLink = function () {
+  const textarea = document.getElementById('fb-links-input');
+  const kwInput = document.getElementById('fb-keywords-input');
+  if (textarea) {
+    textarea.value = "https://www.facebook.com/story.php?story_fbid=122144316771191106&id=61585733191960&hpir=1#\nhttps://www.facebook.com/share/p/1B1X8i7vPq/\nhttps://www.facebook.com/share/p/1AQ2dEFgh4/";
+    window.updateFbLinksCount();
+  }
+  if (kwInput) {
+    kwInput.value = "Bình dân học vụ số, Đoàn UBND, tập huấn";
+  }
+  if (typeof showToast === 'function') showToast('Đã dán mẫu liên kết và từ khóa thẩm định!', 'info');
+};
+
+window.handleFbFileImport = async function (input) {
+  const file = input && input.files ? input.files[0] : null;
+  if (!file) return;
+
+  const fileName = file.name.toLowerCase();
+  const urlRegex = /https?:\/\/(?:www\.|m\.|web\.)?(?:facebook\.com|fb\.com|fb\.watch)[^\s,;'"<>]+/gi;
+  let foundUrls = [];
+
+  try {
+    if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
+      if (typeof XLSX === 'undefined' && window.ensureXlsxLoaded) {
+        await window.ensureXlsxLoaded().catch(() => {});
+      }
+      if (typeof XLSX !== 'undefined') {
+        const data = await file.arrayBuffer();
+        const wb = XLSX.read(data, { type: 'array' });
+        wb.SheetNames.forEach(sheetName => {
+          const ws = wb.Sheets[sheetName];
+          const json = XLSX.utils.sheet_to_json(ws, { header: 1 });
+          json.forEach(row => {
+            if (Array.isArray(row)) {
+              row.forEach(cell => {
+                if (typeof cell === 'string') {
+                  const matches = cell.match(urlRegex);
+                  if (matches) foundUrls.push(...matches);
+                }
+              });
+            }
+          });
+        });
+      }
+    } else {
+      const text = await file.text();
+      const matches = text.match(urlRegex);
+      if (matches) {
+        foundUrls = matches;
+      } else {
+        foundUrls = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+      }
+    }
+
+    const uniqueUrls = [];
+    const seen = new Set();
+    foundUrls.forEach(u => {
+      const clean = u.trim();
+      if (clean && !seen.has(clean)) {
+        seen.add(clean);
+        uniqueUrls.push(clean);
+      }
+    });
+
+    if (uniqueUrls.length > 0) {
+      const textarea = document.getElementById('fb-links-input');
+      if (textarea) {
+        textarea.value = uniqueUrls.join('\n');
+        window.updateFbLinksCount();
+      }
+      if (typeof showToast === 'function') {
+        showToast(`✅ Đã nạp ${uniqueUrls.length} liên kết Facebook từ file "${file.name}"!`, 'success');
+      }
+    } else {
+      if (typeof showToast === 'function') {
+        showToast(`Không tìm thấy liên kết Facebook nào trong file "${file.name}"!`, 'warning');
+      }
+    }
+  } catch (err) {
+    console.error('File import error:', err);
+    alert('Lỗi khi đọc file: ' + (err.message || err));
+  } finally {
+    input.value = '';
+  }
+};
+
+window.setFbCheckerFilter = function (filter) {
+  state.fbCheckerFilter = filter;
+  ['all', 'valid', 'invalid'].forEach(f => {
+    const el = document.getElementById('fb-pill-' + f);
+    if (el) {
+      if (f === filter) el.classList.add('active');
+      else el.classList.remove('active');
+    }
+  });
+  window.renderFbCheckerTable();
+};
+
+window.updateFbCheckerCounts = function () {
+  const allResults = state.fbCheckerResults || [];
+  const validCnt = allResults.filter(r => r && r.is_valid).length;
+  const invalidCnt = allResults.length - validCnt;
+
+  const cntAll = document.getElementById('fb-cnt-all');
+  const cntValid = document.getElementById('fb-cnt-valid');
+  const cntInvalid = document.getElementById('fb-cnt-invalid');
+  const btnExport = document.getElementById('btn-fb-export');
+
+  if (cntAll) cntAll.textContent = allResults.length;
+  if (cntValid) cntValid.textContent = validCnt;
+  if (cntInvalid) cntInvalid.textContent = invalidCnt;
+  if (btnExport) btnExport.disabled = allResults.length === 0;
+};
+
+window.renderFbCheckerTable = function () {
+  const tbody = document.getElementById('fb-results-tbody');
+  if (!tbody) return;
+
+  const allResults = state.fbCheckerResults || [];
+  const filter = state.fbCheckerFilter || 'all';
+  const q = (document.getElementById('fb-search-box') ? document.getElementById('fb-search-box').value.trim().toLowerCase() : '');
+
+  const filtered = allResults.filter(r => {
+    if (!r) return false;
+    if (filter === 'valid' && !r.is_valid) return false;
+    if (filter === 'invalid' && r.is_valid) return false;
+    if (q) {
+      const hay = `${r.url || ''} ${r.account_name || ''} ${r.account_id || ''} ${r.content || ''} ${r.reason || ''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:38px 20px; color:#94a3b8; font-style:italic;">Không có dòng nào phù hợp bộ lọc hiện tại.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map((r, i) => {
+    const visBadge = r.visibility === 'Công khai'
+      ? `<span class="badge" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-weight:700; padding:3px 8px; border-radius:12px; font-size:11.5px;">Công khai</span>`
+      : `<span class="badge" style="background:#fef3c7; color:#b45309; border:1px solid #fde68a; font-weight:700; padding:3px 8px; border-radius:12px; font-size:11.5px;">${escapeHtml(r.visibility || 'Riêng tư')}</span>`;
+
+    const statusBadge = r.is_valid
+      ? `<span class="badge" style="background:#16a34a; color:#fff; font-weight:800; padding:4px 10px; border-radius:12px; font-size:11.5px; display:inline-flex; align-items:center; gap:3px;">✅ Hợp lệ</span>`
+      : `<span class="badge" style="background:#dc2626; color:#fff; font-weight:800; padding:4px 10px; border-radius:12px; font-size:11.5px; display:inline-flex; align-items:center; gap:3px;">❌ Không hợp lệ</span>`;
+
+    return `
+      <tr style="border-bottom:1px solid #f1f5f9;">
+        <td style="text-align:center; font-weight:700; color:#64748b; padding:10px 8px;">${i + 1}</td>
+        <td style="max-width:240px; word-break:break-all; padding:10px 10px;">
+          <a href="${escapeHtml(r.url || '#')}" target="_blank" rel="noopener" style="color:#0284c7; font-weight:600; text-decoration:none;" title="${escapeHtml(r.url || '')}">
+            ${escapeHtml(r.url || '')}
+          </a>
+        </td>
+        <td style="padding:10px 10px;">
+          <b style="color:#0f172a; display:block; font-size:13px;">${escapeHtml(r.account_name || '(Không xác định)')}</b>
+          ${r.account_id ? `<div style="font-size:11px; color:#64748b; margin-top:2px;">ID: ${escapeHtml(r.account_id)}</div>` : ''}
+        </td>
+        <td style="text-align:center; padding:10px 8px;">${visBadge}</td>
+        <td style="text-align:center; color:#475569; font-size:12.5px; white-space:nowrap; padding:10px 8px;">
+          ${escapeHtml(r.post_date || '-')}
+        </td>
+        <td style="max-width:320px; line-height:1.45; color:#1e293b; font-size:12.5px; padding:10px 10px; word-break:break-word;">
+          ${escapeHtml(r.content || '(Không có nội dung hiển thị)')}
+        </td>
+        <td style="text-align:center; white-space:nowrap; padding:10px 8px;">${statusBadge}</td>
+        <td style="max-width:260px; font-size:12px; font-weight:600; color:${r.is_valid ? '#15803d' : '#b91c1c'}; padding:10px 10px; line-height:1.4;">
+          ${escapeHtml(r.reason || '')}
+        </td>
+      </tr>
+    `;
+  }).join('');
+};
+
+window.runFbCheck = async function () {
+  const raw = (document.getElementById('fb-links-input') ? document.getElementById('fb-links-input').value : '').trim();
+  const links = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  if (links.length === 0) {
+    if (typeof showToast === 'function') showToast('Vui lòng dán ít nhất 1 đường link Facebook!', 'warning');
+    else alert('Vui lòng dán ít nhất 1 đường link Facebook!');
+    return;
+  }
+
+  state.fbCheckerResults = [];
+  window.updateFbCheckerCounts();
+  window.renderFbCheckerTable();
+
+  const btnRun = document.getElementById('btn-fb-run');
+  const btnStop = document.getElementById('btn-fb-stop');
+  if (btnRun) btnRun.style.display = 'none';
+  if (btnStop) btnStop.style.display = 'inline-flex';
+
+  const progWrap = document.getElementById('fb-progress-wrap');
+  if (progWrap) progWrap.style.display = 'block';
+  const progText = document.getElementById('fb-progress-text');
+  const progPct = document.getElementById('fb-progress-pct');
+  const progFill = document.getElementById('fb-progress-fill');
+  if (progText) progText.textContent = `Đang kết nối máy chủ để kiểm tra ${links.length} liên kết...`;
+  if (progPct) progPct.textContent = '0%';
+  if (progFill) progFill.style.width = '0%';
+
+  const payload = {
+    links: links,
+    required_keywords: (document.getElementById('fb-keywords-input') ? document.getElementById('fb-keywords-input').value : '').split(',').map(s => s.trim()).filter(Boolean),
+    keyword_mode: document.getElementById('fb-keyword-mode') ? document.getElementById('fb-keyword-mode').value : 'any',
+    require_public: document.getElementById('fb-require-public') ? document.getElementById('fb-require-public').checked : true,
+    date_from: document.getElementById('fb-date-from') ? document.getElementById('fb-date-from').value : '',
+    date_to: document.getElementById('fb-date-to') ? document.getElementById('fb-date-to').value : '',
+    delay_ms: parseInt((document.getElementById('fb-delay-ms') ? document.getElementById('fb-delay-ms').value : '500') || '500', 10)
+  };
+
+  const serverUrl = window.getFbCheckerServerUrl();
+  window._fbCheckerAbortController = new AbortController();
+
+  try {
+    const res = await fetch(serverUrl + '/api/fb-check/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: window._fbCheckerAbortController.signal
+    });
+
+    if (!res.ok) {
+      throw new Error(`Máy chủ phản hồi mã lỗi HTTP ${res.status}`);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buffer = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        const t = line.trim();
+        if (!t.startsWith('data: ')) continue;
+        try {
+          const evt = JSON.parse(t.slice(6));
+          if (evt.type === 'item') {
+            state.fbCheckerResults.push(evt.data);
+            const pct = Math.round((evt.index / evt.total) * 100);
+            if (progText) progText.textContent = `Đã kiểm tra ${evt.index}/${evt.total}: ${evt.data.account_name || evt.data.url}`;
+            if (progPct) progPct.textContent = `${pct}%`;
+            if (progFill) progFill.style.width = `${pct}%`;
+            window.updateFbCheckerCounts();
+            window.renderFbCheckerTable();
+          } else if (evt.type === 'done') {
+            if (progText) progText.textContent = `✅ Hoàn tất kiểm tra ${state.fbCheckerResults.length} liên kết Facebook!`;
+            if (progPct) progPct.textContent = '100%';
+            if (progFill) progFill.style.width = '100%';
+          }
+        } catch (pe) {
+          console.warn('Parse SSE error:', pe);
+        }
+      }
+    }
+    if (typeof showToast === 'function') {
+      showToast(`✅ Đã hoàn tất thẩm định ${state.fbCheckerResults.length} link Facebook!`, 'success');
+    }
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      if (progText) progText.textContent = `⏹️ Đã dừng kiểm tra. Đã ghi nhận ${state.fbCheckerResults.length} kết quả.`;
+      if (typeof showToast === 'function') showToast('Đã dừng tiến trình kiểm tra link!', 'info');
+    } else {
+      console.error('FB Checker error:', err);
+      const isMixedContent = window.location.protocol === 'https:' && serverUrl.startsWith('http:');
+      let msg = `Không thể kết nối tới máy chủ thẩm định tại: ${serverUrl}\n\n`;
+      if (isMixedContent) {
+        msg += `Nguyên nhân: Trang đang mở bằng giao thức bảo mật HTTPS nhưng địa chỉ máy chủ là HTTP nên trình duyệt chặn kết nối.\n👉 Vui lòng bấm nút "⚙️ Cấu hình Server" ở góc trên và nhập địa chỉ HTTPS (ví dụ: Cloudflare Tunnel: https://leaders-poster-integrating-mixture.trycloudflare.com).`;
+      } else {
+        msg += `👉 Hướng dẫn khắc phục:\n1. Bật file run_fb_server.bat trong thư mục phần mềm (hoặc mở KINI AI).\n2. Hoặc kiểm tra lại địa chỉ máy chủ trong mục "⚙️ Cấu hình Server".`;
+      }
+      alert(msg);
+      if (progText) progText.textContent = `❌ Lỗi kết nối máy chủ (${err.message || 'Không thể truy cập'})`;
+    }
+  } finally {
+    if (btnRun) btnRun.style.display = 'inline-flex';
+    if (btnStop) btnStop.style.display = 'none';
+    window._fbCheckerAbortController = null;
+  }
+};
+
+window.stopFbCheck = function () {
+  if (window._fbCheckerAbortController) {
+    window._fbCheckerAbortController.abort();
+  }
+};
+
+window.copyFbCheckerTableText = function () {
+  const allResults = state.fbCheckerResults || [];
+  if (allResults.length === 0) {
+    if (typeof showToast === 'function') showToast('Chưa có dữ liệu để sao chép!', 'warning');
+    else alert('Chưa có dữ liệu để sao chép!');
+    return;
+  }
+  const header = ['STT', 'Link Facebook', 'Chủ tài khoản', 'ID Tài khoản', 'Trạng thái', 'Thời gian', 'Nội dung', 'Kết luận', 'Lý do / Ghi chú'].join('\t');
+  const lines = allResults.map((r, i) => [
+    i + 1,
+    r.url || '',
+    r.account_name || '',
+    r.account_id || '',
+    r.visibility || '',
+    r.post_date || '',
+    (r.content || '').replace(/\s+/g, ' '),
+    r.status_label || (r.is_valid ? 'Hợp lệ' : 'Không hợp lệ'),
+    r.reason || ''
+  ].join('\t'));
+
+  navigator.clipboard.writeText([header, ...lines].join('\n')).then(() => {
+    if (typeof showToast === 'function') showToast('📋 Đã sao chép toàn bộ bảng! Bạn có thể dán trực tiếp vào Excel hoặc Google Sheets.', 'success');
+    else alert('Đã sao chép toàn bộ bảng (dán trực tiếp vào Excel được ngay)!');
+  }).catch(() => {
+    alert('Không thể sao chép vào bộ nhớ đệm, vui lòng thử lại.');
+  });
+};
+
+window.exportFbCheckerExcel = async function () {
+  const allResults = state.fbCheckerResults || [];
+  if (allResults.length === 0) {
+    if (typeof showToast === 'function') showToast('Chưa có dữ liệu để xuất Excel!', 'warning');
+    else alert('Chưa có dữ liệu để xuất Excel!');
+    return;
+  }
+
+  const kw = (document.getElementById('fb-keywords-input') ? document.getElementById('fb-keywords-input').value.trim() : '');
+  const criteriaNote = kw ? `Từ khóa: ${kw}` : 'Kiểm tra công khai';
+  const timeNow = (typeof formatDateTimeVN === 'function') ? formatDateTimeVN(new Date()) : new Date().toLocaleString('vi-VN');
+
+  // Phương án 1: Tạo trực tiếp bằng thư viện SheetJS (XLSX) phía Client
+  if (typeof XLSX === 'undefined' && window.ensureXlsxLoaded) {
+    await window.ensureXlsxLoaded().catch(() => {});
+  }
+
+  if (typeof XLSX !== 'undefined') {
+    try {
+      const rows = [
+        ['BÁO CÁO KIỂM TRA & THẨM ĐỊNH LINK MINH CHỨNG FACEBOOK'],
+        [`Tiêu chí áp dụng: ${criteriaNote} | Thời gian xuất: ${timeNow}`],
+        [],
+        ['STT', 'Link Facebook gốc', 'Chủ tài khoản Facebook', 'ID Tài khoản', 'Trạng thái hiển thị', 'Thời gian ghi nhận', 'Nội dung bài đăng', 'Kết luận', 'Lý do / Ghi chú']
+      ];
+
+      allResults.forEach((r, idx) => {
+        rows.push([
+          idx + 1,
+          r.url || '',
+          r.account_name || '',
+          r.account_id || '',
+          r.visibility || '',
+          r.post_date || '',
+          r.content || '',
+          r.is_valid ? 'HỢP LỆ' : 'KHÔNG HỢP LỆ',
+          r.reason || ''
+        ]);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      ws['!cols'] = [
+        { wch: 6 },
+        { wch: 40 },
+        { wch: 25 },
+        { wch: 18 },
+        { wch: 20 },
+        { wch: 16 },
+        { wch: 50 },
+        { wch: 16 },
+        { wch: 35 }
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Tham_Dinh_Link_FB');
+      const filename = `Bao_Cao_Tham_Dinh_Link_FB_${Date.now()}.xlsx`;
+      XLSX.writeFile(wb, filename);
+      if (typeof showToast === 'function') showToast(`✅ Đã xuất file Excel: ${filename} thành công!`, 'success');
+      return;
+    } catch (e) {
+      console.warn('Client XLSX export error, fallback to server:', e);
+    }
+  }
+
+  // Phương án 2: Gọi endpoint xuất Excel của máy chủ Backend
+  try {
+    const serverUrl = window.getFbCheckerServerUrl();
+    const res = await fetch(serverUrl + '/api/fb-check/export', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        rows: allResults,
+        criteria_note: criteriaNote
+      })
+    });
+    if (res.ok) {
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `Bao_Cao_Tham_Dinh_Link_FB_${Date.now()}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(a.href);
+      if (typeof showToast === 'function') showToast('✅ Đã xuất file Excel thành công!', 'success');
+      return;
+    }
+  } catch (se) {
+    console.warn('Server export error:', se);
+  }
+
+  // Phương án 3: Fallback sang CSV chuẩn UTF-8 BOM
+  let csv = '\uFEFF';
+  const headers = ['STT', 'Link Facebook gốc', 'Chủ tài khoản Facebook', 'ID Tài khoản', 'Trạng thái hiển thị', 'Thời gian ghi nhận', 'Nội dung bài đăng', 'Kết luận', 'Lý do / Ghi chú'];
+  csv += headers.map(h => `"${h}"`).join(',') + '\r\n';
+  allResults.forEach((r, idx) => {
+    const row = [
+      idx + 1,
+      r.url || '',
+      r.account_name || '',
+      r.account_id || '',
+      r.visibility || '',
+      r.post_date || '',
+      (r.content || '').replace(/"/g, '""'),
+      r.is_valid ? 'HỢP LỆ' : 'KHÔNG HỢP LỆ',
+      (r.reason || '').replace(/"/g, '""')
+    ];
+    csv += row.map(c => `"${c}"`).join(',') + '\r\n';
+  });
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `Bao_Cao_Tham_Dinh_Link_FB_${Date.now()}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+  if (typeof showToast === 'function') showToast('✅ Đã xuất file CSV thành công!', 'success');
+};
+
+function renderFbCheckerTab() {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+  const serverUrl = window.getFbCheckerServerUrl();
+  const allResults = state.fbCheckerResults || [];
+  const currentFilter = state.fbCheckerFilter || 'all';
+
+  return `
+    <div class="panel fb-checker-panel" style="${isMobile ? 'display:flex; flex-direction:column; margin-bottom:14px; border-radius:10px; overflow:visible;' : 'display:flex; flex-direction:column; flex:1 1 auto; height:calc(100vh - 128px); min-height:560px; margin-bottom:2px; border-radius:10px; overflow:hidden;'}">
+      
+      <!-- Panel Header -->
+      <div class="panel-header" style="flex-shrink:0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; background:linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #7c3aed 100%); color:#fff; border-radius:10px 10px 0 0; padding:12px 20px; box-shadow:0 2px 10px rgba(37,99,235,0.25);">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="width:42px; height:42px; border-radius:10px; background:rgba(255,255,255,0.18); display:flex; align-items:center; justify-content:center; font-size:22px; box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+            📘
+          </div>
+          <div>
+            <div class="panel-title" style="font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px; letter-spacing:0.2px;">
+              THẨM ĐỊNH LINK MINH CHỨNG FACEBOOK — BỘ TIÊU CHÍ ĐOÀN
+            </div>
+            <div style="font-size:12px; opacity:0.92; margin-top:2px;">
+              Tự động kiểm tra Chủ tài khoản • Chế độ công khai • Thời gian • Khớp từ khóa tiêu chí • Xuất Excel (.xlsx)
+            </div>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <button type="button" class="btn btn-sm" onclick="openFbCheckerServerConfigModal()" style="background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.35); color:#fff; font-size:12px; font-weight:700; border-radius:7px; padding:6px 12px; cursor:pointer;" title="Bấm để cấu hình hoặc kiểm tra kết nối máy chủ thẩm định Facebook">
+            ⚙️ Máy chủ: <span style="font-family:monospace; font-size:11.5px; opacity:0.9;">${escapeHtml(serverUrl.replace(/^https?:\/\//, '').split('/')[0])}</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Panel Body -->
+      <div class="panel-body" style="${isMobile ? 'padding:12px 10px; display:flex; flex-direction:column; overflow:visible;' : 'padding:14px 18px; display:flex; flex-direction:column; flex:1 1 auto; min-height:0; overflow-y:auto !important; background:#f8fafc;'}">
+
+        <!-- Grid 2 Cột: Cột 1 Nhập link | Cột 2 Cấu hình tiêu chí -->
+        <div style="display:grid; grid-template-columns:${isMobile ? '1fr' : '1.25fr 1fr'}; gap:14px; margin-bottom:14px; flex-shrink:0;">
+          
+          <!-- Card 1: Danh sách link -->
+          <div style="background:#fff; border:1px solid #cbd5e1; border-radius:10px; padding:14px; box-shadow:0 1px 4px rgba(0,0,0,0.03); display:flex; flex-direction:column;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+              <span style="font-size:13px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:6px;">
+                <span>1. Danh sách Link Facebook cần kiểm tra</span>
+                <span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-size:11px; padding:2px 7px; border-radius:10px;">
+                  <span id="fb-links-count">0</span> link
+                </span>
+              </span>
+              <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <label class="btn btn-sm btn-outline" style="padding:4px 9px; font-size:11.5px; font-weight:700; color:#0284c7; border:1px dashed #0284c7; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; margin:0;" title="Nhập danh sách link từ file Excel (.xlsx), .csv hoặc .txt">
+                  📂 Nạp file TXT/CSV/Excel
+                  <input type="file" id="fb-file-import" accept=".txt,.csv,.xlsx,.xls" style="display:none;" onchange="handleFbFileImport(this)" />
+                </label>
+                <button type="button" class="btn btn-sm btn-outline" onclick="fillSampleFbLink()" style="padding:4px 9px; font-size:11.5px; font-weight:700; color:#7c3aed; border-color:#ddd6fe; background:#f5f3ff; border-radius:6px; cursor:pointer;" title="Dán các liên kết Facebook mẫu và từ khóa mẫu để thử nghiệm">
+                  ✨ Dán mẫu
+                </button>
+                <button type="button" class="btn btn-sm btn-outline" onclick="clearFbLinksInput()" style="padding:4px 8px; font-size:11.5px; font-weight:600; color:#64748b; border-color:#cbd5e1; border-radius:6px; cursor:pointer;" title="Xóa trắng danh sách link">
+                  🗑️ Xóa
+                </button>
+              </div>
+            </div>
+            <textarea id="fb-links-input" oninput="updateFbLinksCount()" placeholder="Dán 1 hoặc nhiều đường link bài viết Facebook vào đây (mỗi dòng 1 link)...&#10;Ví dụ: https://www.facebook.com/story.php?story_fbid=...&id=...&#10;Hoặc link dạng: https://www.facebook.com/share/p/.../" style="width:100%; height:160px; padding:10px 12px; font-size:12.5px; font-family:monospace; border:1.5px solid #cbd5e1; border-radius:8px; line-height:1.5; resize:vertical; outline:none; box-sizing:border-box; color:#0f172a;"></textarea>
+          </div>
+
+          <!-- Card 2: Cấu hình Tiêu chí thẩm định -->
+          <div style="background:#fff; border:1px solid #cbd5e1; border-radius:10px; padding:14px; box-shadow:0 1px 4px rgba(0,0,0,0.03); display:flex; flex-direction:column; justify-content:space-between;">
+            <div>
+              <div style="font-size:13px; font-weight:800; color:#0f172a; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+                <span>2. Bộ Tiêu Chí Thẩm Định Hợp Lệ</span>
+              </div>
+
+              <!-- Từ khóa bắt buộc -->
+              <div style="margin-bottom:10px;">
+                <label style="display:block; font-size:11.5px; font-weight:700; color:#475569; margin-bottom:4px;">
+                  Từ khóa bắt buộc trong nội dung (phân tách bằng dấu phẩy, để trống nếu chỉ kiểm tra công khai):
+                </label>
+                <input type="text" id="fb-keywords-input" placeholder="Ví dụ: Bình dân học vụ số, Đoàn UBND, tập huấn" style="width:100%; padding:7px 10px; font-size:12.5px; border:1.5px solid #cbd5e1; border-radius:6px; outline:none; box-sizing:border-box;" />
+              </div>
+
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                <div>
+                  <label style="display:block; font-size:11.5px; font-weight:700; color:#475569; margin-bottom:4px;">
+                    Cách khớp từ khóa:
+                  </label>
+                  <select id="fb-keyword-mode" style="width:100%; padding:7px 8px; font-size:12.5px; border:1.5px solid #cbd5e1; border-radius:6px; background:#fff; cursor:pointer;">
+                    <option value="any">Khớp ít nhất 1 từ khóa</option>
+                    <option value="all">Phải khớp TẤT CẢ từ khóa</option>
+                  </select>
+                </div>
+                <div>
+                  <label style="display:block; font-size:11.5px; font-weight:700; color:#475569; margin-bottom:4px;">
+                    Giãn nhịp mỗi link (ms):
+                  </label>
+                  <input type="number" id="fb-delay-ms" value="500" min="0" max="5000" step="100" style="width:100%; padding:7px 8px; font-size:12.5px; border:1.5px solid #cbd5e1; border-radius:6px;" title="Thời gian chờ giữa 2 lần quét để tránh Facebook hạn chế IP" />
+                </div>
+              </div>
+
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                <div>
+                  <label style="display:block; font-size:11.5px; font-weight:700; color:#475569; margin-bottom:4px;">
+                    Từ ngày (tùy chọn):
+                  </label>
+                  <input type="date" id="fb-date-from" style="width:100%; padding:6px 8px; font-size:12px; border:1.5px solid #cbd5e1; border-radius:6px;" />
+                </div>
+                <div>
+                  <label style="display:block; font-size:11.5px; font-weight:700; color:#475569; margin-bottom:4px;">
+                    Đến ngày (tùy chọn):
+                  </label>
+                  <input type="date" id="fb-date-to" style="width:100%; padding:6px 8px; font-size:12px; border:1.5px solid #cbd5e1; border-radius:6px;" />
+                </div>
+              </div>
+
+              <label style="display:flex; align-items:center; gap:7px; font-size:12px; color:#1e293b; font-weight:600; cursor:pointer; user-select:none; margin-bottom:10px;">
+                <input type="checkbox" id="fb-require-public" checked style="width:16px; height:16px; cursor:pointer;" />
+                <span>Bắt buộc: bài viết phải mở ở chế độ <b>Công khai (Public)</b></span>
+              </label>
+            </div>
+
+            <!-- Action buttons -->
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; border-top:1px dashed #e2e8f0; padding-top:10px;">
+              <div style="display:flex; gap:6px;">
+                <button type="button" class="btn btn-primary" id="btn-fb-run" onclick="runFbCheck()" style="background:linear-gradient(135deg, #2563eb, #4f46e5); color:#fff; font-weight:700; padding:8px 16px; font-size:13px; border-radius:7px; border:none; display:inline-flex; align-items:center; gap:6px; cursor:pointer; box-shadow:0 4px 12px rgba(37,99,235,0.3);">
+                  🚀 Bắt Đầu Kiểm Tra
+                </button>
+                <button type="button" class="btn btn-danger" id="btn-fb-stop" onclick="stopFbCheck()" style="display:none; background:#dc2626; color:#fff; font-weight:700; padding:8px 14px; font-size:13px; border-radius:7px; border:none; cursor:pointer;">
+                  ⏹️ Dừng lại
+                </button>
+              </div>
+              <div style="display:flex; gap:6px;">
+                <button type="button" class="btn btn-outline btn-sm" onclick="copyFbCheckerTableText()" style="padding:7px 11px; font-size:12px; font-weight:700; color:#334155; border-color:#cbd5e1; border-radius:6px; cursor:pointer;" title="Sao chép toàn bộ bảng dữ liệu vào clipboard">
+                  📋 Copy Bảng
+                </button>
+                <button type="button" class="btn btn-success btn-sm" id="btn-fb-export" onclick="exportFbCheckerExcel()" ${allResults.length === 0 ? 'disabled' : ''} style="padding:7px 13px; font-size:12px; font-weight:700; background:#16a34a; border-color:#15803d; color:#fff; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;" title="Xuất toàn bộ kết quả thẩm định ra file Excel (.xlsx)">
+                  📊 Xuất Excel (.xlsx)
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- Thanh Tiến Độ (Progress Bar) -->
+        <div id="fb-progress-wrap" style="display:none; background:#fff; border:1px solid #cbd5e1; border-radius:8px; padding:10px 14px; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,0.04); flex-shrink:0;">
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:12.5px; font-weight:600; color:#334155; margin-bottom:6px;">
+            <span id="fb-progress-text">Đang chuẩn bị...</span>
+            <span id="fb-progress-pct" style="color:#2563eb; font-weight:800;">0%</span>
+          </div>
+          <div style="height:8px; background:#e2e8f0; border-radius:99px; overflow:hidden;">
+            <div id="fb-progress-fill" style="height:100%; width:0%; background:linear-gradient(90deg, #2563eb, #8b5cf6); transition:width 0.25s ease; border-radius:99px;"></div>
+          </div>
+        </div>
+
+        <!-- Thanh Thống Kê & Bộ Lọc Nhanh -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px; flex-shrink:0;">
+          <div style="display:flex; gap:6px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-sm ${currentFilter === 'all' ? 'active' : ''}" id="fb-pill-all" onclick="setFbCheckerFilter('all')" style="padding:6px 12px; font-size:12.5px; font-weight:700; border-radius:20px; border:1px solid #cbd5e1; ${currentFilter === 'all' ? 'background:#0284c7; color:#fff; border-color:#0284c7;' : 'background:#fff; color:#475569;'} cursor:pointer;">
+              Tất cả (<span id="fb-cnt-all">${allResults.length}</span>)
+            </button>
+            <button type="button" class="btn btn-sm ${currentFilter === 'valid' ? 'active' : ''}" id="fb-pill-valid" onclick="setFbCheckerFilter('valid')" style="padding:6px 12px; font-size:12.5px; font-weight:700; border-radius:20px; border:1px solid #cbd5e1; ${currentFilter === 'valid' ? 'background:#16a34a; color:#fff; border-color:#16a34a;' : 'background:#fff; color:#15803d;'} cursor:pointer;">
+              ✅ Hợp lệ (<span id="fb-cnt-valid">${allResults.filter(r => r && r.is_valid).length}</span>)
+            </button>
+            <button type="button" class="btn btn-sm ${currentFilter === 'invalid' ? 'active' : ''}" id="fb-pill-invalid" onclick="setFbCheckerFilter('invalid')" style="padding:6px 12px; font-size:12.5px; font-weight:700; border-radius:20px; border:1px solid #cbd5e1; ${currentFilter === 'invalid' ? 'background:#dc2626; color:#fff; border-color:#dc2626;' : 'background:#fff; color:#b91c1c;'} cursor:pointer;">
+              ❌ Không hợp lệ (<span id="fb-cnt-invalid">${allResults.filter(r => r && !r.is_valid).length}</span>)
+            </button>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <input type="text" id="fb-search-box" oninput="renderFbCheckerTable()" placeholder="🔍 Lọc nhanh theo tên tài khoản hoặc nội dung..." style="padding:6px 12px; font-size:12.5px; border:1.5px solid #cbd5e1; border-radius:6px; width:280px; max-width:100%; outline:none; background:#fff;" />
+          </div>
+        </div>
+
+        <!-- Bảng Kết Quả Thẩm Định -->
+        <div class="table-container fb-table-container" style="background:#fff; border-radius:8px; border:1.5px solid #cbd5e1; overflow-x:auto !important; ${isMobile ? 'overflow-y:visible !important; height:auto !important; margin-bottom:24px;' : 'overflow-y:auto !important; flex:1 1 auto; min-height:260px;'} box-shadow:0 1px 3px rgba(0,0,0,0.05); -webkit-overflow-scrolling:touch;">
+          <table class="table" id="fb-results-table" style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead style="position:sticky; top:0; z-index:15; background:#f1f5f9; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+              <tr style="background:#f1f5f9; border-bottom:2px solid #cbd5e1;">
+                <th style="width:45px; text-align:center;">STT</th>
+                <th style="min-width:210px;">Link Facebook</th>
+                <th style="width:170px;">Chủ tài khoản FB</th>
+                <th style="width:125px; text-align:center;">Trạng thái hiển thị</th>
+                <th style="width:105px; text-align:center;">Thời gian</th>
+                <th style="min-width:300px;">Nội dung bài đăng</th>
+                <th style="width:120px; text-align:center;">Kết luận</th>
+                <th style="min-width:220px;">Lý do / Ghi chú</th>
+              </tr>
+            </thead>
+            <tbody id="fb-results-tbody">
+              ${allResults.length === 0 ? `
+                <tr>
+                  <td colspan="8" style="text-align:center; padding:38px 20px; color:#94a3b8; font-style:italic;">
+                    Chưa có dữ liệu. Hãy dán link Facebook ở trên và bấm <b>Bắt Đầu Kiểm Tra</b>.
+                  </td>
+                </tr>
+              ` : ''}
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+    </div>
+  `;
+}
+
