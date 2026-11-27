@@ -4,8 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <!-- Tối ưu tốc độ mở trang cực hạn (0ms): Preload tài nguyên trọng yếu -->
-  <link rel="preload" href="./app.js?v=20261119_chat_1795767093981" as="script" />
-  <link rel="preload" href="./styles.css?v=20261119_chat_1795767093981" as="style" />
   <title>Bộ tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh - Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí</title>
   
   <!-- PWA & Mobile Web App Meta Tags -->
@@ -7299,6 +7297,7 @@ const state = {
   fbSheetViewMode: 'auto', // 'auto' | 'all'
   lanToaBoards: {},
   activeLanToaBoardId: '', // '' = tự chọn đợt mới nhất hoặc 'gsheet'
+  lanToaHistory: [],
 
   user: null,
 
@@ -8983,6 +8982,7 @@ function ingestCloudDB(db) {
   state.admin_docs = db.admin_docs || [];
   state.incoming_docs = Array.isArray(db.incoming_docs) ? db.incoming_docs : [];
   state.lanToaBoards = (db.lan_toa_boards && typeof db.lan_toa_boards === 'object') ? db.lan_toa_boards : {};
+  state.lanToaHistory = Array.isArray(db.lan_toa_history) ? db.lan_toa_history : [];
   if (typeof window.scheduleCheckExpiredLanToaBoards === 'function') {
     window.scheduleCheckExpiredLanToaBoards();
   }
@@ -37547,7 +37547,12 @@ window.openCriterionAttachmentsModal = function(criterionId) {
                         </div>
                       </div>
                     </div>
-                    <div style="display:flex; align-items:center; gap:5px; flex-shrink:0;">
+                    <div style="display:flex; align-items:center; gap:5px; flex-shrink:0; flex-wrap:wrap;">
+                      ${isAdmin && typeof window.isScoreableAttachment === 'function' && window.isScoreableAttachment(att) ? `
+                        <button type="button" class="btn btn-sm" onclick="window.autoScoreFromAttachment(${crit.id}, '${escapeHtml(att.id)}')" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-size:12px; font-weight:800; padding:4px 9px; cursor:pointer;" title="Lấy tệp này đưa vào AI tự chấm điểm ngay">
+                          ⚡ AI Tự Chấm
+                        </button>
+                      ` : ''}
                       <button type="button" class="btn btn-sm btn-outline" onclick="openFileInlinePreviewModal('${escapeHtml(att.url)}', '${escapeHtml(att.name)}')" style="font-size:12px; font-weight:700; padding:4px 9px;" title="Xem trực tiếp trong ứng dụng">
                         👁️ Xem
                       </button>
@@ -37898,6 +37903,105 @@ function parseScoreFromText(text) {
   return null;
 }
 
+window.isScoreableAttachment = function(att) {
+  if (!att) return false;
+  const name = String(att.name || '').toLowerCase();
+  const url = String(att.url || '').toLowerCase();
+  const mime = String(att.type || '').toLowerCase();
+  if (/\.(xlsx|xls|csv|docx|doc|pdf)(\?|$)/i.test(name)) return true;
+  if (/\.(xlsx|xls|csv|docx|doc|pdf)(\?|$)/i.test(url)) return true;
+  if (mime.includes('spreadsheet') || mime.includes('excel') || mime.includes('word') || mime.includes('pdf') || mime.includes('csv')) return true;
+  return false;
+};
+
+window.fetchAttachmentAsFile = async function(att) {
+  if (!att || !att.url) throw new Error('Tệp đính kèm không có đường dẫn hợp lệ!');
+  const url = String(att.url).trim();
+  const fileName = String(att.name || 'bang_diem.xlsx').trim();
+
+  // 1. DataURL (base64 nội bộ)
+  if (url.startsWith('data:')) {
+    const parts = url.split(',');
+    const meta = parts[0] || '';
+    const b64 = parts[1] || '';
+    const mimeMatch = meta.match(/data:([^;]+)/i);
+    const mime = mimeMatch ? mimeMatch[1] : (att.type || 'application/octet-stream');
+    const binStr = atob(b64);
+    const bytes = new Uint8Array(binStr.length);
+    for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
+    return new File([bytes], fileName, { type: mime });
+  }
+
+  // 2. Google Drive link -> tải qua Google Apps Script get_file_b64 (tránh CORS)
+  if (/drive\.google\.com|docs\.google\.com/i.test(url)) {
+    const gdriveUrl = typeof getGoogleDriveScriptUrl === 'function' ? getGoogleDriveScriptUrl() : '';
+    if (gdriveUrl) {
+      const res = await fetch(gdriveUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'get_file_b64', fileUrl: url })
+      });
+      const json = await res.json();
+      if (json && json.status === 'success' && json.fileDataB64) {
+        const binStr = atob(json.fileDataB64);
+        const bytes = new Uint8Array(binStr.length);
+        for (let i = 0; i < binStr.length; i++) bytes[i] = binStr.charCodeAt(i);
+        return new File([bytes], json.fileName || fileName, { type: json.mimeType || att.type || 'application/octet-stream' });
+      }
+      throw new Error((json && json.message) || 'Không thể tải tệp từ Google Drive!');
+    }
+  }
+
+  // 3. HTTP/HTTPS URL thông thường
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`HTTP ${resp.status} khi tải tệp "${fileName}"`);
+  const blob = await resp.blob();
+  return new File([blob], fileName, { type: blob.type || att.type || 'application/octet-stream' });
+};
+
+window.autoScoreFromAttachment = async function(criterionId, attachmentId) {
+  if (typeof window.closeCriterionAttachmentsModal === 'function') {
+    window.closeCriterionAttachmentsModal();
+  }
+  window.openAutoScoreModal(criterionId);
+  await window.runAutoScoreFromAttachmentInModal(criterionId, attachmentId);
+};
+
+window.runAutoScoreFromAttachmentInModal = async function(criterionId, attachmentId) {
+  const crit = (state.criteria || []).find(c => Number(c.id) === Number(criterionId));
+  if (!crit) return;
+  const att = (crit.attachments || []).find(a => String(a.id) === String(attachmentId));
+  if (!att) {
+    showToast('Không tìm thấy tệp đính kèm trong tiêu chí!', 'error');
+    return;
+  }
+  const previewWrap = document.getElementById('auto-score-preview-wrap');
+  if (previewWrap) {
+    previewWrap.style.display = 'block';
+    previewWrap.innerHTML = `
+      <div style="text-align:center; padding:30px 10px;">
+        <div style="font-size:26px; animation:spin 1s linear infinite; display:inline-block; margin-bottom:10px;">⏳</div>
+        <div style="font-size:14.5px; font-weight:700; color:#059669;">Đang lấy tệp "${escapeHtml(att.name)}" từ mục 📎 Tệp để AI tự chấm điểm...</div>
+        <div style="font-size:12px; color:#64748b; margin-top:4px;">Hệ thống đang tải và bóc tách bảng điểm 40 đơn vị...</div>
+      </div>
+    `;
+  }
+  try {
+    const fileObj = await window.fetchAttachmentAsFile(att);
+    await window.onAutoScoreFileChosen({ target: { files: [fileObj] } }, criterionId);
+  } catch (err) {
+    console.error('runAutoScoreFromAttachmentInModal error:', err);
+    if (previewWrap) {
+      previewWrap.innerHTML = `
+        <div style="background:#fef2f2; border:1px solid #f87171; border-radius:8px; padding:16px; color:#991b1b; text-align:center;">
+          <div style="font-weight:700; font-size:14px; margin-bottom:4px;">⚠️ Không thể lấy tệp "${escapeHtml(att.name)}"!</div>
+          <div style="font-size:12.5px;">${escapeHtml(err.message || 'Lỗi kết nối khi tải tệp')}</div>
+        </div>
+      `;
+    }
+  }
+};
+
 window.openAutoScoreModal = function(criterionId) {
   if (!state.user || state.user.role !== 'admin') {
     showToast('Chỉ Quản trị viên (Admin) mới có quyền thực hiện thao tác này!', 'error');
@@ -37908,6 +38012,7 @@ window.openAutoScoreModal = function(criterionId) {
     showToast('Không tìm thấy thông tin tiêu chí!', 'error');
     return;
   }
+  const savedScoreFiles = (crit.attachments || []).filter(a => window.isScoreableAttachment(a));
 
   const modalRoot = document.getElementById('modal-root');
   modalRoot.innerHTML = `
@@ -37929,6 +38034,30 @@ window.openAutoScoreModal = function(criterionId) {
 
         <!-- BODY -->
         <div class="modal-body" style="padding:18px 22px; overflow-y:auto; flex:1 1 auto;">
+          ${savedScoreFiles.length > 0 ? `
+            <div style="background:#f0fdf4; border:1.5px solid #86efac; border-radius:10px; padding:12px 14px; margin-bottom:14px;">
+              <div style="font-size:13px; font-weight:800; color:#166534; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+                <span>📂</span> <span>Lấy nhanh từ tệp đã lưu trong mục 📎 Tệp của tiêu chí này (${savedScoreFiles.length}):</span>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:6px;">
+                ${savedScoreFiles.map(att => `
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; background:#fff; border:1px solid #bbf7d0; border-radius:8px; padding:8px 10px;">
+                    <div style="display:flex; align-items:center; gap:8px; overflow:hidden; flex:1;">
+                      <span style="font-size:18px; flex-shrink:0;">${typeof getAttachmentIcon === 'function' ? getAttachmentIcon(att.name, att.url) : '📄'}</span>
+                      <div style="overflow:hidden;">
+                        <div style="font-size:12.5px; font-weight:700; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(att.name)}</div>
+                        <div style="font-size:11px; color:#64748b;">${att.uploaded_at ? formatShortDateTimeVN(att.uploaded_at) : ''} ${att.uploaded_by ? '• ' + escapeHtml(att.uploaded_by) : ''}</div>
+                      </div>
+                    </div>
+                    <button type="button" class="btn btn-sm" onclick="window.runAutoScoreFromAttachmentInModal(${crit.id}, '${escapeHtml(att.id)}')" style="background:#059669; color:#fff; border:none; font-size:12px; font-weight:800; padding:6px 12px; border-radius:6px; cursor:pointer; flex-shrink:0;">
+                      ⚡ Lấy tệp này tự chấm
+                    </button>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+
           <!-- DROPZONE -->
           <div id="auto-score-dropzone-box" class="auto-score-dropzone" onclick="document.getElementById('auto-score-file-input').click()">
             <input type="file" id="auto-score-file-input" accept=".docx, .doc, .xlsx, .xls, .pdf, .csv" style="display:none;" onchange="onAutoScoreFileChosen(event, ${criterionId})" />
@@ -38280,7 +38409,8 @@ async function parseExcelFileToRows(file) {
 
   const arrayBuffer = await file.arrayBuffer();
   const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-  const sheetName = workbook.SheetNames[0];
+  const preferredSheet = workbook.SheetNames.find(n => /Bang_Thu_Gon_40_Don_Vi|Bang_Diem_40_Don_Vi/i.test(n));
+  const sheetName = preferredSheet || workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
 
   // 1. Bung các ô gộp (Merged Cells)
@@ -46047,6 +46177,9 @@ function renderFbSheetHubTab() {
               </button>
             `}
           ` : ''}
+          <button type="button" class="btn btn-sm" onclick="openLanToaHistoryModal()" style="background:#f5f3ff; border:1px solid #ddd6fe; color:#6d28d9; font-weight:800; border-radius:7px; padding:6px 11px; cursor:pointer;" title="Xem danh sách lịch sử các đợt Lệnh lan tỏa &amp; tải 2 file minh chứng">
+            📜 Lịch sử Lan Tỏa (${(state.lanToaHistory || []).length})
+          </button>
           <button type="button" class="btn btn-sm" onclick="exportFbSheetExcel()" ${units.length === 0 ? 'disabled' : ''} style="background:#ffffff; border:none; color:#065f46; font-weight:800; border-radius:7px; padding:6px 11px; cursor:pointer;">
             📊 Xuất Excel
           </button>
@@ -46075,10 +46208,13 @@ function renderFbSheetHubTab() {
                 📌 Áp dụng vào cột này
               </button>
               ${linkedCrit ? `
-                <button type="button" class="btn btn-sm" onclick="finalizeLanToaBoard(${linkedCrit.id}, false)" ${state.fbSheetLoading ? 'disabled' : ''} style="background:#059669; border:none; color:#fff; font-weight:800; border-radius:7px; padding:5px 11px; font-size:12px; cursor:pointer;" title="Chốt điểm từ Google Sheet vào ${escapeHtml(linkedCrit.col_label || '')}, lưu tệp Excel và xóa trắng Sheet">
+                <button type="button" class="btn btn-sm" onclick="finalizeLanToaBoard(${linkedCrit.id}, false)" ${state.fbSheetLoading ? 'disabled' : ''} style="background:#059669; border:none; color:#fff; font-weight:800; border-radius:7px; padding:5px 11px; font-size:12px; cursor:pointer;" title="Chốt điểm từ Google Sheet vào ${escapeHtml(linkedCrit.col_label || '')}, lưu 2 tệp Excel vào mục Tệp + Lịch sử và xóa trắng Sheet (nếu bật)">
                   🏁 Chốt Điểm (${escapeHtml(linkedCrit.col_label || '')})
                 </button>
               ` : ''}
+              <button type="button" class="btn btn-sm" onclick="saveCurrentFbSheetToLanToaHistory()" ${units.length === 0 || state.fbSheetLoading ? 'disabled' : ''} style="background:#7c3aed; border:none; color:#fff; font-weight:800; border-radius:7px; padding:5px 11px; font-size:12px; cursor:pointer;" title="Lưu bảng hiện tại thành 2 file minh chứng (Tất cả link + Thu gọn 40 đơn vị) vào Lịch sử Lan Tỏa">
+                💾 Lưu 2 File Lịch Sử
+              </button>
               ${(linkedCrit || hasOldBoards) ? `
                 <button type="button" class="btn btn-sm" onclick="clearAllLanToaBoards()" style="background:#fee2e2; border:1px solid #fca5a5; color:#b91c1c; font-weight:700; border-radius:7px; padding:5px 10px; font-size:12px; cursor:pointer;" title="Xóa liên kết &amp; dọn sạch các bảng đợt cũ khỏi danh sách">
                   🗑️ Xóa liên kết / đợt cũ
@@ -46846,25 +46982,158 @@ window.setLanToaExcludedKeywords = async function (boardId) {
   renderApp();
 };
 
+async function _uploadOrDataUrlWorkbook(wb, fileName, criterionId) {
+  const b64Raw = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
+  const dataUrl = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + b64Raw;
+  let fileUrl = '';
+  if (typeof uploadFileToCloud === 'function' && getGoogleDriveScriptUrl()) {
+    try {
+      const upRes = await uploadFileToCloud(dataUrl, fileName, 0, criterionId || 0);
+      if (upRes && upRes.fileUrl) fileUrl = upRes.fileUrl;
+    } catch (upErr) {
+      console.warn('Drive upload fallback to dataUrl:', upErr);
+    }
+  }
+  return fileUrl || dataUrl;
+}
+
+async function _generateAndUploadLanToaTwoFiles(opts) {
+  const title = opts.title || 'Lệnh lan tỏa';
+  const critId = Number(opts.criterionId || 0);
+  const colSlug = critId ? `Cot_${critId}` : 'GoogleSheet';
+  const deadlineStr = opts.deadline || todayISO();
+  const deadlineTime = opts.deadlineTime || '17:00';
+  const maxS = Number(opts.maxScore || 3);
+  const unitsList = Array.isArray(opts.units) ? opts.units : [];
+  const gsScoreBoard = Array.isArray(opts.gsScoreBoard) ? opts.gsScoreBoard : [];
+  const nowStr = new Date().toLocaleString('vi-VN');
+
+  if (typeof XLSX === 'undefined' && window.ensureXlsxLoaded) {
+    await window.ensureXlsxLoaded().catch(() => {});
+  }
+
+  let submittedUnits = 0;
+  let totalLinks = 0;
+  let totalValid = 0;
+  let totalInvalid = 0;
+
+  const detailRows = [
+    [`BÁO CÁO CHI TIẾT TẤT CẢ CÁC LINK ĐƠN VỊ: ${title}`],
+    [`Hạn nộp: ${deadlineTime} ngày ${deadlineStr} | Xuất lúc: ${nowStr}`],
+    [],
+    ['TT', 'Số link', 'Tổ chức cơ sở Đoàn trực thuộc', 'Link Facebook', 'Tên trang / Chủ tài khoản', 'Trạng thái hiển thị', 'Kết quả', 'Điểm']
+  ];
+  const summaryRows = [
+    [`BẢNG THU GỌN 40 ĐƠN VỊ: ${title}`],
+    [`Hạn nộp: ${deadlineTime} ngày ${deadlineStr} | Mức điểm tối đa: ${maxS}đ | Xuất lúc: ${nowStr}`],
+    [],
+    ['TT', 'Mã ĐV', 'Tổ chức cơ sở Đoàn trực thuộc', 'Chỉ tiêu', 'Link hợp lệ', 'Tỷ lệ (%)', 'Điểm đạt được']
+  ];
+
+  unitsList.forEach((u, uIdx) => {
+    const slots = (Array.isArray(u.slots) && u.slots.length > 0) ? u.slots : (u.links || []);
+    const targetSlots = Math.max(1, Number(u.maxSlots || slots.length || 1));
+    const nonEmptyLinks = slots.filter(s => s && s.url && String(s.url).trim());
+    if (nonEmptyLinks.length > 0) submittedUnits++;
+    totalLinks += nonEmptyLinks.length;
+
+    let vCnt = 0;
+    slots.forEach(s => {
+      if (!s) return;
+      if (s.isValid) {
+        vCnt++;
+        totalValid++;
+      } else if (s.url && String(s.url).trim() && s.resultText) {
+        totalInvalid++;
+      }
+    });
+
+    let unitScore = Math.min(maxS, Number(((vCnt / targetSlots) * maxS).toFixed(2)));
+    if (gsScoreBoard.length > 0 && typeof _matchSheetUnitToUser === 'function') {
+      const sbMatch = _matchSheetUnitToUser(gsScoreBoard, u.unitName);
+      if (sbMatch && sbMatch.score !== '' && sbMatch.score !== undefined && !isNaN(Number(sbMatch.score))) {
+        unitScore = Number(Number(sbMatch.score).toFixed(2));
+      }
+    }
+    const pct = Math.min(100, Math.round((vCnt / targetSlots) * 100));
+    const unitCode = `donvi${String(uIdx + 1).padStart(2, '0')}`;
+    const ttLabel = u.tt || String(uIdx + 1);
+
+    summaryRows.push([ttLabel, unitCode, u.unitName, targetSlots, vCnt, pct, unitScore]);
+
+    if (slots.length === 0) {
+      detailRows.push([ttLabel, 1, u.unitName, '', '', '', 'Chưa nộp', unitScore]);
+    } else {
+      slots.forEach((s, sIdx) => {
+        detailRows.push([
+          sIdx === 0 ? ttLabel : '',
+          s.slotNo || (sIdx + 1),
+          sIdx === 0 ? u.unitName : '',
+          s.url || '',
+          s.accountName || '',
+          s.visibility || '',
+          s.resultText || (s.url ? '' : 'Chưa nộp'),
+          sIdx === 0 ? unitScore : ''
+        ]);
+      });
+    }
+  });
+
+  const file1Name = `Lan_Toa_Tat_Ca_Link_${colSlug}_${todayISO()}.xlsx`;
+  const file2Name = `Lan_Toa_Thu_Gon_40_Don_Vi_${colSlug}_${todayISO()}.xlsx`;
+  let file1Url = '';
+  let file2Url = '';
+
+  if (typeof XLSX !== 'undefined') {
+    const wb1 = XLSX.utils.book_new();
+    const ws1 = XLSX.utils.aoa_to_sheet(detailRows);
+    ws1['!cols'] = [{ wch: 5 }, { wch: 8 }, { wch: 38 }, { wch: 46 }, { wch: 28 }, { wch: 22 }, { wch: 30 }, { wch: 10 }];
+    XLSX.utils.book_append_sheet(wb1, ws1, 'Tat_Ca_Link_Don_Vi');
+    file1Url = await _uploadOrDataUrlWorkbook(wb1, file1Name, critId);
+
+    const wb2 = XLSX.utils.book_new();
+    const ws2 = XLSX.utils.aoa_to_sheet(summaryRows);
+    ws2['!cols'] = [{ wch: 6 }, { wch: 10 }, { wch: 42 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 16 }];
+    XLSX.utils.book_append_sheet(wb2, ws2, 'Bang_Thu_Gon_40_Don_Vi');
+    file2Url = await _uploadOrDataUrlWorkbook(wb2, file2Name, critId);
+  }
+
+  return {
+    file1Name,
+    file1Url,
+    file2Name,
+    file2Url,
+    stats: {
+      totalUnits: unitsList.length,
+      submittedUnits,
+      totalLinks,
+      totalValid,
+      totalInvalid
+    }
+  };
+}
+
 window.finalizeLanToaBoard = async function (boardId, isAuto) {
   const board = (state.lanToaBoards || {})[String(boardId)];
   if (!board) return;
-  if (!isAuto && !confirm(`Chốt điểm tự động cho cả 40 cơ sở Đoàn và lưu tệp Excel báo cáo vào tiêu chí "${board.title}"?`)) {
+  if (!isAuto && !confirm(`Chốt điểm tự động cho cả 40 cơ sở Đoàn và lưu 2 tệp Excel minh chứng (Tất cả link + Thu gọn 40 đơn vị) vào tiêu chí "${board.title}" & Lịch sử?`)) {
     return;
   }
 
   state.fbSheetLoading = true;
-  if (!isAuto && typeof showToast === 'function') showToast('⏳ Đang tổng hợp điểm, xuất tệp Excel & gắn vào tiêu chí...', 'info');
+  if (!isAuto && typeof showToast === 'function') showToast('⏳ Đang tổng hợp điểm, xuất 2 tệp Excel minh chứng & lưu lịch sử...', 'info');
   renderApp();
 
   try {
     // Nếu bảng này liên kết trực tiếp với Google Sheet -> đồng bộ lần cuối dữ liệu từ Sheet trước khi chốt
     const webAppUrl = typeof window.getFbSheetWebAppUrl === 'function' ? window.getFbSheetWebAppUrl() : '';
+    let latestSheetJson = state.fbSheetData;
     if (board.linkedGoogleSheet && webAppUrl) {
       try {
         const resSheet = await fetch(webAppUrl + (webAppUrl.includes('?') ? '&' : '?') + 't=' + Date.now());
         const jsonSheet = await resSheet.json();
         if (jsonSheet && jsonSheet.ok && Array.isArray(jsonSheet.units)) {
+          latestSheetJson = jsonSheet;
           _syncGoogleSheetDataIntoLanToaBoard(board, jsonSheet);
         }
       } catch (syncErr) {
@@ -46876,65 +47145,18 @@ window.finalizeLanToaBoard = async function (boardId, isAuto) {
     _recalcLanToaBoardDuplicatesAndScores(board);
     const maxS = Number(board.maxScore || 3);
 
-    // 1. Tạo file Excel (.xlsx) tổng hợp kết quả để gắn vào tiêu chí
-    let fileUrl = '';
-    const fileName = `Ket_Qua_Lan_Toa_Cot_${board.criterionId}_${todayISO()}.xlsx`;
-    if (typeof XLSX === 'undefined' && window.ensureXlsxLoaded) {
-      await window.ensureXlsxLoaded().catch(() => {});
-    }
-    if (typeof XLSX !== 'undefined') {
-      const detailRows = [
-        [`BÁO CÁO KẾT QUẢ THẨM ĐỊNH: ${board.title}`],
-        [`Hạn nộp: ${board.deadlineTime || '17:00'} ngày ${board.deadline} | Chốt tự động lúc: ${new Date().toLocaleString('vi-VN')}`],
-        [],
-        ['TT', 'Số link', 'Tổ chức cơ sở Đoàn trực thuộc', 'Link Facebook', 'Tên trang / Chủ tài khoản', 'Trạng thái hiển thị', 'Kết quả', 'Điểm']
-      ];
-      const scoreRows = [['Mã ĐV', 'Tổ chức cơ sở Đoàn trực thuộc', 'Số link hợp lệ', 'Chỉ tiêu', 'Điểm đạt được']];
+    // 1. Tạo 2 file Excel (.xlsx): File 1 (Tất cả link) & File 2 (Thu gọn 40 đơn vị)
+    const filesRes = await _generateAndUploadLanToaTwoFiles({
+      title: board.title,
+      criterionId: board.criterionId,
+      deadline: board.deadline,
+      deadlineTime: board.deadlineTime || '17:00',
+      maxScore: maxS,
+      units: board.units || [],
+      gsScoreBoard: (latestSheetJson && Array.isArray(latestSheetJson.scoreBoard)) ? latestSheetJson.scoreBoard : []
+    });
 
-      (board.units || []).forEach((u, uIdx) => {
-        const slots = u.slots || [];
-        const vCnt = slots.filter(s => s.isValid).length;
-        const unitScore = Math.min(maxS, Number(((vCnt / Math.max(1, u.maxSlots || slots.length)) * maxS).toFixed(2)));
-        scoreRows.push([`donvi${String(uIdx + 1).padStart(2, '0')}`, u.unitName, vCnt, u.maxSlots || slots.length, unitScore]);
-
-        slots.forEach((s, sIdx) => {
-          detailRows.push([
-            sIdx === 0 ? u.tt : '',
-            s.slotNo || (sIdx + 1),
-            sIdx === 0 ? u.unitName : '',
-            s.url || '',
-            s.accountName || '',
-            s.visibility || '',
-            s.resultText || (s.url ? '' : 'Chưa nộp'),
-            sIdx === 0 ? unitScore : ''
-          ]);
-        });
-      });
-
-      const wb = XLSX.utils.book_new();
-      const ws1 = XLSX.utils.aoa_to_sheet(detailRows);
-      ws1['!cols'] = [{ wch: 5 }, { wch: 8 }, { wch: 38 }, { wch: 45 }, { wch: 28 }, { wch: 22 }, { wch: 30 }, { wch: 10 }];
-      const ws2 = XLSX.utils.aoa_to_sheet(scoreRows);
-      ws2['!cols'] = [{ wch: 10 }, { wch: 42 }, { wch: 16 }, { wch: 12 }, { wch: 16 }];
-      XLSX.utils.book_append_sheet(wb, ws2, 'Bang_Diem_40_Don_Vi');
-      XLSX.utils.book_append_sheet(wb, ws1, 'Chi_Tiet_Link_FB');
-
-      const b64Raw = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
-      const dataUrl = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + b64Raw;
-
-      // Tải lên Google Drive nếu có kết nối, nếu chưa thì lưu dạng DataURL nội bộ
-      if (typeof uploadFileToCloud === 'function' && getGoogleDriveScriptUrl()) {
-        try {
-          const upRes = await uploadFileToCloud(dataUrl, fileName, 0, board.criterionId);
-          if (upRes && upRes.fileUrl) fileUrl = upRes.fileUrl;
-        } catch (upErr) {
-          console.warn('Drive upload fallback to dataUrl:', upErr);
-        }
-      }
-      if (!fileUrl) fileUrl = dataUrl;
-    }
-
-    // 2. Nhập điểm vào db.scores cho 40 đơn vị + gắn tệp vào tiêu chí + đánh dấu finalized
+    // 2. Nhập điểm vào db.scores cho 40 đơn vị + gắn 2 tệp vào tiêu chí + lưu lịch sử + đánh dấu finalized
     await mutateCloudDB(db => {
       const b = db.lan_toa_boards && db.lan_toa_boards[String(boardId)];
       if (!b) return;
@@ -46964,23 +47186,58 @@ window.finalizeLanToaBoard = async function (boardId, isAuto) {
       });
 
       const crit = (db.criteria || []).find(c => Number(c.id) === Number(b.criterionId));
-      if (crit && fileUrl) {
+      if (crit) {
         if (!Array.isArray(crit.attachments)) crit.attachments = [];
-        crit.attachments.push({
-          id: 'att_lt_' + Date.now(),
-          name: fileName,
-          url: fileUrl,
-          size: 0,
-          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          uploaded_at: nowISO(),
-          uploaded_by: 'Hệ thống Tự động (Lệnh lan tỏa)'
-        });
+        const tsBase = Date.now();
+        if (filesRes.file2Url) {
+          crit.attachments.push({
+            id: 'att_lt_sum_' + tsBase,
+            name: filesRes.file2Name,
+            url: filesRes.file2Url,
+            size: 0,
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            uploaded_at: nowISO(),
+            uploaded_by: 'Hệ thống Tự động (Thu gọn 40 ĐV)'
+          });
+        }
+        if (filesRes.file1Url) {
+          crit.attachments.push({
+            id: 'att_lt_all_' + (tsBase + 1),
+            name: filesRes.file1Name,
+            url: filesRes.file1Url,
+            size: 0,
+            type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            uploaded_at: nowISO(),
+            uploaded_by: 'Hệ thống Tự động (Tất cả link)'
+          });
+        }
       }
+
+      db.lan_toa_history = Array.isArray(db.lan_toa_history) ? db.lan_toa_history : [];
+      db.lan_toa_history.unshift({
+        id: 'lth_' + Date.now(),
+        criterionId: Number(b.criterionId),
+        colLabel: crit ? (crit.col_label || ('Cột ' + crit.col_number)) : ('Cột ' + b.criterionId),
+        title: b.title || (crit ? crit.title : 'Lệnh lan tỏa'),
+        deadline: b.deadline || '',
+        deadlineTime: b.deadlineTime || '17:00',
+        maxScore: maxS,
+        finalizedAt: nowISO(),
+        totalUnits: filesRes.stats.totalUnits,
+        submittedUnits: filesRes.stats.submittedUnits,
+        totalLinks: filesRes.stats.totalLinks,
+        totalValid: filesRes.stats.totalValid,
+        totalInvalid: filesRes.stats.totalInvalid,
+        allLinksFileName: filesRes.file1Name,
+        allLinksFileUrl: filesRes.file1Url,
+        summaryFileName: filesRes.file2Name,
+        summaryFileUrl: filesRes.file2Url
+      });
 
       b.finalized = true;
       b.finalizedAt = nowISO();
-      b.resultFileUrl = fileUrl;
-      b.resultFileName = fileName;
+      b.resultFileUrl = filesRes.file2Url || filesRes.file1Url;
+      b.resultFileName = filesRes.file2Name || filesRes.file1Name;
     }, `Finalize Lan Toa board #${boardId}`);
 
     // Nếu được cấu hình xóa trắng Google Sheet sau khi chốt -> gọi API clear_all_links
@@ -47001,7 +47258,7 @@ window.finalizeLanToaBoard = async function (boardId, isAuto) {
     }
 
     if (typeof showToast === 'function') {
-      showToast(`🎉 Đã tự động chấm điểm 40 đơn vị, gắn tệp "${fileName}" vào tiêu chí${board.clearGoogleSheetOnFinalize ? ' & xóa trắng Google Sheet chờ đợt mới' : ''}!`, 'success');
+      showToast(`🎉 Đã chốt điểm 40 đơn vị, lưu 2 tệp Excel vào Tiêu chí + Lịch sử Lan Tỏa${board.clearGoogleSheetOnFinalize ? ' & xóa trắng Google Sheet chờ đợt mới' : ''}!`, 'success');
     }
   } catch (err) {
     console.error('finalizeLanToaBoard error:', err);
@@ -47010,6 +47267,201 @@ window.finalizeLanToaBoard = async function (boardId, isAuto) {
     state.fbSheetLoading = false;
     renderApp();
   }
+};
+
+window.saveCurrentFbSheetToLanToaHistory = async function () {
+  if (!state.user || state.user.role !== 'admin') {
+    showToast('Chỉ Quản trị viên (Admin) mới có quyền lưu lịch sử!', 'error');
+    return;
+  }
+  const sheetData = state.fbSheetData;
+  if (!sheetData || !Array.isArray(sheetData.units) || sheetData.units.length === 0) {
+    showToast('Chưa có dữ liệu bảng Google Sheet để lưu!', 'warning');
+    return;
+  }
+  const linkedCritId = (state.settings && state.settings.fb_sheet_active_criterion_id) ? String(state.settings.fb_sheet_active_criterion_id) : '';
+  const linkedCrit = linkedCritId ? (state.criteria || []).find(c => String(c.id) === linkedCritId) : null;
+  const defaultTitle = linkedCrit
+    ? `${linkedCrit.title} (${linkedCrit.col_label || ('Cột ' + linkedCrit.col_number)})`
+    : (sheetData.sheetTitle || `Đợt Lệnh Lan Tỏa ngày ${todayISO()}`);
+
+  const customTitle = prompt('💾 LƯU LỊCH SỬ LỆNH LAN TỎA (XUẤT 2 FILE MINH CHỨNG)\nNhập tên đợt / mô tả ngắn gọn để dễ tra cứu:', defaultTitle);
+  if (customTitle === null) return;
+
+  state.fbSheetLoading = true;
+  showToast('⏳ Đang tạo 2 file minh chứng (Tất cả link + Thu gọn 40 đơn vị)...', 'info');
+  renderApp();
+
+  try {
+    const filesRes = await _generateAndUploadLanToaTwoFiles({
+      title: customTitle.trim() || defaultTitle,
+      criterionId: linkedCrit ? linkedCrit.id : 0,
+      deadline: linkedCrit ? (linkedCrit.deadline || todayISO()) : todayISO(),
+      deadlineTime: linkedCrit ? (linkedCrit.deadline_time || '17:00') : '17:00',
+      maxScore: linkedCrit ? Number(linkedCrit.max_score || 3) : 3,
+      units: sheetData.units || [],
+      gsScoreBoard: Array.isArray(sheetData.scoreBoard) ? sheetData.scoreBoard : []
+    });
+
+    await mutateCloudDB(db => {
+      db.lan_toa_history = Array.isArray(db.lan_toa_history) ? db.lan_toa_history : [];
+      db.lan_toa_history.unshift({
+        id: 'lth_' + Date.now(),
+        criterionId: linkedCrit ? Number(linkedCrit.id) : 0,
+        colLabel: linkedCrit ? (linkedCrit.col_label || ('Cột ' + linkedCrit.col_number)) : 'Google Sheet',
+        title: customTitle.trim() || defaultTitle,
+        deadline: linkedCrit ? (linkedCrit.deadline || todayISO()) : todayISO(),
+        deadlineTime: linkedCrit ? (linkedCrit.deadline_time || '17:00') : '17:00',
+        maxScore: linkedCrit ? Number(linkedCrit.max_score || 3) : 3,
+        finalizedAt: nowISO(),
+        totalUnits: filesRes.stats.totalUnits,
+        submittedUnits: filesRes.stats.submittedUnits,
+        totalLinks: filesRes.stats.totalLinks,
+        totalValid: filesRes.stats.totalValid,
+        totalInvalid: filesRes.stats.totalInvalid,
+        allLinksFileName: filesRes.file1Name,
+        allLinksFileUrl: filesRes.file1Url,
+        summaryFileName: filesRes.file2Name,
+        summaryFileUrl: filesRes.file2Url
+      });
+    }, 'Save Lan Toa snapshot (2 files) to history');
+
+    showToast('✅ Đã lưu đợt Lệnh lan tỏa vào Lịch sử kèm đủ 2 file minh chứng!', 'success');
+  } catch (err) {
+    console.error('saveCurrentFbSheetToLanToaHistory error:', err);
+    alert('Lỗi khi lưu lịch sử: ' + (err.message || err));
+  } finally {
+    state.fbSheetLoading = false;
+    renderApp();
+  }
+};
+
+window.autoScoreFromHistoryEntry = async function (historyId) {
+  const entry = (state.lanToaHistory || []).find(h => String(h.id) === String(historyId));
+  if (!entry) return;
+  let critId = Number(entry.criterionId || 0);
+  if (!critId) {
+    const firstCrit = (state.criteria || [])[0];
+    if (!firstCrit) {
+      showToast('Không tìm thấy tiêu chí nào để chấm điểm!', 'warning');
+      return;
+    }
+    critId = firstCrit.id;
+  }
+  const fileUrl = entry.summaryFileUrl || entry.allLinksFileUrl;
+  const fileName = entry.summaryFileName || entry.allLinksFileName || 'Lan_Toa_Thu_Gon.xlsx';
+  if (!fileUrl) {
+    showToast('Bản ghi lịch sử này chưa có tệp đính kèm!', 'warning');
+    return;
+  }
+  if (typeof closeModal === 'function') closeModal();
+  window.openAutoScoreModal(critId);
+  const previewWrap = document.getElementById('auto-score-preview-wrap');
+  if (previewWrap) {
+    previewWrap.style.display = 'block';
+    previewWrap.innerHTML = `
+      <div style="text-align:center; padding:30px 10px;">
+        <div style="font-size:26px; animation:spin 1s linear infinite; display:inline-block; margin-bottom:10px;">⏳</div>
+        <div style="font-size:14.5px; font-weight:700; color:#059669;">Đang lấy File thu gọn "${escapeHtml(fileName)}" từ Lịch sử Lan Tỏa...</div>
+      </div>
+    `;
+  }
+  try {
+    const fileObj = await window.fetchAttachmentAsFile({ name: fileName, url: fileUrl, type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    await window.onAutoScoreFileChosen({ target: { files: [fileObj] } }, critId);
+  } catch (err) {
+    if (previewWrap) {
+      previewWrap.innerHTML = `<div style="background:#fef2f2; border:1px solid #f87171; border-radius:8px; padding:16px; color:#991b1b; text-align:center;">⚠️ Lỗi tải tệp từ lịch sử: ${escapeHtml(err.message || err)}</div>`;
+    }
+  }
+};
+
+window.deleteLanToaHistoryEntry = async function (historyId) {
+  if (!confirm('Xóa bản ghi lịch sử Lệnh lan tỏa này?')) return;
+  await mutateCloudDB(db => {
+    db.lan_toa_history = (Array.isArray(db.lan_toa_history) ? db.lan_toa_history : []).filter(h => String(h.id) !== String(historyId));
+  }, `Delete Lan Toa history #${historyId}`);
+  if (typeof showToast === 'function') showToast('🗑️ Đã xóa bản ghi khỏi lịch sử!', 'success');
+  window.openLanToaHistoryModal();
+};
+
+window.openLanToaHistoryModal = function () {
+  const isAdmin = state.user && state.user.role === 'admin';
+  const list = Array.isArray(state.lanToaHistory) ? state.lanToaHistory : [];
+  const modalRoot = document.getElementById('modal-root');
+  if (!modalRoot) return;
+
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this) closeModal()" style="position:fixed; inset:0; background:rgba(15,23,42,0.35); z-index:9999999; display:flex; align-items:center; justify-content:center; padding:16px;">
+      <div class="modal-box" style="background:#fff; border-radius:14px; width:100%; max-width:920px; max-height:90vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 24px 60px rgba(0,0,0,0.35);">
+        <div style="background:linear-gradient(135deg, #4c1d95 0%, #6d28d9 60%, #0284c7 100%); color:#fff; padding:14px 20px; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <div style="font-size:15.5px; font-weight:800;">📜 DANH SÁCH LỊCH SỬ CÁC ĐỢT LỆNH LAN TỎA (${list.length})</div>
+            <div style="font-size:12px; opacity:0.92; margin-top:2px;">Lưu trữ minh chứng 2 file mỗi đợt: File 1 (Tất cả link các đơn vị) &amp; File 2 (Bảng thu gọn 40 đơn vị)</div>
+          </div>
+          <button type="button" onclick="closeModal()" style="background:rgba(255,255,255,0.2); border:none; color:#fff; width:30px; height:30px; border-radius:50%; font-weight:700; cursor:pointer;">✕</button>
+        </div>
+        <div style="padding:16px 20px; overflow-y:auto; flex:1 1 auto; background:#f8fafc;">
+          ${list.length === 0 ? `
+            <div style="background:#fff; border:1.5px dashed #cbd5e1; border-radius:12px; padding:36px 20px; text-align:center; color:#64748b;">
+              <div style="font-size:36px; margin-bottom:8px;">📭</div>
+              <div style="font-size:14.5px; font-weight:700; color:#334155;">Chưa có đợt Lệnh lan tỏa nào được lưu trong lịch sử.</div>
+              <div style="font-size:12.5px; margin-top:4px;">Khi Admin bấm <b>🏁 Chốt Điểm</b> hoặc <b>💾 Lưu 2 File Lịch Sử</b>, hệ thống sẽ tự động lưu tại đây để làm minh chứng tra cứu lâu dài.</div>
+            </div>
+          ` : `
+            <div style="display:flex; flex-direction:column; gap:12px;">
+              ${list.map((h, idx) => `
+                <div style="background:#fff; border:1px solid #cbd5e1; border-radius:10px; padding:12px 14px; box-shadow:0 2px 6px rgba(15,23,42,0.04);">
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px; flex-wrap:wrap;">
+                    <div style="flex:1; min-width:220px;">
+                      <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:4px;">
+                        <span class="badge" style="background:#ede9fe; color:#6d28d9; font-weight:800; font-size:11px;">#${list.length - idx}</span>
+                        ${h.colLabel ? `<span class="badge" style="background:#dbeafe; color:#1d4ed8; font-weight:800; font-size:11px;">${escapeHtml(h.colLabel)}</span>` : ''}
+                        <span style="font-size:14px; font-weight:800; color:#0f172a;">${escapeHtml(h.title || 'Lệnh lan tỏa')}</span>
+                      </div>
+                      <div style="font-size:11.5px; color:#64748b; display:flex; gap:10px; flex-wrap:wrap;">
+                        <span>🕒 Lưu lúc: <b>${h.finalizedAt ? formatShortDateTimeVN(h.finalizedAt) : '-'}</b></span>
+                        <span>📅 Hạn: <b>${escapeHtml(h.deadlineTime || '17:00')} ${escapeHtml(h.deadline || '')}</b></span>
+                        <span>👥 Đã nộp: <b>${h.submittedUnits || 0}/${h.totalUnits || 40} ĐV</b></span>
+                        <span>🔗 Tổng link: <b>${h.totalLinks || 0}</b> (<b style="color:#16a34a;">${h.totalValid || 0} hợp lệ</b>)</span>
+                      </div>
+                    </div>
+                    ${isAdmin ? `
+                      <div style="display:flex; gap:6px; align-items:center;">
+                        ${h.criterionId ? `
+                          <button type="button" class="btn btn-sm" onclick="window.autoScoreFromHistoryEntry('${escapeHtml(h.id)}')" style="background:#dcfce7; color:#15803d; border:1px solid #86efac; font-size:11.5px; font-weight:800; padding:4px 9px; border-radius:6px; cursor:pointer;" title="Lấy File 2 đưa vào AI tự chấm điểm lại cho cột này">
+                            ⚡ AI Chấm Lại
+                          </button>
+                        ` : ''}
+                        <button type="button" class="btn btn-sm" onclick="window.deleteLanToaHistoryEntry('${escapeHtml(h.id)}')" style="background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; font-size:11.5px; font-weight:700; padding:4px 8px; border-radius:6px; cursor:pointer;" title="Xóa bản ghi lịch sử này">
+                          🗑️
+                        </button>
+                      </div>
+                    ` : ''}
+                  </div>
+                  <div style="margin-top:10px; padding-top:10px; border-top:1px dashed #e2e8f0; display:flex; gap:8px; flex-wrap:wrap;">
+                    ${h.allLinksFileUrl ? `
+                      <a href="${escapeHtml(h.allLinksFileUrl)}" download="${escapeHtml(h.allLinksFileName || 'Tat_Ca_Link.xlsx')}" target="_blank" style="background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8; font-size:12px; font-weight:700; padding:5px 11px; border-radius:7px; text-decoration:none; display:inline-flex; align-items:center; gap:5px;">
+                        <span>📥</span> <span>File 1: Tất cả link các đơn vị</span>
+                      </a>
+                    ` : ''}
+                    ${h.summaryFileUrl ? `
+                      <a href="${escapeHtml(h.summaryFileUrl)}" download="${escapeHtml(h.summaryFileName || 'Thu_Gon_40_Don_Vi.xlsx')}" target="_blank" style="background:#ecfdf5; border:1px solid #a7f3d0; color:#047857; font-size:12px; font-weight:700; padding:5px 11px; border-radius:7px; text-decoration:none; display:inline-flex; align-items:center; gap:5px;">
+                        <span>📊</span> <span>File 2: Thu gọn 40 đơn vị</span>
+                      </a>
+                    ` : ''}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          `}
+        </div>
+        <div style="padding:10px 20px; background:#fff; border-top:1px solid #e2e8f0; display:flex; justify-content:flex-end;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="closeModal()">Đóng</button>
+        </div>
+      </div>
+    </div>
+  `;
 };
 
 window.scheduleCheckExpiredLanToaBoards = function () {
