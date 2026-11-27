@@ -254,3 +254,7 @@
          - **17. Tự động đồng bộ ngầm 2 chiều mỗi 8 giây không làm gián đoạn người dùng (27/11/2026)**:
            - Thêm `_silentPollFbSheetAndScoreBoard` chạy ngầm mỗi 8 giây khi đang mở tab `Link FB`: so sánh dấu vân tay dữ liệu (`_computeFbSheetFingerprint`), chỉ cập nhật giao diện khi Google Sheet có link mới hoặc điểm Cột K nhảy lên; bảo toàn vị trí cuộn (`_renderAppPreservingFbScroll`) và tự hoãn cập nhật nếu người dùng đang gõ vào ô nhập liệu.
            - Thêm `_pushLanToaBoardToGoogleSheetBg` chạy ngầm khi cơ sở Đoàn nộp/sửa/xóa link trên web để đẩy ngay link & điểm Cột K sang Google Sheet không cần chờ đợi hay bấm đồng bộ thủ công.
+         - **18. Gộp gọn tab `Link FB` về 1 bảng Google Sheet trực tiếp duy nhất & liên kết cột tiêu chí (27/11/2026)**:
+           - Loại bỏ danh sách nhiều bảng/đợt Lệnh lan tỏa rời rạc (`📌 Chọn bảng / đợt Lệnh lan tỏa:`), giữ duy nhất **1 bảng Google Sheet trực tiếp** đồng bộ 2 chiều với Google Sheet & Cột K.
+           - Trên thanh điều khiển chỉ hiển thị `📊 Bảng Google Sheet trực tiếp`, ô chọn `🎯 Áp dụng vào cột tiêu chí:`, nút `📌 Áp dụng vào cột này`, nút `🏁 Chốt Điểm` và nút `🗑️ Xóa liên kết / đợt cũ` (`clearAllLanToaBoards`) để dọn sạch 2 đợt cũ (`Cột 10` và `28/11`).
+           - Khi tạo tiêu chí Lệnh lan tỏa mới hoặc áp dụng cột tiêu chí, hệ thống chỉ gắn `db.settings.fb_sheet_active_criterion_id` vào đúng cột đó mà không nhảy sang bảng rời khác.

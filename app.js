@@ -13713,11 +13713,15 @@ window.saveNewCriterion = async function () {
     db.criteria.push(newCriterionObj);
     sortCriteriaChronologically(db.criteria);
 
-    // Tự động khởi tạo Bảng Nộp & Thẩm Định Link Facebook Chính Thống cho tiêu chí Lệnh lan tỏa
+    // Liên kết tiêu chí Lệnh lan tỏa mới tạo với bảng Google Sheet duy nhất (không tạo bảng rời gây rối)
     if (isLanToa) {
-      if (!db.lan_toa_boards || typeof db.lan_toa_boards !== 'object') db.lan_toa_boards = {};
-      db.lan_toa_boards[String(newId)] = buildInitialLanToaBoard(newCriterionObj, db.units || state.units || []);
-      state.activeLanToaBoardId = String(newId);
+      db.settings = db.settings || {};
+      db.settings.fb_sheet_active_criterion_id = String(newId);
+      const b = buildInitialLanToaBoard(newCriterionObj, db.units || state.units || []);
+      b.linkedGoogleSheet = true;
+      b.clearGoogleSheetOnFinalize = true;
+      db.lan_toa_boards = { [String(newId)]: b };
+      state.activeLanToaBoardId = 'gsheet';
     }
 
     savedCriterion = { ...newCriterionObj };
@@ -39657,22 +39661,15 @@ function renderFbSheetHubTab() {
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
   const webAppUrl = window.getFbSheetWebAppUrl();
 
-  const allBoards = Object.values(state.lanToaBoards || {}).map(b => {
-    const linkedCrit = (state.criteria || []).find(c => Number(c.id) === Number(b.criterionId));
-    if (linkedCrit) {
-      b.title = linkedCrit.title || b.title;
-      b.deadline = linkedCrit.deadline || b.deadline;
-      b.deadlineTime = linkedCrit.deadline_time || b.deadlineTime || '17:00';
-      b.maxScore = Number(linkedCrit.max_score || b.maxScore || 3);
-    }
-    return b;
-  }).sort((a, b) => Number(b.criterionId || 0) - Number(a.criterionId || 0));
-  if (!state.activeLanToaBoardId) {
-    state.activeLanToaBoardId = allBoards.length > 0 ? String(allBoards[0].criterionId) : 'gsheet';
-  }
-  const activeBoard = (state.activeLanToaBoardId !== 'gsheet') ? (state.lanToaBoards || {})[state.activeLanToaBoardId] : null;
-  const isLanToaMode = Boolean(activeBoard);
-  const isBoardExpiredOrFinalized = activeBoard ? (activeBoard.finalized || _isLanToaBoardExpired(activeBoard)) : false;
+  // Luôn dùng 1 bảng Google Sheet trực tiếp duy nhất, gắn kết với cột tiêu chí đang chọn
+  state.activeLanToaBoardId = 'gsheet';
+  const linkedCritId = (state.settings && state.settings.fb_sheet_active_criterion_id) ? String(state.settings.fb_sheet_active_criterion_id) : '';
+  const linkedCrit = linkedCritId ? (state.criteria || []).find(c => String(c.id) === linkedCritId) : null;
+  const activeBoard = null;
+  const isLanToaMode = false;
+  const linkedBoard = linkedCrit ? (state.lanToaBoards || {})[String(linkedCrit.id)] : null;
+  const isLinkedExpired = linkedCrit ? _isLanToaBoardExpired({ criterionId: linkedCrit.id, deadline: linkedCrit.deadline, deadlineTime: linkedCrit.deadline_time }) : false;
+  const isBoardExpiredOrFinalized = false;
 
   let sheetData = state.fbSheetData;
   if (activeBoard) {
@@ -39790,51 +39787,50 @@ function renderFbSheetHubTab() {
         </div>
       </div>
 
-      <!-- Thanh Chọn Đợt Lệnh Lan Tỏa / Nguồn Google Sheet -->
+      <!-- Thanh Gắn Cột Tiêu Chí Cho Bảng Google Sheet Duy Nhất -->
       <div style="flex-shrink:0; background:#ecfdf5; border-bottom:1.5px solid #a7f3d0; padding:8px 18px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-          <span style="font-size:12.5px; font-weight:800; color:#065f46;">📌 Chọn bảng / đợt Lệnh lan tỏa:</span>
-          <select onchange="state.activeLanToaBoardId=this.value; if(this.value==='gsheet' && !state.fbSheetData){ fetchFbSheetData(true); } renderApp();" style="padding:5px 10px; border-radius:7px; border:1.5px solid #10b981; font-size:12.5px; font-weight:700; color:#0f172a; background:#fff; max-width:380px; cursor:pointer;">
-            ${allBoards.map(b => {
-              const exp = b.finalized || _isLanToaBoardExpired(b);
-              const bCrit = (state.criteria || []).find(c => Number(c.id) === Number(b.criterionId));
-              const colTag = bCrit ? `[${bCrit.col_label || ('Cột ' + bCrit.col_number)}] ` : '';
-              return `<option value="${b.criterionId}" ${String(state.activeLanToaBoardId) === String(b.criterionId) ? 'selected' : ''}>${exp ? '🔒' : '🟢'} ${escapeHtml(colTag + b.title)} (Hạn ${escapeHtml(b.deadlineTime || '17:00')} ${escapeHtml(b.deadline || '')})</option>`;
-            }).join('')}
-            <option value="gsheet" ${state.activeLanToaBoardId === 'gsheet' ? 'selected' : ''}>📊 Bảng Google Sheet trực tiếp</option>
-          </select>
+          <span style="font-size:12.5px; font-weight:800; color:#065f46;">📊 Bảng Google Sheet trực tiếp</span>
           ${isAdmin ? (() => {
             const critList = Array.isArray(state.criteria) ? state.criteria : [];
-            const defaultTargetCritId = activeBoard
-              ? activeBoard.criterionId
-              : ((critList.find(c => String(c.col_number) === '7' || String(c.col_label || '').trim() === 'Cột 7') || critList[0] || {}).id || '');
+            const hasOldBoards = Object.keys(state.lanToaBoards || {}).length > 0;
             return `
-              <span style="font-size:12px; font-weight:800; color:#065f46; margin-left:4px;">🎯 Cột tiêu chí áp dụng:</span>
-              <select id="fb-bar-target-crit" style="padding:5px 9px; border-radius:7px; border:1.5px solid #0284c7; font-size:12px; font-weight:700; color:#0f172a; background:#fff; max-width:260px; cursor:pointer;">
-                ${critList.map(c => `<option value="${c.id}" ${String(c.id) === String(defaultTargetCritId) ? 'selected' : ''}>${escapeHtml(c.col_label || ('Cột ' + c.col_number))} — ${escapeHtml(c.title)}</option>`).join('')}
+              <span style="font-size:12px; font-weight:800; color:#065f46; margin-left:4px;">🎯 Áp dụng vào cột tiêu chí:</span>
+              <select id="fb-bar-target-crit" style="padding:5px 9px; border-radius:7px; border:1.5px solid #0284c7; font-size:12px; font-weight:700; color:#0f172a; background:#fff; max-width:300px; cursor:pointer;">
+                <option value="">-- Chưa chọn cột áp dụng --</option>
+                ${critList.map(c => `<option value="${c.id}" ${linkedCrit && String(c.id) === String(linkedCrit.id) ? 'selected' : ''}>${escapeHtml(c.col_label || ('Cột ' + c.col_number))} — ${escapeHtml(c.title)}</option>`).join('')}
               </select>
-              ${isLanToaMode && activeBoard ? `
-                <button type="button" class="btn btn-sm" onclick="openEditLanToaBoardModal(${activeBoard.criterionId}, document.getElementById('fb-bar-target-crit') ? document.getElementById('fb-bar-target-crit').value : '')" style="background:#0284c7; border:none; color:#fff; font-weight:800; border-radius:7px; padding:5px 11px; font-size:12px; cursor:pointer;" title="Thay đổi cột tiêu chí áp dụng, sửa tên, hạn nộp hoặc mở khóa lại bảng này">
-                  ✏️ Thay đổi / Sửa
+              <button type="button" class="btn btn-sm" onclick="openApplyGoogleSheetToCriterionModal(document.getElementById('fb-bar-target-crit') ? document.getElementById('fb-bar-target-crit').value : '')" ${units.length === 0 ? 'disabled' : ''} style="background:#fde047; border:none; color:#854d0e; font-weight:800; border-radius:7px; padding:5px 11px; font-size:12px; cursor:pointer;" title="Gắn bảng Google Sheet hiện tại vào cột tiêu chí đã chọn">
+                📌 Áp dụng vào cột này
+              </button>
+              ${linkedCrit ? `
+                <button type="button" class="btn btn-sm" onclick="finalizeLanToaBoard(${linkedCrit.id}, false)" ${state.fbSheetLoading ? 'disabled' : ''} style="background:#059669; border:none; color:#fff; font-weight:800; border-radius:7px; padding:5px 11px; font-size:12px; cursor:pointer;" title="Chốt điểm từ Google Sheet vào ${escapeHtml(linkedCrit.col_label || '')}, lưu tệp Excel và xóa trắng Sheet">
+                  🏁 Chốt Điểm (${escapeHtml(linkedCrit.col_label || '')})
                 </button>
-                <button type="button" class="btn btn-sm" onclick="openApplyGoogleSheetToCriterionModal(document.getElementById('fb-bar-target-crit') ? document.getElementById('fb-bar-target-crit').value : '')" style="background:#fde047; border:none; color:#854d0e; font-weight:800; border-radius:7px; padding:5px 11px; font-size:12px; cursor:pointer;" title="Áp dụng bảng Google Sheet vào một cột tiêu chí mới">
-                  ➕ Áp dụng cột mới
+              ` : ''}
+              ${(linkedCrit || hasOldBoards) ? `
+                <button type="button" class="btn btn-sm" onclick="clearAllLanToaBoards()" style="background:#fee2e2; border:1px solid #fca5a5; color:#b91c1c; font-weight:700; border-radius:7px; padding:5px 10px; font-size:12px; cursor:pointer;" title="Xóa liên kết &amp; dọn sạch các bảng đợt cũ khỏi danh sách">
+                  🗑️ Xóa liên kết / đợt cũ
                 </button>
-              ` : `
-                <button type="button" class="btn btn-sm" onclick="openApplyGoogleSheetToCriterionModal(document.getElementById('fb-bar-target-crit') ? document.getElementById('fb-bar-target-crit').value : '')" ${units.length === 0 ? 'disabled' : ''} style="background:#fde047; border:none; color:#854d0e; font-weight:800; border-radius:7px; padding:5px 11px; font-size:12px; cursor:pointer;" title="Áp dụng bảng Google Sheet hiện tại vào cột tiêu chí đã chọn">
-                  📌 Áp dụng vào cột này
-                </button>
-              `}
+              ` : ''}
             `;
           })() : ''}
         </div>
-        ${activeBoard ? `
-          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <span style="font-size:12px; font-weight:700; padding:3px 10px; border-radius:12px; background:${isBoardExpiredOrFinalized ? '#fee2e2' : '#dcfce7'}; color:${isBoardExpiredOrFinalized ? '#b91c1c' : '#15803d'}; border:1px solid ${isBoardExpiredOrFinalized ? '#fecaca' : '#86efac'};">
-              ${activeBoard.finalized ? '✅ Đã hết hạn • Đã tự động nhập điểm & gắn tệp vào tiêu chí' : (_isLanToaBoardExpired(activeBoard) ? '⏰ Đã hết hạn nộp • Đang chờ chốt điểm' : `🟢 Đang mở nộp đến ${escapeHtml(activeBoard.deadlineTime || '17:00')} ngày ${escapeHtml(activeBoard.deadline || '')}`)}
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          ${linkedCrit ? `
+            <span style="font-size:12px; font-weight:700; padding:3px 10px; border-radius:12px; background:${(linkedBoard && linkedBoard.finalized) || isLinkedExpired ? '#fee2e2' : '#dcfce7'}; color:${(linkedBoard && linkedBoard.finalized) || isLinkedExpired ? '#b91c1c' : '#15803d'}; border:1px solid ${(linkedBoard && linkedBoard.finalized) || isLinkedExpired ? '#fecaca' : '#86efac'};">
+              ${(linkedBoard && linkedBoard.finalized)
+                ? `✅ ${escapeHtml(linkedCrit.col_label || '')}: Đã chốt điểm &amp; gắn tệp`
+                : (isLinkedExpired
+                  ? `⏰ ${escapeHtml(linkedCrit.col_label || '')}: Đã hết hạn (${escapeHtml(linkedCrit.deadline_time || '17:00')} ${escapeHtml(linkedCrit.deadline || '')})`
+                  : `🟢 Đang áp dụng cho ${escapeHtml(linkedCrit.col_label || '')} • Hạn ${escapeHtml(linkedCrit.deadline_time || '17:00')} ngày ${escapeHtml(linkedCrit.deadline || '')}`)}
             </span>
-          </div>
-        ` : ''}
+          ` : `
+            <span style="font-size:12px; font-weight:700; padding:3px 10px; border-radius:12px; background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;">
+              ⚪ Chưa gắn vào cột tiêu chí nào
+            </span>
+          `}
+        </div>
       </div>
 
       <div class="panel-body" style="${isMobile ? 'padding:12px 10px; display:flex; flex-direction:column; overflow:visible;' : 'padding:14px 18px; display:flex; flex-direction:column; flex:1 1 auto; min-height:0; overflow-y:auto !important; background:#f8fafc;'}">
@@ -40858,7 +40854,8 @@ window.confirmApplyGoogleSheetToCriterion = async function () {
     crit.deadline_time = dlTime;
     crit.is_lan_toa = true;
 
-    if (!db.lan_toa_boards || typeof db.lan_toa_boards !== 'object') db.lan_toa_boards = {};
+    db.settings = db.settings || {};
+    db.settings.fb_sheet_active_criterion_id = String(critId);
     const board = buildInitialLanToaBoard(crit, db.units || state.units || []);
     board.deadline = deadline;
     board.deadlineTime = dlTime;
@@ -40866,10 +40863,10 @@ window.confirmApplyGoogleSheetToCriterion = async function () {
     board.clearGoogleSheetOnFinalize = clearAfter;
     _syncGoogleSheetDataIntoLanToaBoard(board, state.fbSheetData);
     _recalcLanToaBoardDuplicatesAndScores(board);
-    db.lan_toa_boards[String(critId)] = board;
+    db.lan_toa_boards = { [String(critId)]: board };
   }, `Apply Google Sheet FB board to criterion #${critId}`);
 
-  state.activeLanToaBoardId = String(critId);
+  state.activeLanToaBoardId = 'gsheet';
   if (typeof closeModal === 'function') closeModal();
   if (typeof showToast === 'function') {
     showToast(`✅ Đã gắn bảng Link FB vào tiêu chí (Hạn ${dlTime} ngày ${deadline})!`, 'success');
@@ -41208,6 +41205,24 @@ window._silentPollFbSheetAndScoreBoard = async function () {
   } finally {
     _silentFbPollingBusy = false;
   }
+};
+
+window.clearAllLanToaBoards = async function () {
+  if (!confirm('Xóa liên kết hiện tại và dọn sạch các bảng đợt cũ (chỉ giữ lại 1 bảng Google Sheet trực tiếp)?')) {
+    return;
+  }
+  await mutateCloudDB(db => {
+    db.lan_toa_boards = {};
+    if (db.settings) {
+      db.settings.fb_sheet_active_criterion_id = '';
+    }
+    (db.criteria || []).forEach(c => {
+      if (c.is_lan_toa) c.is_lan_toa = false;
+    });
+  }, 'Clear all old Lan Toa boards and unlink Google Sheet criterion');
+  state.activeLanToaBoardId = 'gsheet';
+  if (typeof showToast === 'function') showToast('✅ Đã xóa các đợt cũ, chỉ giữ lại 1 bảng Google Sheet trực tiếp!', 'success');
+  renderApp();
 };
 
 // Tự động đồng bộ ngầm mỗi 8 giây khi đang mở tab Link FB (không làm gián đoạn thao tác)
