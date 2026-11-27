@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <!-- Tối ưu tốc độ mở trang cực hạn (0ms): Preload tài nguyên trọng yếu -->
-  <link rel="preload" href="./app.js?v=20261119_chat_1795762229171" as="script" />
-  <link rel="preload" href="./styles.css?v=20261119_chat_1795762229171" as="style" />
+  <link rel="preload" href="./app.js?v=20261119_chat_1795763126859" as="script" />
+  <link rel="preload" href="./styles.css?v=20261119_chat_1795763126859" as="style" />
   <title>Bộ tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh - Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí</title>
   
   <!-- PWA & Mobile Web App Meta Tags -->
@@ -46699,6 +46699,9 @@ window.submitLanToaLinks = async function (boardId, unitName, rowIdx, inputId, d
       _recalcLanToaBoardDuplicatesAndScores(b);
     }, `Submit Lan Toa links for ${unitName}`);
 
+    if (typeof window._pushLanToaBoardToGoogleSheetBg === 'function') {
+      window._pushLanToaBoardToGoogleSheetBg(boardId, { unitName: unitName, links: checkedItems.map(x => x.url) });
+    }
     if (inputId && document.getElementById(inputId)) document.getElementById(inputId).value = '';
     if (typeof showToast === 'function') showToast(`✅ Đã lưu và thẩm định xong ${checkedItems.length} link!`, 'success');
   } catch (err) {
@@ -46734,6 +46737,9 @@ window.editLanToaSlotLink = async function (boardId, unitIdx, slotIdx, oldUrl) {
       });
       _recalcLanToaBoardDuplicatesAndScores(b);
     }, 'Edit Lan Toa slot link');
+    if (typeof window._pushLanToaBoardToGoogleSheetBg === 'function') {
+      window._pushLanToaBoardToGoogleSheetBg(boardId);
+    }
     if (typeof showToast === 'function') showToast('✅ Đã cập nhật và kiểm tra lại link!', 'success');
   } catch (e) {
     alert('Lỗi cập nhật link: ' + e.message);
@@ -46760,6 +46766,9 @@ window.deleteLanToaSlotLink = async function (boardId, unitIdx, slotIdx) {
       });
       _recalcLanToaBoardDuplicatesAndScores(b);
     }, 'Delete Lan Toa slot link');
+    if (typeof window._pushLanToaBoardToGoogleSheetBg === 'function') {
+      window._pushLanToaBoardToGoogleSheetBg(boardId);
+    }
     if (typeof showToast === 'function') showToast('🗑️ Đã xóa link!', 'success');
   } finally {
     state.fbSheetLoading = false;
@@ -47304,10 +47313,129 @@ window.syncFbScoreBoardWithSheet = async function (mode, silent) {
   }
 };
 
+window._pushLanToaBoardToGoogleSheetBg = function (boardId, extraLinksPayload) {
+  const webAppUrl = typeof window.getFbSheetWebAppUrl === 'function' ? window.getFbSheetWebAppUrl() : '';
+  const board = (state.lanToaBoards || {})[String(boardId)];
+  if (!webAppUrl || !board || !board.linkedGoogleSheet) return;
+
+  const maxS = Number(board.maxScore || 3);
+  const scoresPayload = (board.units || []).map(u => {
+    const vCnt = (u.slots || []).filter(s => s.isValid).length;
+    const sc = Math.min(maxS, Number(((vCnt / Math.max(1, u.maxSlots || (u.slots || []).length)) * maxS).toFixed(2)));
+    return { unitName: u.unitName, score: sc };
+  });
+
+  (async () => {
+    try {
+      if (extraLinksPayload && Array.isArray(extraLinksPayload.links) && extraLinksPayload.links.length > 0) {
+        await fetch(webAppUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'submit_links',
+            unitName: extraLinksPayload.unitName,
+            links: extraLinksPayload.links
+          })
+        }).catch(() => {});
+      }
+      const res = await fetch(webAppUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'sync_scores', scores: scoresPayload })
+      });
+      const json = await res.json().catch(() => null);
+      if (json && json.ok) {
+        state.fbSheetData = json;
+        window._lastFbSheetFingerprint = _computeFbSheetFingerprint(json);
+      }
+    } catch (_) {
+      // Silent background sync
+    }
+  })();
+};
+
+function _computeFbSheetFingerprint(json) {
+  if (!json || !Array.isArray(json.units)) return '';
+  const uPart = json.units.map(u => {
+    const lks = (u.links || []).map(l => `${l.url || ''}|${l.resultText || ''}|${l.accountName || ''}`).join(';');
+    return `${u.unitName}:${u.sheetScore}:${lks}`;
+  }).join('||');
+  const sPart = (json.scoreBoard || []).map(s => `${s.code}:${s.score}`).join(',');
+  return uPart + '##' + sPart;
+}
+
+function _renderAppPreservingFbScroll() {
+  const panelBody = document.querySelector('.panel-body');
+  const savedScrollTop = panelBody ? panelBody.scrollTop : 0;
+  const savedWinY = typeof window !== 'undefined' ? window.scrollY : 0;
+  renderApp();
+  const newPanelBody = document.querySelector('.panel-body');
+  if (newPanelBody && savedScrollTop > 0) newPanelBody.scrollTop = savedScrollTop;
+  if (typeof window !== 'undefined' && savedWinY > 0) window.scrollTo(0, savedWinY);
+}
+
+let _silentFbPollingBusy = false;
+window._silentPollFbSheetAndScoreBoard = async function () {
+  if (_silentFbPollingBusy || state.fbSheetLoading) return;
+  if (state.activeTab !== 'fb_checker') return;
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+  const modalRoot = typeof document !== 'undefined' ? document.getElementById('modal-root') : null;
+  if (modalRoot && modalRoot.innerHTML.trim() !== '') return;
+
+  const webAppUrl = typeof window.getFbSheetWebAppUrl === 'function' ? window.getFbSheetWebAppUrl() : '';
+  if (!webAppUrl) return;
+
+  _silentFbPollingBusy = true;
+  try {
+    const res = await fetch(webAppUrl + (webAppUrl.includes('?') ? '&' : '?') + 't=' + Date.now());
+    const json = await res.json();
+    if (!json || !json.ok) return;
+
+    const newFp = _computeFbSheetFingerprint(json);
+    if (window._lastFbSheetFingerprint && newFp === window._lastFbSheetFingerprint) {
+      return;
+    }
+    window._lastFbSheetFingerprint = newFp;
+    state.fbSheetData = json;
+
+    const activeBoard = (state.activeLanToaBoardId && state.activeLanToaBoardId !== 'gsheet')
+      ? (state.lanToaBoards || {})[state.activeLanToaBoardId]
+      : null;
+    if (activeBoard && activeBoard.linkedGoogleSheet && Array.isArray(json.units)) {
+      _syncGoogleSheetDataIntoLanToaBoard(activeBoard, json);
+      _sanitizeLanToaBoardUnits(activeBoard, state.units || []);
+      _recalcLanToaBoardDuplicatesAndScores(activeBoard);
+    }
+
+    const activeEl = typeof document !== 'undefined' ? document.activeElement : null;
+    const isTyping = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA') && !activeEl.readOnly;
+    if (isTyping) {
+      activeEl.addEventListener('blur', function onBlurSync() {
+        activeEl.removeEventListener('blur', onBlurSync);
+        if (state.activeTab === 'fb_checker') _renderAppPreservingFbScroll();
+      }, { once: true });
+      return;
+    }
+
+    _renderAppPreservingFbScroll();
+  } catch (_) {
+    // Silent ignore
+  } finally {
+    _silentFbPollingBusy = false;
+  }
+};
+
+// Tự động đồng bộ ngầm mỗi 8 giây khi đang mở tab Link FB (không làm gián đoạn thao tác)
+setInterval(() => {
+  if (typeof window._silentPollFbSheetAndScoreBoard === 'function') {
+    window._silentPollFbSheetAndScoreBoard();
+  }
+}, 8000);
+
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795762229171;
+    const CURRENT_BUILD_TS = 1795763126859;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;

@@ -251,3 +251,6 @@
            - Bổ sung action `sync_scores` trong `google_sheets_fb_auto.gs` để nhận mảng điểm 40 đơn vị và cập nhật vào Cột K (`Điểm AI Chấm`, bảo toàn công thức nếu ô Cột K đang dùng công thức).
            - Trong `renderFbSheetHubTab` (`app.js`), khi bảng Lệnh lan tỏa có bật `linkedGoogleSheet`, tự động kéo dữ liệu từ Google Sheet và ưu tiên hiển thị điểm Cột K (`state.fbSheetData.scoreBoard`) đồng bộ trực tiếp vào `🏆 BẢNG ĐIỂM AI CHẤM`.
            - Thêm nút **`🔄 Cột K`** ngay trên tiêu đề khung **`🏆 BẢNG ĐIỂM AI CHẤM`** và nút **`🔄 Đồng bộ Sheet`** trên thanh header (`syncFbScoreBoardWithSheet`) để đồng bộ 2 chiều ngay lập tức.
+         - **17. Tự động đồng bộ ngầm 2 chiều mỗi 8 giây không làm gián đoạn người dùng (27/11/2026)**:
+           - Thêm `_silentPollFbSheetAndScoreBoard` chạy ngầm mỗi 8 giây khi đang mở tab `Link FB`: so sánh dấu vân tay dữ liệu (`_computeFbSheetFingerprint`), chỉ cập nhật giao diện khi Google Sheet có link mới hoặc điểm Cột K nhảy lên; bảo toàn vị trí cuộn (`_renderAppPreservingFbScroll`) và tự hoãn cập nhật nếu người dùng đang gõ vào ô nhập liệu.
+           - Thêm `_pushLanToaBoardToGoogleSheetBg` chạy ngầm khi cơ sở Đoàn nộp/sửa/xóa link trên web để đẩy ngay link & điểm Cột K sang Google Sheet không cần chờ đợi hay bấm đồng bộ thủ công.
