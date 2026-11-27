@@ -277,3 +277,6 @@
            - Bổ sung cảnh báo xác nhận trong `confirmApplyGoogleSheetToCriterion` nếu người dùng chọn ngày/giờ hết hạn đã trôi qua trong quá khứ, kết hợp khóa bảo vệ 2 phút trong `scheduleCheckExpiredLanToaBoards` để tránh xóa nhầm dữ liệu.
          - **22. Sửa dứt điểm lỗi nút `📌 Áp dụng vào cột này` (áp dụng trực tiếp) đặt `clearGoogleSheetOnFinalize = false` (27/11/2026)**:
            - Trong hàm áp dụng trực tiếp (`Direct apply Google Sheet FB board`), bật `board.clearGoogleSheetOnFinalize = true;` (thay vì `false`) kèm cảnh báo xác nhận nếu hạn nộp của cột đã qua, và bổ sung `Content-Type: text/plain;charset=utf-8` khi gọi `clear_all_links`.
+         - **23. Cố định phần Thống kê, Bộ lọc & Tiêu đề 2 bảng trong tab `Link FB` khi cuộn xuống (27/11/2026)**:
+           - Trên Desktop, khóa cố định 4 thẻ thống kê nhanh, thanh lọc/tìm kiếm và phần tiêu đề của cả Bảng Link (`#fb-left-table-wrap`) lẫn `🏆 BẢNG ĐIỂM AI CHẤM` (`#fb-right-board-wrap`) bằng `position: sticky; top: 0;` và cuộn độc lập phần nội dung 2 bảng bên dưới.
+           - Cập nhật `_renderAppPreservingFbScroll` lưu và khôi phục vị trí cuộn của cả 2 khung bảng khi đồng bộ ngầm.

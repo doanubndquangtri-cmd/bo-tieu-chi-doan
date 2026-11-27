@@ -40027,7 +40027,7 @@ function renderFbSheetHubTab() {
         </div>
       </div>
 
-      <div class="panel-body" style="${isMobile ? 'padding:12px 10px; display:flex; flex-direction:column; overflow:visible;' : 'padding:14px 18px; display:flex; flex-direction:column; flex:1 1 auto; min-height:0; overflow-y:auto !important; background:#f8fafc;'}">
+      <div class="panel-body" style="${isMobile ? 'padding:12px 10px; display:flex; flex-direction:column; overflow:visible;' : `padding:12px 18px; display:flex; flex-direction:column; flex:1 1 auto; min-height:0; ${showUnitSelfView ? 'overflow-y:auto !important;' : 'overflow:hidden !important;'} background:#f8fafc;`}">
         ${!isLanToaMode && !webAppUrl ? `
           <div style="background:#fff; border:1.5px dashed #10b981; border-radius:12px; padding:28px 20px; text-align:center;">
             <div style="font-size:34px; margin-bottom:8px;">🔌</div>
@@ -40229,10 +40229,10 @@ function renderFbSheetHubTab() {
               </div>
 
               <!-- Bố cục 2 cột: Trái là Bảng Link (giống Google Sheet) | Phải là Bảng Điểm (ĐIỂM AI CHẤM) -->
-              <div style="display:grid; grid-template-columns:${isMobile ? '1fr' : 'minmax(0, 1fr) 335px'}; gap:12px; align-items:start;">
+              <div style="display:grid; grid-template-columns:${isMobile ? '1fr' : 'minmax(0, 1fr) 335px'}; gap:12px; align-items:stretch; ${isMobile ? '' : 'flex:1 1 auto; min-height:0;'}">
                 
                 <!-- KHUNG TRÁI: BẢNG LINK -->
-                <div style="background:#fff; border:1.5px solid #cbd5e1; border-radius:10px; overflow-x:auto;">
+                <div id="fb-left-table-wrap" style="background:#fff; border:1.5px solid #cbd5e1; border-radius:10px; ${isMobile ? 'overflow-x:auto;' : 'overflow:auto; height:100%; min-height:0;'}">
                   ${tableStyleMode === 'sheet' ? `
                     <table class="table" style="width:100%; border-collapse:collapse; font-size:12.5px;">
                       <thead style="position:sticky; top:0; z-index:10; background:#ecfdf5;">
@@ -40402,8 +40402,8 @@ function renderFbSheetHubTab() {
                 </div>
 
                 <!-- KHUNG PHẢI: BẢNG ĐIỂM (ĐIỂM AI CHẤM) GIỐNG GOOGLE SHEET -->
-                <div style="background:#fff; border:1.5px solid #93c5fd; border-radius:10px; overflow:hidden; box-shadow:0 2px 8px rgba(37,99,235,0.06);">
-                  <div style="background:linear-gradient(135deg, #1e3a8a, #2563eb); color:#fff; padding:9px 12px; font-weight:800; font-size:13px; display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap;">
+                <div style="background:#fff; border:1.5px solid #93c5fd; border-radius:10px; overflow:hidden; box-shadow:0 2px 8px rgba(37,99,235,0.06); ${isMobile ? '' : 'display:flex; flex-direction:column; height:100%; min-height:0;'}">
+                  <div style="flex-shrink:0; background:linear-gradient(135deg, #1e3a8a, #2563eb); color:#fff; padding:9px 12px; font-weight:800; font-size:13px; display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap;">
                     <span>🏆 BẢNG ĐIỂM AI CHẤM</span>
                     <div style="display:flex; align-items:center; gap:6px;">
                       ${webAppUrl ? `
@@ -40414,9 +40414,9 @@ function renderFbSheetHubTab() {
                       <span style="background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:10px; font-size:11.5px;">Tổng: ${Number(totalBoardScore.toFixed(2))}đ</span>
                     </div>
                   </div>
-                  <div style="overflow-x:auto;">
+                  <div id="fb-right-board-wrap" style="${isMobile ? 'overflow-x:auto;' : 'overflow:auto; flex:1 1 auto; min-height:0;'}">
                     <table style="width:100%; border-collapse:collapse; font-size:12px;">
-                      <thead>
+                      <thead style="position:sticky; top:0; z-index:5; background:#eff6ff; box-shadow:0 1px 3px rgba(37,99,235,0.08);">
                         <tr style="background:#eff6ff; border-bottom:1.5px solid #bfdbfe; color:#1e3a8a;">
                           <th style="width:58px; padding:6px 5px; text-align:center;">Mã ĐV</th>
                           <th style="padding:6px 6px; text-align:left;">Đơn vị trực thuộc</th>
@@ -41726,11 +41726,19 @@ function _computeFbSheetFingerprint(json) {
 
 function _renderAppPreservingFbScroll() {
   const panelBody = document.querySelector('.panel-body');
+  const leftWrap = document.getElementById('fb-left-table-wrap');
+  const rightWrap = document.getElementById('fb-right-board-wrap');
   const savedScrollTop = panelBody ? panelBody.scrollTop : 0;
+  const savedLeftTop = leftWrap ? leftWrap.scrollTop : 0;
+  const savedRightTop = rightWrap ? rightWrap.scrollTop : 0;
   const savedWinY = typeof window !== 'undefined' ? window.scrollY : 0;
   renderApp();
   const newPanelBody = document.querySelector('.panel-body');
+  const newLeftWrap = document.getElementById('fb-left-table-wrap');
+  const newRightWrap = document.getElementById('fb-right-board-wrap');
   if (newPanelBody && savedScrollTop > 0) newPanelBody.scrollTop = savedScrollTop;
+  if (newLeftWrap && savedLeftTop > 0) newLeftWrap.scrollTop = savedLeftTop;
+  if (newRightWrap && savedRightTop > 0) newRightWrap.scrollTop = savedRightTop;
   if (typeof window !== 'undefined' && savedWinY > 0) window.scrollTo(0, savedWinY);
 }
 
