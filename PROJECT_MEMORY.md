@@ -227,3 +227,8 @@
          - **10. Đồng bộ giao diện Cơ sở Đoàn theo đúng số ô chỉ tiêu làm sẵn trên Google Sheet (27/11/2026)**:
            - Giao diện tài khoản Cơ sở Đoàn hiển thị đúng từng ô số thứ tự `1..N` theo Cột B của đơn vị đó trên Google Sheet (ô đã nộp hiện kết quả + nút ✏️/🗑️, ô trống hiện ô dán link + nút Gửi trực tiếp), kèm nút phụ `⚡ Dán nhanh nhiều link` giới hạn trong số ô trống còn lại.
            - Khóa giới hạn trong `doPost` (`submit_links`) của `google_sheets_fb_auto.gs` để không tự ý chèn vượt số dòng chỉ tiêu làm sẵn trên Google Sheet.
+         - **11. Tự động tạo Bảng Lệnh Lan Tỏa khi tạo Tiêu chí mới & Tự động chốt điểm + gắn tệp Excel khi hết hạn (27/11/2026)**:
+           - Trong modal Thêm Tiêu Chí Mới (`app.js`), thêm tùy chọn `🔗 Tự động tạo Bảng Nộp & Thẩm Định Link Facebook (Lệnh lan tỏa)` (tự động tích sẵn khi tên tiêu chí chứa chữ `lan tỏa`) và lưu `deadline_time` chuẩn xác.
+           - Khi tạo tiêu chí Lệnh lan tỏa, hệ thống tự tạo 1 bảng mới hoàn toàn trong `db.lan_toa_boards[criterionId]` với đủ 40 đơn vị và đúng số ô chỉ tiêu `1..N` cho từng đơn vị.
+           - Trên tab `🔗 Link FB`, thêm thanh chọn đợt Lệnh lan tỏa (hoặc Google Sheet trực tiếp); cơ sở Đoàn nộp link vào từng ô được KINI AI kiểm tra tức thì (Công khai, Chủ tài khoản Cột E, Chống bài gốc, Chống trùng tài khoản).
+           - Khi đến/quá thời hạn nộp (`deadline` + `deadline_time`), `scheduleCheckExpiredLanToaBoards` / `finalizeLanToaBoard` tự động tính điểm `= (Hợp lệ / Chỉ tiêu) * Điểm tối đa` nhập vào `db.scores` cho cả 40 cơ sở Đoàn, đồng thời xuất file Excel `.xlsx` tổng hợp gắn thẳng vào `crit.attachments` của tiêu chí đó.

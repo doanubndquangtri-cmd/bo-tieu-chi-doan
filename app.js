@@ -1082,6 +1082,8 @@ const state = {
   fbSheetFilter: 'all',
   fbSheetExpandedUnits: {},
   fbSheetViewMode: 'auto', // 'auto' | 'all'
+  lanToaBoards: {},
+  activeLanToaBoardId: '', // '' = tự chọn đợt mới nhất hoặc 'gsheet'
 
   user: null,
 
@@ -2765,6 +2767,10 @@ function ingestCloudDB(db) {
 
   state.admin_docs = db.admin_docs || [];
   state.incoming_docs = Array.isArray(db.incoming_docs) ? db.incoming_docs : [];
+  state.lanToaBoards = (db.lan_toa_boards && typeof db.lan_toa_boards === 'object') ? db.lan_toa_boards : {};
+  if (typeof window.scheduleCheckExpiredLanToaBoards === 'function') {
+    window.scheduleCheckExpiredLanToaBoards();
+  }
 
   // Khử trùng lặp thông báo: loại bỏ hoàn toàn các thông báo bị nhân đôi do click nhanh hoặc gửi lặp
   const rawDbNotifs = Array.isArray(db.notifications) ? db.notifications : [];
@@ -12609,6 +12615,18 @@ window.openCriterionEditModal = function (critId) {
             </select>
           </div>
 
+          <div class="form-group" style="background:#ecfdf5; border:1.5px solid #6ee7b7; border-radius:8px; padding:11px 14px; margin-bottom:14px;">
+            <label style="display:flex; align-items:flex-start; gap:9px; cursor:pointer; margin:0;">
+              <input type="checkbox" id="new-crit-is-lan-toa" onchange="this.dataset.touched='1';" style="width:17px; height:17px; margin-top:2px; cursor:pointer;" />
+              <div>
+                <div style="font-weight:800; color:#065f46; font-size:13px;">🔗 Tự động tạo Bảng Nộp &amp; Thẩm Định Link Facebook (Lệnh lan tỏa)</div>
+                <div style="font-size:11.5px; color:#047857; margin-top:2px; line-height:1.4;">
+                  Khi bật mục này, hệ thống sẽ tạo riêng 1 bảng nộp link trong tab <b>🔗 Link FB</b>, tự động quét kiểm tra link và <b>tự động nhập điểm + gắn tệp kết quả vào tiêu chí khi hết hạn nộp</b>.
+                </div>
+              </div>
+            </label>
+          </div>
+
           <div class="form-group" id="edit-type-custom-name" style="display:none; background: #eff6ff; padding: 12px 14px; border-radius: 8px; border: 2px solid #3b82f6; margin-bottom: 12px;">
             <label style="color: #1d4ed8; font-weight: 700; font-size: 13.5px; display: block; margin-bottom: 6px;">
               ➕ Nhập tên Phân loại Tiêu chí / Báo cáo mới (Admin tự tạo) (*):
@@ -13185,7 +13203,7 @@ window.openCriterionCreateModal = function () {
 
             </label>
 
-            <input type="text" id="new-crit-gdrive-folder-name" placeholder="VD: Tỷ lệ cài đặt App Thanh niên Việt Nam, Sinh hoạt chi đoàn, Kế hoạch 26/3..." style="background:#fff; font-size:14px; font-weight:600; padding:9px 12px; border:1.5px solid #22c55e; border-radius:6px; width:100%;" required />
+            <input type="text" id="new-crit-gdrive-folder-name" oninput="var cb=document.getElementById('new-crit-is-lan-toa'); if(cb && !cb.dataset.touched){ cb.checked=/lan\s*t[oỏ]a/i.test(this.value); }" placeholder="VD: Phát động Lệnh lan tỏa ngày 28/11 (hạn 17h00 ngày 28/11), Sinh hoạt chi đoàn..." style="background:#fff; font-size:14px; font-weight:600; padding:9px 12px; border:1.5px solid #22c55e; border-radius:6px; width:100%;" required />
 
             <div id="new-crit-type-desc" style="font-size:12px; color:#15803d; margin-top:6px; font-weight:500; line-height:1.4;">
               💡 <b>Gợi ý:</b> Nhập tên hoặc nội dung tiêu chí cần thêm vào bộ tiêu chí.
@@ -13241,6 +13259,18 @@ window.openCriterionCreateModal = function () {
               ` : ''}
               <option value="__NEW_CUSTOM_TYPE__">➕ [+ Tự tạo Phân loại Tiêu chí / Báo cáo mới...]</option>
             </select>
+          </div>
+
+          <div class="form-group" style="background:#ecfdf5; border:1.5px solid #6ee7b7; border-radius:8px; padding:11px 14px; margin-bottom:14px;">
+            <label style="display:flex; align-items:flex-start; gap:9px; cursor:pointer; margin:0;">
+              <input type="checkbox" id="new-crit-is-lan-toa" onchange="this.dataset.touched='1';" style="width:17px; height:17px; margin-top:2px; cursor:pointer;" />
+              <div>
+                <div style="font-weight:800; color:#065f46; font-size:13px;">🔗 Tự động tạo Bảng Nộp &amp; Thẩm Định Link Facebook (Lệnh lan tỏa)</div>
+                <div style="font-size:11.5px; color:#047857; margin-top:2px; line-height:1.4;">
+                  Khi bật mục này, hệ thống sẽ tạo riêng 1 bảng nộp link trong tab <b>🔗 Link FB</b>, tự động quét kiểm tra link và <b>tự động nhập điểm + gắn tệp kết quả vào tiêu chí khi hết hạn nộp</b>.
+                </div>
+              </div>
+            </label>
           </div>
 
           <div class="form-group" id="new-crit-attendance-box" style="display:none; background:#ecfdf5; border:1.5px solid #a7f3d0; border-radius:8px; padding:12px; margin-bottom:14px;">
@@ -13641,6 +13671,9 @@ window.saveNewCriterion = async function () {
     const maxId = db.criteria.reduce((m, c) => Math.max(m, c.id || 0), 0);
     const newId = maxId + 1;
 
+    const isLanToaChecked = document.getElementById('new-crit-is-lan-toa') ? document.getElementById('new-crit-is-lan-toa').checked : false;
+    const isLanToa = isLanToaChecked || /lan\s*t[oỏ]a/i.test(title);
+
     const newCriterionObj = {
       id: newId,
       col_number: db.criteria.length + 1,
@@ -13653,6 +13686,7 @@ window.saveNewCriterion = async function () {
       start_date: startDate,
       start_time: startTime,
       deadline: deadline,
+      deadline_time: deadlineTime,
       score_type: 'fixed',
       default_score: maxS,
       min_score: 0,
@@ -13661,6 +13695,7 @@ window.saveNewCriterion = async function () {
       unit_step_label: 'hoạt động',
       allow_unit_submit: (isReport === 2) ? 0 : 1,
       is_report: isReport,
+      is_lan_toa: isLanToa,
       gdrive_folder_name: gdriveFolderName,
       gdrive_folder_url: gdriveFolderUrl || (state.settings && state.settings.gdrive_root_folder_url) || '',
       lock_override: 0,
@@ -13669,6 +13704,13 @@ window.saveNewCriterion = async function () {
 
     db.criteria.push(newCriterionObj);
     sortCriteriaChronologically(db.criteria);
+
+    // Tự động khởi tạo Bảng Nộp & Thẩm Định Link Facebook Chính Thống cho tiêu chí Lệnh lan tỏa
+    if (isLanToa) {
+      if (!db.lan_toa_boards || typeof db.lan_toa_boards !== 'object') db.lan_toa_boards = {};
+      db.lan_toa_boards[String(newId)] = buildInitialLanToaBoard(newCriterionObj, db.units || state.units || []);
+      state.activeLanToaBoardId = String(newId);
+    }
 
     savedCriterion = { ...newCriterionObj };
 
@@ -39397,6 +39439,12 @@ window.fetchFbSheetData = async function (silent) {
 };
 
 async function _postFbSheetAction(payloadObj, loadingMsg) {
+  if (payloadObj && payloadObj.action === 'submit_links' && String(payloadObj.rowIdx || '').startsWith('lt_')) {
+    const parts = String(payloadObj.rowIdx).split('_');
+    const b = (state.lanToaBoards || {})[state.activeLanToaBoardId];
+    const uName = b && b.units && b.units[Number(parts[1])] ? b.units[Number(parts[1])].unitName : '';
+    return window.submitLanToaLinks(state.activeLanToaBoardId, uName, payloadObj.rowIdx, null, payloadObj.url);
+  }
   const url = window.getFbSheetWebAppUrl();
   if (!url) {
     if (typeof showToast === 'function') showToast('Chưa cấu hình Link Web App Google Sheet!', 'warning');
@@ -39427,7 +39475,12 @@ async function _postFbSheetAction(payloadObj, loadingMsg) {
   }
 }
 
-window.submitFbSheetLinks = async function (unitName, inputId) {
+window.submitFbSheetLinks = async function (unitName, inputId, rowIdxOpt) {
+  const boardsList = Object.values(state.lanToaBoards || {});
+  const useLanToa = state.activeLanToaBoardId && state.activeLanToaBoardId !== 'gsheet' && (state.lanToaBoards || {})[state.activeLanToaBoardId];
+  if (useLanToa) {
+    return window.submitLanToaLinks(state.activeLanToaBoardId, unitName, rowIdxOpt, inputId);
+  }
   const inp = document.getElementById(inputId || 'fb-sheet-unit-links-input');
   const raw = (inp ? inp.value : '').trim();
   if (!raw) {
@@ -39452,6 +39505,10 @@ window.submitFbSheetLinks = async function (unitName, inputId) {
 };
 
 window.editFbSheetLink = async function (rowIdx, oldUrl) {
+  if (String(rowIdx || '').startsWith('lt_')) {
+    const parts = String(rowIdx).split('_');
+    return window.editLanToaSlotLink(state.activeLanToaBoardId, Number(parts[1]), Number(parts[2]), oldUrl);
+  }
   const newUrl = prompt('Nhập đường link Facebook mới để thay thế cho dòng này:', oldUrl || '');
   if (newUrl === null) return;
   const clean = newUrl.trim();
@@ -39466,6 +39523,10 @@ window.editFbSheetLink = async function (rowIdx, oldUrl) {
 };
 
 window.deleteFbSheetLink = async function (rowIdx) {
+  if (String(rowIdx || '').startsWith('lt_')) {
+    const parts = String(rowIdx).split('_');
+    return window.deleteLanToaSlotLink(state.activeLanToaBoardId, Number(parts[1]), Number(parts[2]));
+  }
   if (!confirm('Bạn có chắc muốn xóa đường link này khỏi bảng Google Sheet không?')) return;
   const out = await _postFbSheetAction(
     { action: 'delete_link', rowIdx: rowIdx },
@@ -39521,7 +39582,17 @@ window.toggleAllFbSheetUnits = function (expand) {
 };
 
 window.exportFbSheetExcel = async function () {
-  const units = (state.fbSheetData && state.fbSheetData.units) || [];
+  let units = (state.fbSheetData && state.fbSheetData.units) || [];
+  let titleStr = (state.fbSheetData && state.fbSheetData.sheetTitle) || 'BẢNG TỔNG HỢP LINK FACEBOOK CHÍNH THỐNG';
+  const activeBoard = (state.activeLanToaBoardId && state.activeLanToaBoardId !== 'gsheet') ? (state.lanToaBoards || {})[state.activeLanToaBoardId] : null;
+  if (activeBoard) {
+    titleStr = activeBoard.title;
+    units = (activeBoard.units || []).map(u => ({
+      tt: u.tt,
+      unitName: u.unitName,
+      links: (u.slots || []).filter(s => s.url)
+    }));
+  }
   if (units.length === 0) {
     if (typeof showToast === 'function') showToast('Chưa có dữ liệu để xuất Excel!', 'warning');
     return;
@@ -39534,7 +39605,7 @@ window.exportFbSheetExcel = async function () {
     return;
   }
   const rows = [
-    [(state.fbSheetData && state.fbSheetData.sheetTitle) || 'BẢNG TỔNG HỢP LINK FACEBOOK CHÍNH THỐNG'],
+    [titleStr],
     [],
     ['TT', 'Số link', 'Tổ chức cơ sở Đoàn trực thuộc', 'Đường link Facebook', 'Tên trang cá nhân / Chủ tài khoản', 'Trạng thái hiển thị', 'Kết quả']
   ];
@@ -39577,10 +39648,52 @@ function renderFbSheetHubTab() {
   const isUnit = state.user && state.user.role === 'unit';
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
   const webAppUrl = window.getFbSheetWebAppUrl();
-  const sheetData = state.fbSheetData;
+
+  const allBoards = Object.values(state.lanToaBoards || {}).sort((a, b) => Number(b.criterionId || 0) - Number(a.criterionId || 0));
+  if (!state.activeLanToaBoardId) {
+    state.activeLanToaBoardId = allBoards.length > 0 ? String(allBoards[0].criterionId) : 'gsheet';
+  }
+  const activeBoard = (state.activeLanToaBoardId !== 'gsheet') ? (state.lanToaBoards || {})[state.activeLanToaBoardId] : null;
+  const isLanToaMode = Boolean(activeBoard);
+  const isBoardExpiredOrFinalized = activeBoard ? (activeBoard.finalized || _isLanToaBoardExpired(activeBoard)) : false;
+
+  let sheetData = state.fbSheetData;
+  if (activeBoard) {
+    const maxS = Number(activeBoard.maxScore || 3);
+    const mappedUnits = (activeBoard.units || []).map((u, uIdx) => {
+      const slots = (u.slots || []).map((s, sIdx) => ({
+        ...s,
+        rowIdx: `lt_${uIdx}_${sIdx}`
+      }));
+      const links = slots.filter(s => s.url && s.url.trim());
+      const vCnt = links.filter(l => l.isValid).length;
+      const sc = Math.min(maxS, Number(((vCnt / Math.max(1, u.maxSlots || slots.length)) * maxS).toFixed(2)));
+      return {
+        tt: u.tt || String(uIdx + 1),
+        unitName: u.unitName,
+        maxSlots: u.maxSlots || slots.length,
+        sheetScore: sc,
+        slots: slots,
+        links: links
+      };
+    });
+    const mappedScoreBoard = mappedUnits.map((u, idx) => ({
+      code: 'donvi' + String(idx + 1).padStart(2, '0'),
+      unitName: u.unitName,
+      score: u.sheetScore
+    }));
+    sheetData = {
+      ok: true,
+      sheetTitle: activeBoard.title,
+      excludedKeywords: activeBoard.excludedKeywords || '',
+      units: mappedUnits,
+      scoreBoard: mappedScoreBoard
+    };
+  }
+
   const units = (sheetData && sheetData.units) || [];
   const scoreBoard = (sheetData && Array.isArray(sheetData.scoreBoard)) ? sheetData.scoreBoard : [];
-  const tableStyleMode = state.fbSheetTableMode || 'sheet'; // 'sheet' (giống Google Sheet) | 'compact' (thu gọn)
+  const tableStyleMode = state.fbSheetTableMode || 'sheet';
 
   let totalLinks = 0, totalValid = 0, totalInvalid = 0, submittedUnits = 0;
   units.forEach(u => {
@@ -39609,36 +39722,65 @@ function renderFbSheetHubTab() {
           </div>
         </div>
         <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-          ${webAppUrl ? `
+          ${!isLanToaMode && webAppUrl ? `
             <button type="button" class="btn btn-sm" onclick="fetchFbSheetData(false)" ${state.fbSheetLoading ? 'disabled' : ''} style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.4); color:#fff; font-weight:700; border-radius:7px; padding:6px 11px; cursor:pointer;">
               ${state.fbSheetLoading ? '⏳ Đang tải...' : '🔄 Đồng bộ'}
             </button>
           ` : ''}
           ${isAdmin ? `
-            <button type="button" class="btn btn-sm" onclick="openFbSheetExcludedKwModal()" style="background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.35); color:#fff; font-weight:700; border-radius:7px; padding:6px 11px; cursor:pointer;" title="Cài từ khóa tên trang bài gốc cần loại trừ ở Cột E">
+            <button type="button" class="btn btn-sm" onclick="${isLanToaMode ? `setLanToaExcludedKeywords(${activeBoard.criterionId})` : 'openFbSheetExcludedKwModal()'}" style="background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.35); color:#fff; font-weight:700; border-radius:7px; padding:6px 11px; cursor:pointer;" title="Cài từ khóa tên trang bài gốc cần loại trừ ở Cột E">
               ⚙️ Từ khóa bài gốc
             </button>
-            <button type="button" class="btn btn-sm" onclick="triggerFbSheetScan('pending')" ${state.fbSheetLoading || !webAppUrl ? 'disabled' : ''} style="background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.35); color:#fff; font-weight:700; border-radius:7px; padding:6px 11px; cursor:pointer;">
-              🚀 Quét link mới
-            </button>
-            <button type="button" class="btn btn-sm" onclick="triggerFbSheetScan('all')" ${state.fbSheetLoading || !webAppUrl ? 'disabled' : ''} style="background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.35); color:#fff; font-weight:700; border-radius:7px; padding:6px 11px; cursor:pointer;">
-              🔁 Quét lại tất cả
-            </button>
-            <button type="button" class="btn btn-sm" onclick="openFbSheetConfigModal()" style="background:#fef3c7; border:1px solid #fde68a; color:#92400e; font-weight:800; border-radius:7px; padding:6px 11px; cursor:pointer;">
-              🔌 Kết nối Sheet
-            </button>
+            ${isLanToaMode ? `
+              <button type="button" class="btn btn-sm" onclick="finalizeLanToaBoard(${activeBoard.criterionId}, false)" ${state.fbSheetLoading ? 'disabled' : ''} style="background:${activeBoard.finalized ? '#dcfce7' : '#fde047'}; border:none; color:${activeBoard.finalized ? '#065f46' : '#854d0e'}; font-weight:800; border-radius:7px; padding:6px 12px; cursor:pointer;">
+                ${activeBoard.finalized ? '✅ Đã chốt điểm (Chốt lại)' : '🏁 Chốt Điểm & Lưu Tệp Ngay'}
+              </button>
+            ` : `
+              <button type="button" class="btn btn-sm" onclick="triggerFbSheetScan('pending')" ${state.fbSheetLoading || !webAppUrl ? 'disabled' : ''} style="background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.35); color:#fff; font-weight:700; border-radius:7px; padding:6px 11px; cursor:pointer;">
+                🚀 Quét link mới
+              </button>
+              <button type="button" class="btn btn-sm" onclick="triggerFbSheetScan('all')" ${state.fbSheetLoading || !webAppUrl ? 'disabled' : ''} style="background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.35); color:#fff; font-weight:700; border-radius:7px; padding:6px 11px; cursor:pointer;">
+                🔁 Quét lại tất cả
+              </button>
+              <button type="button" class="btn btn-sm" onclick="openFbSheetConfigModal()" style="background:#fef3c7; border:1px solid #fde68a; color:#92400e; font-weight:800; border-radius:7px; padding:6px 11px; cursor:pointer;">
+                🔌 Kết nối Sheet
+              </button>
+            `}
           ` : ''}
           <button type="button" class="btn btn-sm" onclick="exportFbSheetExcel()" ${units.length === 0 ? 'disabled' : ''} style="background:#ffffff; border:none; color:#065f46; font-weight:800; border-radius:7px; padding:6px 11px; cursor:pointer;">
             📊 Xuất Excel
           </button>
-          <a href="${FB_GOOGLE_SHEET_DIRECT_URL}" target="_blank" rel="noopener" style="background:rgba(15,23,42,0.28); border:1px solid rgba(255,255,255,0.35); color:#fff; font-size:12px; font-weight:700; border-radius:7px; padding:6px 11px; text-decoration:none;">
-            📄 Mở Sheet gốc ↗
-          </a>
+          ${!isLanToaMode ? `
+            <a href="${FB_GOOGLE_SHEET_DIRECT_URL}" target="_blank" rel="noopener" style="background:rgba(15,23,42,0.28); border:1px solid rgba(255,255,255,0.35); color:#fff; font-size:12px; font-weight:700; border-radius:7px; padding:6px 11px; text-decoration:none;">
+              📄 Mở Sheet gốc ↗
+            </a>
+          ` : ''}
         </div>
       </div>
 
+      <!-- Thanh Chọn Đợt Lệnh Lan Tỏa / Nguồn Google Sheet -->
+      <div style="flex-shrink:0; background:#ecfdf5; border-bottom:1.5px solid #a7f3d0; padding:8px 18px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <span style="font-size:12.5px; font-weight:800; color:#065f46;">📌 Chọn bảng / đợt Lệnh lan tỏa:</span>
+          <select onchange="state.activeLanToaBoardId=this.value; if(this.value==='gsheet' && !state.fbSheetData){ fetchFbSheetData(true); } renderApp();" style="padding:5px 10px; border-radius:7px; border:1.5px solid #10b981; font-size:12.5px; font-weight:700; color:#0f172a; background:#fff; max-width:420px; cursor:pointer;">
+            ${allBoards.map(b => {
+              const exp = b.finalized || _isLanToaBoardExpired(b);
+              return `<option value="${b.criterionId}" ${String(state.activeLanToaBoardId) === String(b.criterionId) ? 'selected' : ''}>${exp ? '🔒' : '🟢'} ${escapeHtml(b.title)} (Hạn ${escapeHtml(b.deadlineTime || '17:00')} ${escapeHtml(b.deadline || '')})</option>`;
+            }).join('')}
+            <option value="gsheet" ${state.activeLanToaBoardId === 'gsheet' ? 'selected' : ''}>📊 Bảng Google Sheet trực tiếp</option>
+          </select>
+        </div>
+        ${activeBoard ? `
+          <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+            <span style="font-size:12px; font-weight:700; padding:3px 10px; border-radius:12px; background:${isBoardExpiredOrFinalized ? '#fee2e2' : '#dcfce7'}; color:${isBoardExpiredOrFinalized ? '#b91c1c' : '#15803d'}; border:1px solid ${isBoardExpiredOrFinalized ? '#fecaca' : '#86efac'};">
+              ${activeBoard.finalized ? '✅ Đã hết hạn • Đã tự động nhập điểm & gắn tệp vào tiêu chí' : (_isLanToaBoardExpired(activeBoard) ? '⏰ Đã hết hạn nộp • Đang chờ chốt điểm' : `🟢 Đang mở nộp đến ${escapeHtml(activeBoard.deadlineTime || '17:00')} ngày ${escapeHtml(activeBoard.deadline || '')}`)}
+            </span>
+          </div>
+        ` : ''}
+      </div>
+
       <div class="panel-body" style="${isMobile ? 'padding:12px 10px; display:flex; flex-direction:column; overflow:visible;' : 'padding:14px 18px; display:flex; flex-direction:column; flex:1 1 auto; min-height:0; overflow-y:auto !important; background:#f8fafc;'}">
-        ${!webAppUrl ? `
+        ${!isLanToaMode && !webAppUrl ? `
           <div style="background:#fff; border:1.5px dashed #10b981; border-radius:12px; padding:28px 20px; text-align:center;">
             <div style="font-size:34px; margin-bottom:8px;">🔌</div>
             <div style="font-size:16px; font-weight:800; color:#065f46; margin-bottom:6px;">Chưa gắn Link Web App của Google Sheet</div>
@@ -40047,3 +40189,427 @@ function renderFbSheetHubTab() {
     </div>
   `;
 }
+
+/* ==========================================================================
+   HỆ THỐNG BẢNG NỘP & THẨM ĐỊNH LINK FB THEO TỪNG TIÊU CHÍ "LỆNH LAN TỎA"
+   - Tự tạo bảng mới khi Admin tạo tiêu chí Phát động Lệnh lan tỏa
+   - Tự động kiểm tra Công khai, Chủ tài khoản (Cột E), Chống bài gốc & Trùng tài khoản
+   - Tự động nhập điểm 40 đơn vị & gắn tệp Excel vào tiêu chí khi hết hạn nộp
+   ========================================================================== */
+const LAN_TOA_UNIT_SLOTS_BY_ID = {
+  6: 20, 21: 10, 34: 25, 10: 25, 11: 20, 19: 15, 35: 20, 7: 25, 18: 25, 26: 15,
+  28: 25, 15: 20, 24: 20, 31: 20, 4: 15, 22: 15, 37: 15, 23: 15, 3: 15, 8: 15,
+  25: 15, 16: 5, 9: 10, 20: 5, 17: 10, 5: 10, 13: 5, 33: 10, 12: 5, 39: 10,
+  1: 10, 14: 5, 29: 10, 27: 10, 38: 10, 30: 10, 2: 10, 32: 5, 36: 5, 40: 5
+};
+
+function _getDefaultLanToaSlotsForUnit(u) {
+  if (!u) return 10;
+  // Ưu tiên lấy đúng số ô đang có trên Google Sheet nếu đã đồng bộ
+  if (state.fbSheetData && Array.isArray(state.fbSheetData.units)) {
+    const matched = _matchSheetUnitToUser(state.fbSheetData.units, u.unit_name);
+    if (matched && matched.maxSlots > 0) return matched.maxSlots;
+  }
+  return LAN_TOA_UNIT_SLOTS_BY_ID[Number(u.id)] || 10;
+}
+
+function buildInitialLanToaBoard(criterion, unitsList) {
+  const activeUnits = (Array.isArray(unitsList) ? unitsList : []).slice(0, 40);
+  return {
+    criterionId: criterion.id,
+    title: criterion.title,
+    deadline: criterion.deadline || todayISO(),
+    deadlineTime: criterion.deadline_time || '17:00',
+    maxScore: Number(criterion.max_score || 3),
+    excludedKeywords: (state.fbSheetData && state.fbSheetData.excludedKeywords) || '',
+    finalized: false,
+    finalizedAt: '',
+    createdAt: nowISO(),
+    units: activeUnits.map((u, idx) => {
+      const cnt = _getDefaultLanToaSlotsForUnit(u);
+      return {
+        unitId: u.id,
+        tt: idx + 1,
+        unitName: u.unit_name,
+        maxSlots: cnt,
+        slots: Array.from({ length: cnt }, (_, sIdx) => ({
+          slotNo: sIdx + 1,
+          url: '',
+          accountName: '',
+          visibility: '',
+          resultText: '',
+          isValid: false
+        }))
+      };
+    })
+  };
+}
+
+function _isLanToaBoardExpired(board) {
+  if (!board || !board.deadline) return false;
+  const dtStr = `${board.deadline}T${(board.deadlineTime || '23:59').padStart(5, '0')}:00`;
+  const dlDate = new Date(dtStr);
+  if (isNaN(dlDate.getTime())) return false;
+  return new Date() >= dlDate;
+}
+
+function _recalcLanToaBoardDuplicatesAndScores(board) {
+  if (!board || !Array.isArray(board.units)) return;
+  const exKws = String(board.excludedKeywords || '')
+    .split(/[,;\n]+/)
+    .map(s => s.trim().toLowerCase())
+    .filter(Boolean);
+  const seenKeys = new Set();
+
+  board.units.forEach(u => {
+    const slots = u.slots || [];
+    slots.forEach(s => {
+      if (!s || !s.url) return;
+      const colE = String(s.accountName || '').trim();
+      let key = '';
+      if (colE && !colE.startsWith('(Không xác định)') && !colE.startsWith('(Lỗi')) {
+        const mId = colE.match(/\(ID:\s*([^)]+)\)/i);
+        key = (mId && mId[1]) ? ('id:' + mId[1].trim().toLowerCase()) : ('name:' + colE.toLowerCase().replace(/\s+/g, ' '));
+      }
+      const matchedEx = exKws.find(kw => colE.toLowerCase().includes(kw));
+      if (matchedEx) {
+        s.isValid = false;
+        s.resultText = '❌ Không hợp lệ (Dùng lại link bài gốc)';
+        if (key) seenKeys.add(key);
+      } else if (key && seenKeys.has(key)) {
+        s.isValid = false;
+        s.resultText = '❌ Không hợp lệ (Trùng tài khoản)';
+      } else {
+        if (key) seenKeys.add(key);
+        if (s.visibility === 'Công khai') {
+          s.isValid = true;
+          s.resultText = '✅ Hợp lệ';
+        } else if (s.visibility) {
+          s.isValid = false;
+          if (!s.resultText || s.resultText.startsWith('✅') || s.resultText.includes('Trùng tài khoản') || s.resultText.includes('Dùng lại link bài gốc')) {
+            s.resultText = `❌ Không hợp lệ (${s.visibility})`;
+          }
+        }
+      }
+    });
+  });
+}
+
+async function _checkSingleUrlViaKiniAi(url) {
+  const serverUrl = typeof window.getFbCheckerServerUrl === 'function' ? window.getFbCheckerServerUrl() : 'https://kini-ai.onrender.com';
+  const res = await fetch(serverUrl + '/api/fb-check', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: url, required_keywords: [], keyword_mode: 'any', require_public: true })
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return await res.json();
+}
+
+window.submitLanToaLinks = async function (boardId, unitName, rowIdx, inputId, directUrlOpt) {
+  const board = (state.lanToaBoards || {})[String(boardId)];
+  if (!board) return;
+  const isAdmin = state.user && state.user.role === 'admin';
+  if (!isAdmin && (board.finalized || _isLanToaBoardExpired(board))) {
+    alert('Đợt Lệnh lan tỏa này đã hết hạn nộp và đã chốt điểm!');
+    return;
+  }
+
+  let urlsToSubmit = [];
+  if (directUrlOpt) {
+    urlsToSubmit = [String(directUrlOpt).trim()].filter(Boolean);
+  } else if (inputId) {
+    const inp = document.getElementById(inputId);
+    const raw = (inp ? inp.value : '').trim();
+    urlsToSubmit = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  }
+  if (urlsToSubmit.length === 0) {
+    if (typeof showToast === 'function') showToast('Vui lòng dán ít nhất 1 đường link Facebook!', 'warning');
+    return;
+  }
+
+  state.fbSheetLoading = true;
+  if (typeof showToast === 'function') showToast(`⏳ Đang kiểm tra ${urlsToSubmit.length} link qua KINI AI...`, 'info');
+  renderApp();
+
+  try {
+    const checkedItems = [];
+    for (const u of urlsToSubmit) {
+      let data = null;
+      try {
+        data = await _checkSingleUrlViaKiniAi(u);
+      } catch (e) {
+        data = { account_name: '(Lỗi kết nối)', account_id: '', visibility: 'Không rõ', is_valid: false, reason: e.message };
+      }
+      const rawName = (data.account_name || '').trim();
+      const accountText = data.account_id && rawName && rawName !== '(Không xác định)'
+        ? `${rawName} (ID: ${data.account_id})`
+        : (rawName || '(Không xác định)');
+      checkedItems.push({
+        url: u,
+        accountName: accountText,
+        visibility: data.visibility || 'Không rõ',
+        isValid: Boolean(data.is_valid),
+        resultText: data.is_valid ? '✅ Hợp lệ' : `❌ Không hợp lệ (${data.reason || 'Kiểm tra lại'})`
+      });
+    }
+
+    await mutateCloudDB(db => {
+      if (!db.lan_toa_boards || !db.lan_toa_boards[String(boardId)]) return;
+      const b = db.lan_toa_boards[String(boardId)];
+      const uObj = (b.units || []).find(x => x.unitName === unitName || (rowIdx && (x.slots || []).some(s => s._key === rowIdx)));
+      if (!uObj) return;
+
+      if (rowIdx !== null && rowIdx !== undefined && String(rowIdx).startsWith('lt_')) {
+        const sIdx = Number(String(rowIdx).split('_')[2]);
+        if (uObj.slots && uObj.slots[sIdx]) {
+          Object.assign(uObj.slots[sIdx], checkedItems[0]);
+        }
+      } else {
+        const emptySlots = (uObj.slots || []).filter(s => !s.url || !s.url.trim());
+        const limit = Math.min(checkedItems.length, emptySlots.length);
+        for (let k = 0; k < limit; k++) {
+          Object.assign(emptySlots[k], checkedItems[k]);
+        }
+      }
+      _recalcLanToaBoardDuplicatesAndScores(b);
+    }, `Submit Lan Toa links for ${unitName}`);
+
+    if (inputId && document.getElementById(inputId)) document.getElementById(inputId).value = '';
+    if (typeof showToast === 'function') showToast(`✅ Đã lưu và thẩm định xong ${checkedItems.length} link!`, 'success');
+  } catch (err) {
+    alert('Lỗi khi nộp link: ' + (err.message || err));
+  } finally {
+    state.fbSheetLoading = false;
+    renderApp();
+  }
+};
+
+window.editLanToaSlotLink = async function (boardId, unitIdx, slotIdx, oldUrl) {
+  const newUrl = prompt('Nhập đường link Facebook mới thay thế:', oldUrl || '');
+  if (newUrl === null || !newUrl.trim()) return;
+  const clean = newUrl.trim();
+  state.fbSheetLoading = true;
+  renderApp();
+  try {
+    const data = await _checkSingleUrlViaKiniAi(clean);
+    const rawName = (data.account_name || '').trim();
+    const accountText = data.account_id && rawName && rawName !== '(Không xác định)'
+      ? `${rawName} (ID: ${data.account_id})`
+      : (rawName || '(Không xác định)');
+
+    await mutateCloudDB(db => {
+      const b = db.lan_toa_boards && db.lan_toa_boards[String(boardId)];
+      if (!b || !b.units || !b.units[unitIdx] || !b.units[unitIdx].slots[slotIdx]) return;
+      Object.assign(b.units[unitIdx].slots[slotIdx], {
+        url: clean,
+        accountName: accountText,
+        visibility: data.visibility || 'Không rõ',
+        isValid: Boolean(data.is_valid),
+        resultText: data.is_valid ? '✅ Hợp lệ' : `❌ Không hợp lệ (${data.reason || 'Kiểm tra lại'})`
+      });
+      _recalcLanToaBoardDuplicatesAndScores(b);
+    }, 'Edit Lan Toa slot link');
+    if (typeof showToast === 'function') showToast('✅ Đã cập nhật và kiểm tra lại link!', 'success');
+  } catch (e) {
+    alert('Lỗi cập nhật link: ' + e.message);
+  } finally {
+    state.fbSheetLoading = false;
+    renderApp();
+  }
+};
+
+window.deleteLanToaSlotLink = async function (boardId, unitIdx, slotIdx) {
+  if (!confirm('Xóa đường link này khỏi ô?')) return;
+  state.fbSheetLoading = true;
+  renderApp();
+  try {
+    await mutateCloudDB(db => {
+      const b = db.lan_toa_boards && db.lan_toa_boards[String(boardId)];
+      if (!b || !b.units || !b.units[unitIdx] || !b.units[unitIdx].slots[slotIdx]) return;
+      Object.assign(b.units[unitIdx].slots[slotIdx], {
+        url: '',
+        accountName: '',
+        visibility: '',
+        resultText: '',
+        isValid: false
+      });
+      _recalcLanToaBoardDuplicatesAndScores(b);
+    }, 'Delete Lan Toa slot link');
+    if (typeof showToast === 'function') showToast('🗑️ Đã xóa link!', 'success');
+  } finally {
+    state.fbSheetLoading = false;
+    renderApp();
+  }
+};
+
+window.setLanToaExcludedKeywords = async function (boardId) {
+  const board = (state.lanToaBoards || {})[String(boardId)];
+  if (!board) return;
+  const val = prompt(
+    '⚙️ CÀI ĐẶT TỪ KHÓA CHỐNG DÙNG LẠI LINK BÀI GỐC (CỘT E)\nNhập tên trang/tài khoản bài gốc (cách nhau bằng dấu phẩy):',
+    board.excludedKeywords || ''
+  );
+  if (val === null) return;
+  await mutateCloudDB(db => {
+    const b = db.lan_toa_boards && db.lan_toa_boards[String(boardId)];
+    if (!b) return;
+    b.excludedKeywords = val.trim();
+    _recalcLanToaBoardDuplicatesAndScores(b);
+  }, 'Update Lan Toa excluded keywords');
+  if (typeof showToast === 'function') showToast('✅ Đã cập nhật từ khóa bài gốc!', 'success');
+  renderApp();
+};
+
+window.finalizeLanToaBoard = async function (boardId, isAuto) {
+  const board = (state.lanToaBoards || {})[String(boardId)];
+  if (!board) return;
+  if (!isAuto && !confirm(`Chốt điểm tự động cho cả 40 cơ sở Đoàn và lưu tệp Excel báo cáo vào tiêu chí "${board.title}"?`)) {
+    return;
+  }
+
+  state.fbSheetLoading = true;
+  if (!isAuto && typeof showToast === 'function') showToast('⏳ Đang tổng hợp điểm, xuất tệp Excel & gắn vào tiêu chí...', 'info');
+  renderApp();
+
+  try {
+    _recalcLanToaBoardDuplicatesAndScores(board);
+    const maxS = Number(board.maxScore || 3);
+
+    // 1. Tạo file Excel (.xlsx) tổng hợp kết quả để gắn vào tiêu chí
+    let fileUrl = '';
+    const fileName = `Ket_Qua_Lan_Toa_Cot_${board.criterionId}_${todayISO()}.xlsx`;
+    if (typeof XLSX === 'undefined' && window.ensureXlsxLoaded) {
+      await window.ensureXlsxLoaded().catch(() => {});
+    }
+    if (typeof XLSX !== 'undefined') {
+      const detailRows = [
+        [`BÁO CÁO KẾT QUẢ THẨM ĐỊNH: ${board.title}`],
+        [`Hạn nộp: ${board.deadlineTime || '17:00'} ngày ${board.deadline} | Chốt tự động lúc: ${new Date().toLocaleString('vi-VN')}`],
+        [],
+        ['TT', 'Số link', 'Tổ chức cơ sở Đoàn trực thuộc', 'Link Facebook', 'Tên trang / Chủ tài khoản', 'Trạng thái hiển thị', 'Kết quả', 'Điểm']
+      ];
+      const scoreRows = [['Mã ĐV', 'Tổ chức cơ sở Đoàn trực thuộc', 'Số link hợp lệ', 'Chỉ tiêu', 'Điểm đạt được']];
+
+      (board.units || []).forEach((u, uIdx) => {
+        const slots = u.slots || [];
+        const vCnt = slots.filter(s => s.isValid).length;
+        const unitScore = Math.min(maxS, Number(((vCnt / Math.max(1, u.maxSlots || slots.length)) * maxS).toFixed(2)));
+        scoreRows.push([`donvi${String(uIdx + 1).padStart(2, '0')}`, u.unitName, vCnt, u.maxSlots || slots.length, unitScore]);
+
+        slots.forEach((s, sIdx) => {
+          detailRows.push([
+            sIdx === 0 ? u.tt : '',
+            s.slotNo || (sIdx + 1),
+            sIdx === 0 ? u.unitName : '',
+            s.url || '',
+            s.accountName || '',
+            s.visibility || '',
+            s.resultText || (s.url ? '' : 'Chưa nộp'),
+            sIdx === 0 ? unitScore : ''
+          ]);
+        });
+      });
+
+      const wb = XLSX.utils.book_new();
+      const ws1 = XLSX.utils.aoa_to_sheet(detailRows);
+      ws1['!cols'] = [{ wch: 5 }, { wch: 8 }, { wch: 38 }, { wch: 45 }, { wch: 28 }, { wch: 22 }, { wch: 30 }, { wch: 10 }];
+      const ws2 = XLSX.utils.aoa_to_sheet(scoreRows);
+      ws2['!cols'] = [{ wch: 10 }, { wch: 42 }, { wch: 16 }, { wch: 12 }, { wch: 16 }];
+      XLSX.utils.book_append_sheet(wb, ws2, 'Bang_Diem_40_Don_Vi');
+      XLSX.utils.book_append_sheet(wb, ws1, 'Chi_Tiet_Link_FB');
+
+      const b64Raw = XLSX.write(wb, { bookType: 'xlsx', type: 'base64' });
+      const dataUrl = 'data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,' + b64Raw;
+
+      // Tải lên Google Drive nếu có kết nối, nếu chưa thì lưu dạng DataURL nội bộ
+      if (typeof uploadFileToCloud === 'function' && getGoogleDriveScriptUrl()) {
+        try {
+          const upRes = await uploadFileToCloud(dataUrl, fileName, 0, board.criterionId);
+          if (upRes && upRes.fileUrl) fileUrl = upRes.fileUrl;
+        } catch (upErr) {
+          console.warn('Drive upload fallback to dataUrl:', upErr);
+        }
+      }
+      if (!fileUrl) fileUrl = dataUrl;
+    }
+
+    // 2. Nhập điểm vào db.scores cho 40 đơn vị + gắn tệp vào tiêu chí + đánh dấu finalized
+    await mutateCloudDB(db => {
+      const b = db.lan_toa_boards && db.lan_toa_boards[String(boardId)];
+      if (!b) return;
+      _recalcLanToaBoardDuplicatesAndScores(b);
+      db.scores = Array.isArray(db.scores) ? db.scores : [];
+
+      (b.units || []).forEach(u => {
+        const slots = u.slots || [];
+        const vCnt = slots.filter(s => s.isValid).length;
+        const unitScore = Math.min(maxS, Number(((vCnt / Math.max(1, u.maxSlots || slots.length)) * maxS).toFixed(2)));
+
+        let scObj = db.scores.find(s => Number(s.unit_id) === Number(u.unitId) && Number(s.criterion_id) === Number(b.criterionId));
+        if (!scObj) {
+          scObj = {
+            unit_id: Number(u.unitId),
+            criterion_id: Number(b.criterionId),
+            score: unitScore,
+            note: `Tự động chấm từ Lệnh lan tỏa (${vCnt}/${u.maxSlots || slots.length} link hợp lệ)`,
+            updated_at: nowISO()
+          };
+          db.scores.push(scObj);
+        } else {
+          scObj.score = unitScore;
+          scObj.note = `Tự động chấm từ Lệnh lan tỏa (${vCnt}/${u.maxSlots || slots.length} link hợp lệ)`;
+          scObj.updated_at = nowISO();
+        }
+      });
+
+      const crit = (db.criteria || []).find(c => Number(c.id) === Number(b.criterionId));
+      if (crit && fileUrl) {
+        if (!Array.isArray(crit.attachments)) crit.attachments = [];
+        crit.attachments.push({
+          id: 'att_lt_' + Date.now(),
+          name: fileName,
+          url: fileUrl,
+          size: 0,
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          uploaded_at: nowISO(),
+          uploaded_by: 'Hệ thống Tự động (Lệnh lan tỏa)'
+        });
+      }
+
+      b.finalized = true;
+      b.finalizedAt = nowISO();
+      b.resultFileUrl = fileUrl;
+      b.resultFileName = fileName;
+    }, `Finalize Lan Toa board #${boardId}`);
+
+    if (typeof showToast === 'function') {
+      showToast(`🎉 Đã tự động chấm điểm 40 đơn vị và gắn tệp "${fileName}" vào tiêu chí!`, 'success');
+    }
+  } catch (err) {
+    console.error('finalizeLanToaBoard error:', err);
+    if (!isAuto) alert('Lỗi khi chốt điểm: ' + (err.message || err));
+  } finally {
+    state.fbSheetLoading = false;
+    renderApp();
+  }
+};
+
+window.scheduleCheckExpiredLanToaBoards = function () {
+  if (!state.user || state.user.role !== 'admin') return;
+  if (window._lanToaAutoFinalizeRunning) return;
+  const boards = state.lanToaBoards || {};
+  const expiredUnfinalized = Object.values(boards).filter(b => b && !b.finalized && _isLanToaBoardExpired(b));
+  if (expiredUnfinalized.length === 0) return;
+
+  window._lanToaAutoFinalizeRunning = true;
+  setTimeout(async () => {
+    try {
+      for (const b of expiredUnfinalized) {
+        await window.finalizeLanToaBoard(b.criterionId, true);
+      }
+    } finally {
+      window._lanToaAutoFinalizeRunning = false;
+    }
+  }, 1500);
+};
