@@ -40745,7 +40745,14 @@ window.scheduleCheckExpiredLanToaBoards = function () {
   if (!state.user || state.user.role !== 'admin') return;
   if (window._lanToaAutoFinalizeRunning) return;
   const boards = state.lanToaBoards || {};
-  const expiredUnfinalized = Object.values(boards).filter(b => b && !b.finalized && _isLanToaBoardExpired(b));
+  const nowMs = Date.now();
+  const expiredUnfinalized = Object.values(boards).filter(b => {
+    if (!b || b.finalized || !_isLanToaBoardExpired(b)) return false;
+    // Bảo vệ: không tự động chốt & xóa ngay trong vòng 2 phút sau khi vừa gắn bảng
+    const createdMs = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    if (createdMs && (nowMs - createdMs) < 120000) return false;
+    return true;
+  });
   if (expiredUnfinalized.length === 0) return;
 
   window._lanToaAutoFinalizeRunning = true;
@@ -40824,10 +40831,10 @@ window.openApplyGoogleSheetToCriterionModal = function (preselectedCritId) {
             </div>
           </div>
           <label style="display:flex; align-items:flex-start; gap:8px; background:#fefce8; border:1px solid #fde047; border-radius:8px; padding:10px 12px; margin-bottom:14px; cursor:pointer;">
-            <input type="checkbox" id="apply-gs-clear-after" checked style="width:16px; height:16px; margin-top:2px; cursor:pointer;" />
+            <input type="checkbox" id="apply-gs-clear-after" style="width:16px; height:16px; margin-top:2px; cursor:pointer;" />
             <div style="font-size:12px; color:#854d0e; line-height:1.45;">
-              <b>Tự động xóa các link Cột D trên Google Sheet sau khi hết hạn (${todayISO()} 17:00):</b><br/>
-              Khi đến giờ hết hạn, hệ thống sẽ tự đồng bộ lần cuối, khóa bảng, cộng điểm cho 40 đơn vị, lưu file Excel gắn vào mục 📎 Tệp của tiêu chí và <b>xóa sạch Cột D trên Google Sheet</b> để chờ đợt mới.
+              <b>Tự động xóa các link Cột D trên Google Sheet sau khi hết hạn:</b><br/>
+              Chỉ tích ô này nếu muốn hệ thống tự động xóa trắng Cột D trên Google Sheet sau khi chốt điểm xong (mặc định tắt để bảo vệ dữ liệu).
             </div>
           </label>
           <div style="display:flex; justify-content:flex-end; gap:8px;">
