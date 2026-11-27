@@ -39832,66 +39832,69 @@ function renderFbSheetHubTab() {
                           const lks = u.links || [];
                           const vCnt = lks.filter(l => l.isValid).length;
                           const unitScore = u.sheetScore !== '' && u.sheetScore !== undefined ? u.sheetScore : (vCnt > 0 ? (vCnt * 0.3).toFixed(1) : '0');
-                          const rowSpan = Math.max(1, lks.length);
+                          const displayRows = (Array.isArray(u.slots) && u.slots.length > 0)
+                            ? u.slots
+                            : Array.from({ length: Math.max(1, u.maxSlots || lks.length || 1) }, (_, idx) => (
+                                lks[idx] || {
+                                  rowIdx: (u.startRow || 3) + idx,
+                                  slotNo: String(idx + 1),
+                                  url: '',
+                                  accountName: '',
+                                  visibility: '',
+                                  resultText: '',
+                                  isValid: false
+                                }
+                              ));
+                          const rowSpan = Math.max(1, displayRows.length);
                           const origIdx = units.indexOf(u);
+                          const canInlineEditUnit = isAdmin || (mySheetUnit && mySheetUnit.unitName === u.unitName);
 
-                          if (lks.length === 0) {
+                          return displayRows.map((lk, lIdx) => {
+                            const hasUrl = Boolean(lk.url && lk.url.trim());
+                            const isLastOfUnit = lIdx === displayRows.length - 1;
                             return `
-                              <tr style="border-bottom:1.5px solid #cbd5e1; background:#ffffff;">
-                                <td style="text-align:center; font-weight:700; color:#475569; border-right:1px solid #e2e8f0;">${escapeHtml(u.tt || (uIdx + 1))}</td>
-                                <td style="text-align:center; color:#94a3b8; border-right:1px solid #e2e8f0;">0</td>
-                                <td style="font-weight:700; color:#0f172a; border-right:1px solid #e2e8f0;">${escapeHtml(u.unitName)}</td>
-                                <td colspan="4" style="color:#94a3b8; font-style:italic; border-right:1px solid #e2e8f0; padding:7px 10px;">
-                                  ${isAdmin ? `
-                                    <div style="display:flex; gap:6px; align-items:center;">
-                                      <input type="text" id="sheet-add-${origIdx}" placeholder="Dán link Facebook cho đơn vị này..." style="flex:1; padding:4px 8px; font-size:12px; border:1px solid #cbd5e1; border-radius:5px;" />
-                                      <button type="button" onclick="submitFbSheetLinks('${escapeHtml(u.unitName)}', 'sheet-add-${origIdx}')" style="background:#059669; color:#fff; border:none; border-radius:5px; padding:4px 9px; font-size:11.5px; font-weight:700; cursor:pointer;">➕ Gửi</button>
-                                    </div>
-                                  ` : 'Chưa có link nộp'}
-                                </td>
-                                <td style="text-align:center; font-weight:800; color:#64748b; border-right:1px solid #e2e8f0;">0</td>
-                                ${isAdmin ? '<td style="text-align:center; color:#cbd5e1;">—</td>' : ''}
+                              <tr style="border-bottom:${isLastOfUnit ? '1.5px solid #94a3b8' : '1px solid #f1f5f9'}; background:${hasUrl ? (lIdx % 2 === 0 ? '#ffffff' : '#f8fafc') : '#fefce8'};">
+                                ${lIdx === 0 ? `<td rowspan="${rowSpan}" style="text-align:center; font-weight:800; color:#0f172a; vertical-align:middle; background:#f8fafc; border-right:1px solid #cbd5e1;">${escapeHtml(u.tt || (uIdx + 1))}</td>` : ''}
+                                <td style="text-align:center; font-weight:700; color:${hasUrl ? '#0f172a' : '#64748b'}; border-right:1px solid #e2e8f0;">${escapeHtml(lk.slotNo || (lIdx + 1))}</td>
+                                ${lIdx === 0 ? `
+                                  <td rowspan="${rowSpan}" style="font-weight:700; color:#065f46; vertical-align:middle; background:#f0fdf4; border-right:1px solid #bbf7d0; padding:8px;">
+                                    <div>${escapeHtml(u.unitName)}</div>
+                                    <div style="font-size:11px; color:#047857; font-weight:600; margin-top:3px;">(${lks.length}/${rowSpan} link)</div>
+                                  </td>
+                                ` : ''}
+                                ${hasUrl ? `
+                                  <td style="max-width:220px; word-break:break-all; border-right:1px solid #e2e8f0; padding:6px 8px;">
+                                    <a href="${escapeHtml(lk.url)}" target="_blank" rel="noopener" style="color:#0284c7; font-weight:600; text-decoration:none;">${escapeHtml(lk.url)}</a>
+                                  </td>
+                                  <td style="font-weight:700; color:#0f172a; border-right:1px solid #e2e8f0; padding:6px 8px;">${escapeHtml(lk.accountName || '—')}</td>
+                                  <td style="text-align:center; border-right:1px solid #e2e8f0; padding:6px 6px;">
+                                    <span style="display:inline-block; padding:2px 7px; border-radius:10px; font-size:11px; font-weight:700; background:${lk.visibility === 'Công khai' ? '#dcfce7' : '#fef3c7'}; color:${lk.visibility === 'Công khai' ? '#15803d' : '#b45309'};">${escapeHtml(lk.visibility || 'Chờ quét')}</span>
+                                  </td>
+                                  <td style="text-align:center; border-right:1px solid #e2e8f0; padding:6px 6px;">
+                                    <span style="display:inline-block; padding:3px 8px; border-radius:6px; font-size:11.5px; font-weight:700; background:${lk.isValid ? '#dcfce7' : '#fee2e2'}; color:${lk.isValid ? '#15803d' : '#b91c1c'};">${escapeHtml(lk.resultText || 'Chưa quét')}</span>
+                                  </td>
+                                ` : `
+                                  <td colspan="4" style="border-right:1px solid #e2e8f0; padding:4px 8px; color:#94a3b8; font-size:11.5px;">
+                                    ${canInlineEditUnit ? `
+                                      <div style="display:flex; gap:5px; align-items:center;">
+                                        <input type="text" id="slot-input-${lk.rowIdx}" placeholder="Dán link Facebook vào ô số ${escapeHtml(lk.slotNo || (lIdx + 1))}..." style="flex:1; padding:3px 7px; font-size:11.5px; border:1px solid #cbd5e1; border-radius:4px; background:#fff;" />
+                                        <button type="button" onclick="var v=document.getElementById('slot-input-${lk.rowIdx}').value.trim(); if(v){ _postFbSheetAction({action:'submit_links', rowIdx:${lk.rowIdx}, url:v}, '⏳ Đang lưu & kiểm tra ô số ${escapeHtml(lk.slotNo || (lIdx + 1))}...'); }" style="background:#059669; color:#fff; border:none; border-radius:4px; padding:3px 8px; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap;">Gửi</button>
+                                      </div>
+                                    ` : '<span style="font-style:italic;">(Chưa nhập link)</span>'}
+                                  </td>
+                                `}
+                                ${lIdx === 0 ? `<td rowspan="${rowSpan}" style="text-align:center; font-weight:800; font-size:13.5px; color:#1d4ed8; vertical-align:middle; background:#eff6ff; border-right:1px solid #e2e8f0;">${escapeHtml(String(unitScore))}</td>` : ''}
+                                ${isAdmin ? `
+                                  <td style="text-align:center; white-space:nowrap; padding:4px;">
+                                    ${hasUrl ? `
+                                      <button type="button" onclick="editFbSheetLink(${lk.rowIdx}, '${escapeHtml(lk.url)}')" style="border:1px solid #cbd5e1; background:#fff; border-radius:5px; padding:2px 5px; cursor:pointer;" title="Sửa">✏️</button>
+                                      <button type="button" onclick="deleteFbSheetLink(${lk.rowIdx})" style="border:1px solid #fecaca; background:#fff1f2; color:#dc2626; border-radius:5px; padding:2px 5px; cursor:pointer;" title="Xóa">🗑️</button>
+                                    ` : '<span style="color:#cbd5e1;">—</span>'}
+                                  </td>
+                                ` : ''}
                               </tr>
                             `;
-                          }
-
-                          return lks.map((lk, lIdx) => `
-                            <tr style="border-bottom:${lIdx === lks.length - 1 ? '1.5px solid #cbd5e1' : '1px solid #f1f5f9'}; background:${lIdx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
-                              ${lIdx === 0 ? `<td rowspan="${rowSpan}" style="text-align:center; font-weight:800; color:#0f172a; vertical-align:middle; background:#f8fafc; border-right:1px solid #e2e8f0;">${escapeHtml(u.tt || (uIdx + 1))}</td>` : ''}
-                              <td style="text-align:center; font-weight:600; color:#64748b; border-right:1px solid #e2e8f0;">${escapeHtml(lk.slotNo || (lIdx + 1))}</td>
-                              ${lIdx === 0 ? `
-                                <td rowspan="${rowSpan}" style="font-weight:700; color:#065f46; vertical-align:middle; background:#f0fdf4; border-right:1px solid #bbf7d0; padding:8px;">
-                                  <div>${escapeHtml(u.unitName)}</div>
-                                  ${isAdmin ? `
-                                    <div style="margin-top:6px;">
-                                      <button type="button" onclick="var el=document.getElementById('inline-add-box-${origIdx}'); el.style.display=(el.style.display==='none'?'flex':'none');" style="background:#fff; border:1px solid #10b981; color:#059669; border-radius:5px; padding:2px 7px; font-size:11px; font-weight:700; cursor:pointer;">➕ Thêm link</button>
-                                      <div id="inline-add-box-${origIdx}" style="display:none; gap:4px; margin-top:5px; flex-direction:column;">
-                                        <input type="text" id="sheet-add-${origIdx}" placeholder="Dán link..." style="padding:4px 6px; font-size:11.5px; border:1px solid #cbd5e1; border-radius:4px;" />
-                                        <button type="button" onclick="submitFbSheetLinks('${escapeHtml(u.unitName)}', 'sheet-add-${origIdx}')" style="background:#059669; color:#fff; border:none; border-radius:4px; padding:4px; font-size:11px; font-weight:700; cursor:pointer;">Gửi &amp; Quét</button>
-                                      </div>
-                                    </div>
-                                  ` : ''}
-                                </td>
-                              ` : ''}
-                              <td style="max-width:220px; word-break:break-all; border-right:1px solid #e2e8f0; padding:6px 8px;">
-                                <a href="${escapeHtml(lk.url)}" target="_blank" rel="noopener" style="color:#0284c7; font-weight:600; text-decoration:none;">${escapeHtml(lk.url)}</a>
-                              </td>
-                              <td style="font-weight:700; color:#0f172a; border-right:1px solid #e2e8f0; padding:6px 8px;">${escapeHtml(lk.accountName || '—')}</td>
-                              <td style="text-align:center; border-right:1px solid #e2e8f0; padding:6px 6px;">
-                                <span style="display:inline-block; padding:2px 7px; border-radius:10px; font-size:11px; font-weight:700; background:${lk.visibility === 'Công khai' ? '#dcfce7' : '#fef3c7'}; color:${lk.visibility === 'Công khai' ? '#15803d' : '#b45309'};">${escapeHtml(lk.visibility || 'Chờ quét')}</span>
-                              </td>
-                              <td style="text-align:center; border-right:1px solid #e2e8f0; padding:6px 6px;">
-                                <span style="display:inline-block; padding:3px 8px; border-radius:6px; font-size:11.5px; font-weight:700; background:${lk.isValid ? '#dcfce7' : '#fee2e2'}; color:${lk.isValid ? '#15803d' : '#b91c1c'};">${escapeHtml(lk.resultText || 'Chưa quét')}</span>
-                              </td>
-                              ${lIdx === 0 ? `<td rowspan="${rowSpan}" style="text-align:center; font-weight:800; font-size:13.5px; color:#1d4ed8; vertical-align:middle; background:#eff6ff; border-right:1px solid #e2e8f0;">${escapeHtml(String(unitScore))}</td>` : ''}
-                              ${isAdmin ? `
-                                <td style="text-align:center; white-space:nowrap; padding:4px;">
-                                  <button type="button" onclick="editFbSheetLink(${lk.rowIdx}, '${escapeHtml(lk.url)}')" style="border:1px solid #cbd5e1; background:#fff; border-radius:5px; padding:2px 5px; cursor:pointer;" title="Sửa">✏️</button>
-                                  <button type="button" onclick="deleteFbSheetLink(${lk.rowIdx})" style="border:1px solid #fecaca; background:#fff1f2; color:#dc2626; border-radius:5px; padding:2px 5px; cursor:pointer;" title="Xóa">🗑️</button>
-                                </td>
-                              ` : ''}
-                            </tr>
-                          `).join('');
+                          }).join('');
                         }).join('')}
                       </tbody>
                     </table>

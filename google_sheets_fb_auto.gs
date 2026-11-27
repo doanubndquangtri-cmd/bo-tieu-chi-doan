@@ -291,7 +291,8 @@ function buildSheetJsonPayload_() {
           endRow: rowIdx,
           maxSlots: 0,
           sheetScore: colH !== "" && colH !== null && colH !== undefined ? colH : "",
-          links: []
+          links: [],
+          slots: []
         };
         units.push(currentUnit);
       }
@@ -299,17 +300,19 @@ function buildSheetJsonPayload_() {
       if (currentUnit && (colB || colD || colC)) {
         currentUnit.endRow = rowIdx;
         currentUnit.maxSlots += 1;
+        const slotObj = {
+          rowIdx: rowIdx,
+          slotNo: colB || String(currentUnit.maxSlots),
+          url: colD,
+          accountName: colE,
+          visibility: colF,
+          resultText: colG,
+          linkScore: colH !== "" && colH !== null && colH !== undefined ? colH : "",
+          isValid: colG.startsWith("✅")
+        };
+        currentUnit.slots.push(slotObj);
         if (colD) {
-          currentUnit.links.push({
-            rowIdx: rowIdx,
-            slotNo: colB || String(currentUnit.links.length + 1),
-            url: colD,
-            accountName: colE,
-            visibility: colF,
-            resultText: colG,
-            linkScore: colH !== "" && colH !== null && colH !== undefined ? colH : "",
-            isValid: colG.startsWith("✅")
-          });
+          currentUnit.links.push(slotObj);
         }
       }
     }

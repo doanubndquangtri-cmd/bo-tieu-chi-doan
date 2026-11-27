@@ -221,3 +221,6 @@
            - Sửa lỗi không cuộn dọc được trên Desktop bằng `height: calc(100vh - 128px)` trên `.panel` và `flex: 1 1 auto; min-height: 0; overflow-y: auto !important;` trên `.panel-body`.
            - Nâng cấp `google_sheets_fb_auto.gs` đọc thêm cột H (`ĐIỂM`) và cột I–K (`ĐIỂM AI CHẤM` 40 đơn vị).
            - Hiển thị giao diện 2 khung song song: Bảng Link bên trái theo đúng cấu trúc gộp ô Google Sheet (`TT | Số link | Tổ chức cơ sở Đoàn trực thuộc | NHẬP LINK | Tên trang / Chủ tài khoản | Trạng thái hiển thị | Kết quả | ĐIỂM`) và Bảng Điểm AI Chấm bên phải (`Mã ĐV | Đơn vị | Điểm`), có nút chuyển đổi qua lại kiểu bảng thu gọn nếu cần.
+         - **9. Hiển thị chính xác số dòng ô link theo Cột B của từng cơ sở Đoàn (27/11/2026)**:
+           - Cập nhật `buildSheetJsonPayload_` trong `google_sheets_fb_auto.gs` trả về đủ mảng `slots` cho toàn bộ các ô Cột B (cả ô đã điền lẫn ô trống) của từng đơn vị (VD: Hải quan IX = 20 ô, Sở VHTT&DL = 10 ô, Sở Y tế = 25 ô...).
+           - Cập nhật `renderFbSheetHubTab` trong `app.js` render đúng đủ số dòng `slots` đó kèm ô dán link trực tiếp trên từng dòng trống cho Admin và đơn vị tương ứng.
