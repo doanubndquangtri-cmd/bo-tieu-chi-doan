@@ -6114,3 +6114,57 @@ main:has(.gallery-animated-page),
   padding-top: 0 !important;
   margin-top: 0 !important;
 }
+
+/* ==========================================================================
+   CHẾ ĐỘ SÁNG / TỐI (DARK MODE) & TÙY CHỈNH CỠ CHỮ (A- / A+)
+   ========================================================================== */
+html[data-font-scale="sm"] body { font-size: 13px; }
+html[data-font-scale="md"] body { font-size: 14px; }
+html[data-font-scale="lg"] body { font-size: 15.5px; }
+html[data-font-scale="xl"] body { font-size: 17px; }
+
+html[data-theme="dark"] body,
+html[data-theme="dark"] .main-content,
+html[data-theme="dark"] .content-area {
+  background: #0f172a !important;
+  color: #e2e8f0 !important;
+}
+html[data-theme="dark"] .panel,
+html[data-theme="dark"] .card,
+html[data-theme="dark"] .section-card,
+html[data-theme="dark"] .stat-card,
+html[data-theme="dark"] .modal-box,
+html[data-theme="dark"] .modal-content {
+  background: #1e293b !important;
+  color: #e2e8f0 !important;
+  border-color: #334155 !important;
+}
+html[data-theme="dark"] .panel-body {
+  background: #0f172a !important;
+}
+html[data-theme="dark"] .nav-tabs {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+html[data-theme="dark"] .nav-tab {
+  color: #cbd5e1 !important;
+}
+html[data-theme="dark"] .nav-tab.active {
+  color: #38bdf8 !important;
+  background: rgba(56, 189, 248, 0.12) !important;
+}
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea {
+  background: #0f172a !important;
+  color: #f1f5f9 !important;
+  border-color: #475569 !important;
+}
+html[data-theme="dark"] table th {
+  background: #1e293b !important;
+  color: #e2e8f0 !important;
+  border-color: #334155 !important;
+}
+html[data-theme="dark"] table td {
+  border-color: #334155 !important;
+}

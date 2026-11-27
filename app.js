@@ -2770,6 +2770,7 @@ function ingestCloudDB(db) {
   state.incoming_docs = Array.isArray(db.incoming_docs) ? db.incoming_docs : [];
   state.lanToaBoards = (db.lan_toa_boards && typeof db.lan_toa_boards === 'object') ? db.lan_toa_boards : {};
   state.lanToaHistory = Array.isArray(db.lan_toa_history) ? db.lan_toa_history : [];
+  state.auditLogs = Array.isArray(db.audit_logs) ? db.audit_logs : [];
   if (typeof window.scheduleCheckExpiredLanToaBoards === 'function') {
     window.scheduleCheckExpiredLanToaBoards();
   }
@@ -5868,6 +5869,13 @@ function renderHeader() {
           ` : ''}
 
           <span class="header-divider-v" style="width:1px; height:18px; background:rgba(255,255,255,0.18); margin:0 2px; display:inline-block;"></span>
+
+          <!-- NÚT CHẾ ĐỘ SÁNG/TỐI & CỠ CHỮ (A- / A+) -->
+          <div style="display:inline-flex; align-items:center; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.22); border-radius:7px; height:30px; padding:0 3px; gap:1px;" title="Giao diện Sáng/Tối &amp; Cỡ chữ">
+            <button type="button" class="btn btn-sm" onclick="toggleAppDarkMode()" title="Chuyển chế độ Sáng / Tối" style="border:none; background:transparent; color:#fde047; font-size:13px; padding:0 6px; height:100%; cursor:pointer;">${localStorage.getItem('btc_theme') === 'dark' ? '☀️' : '🌙'}</button>
+            <button type="button" class="btn btn-sm" onclick="adjustAppFontScale(-1)" title="Giảm cỡ chữ" style="border:none; border-left:1px solid rgba(255,255,255,0.18); background:transparent; color:#f8fafc; font-size:11px; font-weight:800; padding:0 5px; height:100%; cursor:pointer;">A-</button>
+            <button type="button" class="btn btn-sm" onclick="adjustAppFontScale(1)" title="Tăng cỡ chữ" style="border:none; border-left:1px solid rgba(255,255,255,0.18); background:transparent; color:#f8fafc; font-size:11.5px; font-weight:800; padding:0 5px; height:100%; cursor:pointer;">A+</button>
+          </div>
 
           <!-- NÚT ÂM LƯỢNG & BẢNG ĐIỀU KHIỂN NHẠC NỀN (CHO CẢ ADMIN VÀ ĐOÀN CƠ SỞ) -->
           <div class="header-music-widget" style="display:inline-flex; align-items:center; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.22); border-radius:7px; height:30px; padding:0 4px; gap:2px;" title="Âm thanh & Nhạc nền">
@@ -13964,7 +13972,9 @@ function renderRankingTab() {
 
         </div>
 
-        <div style="display:flex; gap:8px; align-items:center;">
+        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+
+          <button class="btn btn-sm" onclick="exportExecutiveSummaryReport()" style="background:#7c3aed; border-color:#7c3aed; color:#fff; font-weight:700;" title="Xuất báo cáo tổng kết đa sheet (Bảng xếp hạng + Tiến độ + Tiêu chí sắp hết hạn)">📑 Báo cáo 1 chạm</button>
 
           <button class="btn btn-success btn-sm" onclick="exportToExcelClient()">📊 Xuất Bảng Xếp Hạng Ra Excel</button>
 
@@ -13973,6 +13983,8 @@ function renderRankingTab() {
         </div>
 
       </div>
+
+      ${typeof renderExecutiveMiniDashboard === 'function' ? renderExecutiveMiniDashboard(rankings) : ''}
 
       <div class="mobile-scroll-hint">👉 Vuốt ngón tay sang trái / phải để xem điểm các tiêu chí & tháng 👈</div>
 
@@ -39937,44 +39949,24 @@ function renderFbSheetHubTab() {
         </div>
         <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
           ${webAppUrl ? `
-            <button type="button" class="btn btn-sm" onclick="${isLanToaMode ? "syncFbScoreBoardWithSheet('pull', false)" : 'fetchFbSheetData(false)'}" ${state.fbSheetLoading ? 'disabled' : ''} style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.4); color:#fff; font-weight:700; border-radius:7px; padding:6px 11px; cursor:pointer;" title="Đồng bộ dữ liệu &amp; điểm Cột K trực tiếp từ Google Sheet">
-              ${state.fbSheetLoading ? '⏳ Đang tải...' : '🔄 Đồng bộ Sheet'}
+            <button type="button" class="btn btn-sm" onclick="${isLanToaMode ? "syncFbScoreBoardWithSheet('pull', false)" : 'fetchFbSheetData(false)'}" ${state.fbSheetLoading ? 'disabled' : ''} style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.4); color:#fff; font-weight:700; border-radius:8px; padding:6px 11px; cursor:pointer;" title="Đồng bộ dữ liệu &amp; điểm Cột K trực tiếp từ Google Sheet">
+              ${state.fbSheetLoading ? '⏳ Đang tải...' : '🔄 Đồng bộ'}
             </button>
           ` : ''}
           ${isAdmin ? `
-            <button type="button" class="btn btn-sm" onclick="${isLanToaMode ? `setLanToaExcludedKeywords(${activeBoard.criterionId})` : 'openFbSheetExcludedKwModal()'}" style="background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.35); color:#fff; font-weight:700; border-radius:7px; padding:6px 11px; cursor:pointer;" title="Cài từ khóa tên trang bài gốc cần loại trừ ở Cột E">
-              ⚙️ Từ khóa bài gốc
+            <button type="button" class="btn btn-sm" onclick="triggerFbSheetScan('pending')" ${state.fbSheetLoading || !webAppUrl ? 'disabled' : ''} style="background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.38); color:#fff; font-weight:700; border-radius:8px; padding:6px 11px; cursor:pointer;" title="Quét &amp; thẩm định các link mới chưa quét">
+              🚀 Quét link mới
             </button>
-            ${isLanToaMode ? `
-              <button type="button" class="btn btn-sm" onclick="finalizeLanToaBoard(${activeBoard.criterionId}, false)" ${state.fbSheetLoading ? 'disabled' : ''} style="background:${activeBoard.finalized ? '#dcfce7' : '#fde047'}; border:none; color:${activeBoard.finalized ? '#065f46' : '#854d0e'}; font-weight:800; border-radius:7px; padding:6px 12px; cursor:pointer;">
-                ${activeBoard.finalized ? '✅ Đã chốt điểm (Chốt lại)' : '🏁 Chốt Điểm & Lưu Tệp Ngay'}
-              </button>
-            ` : `
-              <button type="button" class="btn btn-sm" onclick="triggerFbSheetScan('pending')" ${state.fbSheetLoading || !webAppUrl ? 'disabled' : ''} style="background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.35); color:#fff; font-weight:700; border-radius:7px; padding:6px 11px; cursor:pointer;">
-                🚀 Quét link mới
-              </button>
-              <button type="button" class="btn btn-sm" onclick="triggerFbSheetScan('all')" ${state.fbSheetLoading || !webAppUrl ? 'disabled' : ''} style="background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.35); color:#fff; font-weight:700; border-radius:7px; padding:6px 11px; cursor:pointer;">
-                🔁 Quét lại tất cả
-              </button>
-              <button type="button" class="btn btn-sm" onclick="openFbSheetConfigModal()" style="background:#fef3c7; border:1px solid #fde68a; color:#92400e; font-weight:800; border-radius:7px; padding:6px 11px; cursor:pointer;">
-                🔌 Kết nối Sheet
-              </button>
-              <button type="button" class="btn btn-sm" onclick="openApplyGoogleSheetToCriterionModal()" ${units.length === 0 ? 'disabled' : ''} style="background:#fde047; border:none; color:#854d0e; font-weight:800; border-radius:7px; padding:6px 11px; cursor:pointer;" title="Gắn bảng Google Sheet hiện tại vào một tiêu chí Lệnh lan tỏa để tự động chốt điểm, lưu tệp và xóa trắng Sheet khi hết hạn">
-                📌 Áp dụng vào Tiêu Chí
-              </button>
-            `}
           ` : ''}
-          <button type="button" class="btn btn-sm" onclick="openLanToaHistoryModal()" style="background:#f5f3ff; border:1px solid #ddd6fe; color:#6d28d9; font-weight:800; border-radius:7px; padding:6px 11px; cursor:pointer;" title="Xem danh sách lịch sử các đợt Lệnh lan tỏa &amp; tải 2 file minh chứng">
-            📜 Lịch sử Lan Tỏa (${(state.lanToaHistory || []).length})
+          <button type="button" class="btn btn-sm" onclick="openLanToaHistoryModal()" style="background:rgba(255,255,255,0.18); border:1px solid rgba(255,255,255,0.38); color:#fff; font-weight:700; border-radius:8px; padding:6px 11px; cursor:pointer;" title="Xem lịch sử các đợt Lệnh lan tỏa &amp; tải 2 file minh chứng">
+            📜 Lịch sử (${(state.lanToaHistory || []).length})
           </button>
-          <button type="button" class="btn btn-sm" onclick="exportFbSheetExcel()" ${units.length === 0 ? 'disabled' : ''} style="background:#ffffff; border:none; color:#065f46; font-weight:800; border-radius:7px; padding:6px 11px; cursor:pointer;">
+          <button type="button" class="btn btn-sm" onclick="exportFbSheetExcel()" ${units.length === 0 ? 'disabled' : ''} style="background:#ffffff; border:none; color:#065f46; font-weight:800; border-radius:8px; padding:6px 11px; cursor:pointer;">
             📊 Xuất Excel
           </button>
-          ${!isLanToaMode ? `
-            <a href="${FB_GOOGLE_SHEET_DIRECT_URL}" target="_blank" rel="noopener" style="background:rgba(15,23,42,0.28); border:1px solid rgba(255,255,255,0.35); color:#fff; font-size:12px; font-weight:700; border-radius:7px; padding:6px 11px; text-decoration:none;">
-              📄 Mở Sheet gốc ↗
-            </a>
-          ` : ''}
+          <button type="button" class="btn btn-sm" onclick="toggleFbSheetToolsMenu(this, event, ${isAdmin ? 'true' : 'false'}, ${units.length})" style="background:rgba(15,23,42,0.32); border:1px solid rgba(255,255,255,0.4); color:#fff; font-weight:700; border-radius:8px; padding:6px 11px; cursor:pointer;" title="Mở thêm các công cụ cấu hình &amp; tiện ích">
+            ⚙️ Tiện ích ▾
+          </button>
         </div>
       </div>
 
@@ -40232,8 +40224,50 @@ function renderFbSheetHubTab() {
               <div style="display:grid; grid-template-columns:${isMobile ? '1fr' : 'minmax(0, 1fr) 335px'}; gap:12px; align-items:stretch; ${isMobile ? '' : 'flex:1 1 auto; min-height:0;'}">
                 
                 <!-- KHUNG TRÁI: BẢNG LINK -->
-                <div id="fb-left-table-wrap" style="background:#fff; border:1.5px solid #cbd5e1; border-radius:10px; ${isMobile ? 'overflow-x:auto;' : 'overflow:auto; height:100%; min-height:0;'}">
-                  ${tableStyleMode === 'sheet' ? `
+                <div id="fb-left-table-wrap" style="background:#fff; border:1.5px solid #cbd5e1; border-radius:10px; ${isMobile ? 'overflow:visible;' : 'overflow:auto; height:100%; min-height:0;'}">
+                  ${isMobile && tableStyleMode === 'sheet' ? `
+                    <div style="display:flex; flex-direction:column; gap:10px; padding:10px; background:#f8fafc;">
+                      ${filteredUnits.map((u, uIdx) => {
+                        const lks = u.links || [];
+                        const vCnt = lks.filter(l => l.isValid).length;
+                        const invCnt = lks.filter(l => !l.isValid && l.resultText).length;
+                        const unitScore = u.sheetScore !== '' && u.sheetScore !== undefined ? u.sheetScore : (vCnt > 0 ? (vCnt * 0.3).toFixed(1) : '0');
+                        const targetSlots = u.maxSlots || (Array.isArray(u.slots) ? u.slots.length : 0) || lks.length;
+                        const isExp = state.fbSheetExpandedUnit === u.unitName;
+                        return `
+                          <div style="background:#fff; border:1.5px solid ${invCnt > 0 ? '#fca5a5' : (vCnt > 0 ? '#86efac' : '#cbd5e1')}; border-radius:10px; padding:10px 12px; box-shadow:0 2px 6px rgba(15,23,42,0.04);">
+                            <div onclick="state.fbSheetExpandedUnit=(state.fbSheetExpandedUnit==='${escapeHtml(u.unitName)}' ? null : '${escapeHtml(u.unitName)}'); renderApp();" style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px; cursor:pointer;">
+                              <div style="flex:1; min-width:0;">
+                                <div style="font-size:13.5px; font-weight:800; color:#065f46; line-height:1.35;">#${escapeHtml(u.tt || (uIdx + 1))} ${escapeHtml(u.unitName)}</div>
+                                <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:5px; font-size:11.5px; font-weight:700;">
+                                  <span style="background:#e0f2fe; color:#0369a1; padding:2px 8px; border-radius:10px;">${lks.length}/${targetSlots} link</span>
+                                  <span style="background:#dcfce7; color:#15803d; padding:2px 8px; border-radius:10px;">✅ ${vCnt}</span>
+                                  ${invCnt > 0 ? `<span style="background:#fee2e2; color:#b91c1c; padding:2px 8px; border-radius:10px;">❌ ${invCnt}</span>` : ''}
+                                </div>
+                              </div>
+                              <div style="text-align:right; flex-shrink:0;">
+                                <div style="font-size:16px; font-weight:900; color:#1d4ed8;">${escapeHtml(formatFbScoreDisplay(unitScore))}đ</div>
+                                <div style="font-size:11px; color:#64748b; margin-top:2px;">${isExp ? '🔼 Thu gọn' : '🔽 Chi tiết'}</div>
+                              </div>
+                            </div>
+                            ${isExp ? `
+                              <div style="margin-top:9px; padding-top:9px; border-top:1px dashed #cbd5e1; display:flex; flex-direction:column; gap:6px;">
+                                ${lks.length === 0 ? '<div style="font-size:12px; color:#94a3b8; font-style:italic;">Chưa có đường link nào.</div>' : lks.map((lk, li) => `
+                                  <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:7px; padding:6px 8px; font-size:12px;">
+                                    <div style="display:flex; justify-content:space-between; gap:6px; align-items:center;">
+                                      <b style="color:#0f172a;">#${li + 1} ${escapeHtml(lk.accountName || '(Chưa rõ)')}</b>
+                                      <span style="font-size:11px; font-weight:700; color:${lk.isValid ? '#15803d' : '#b91c1c'};">${escapeHtml(lk.resultText || 'Chờ quét')}</span>
+                                    </div>
+                                    <a href="${escapeHtml(lk.url)}" target="_blank" rel="noopener" style="display:block; margin-top:3px; color:#0284c7; word-break:break-all; font-size:11.5px;">${escapeHtml(lk.url)}</a>
+                                  </div>
+                                `).join('')}
+                              </div>
+                            ` : ''}
+                          </div>
+                        `;
+                      }).join('')}
+                    </div>
+                  ` : tableStyleMode === 'sheet' ? `
                     <table class="table" style="width:100%; border-collapse:collapse; font-size:12.5px;">
                       <thead style="position:sticky; top:0; z-index:10; background:#ecfdf5;">
                         <tr style="background:#d1fae5; border-bottom:2px solid #10b981; color:#065f46;">
@@ -40306,7 +40340,7 @@ function renderFbSheetHubTab() {
                                     ` : '<span style="font-style:italic;">(Chưa nhập link)</span>'}
                                   </td>
                                 `}
-                                ${lIdx === 0 ? `<td rowspan="${rowSpan}" style="vertical-align:top; background:#eff6ff; border-right:1px solid #e2e8f0; padding:0;"><div style="position:sticky; top:46px; padding:12px 4px; text-align:center; font-weight:800; font-size:15px; color:#1d4ed8;">${escapeHtml(String(unitScore))}</div></td>` : ''}
+                                ${lIdx === 0 ? `<td rowspan="${rowSpan}" style="vertical-align:top; background:#eff6ff; border-right:1px solid #e2e8f0; padding:0;"><div style="position:sticky; top:46px; padding:12px 4px; text-align:center; font-weight:800; font-size:15px; color:#1d4ed8;">${escapeHtml(formatFbScoreDisplay(unitScore))}</div></td>` : ''}
                                 ${isAdmin ? `
                                   <td style="text-align:center; white-space:nowrap; padding:4px;">
                                     ${hasUrl ? `
@@ -40430,7 +40464,7 @@ function renderFbSheetHubTab() {
                           <tr style="border-bottom:1px solid #f1f5f9; background:${Number(sb.score) > 0 ? '#f0fdf4' : (i % 2 === 0 ? '#fff' : '#f8fafc')};">
                             <td style="padding:5px; text-align:center; font-family:monospace; font-size:11px; color:#64748b; font-weight:700;">${escapeHtml(sb.code)}</td>
                             <td style="padding:5px 6px; font-weight:${Number(sb.score) > 0 ? '700' : '500'}; color:${Number(sb.score) > 0 ? '#065f46' : '#334155'}; line-height:1.3;">${escapeHtml(sb.unitName)}</td>
-                            <td style="padding:5px; text-align:center; font-weight:800; color:${Number(sb.score) > 0 ? '#15803d' : '#94a3b8'};">${escapeHtml(String(sb.score))}</td>
+                            <td style="padding:5px; text-align:center; font-weight:800; color:${Number(sb.score) > 0 ? '#15803d' : '#94a3b8'};">${escapeHtml(formatFbScoreDisplay(sb.score))}</td>
                           </tr>
                         `).join('')}
                       </tbody>
@@ -41961,4 +41995,298 @@ window.toggleChatMessageReaction = async function (msgId, emoji) {
     else arr.push(myReactKey);
     msg.reactions[emoji] = arr;
   }, `React ${emoji} on chat message ${msgId}`);
+};
+
+/* ==========================================================================
+   GIAI ĐOẠN 1: ĐỒNG NHẤT SỐ ĐIỂM, SÁNG/TỐI, CỠ CHỮ & MENU TIỆN ÍCH LINK FB
+   ========================================================================== */
+function formatFbScoreDisplay(val) {
+  const n = Number(val);
+  if (isNaN(n) || n === 0) return '0';
+  return n.toFixed(2);
+}
+
+(function _initSavedThemeAndFont() {
+  try {
+    const savedTheme = localStorage.getItem('btc_theme');
+    if (savedTheme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    const savedScale = localStorage.getItem('btc_font_scale') || 'md';
+    document.documentElement.setAttribute('data-font-scale', savedScale);
+  } catch (_) {}
+})();
+
+window.toggleAppDarkMode = function () {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const next = isDark ? 'light' : 'dark';
+  if (next === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  else document.documentElement.removeAttribute('data-theme');
+  try { localStorage.setItem('btc_theme', next); } catch (_) {}
+  renderApp();
+};
+
+window.adjustAppFontScale = function (delta) {
+  const levels = ['sm', 'md', 'lg', 'xl'];
+  const cur = document.documentElement.getAttribute('data-font-scale') || 'md';
+  const idx = Math.max(0, levels.indexOf(cur));
+  const nextIdx = Math.min(levels.length - 1, Math.max(0, idx + delta));
+  const next = levels[nextIdx];
+  document.documentElement.setAttribute('data-font-scale', next);
+  try { localStorage.setItem('btc_font_scale', next); } catch (_) {}
+  if (typeof showToast === 'function') {
+    const labels = { sm: 'Nhỏ', md: 'Chuẩn', lg: 'Lớn', xl: 'Rất lớn' };
+    showToast(`🔠 Cỡ chữ: ${labels[next]}`, 'info');
+  }
+};
+
+window.toggleFbSheetToolsMenu = function (btnEl, ev, isAdmin, unitCount) {
+  if (ev) ev.stopPropagation();
+  const existing = document.getElementById('fb-sheet-tools-popover');
+  if (existing) {
+    existing.remove();
+    return;
+  }
+  const rect = btnEl ? btnEl.getBoundingClientRect() : { right: window.innerWidth - 20, bottom: 120 };
+  const pop = document.createElement('div');
+  pop.id = 'fb-sheet-tools-popover';
+  const menuW = 245;
+  const left = Math.min(Math.max(8, rect.right - menuW), window.innerWidth - menuW - 8);
+  const top = rect.bottom + 6;
+  pop.style.cssText = `position:fixed; left:${left}px; top:${top}px; width:${menuW}px; z-index:9999999; background:#fff; border:1px solid #cbd5e1; border-radius:10px; box-shadow:0 12px 28px rgba(15,23,42,0.18); padding:6px; display:flex; flex-direction:column; gap:3px;`;
+
+  const items = [];
+  if (isAdmin) {
+    items.push({ label: '🔁 Quét lại tất cả link', fn: () => triggerFbSheetScan('all') });
+    items.push({ label: '⚙️ Cài từ khóa bài gốc', fn: () => openFbSheetExcludedKwModal() });
+    items.push({ label: '🔌 Kết nối Google Sheet', fn: () => openFbSheetConfigModal() });
+    items.push({ label: '📌 Áp dụng vào Tiêu Chí (Hẹn giờ)', fn: () => openApplyGoogleSheetToCriterionModal() });
+    if (unitCount > 0) {
+      items.push({ label: '🔔 Nhắc hạn đơn vị chưa nộp', fn: () => sendFbSheetSmartReminders() });
+      items.push({ label: '💾 Lưu 2 File vào Lịch sử', fn: () => saveCurrentFbSheetToLanToaHistory() });
+    }
+    items.push({ label: '📋 Nhật ký thao tác Admin', fn: () => openAdminAuditLogModal() });
+    items.push({ label: '🧹 Tối ưu dung lượng Cloud DB', fn: () => optimizeCloudDbSize() });
+  }
+  items.push({ label: '📄 Mở Google Sheet gốc ↗', href: FB_GOOGLE_SHEET_DIRECT_URL });
+
+  items.forEach(it => {
+    const el = document.createElement(it.href ? 'a' : 'button');
+    if (it.href) {
+      el.href = it.href;
+      el.target = '_blank';
+      el.rel = 'noopener';
+    } else {
+      el.type = 'button';
+      el.onclick = () => { pop.remove(); it.fn(); };
+    }
+    el.textContent = it.label;
+    el.style.cssText = 'display:block; width:100%; text-align:left; padding:8px 10px; border:none; background:transparent; border-radius:7px; font-size:12.5px; font-weight:700; color:#0f172a; text-decoration:none; cursor:pointer;';
+    el.onmouseover = () => { el.style.background = '#f1f5f9'; };
+    el.onmouseout = () => { el.style.background = 'transparent'; };
+    pop.appendChild(el);
+  });
+
+  document.body.appendChild(pop);
+  setTimeout(() => {
+    const closeFn = (e2) => {
+      if (!pop.contains(e2.target)) {
+        pop.remove();
+        document.removeEventListener('click', closeFn);
+      }
+    };
+    document.addEventListener('click', closeFn);
+  }, 10);
+};
+
+/* ==========================================================================
+   GIAI ĐOẠN 2: DASHBOARD MINI ĐIỀU HÀNH & XUẤT BÁO CÁO TỔNG KẾT 1 CHẠM
+   ========================================================================== */
+function renderExecutiveMiniDashboard(rankings) {
+  if (!Array.isArray(rankings) || rankings.length === 0) return '';
+  const top1 = rankings[0];
+  const avgScore = rankings.reduce((acc, r) => acc + Number(r.total_score || 0), 0) / Math.max(1, rankings.length);
+  const now = new Date();
+  const in24h = new Date(now.getTime() + 24 * 3600 * 1000);
+  const upcomingCrits = (state.criteria || []).filter(c => {
+    if (!c || !c.deadline) return false;
+    const dl = new Date(`${c.deadline}T${String(c.deadline_time || '17:00').padStart(5, '0')}:00`);
+    return !isNaN(dl.getTime()) && dl >= now && dl <= in24h;
+  });
+
+  return `
+    <div style="flex-shrink:0; display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:8px; padding:8px 14px; background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+      <div style="background:#fff; border:1px solid #fde68a; border-left:4px solid #eab308; border-radius:8px; padding:7px 11px;">
+        <div style="font-size:11px; font-weight:700; color:#854d0e;">🥇 Dẫn đầu bảng xếp hạng</div>
+        <div style="font-size:13px; font-weight:800; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px;" title="${escapeHtml(top1.unit_name)}">${escapeHtml(top1.unit_name)} (${Number(top1.total_score || 0).toFixed(2)}đ)</div>
+      </div>
+      <div style="background:#fff; border:1px solid #bfdbfe; border-left:4px solid #0284c7; border-radius:8px; padding:7px 11px;">
+        <div style="font-size:11px; font-weight:700; color:#0369a1;">📈 Điểm trung bình toàn khối</div>
+        <div style="font-size:14px; font-weight:800; color:#0f172a; margin-top:2px;">${avgScore.toFixed(2)}đ <span style="font-size:11.5px; font-weight:600; color:#64748b;">/ ${rankings.length} đơn vị</span></div>
+      </div>
+      <div style="background:#fff; border:1px solid ${upcomingCrits.length > 0 ? '#fca5a5' : '#bbf7d0'}; border-left:4px solid ${upcomingCrits.length > 0 ? '#ef4444' : '#10b981'}; border-radius:8px; padding:7px 11px;">
+        <div style="font-size:11px; font-weight:700; color:${upcomingCrits.length > 0 ? '#b91c1c' : '#065f46'};">⏰ Tiêu chí sắp hết hạn (24h tới)</div>
+        <div style="font-size:13px; font-weight:800; color:#0f172a; margin-top:2px;">
+          ${upcomingCrits.length > 0
+            ? `${upcomingCrits.length} tiêu chí (${escapeHtml(upcomingCrits[0].col_label || '')}...)`
+            : 'Không có tiêu chí nào hết hạn trong 24h'}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+window.exportExecutiveSummaryReport = async function () {
+  if (typeof XLSX === 'undefined' && window.ensureXlsxLoaded) {
+    await window.ensureXlsxLoaded().catch(() => {});
+  }
+  if (typeof XLSX === 'undefined') {
+    alert('Thư viện xuất Excel đang tải, vui lòng thử lại sau giây lát!');
+    return;
+  }
+  const rankings = typeof getRankings === 'function' ? getRankings() : [];
+  const criteria = Array.isArray(state.criteria) ? state.criteria : [];
+  const wb = XLSX.utils.book_new();
+
+  const rankRows = [
+    ['BÁO CÁO TỔNG KẾT XẾP HẠNG THI ĐUA - ĐOÀN UBND TỈNH QUẢNG TRỊ'],
+    [`Ngày xuất: ${new Date().toLocaleString('vi-VN')} | Tổng số đơn vị: ${rankings.length} | Tổng tiêu chí: ${criteria.length}`],
+    [],
+    ['Hạng', 'Tên Tổ chức cơ sở Đoàn trực thuộc', 'Tổng điểm']
+  ];
+  rankings.forEach((r, idx) => {
+    rankRows.push([idx + 1, r.unit_name, Number(Number(r.total_score || 0).toFixed(2))]);
+  });
+  const ws1 = XLSX.utils.aoa_to_sheet(rankRows);
+  ws1['!cols'] = [{ wch: 8 }, { wch: 48 }, { wch: 16 }];
+  XLSX.utils.book_append_sheet(wb, ws1, '1_Bang_Xep_Hang');
+
+  const critRows = [['Cột', 'Nhóm tháng', 'Tên Tiêu Chí', 'Điểm tối đa', 'Hạn nộp chót', 'Giờ hạn']];
+  criteria.forEach(c => {
+    critRows.push([c.col_label || ('Cột ' + c.col_number), c.month_label || '', c.title || '', Number(c.max_score || 0), c.deadline || '', c.deadline_time || '']);
+  });
+  const ws2 = XLSX.utils.aoa_to_sheet(critRows);
+  ws2['!cols'] = [{ wch: 10 }, { wch: 16 }, { wch: 52 }, { wch: 14 }, { wch: 14 }, { wch: 10 }];
+  XLSX.utils.book_append_sheet(wb, ws2, '2_Danh_Muc_Tieu_Chi');
+
+  XLSX.writeFile(wb, `Bao_Cao_Tong_Ket_Bo_Tieu_Chi_${todayISO()}.xlsx`);
+  if (typeof showToast === 'function') showToast('✅ Đã xuất Báo cáo Tổng kết 1 chạm thành công!', 'success');
+};
+
+/* ==========================================================================
+   GIAI ĐOẠN 3 & 4: NHẮC HẠN THÔNG MINH, NHẬT KÝ ADMIN & TỐI ƯU CLOUD DB
+   ========================================================================== */
+function recordAdminAuditLog(db, action, detail) {
+  if (!db) return;
+  if (!Array.isArray(db.audit_logs)) db.audit_logs = [];
+  db.audit_logs.unshift({
+    id: 'aud_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+    time: nowISO(),
+    actor: (state.user && (state.user.unit_name || state.user.username)) || 'Admin',
+    action: String(action || ''),
+    detail: String(detail || '')
+  });
+  if (db.audit_logs.length > 100) {
+    db.audit_logs = db.audit_logs.slice(0, 100);
+  }
+}
+
+window.sendFbSheetSmartReminders = async function () {
+  const sheetData = state.fbSheetData;
+  if (!sheetData || !Array.isArray(sheetData.units)) {
+    alert('Chưa có dữ liệu bảng Link FB để kiểm tra!');
+    return;
+  }
+  const missingUnits = sheetData.units.filter(u => {
+    const validCnt = (u.links || []).filter(l => l.isValid).length;
+    const target = u.maxSlots || (Array.isArray(u.slots) ? u.slots.length : 0) || 0;
+    return target > 0 && validCnt < target;
+  });
+  if (missingUnits.length === 0) {
+    if (typeof showToast === 'function') showToast('🎉 Tuyệt vời! Cả 40 đơn vị đều đã nộp đủ link hợp lệ!', 'success');
+    return;
+  }
+  if (!confirm(`Phát hiện ${missingUnits.length} đơn vị chưa nộp đủ link hợp lệ.\nGửi thông báo nhắc hạn đến ${missingUnits.length} đơn vị này ngay bây giờ?`)) {
+    return;
+  }
+  const linkedCritId = (state.settings && state.settings.fb_sheet_active_criterion_id) ? String(state.settings.fb_sheet_active_criterion_id) : '';
+  const linkedCrit = linkedCritId ? (state.criteria || []).find(c => String(c.id) === linkedCritId) : null;
+  const critText = linkedCrit ? `${linkedCrit.col_label || ''} (${linkedCrit.title})` : 'Đợt Lệnh lan tỏa hiện tại';
+
+  await mutateCloudDB(db => {
+    if (!Array.isArray(db.notifications)) db.notifications = [];
+    missingUnits.forEach(mu => {
+      const matchedUnit = (db.units || []).find(u => u.role !== 'admin' && (u.unit_name === mu.unitName || mu.unitName.includes(u.unit_name)));
+      const validCnt = (mu.links || []).filter(l => l.isValid).length;
+      const target = mu.maxSlots || (Array.isArray(mu.slots) ? mu.slots.length : 0) || 0;
+      db.notifications.unshift({
+        id: 'rem_' + Date.now() + '_' + Math.floor(Math.random() * 10000),
+        type: 'deadline_reminder',
+        target_unit_id: matchedUnit ? matchedUnit.id : null,
+        unit_name: mu.unitName,
+        title: `⏰ Nhắc hạn nộp Link FB: ${critText}`,
+        message: `Đơn vị mới đạt ${validCnt}/${target} link hợp lệ. Vui lòng hoàn thành trước khi hết hạn!`,
+        created_at: nowISO(),
+        read_by: []
+      });
+    });
+    if (db.notifications.length > 200) db.notifications = db.notifications.slice(0, 200);
+    recordAdminAuditLog(db, 'Nhắc hạn thông minh', `Đã gửi thông báo nhắc hạn tới ${missingUnits.length} đơn vị chưa đủ link.`);
+  }, `Send smart reminders to ${missingUnits.length} units`);
+
+  if (typeof showToast === 'function') showToast(`🔔 Đã gửi nhắc hạn tới ${missingUnits.length} đơn vị!`, 'success');
+};
+
+window.openAdminAuditLogModal = function () {
+  const logs = Array.isArray(state.auditLogs) ? state.auditLogs : [];
+  const modalRoot = document.getElementById('modal-root');
+  if (!modalRoot) return;
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this)closeModal()" style="position:fixed; inset:0; background:rgba(15,23,42,0.22); z-index:9999999; display:flex; align-items:center; justify-content:center; padding:16px;">
+      <div class="modal-box" style="background:#fff; border-radius:14px; width:100%; max-width:680px; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 20px 40px rgba(0,0,0,0.2); overflow:hidden; border:1px solid #cbd5e1;">
+        <div style="background:linear-gradient(135deg, #1e293b 0%, #334155 100%); color:#fff; padding:14px 20px; display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-weight:800; font-size:15px;">📋 Nhật Ký Thao Tác Quản Trị (Audit Log)</div>
+          <button type="button" onclick="closeModal()" style="background:none; border:none; color:#fff; font-size:20px; font-weight:700; cursor:pointer;">✕</button>
+        </div>
+        <div style="padding:16px 20px; overflow-y:auto; flex:1 1 auto;">
+          ${logs.length === 0 ? '<div style="text-align:center; padding:28px; color:#64748b;">Chưa có nhật ký thao tác nào được ghi nhận.</div>' : `
+            <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+              <thead>
+                <tr style="background:#f1f5f9; border-bottom:1.5px solid #cbd5e1; color:#0f172a;">
+                  <th style="padding:8px; text-align:left;">Thời gian</th>
+                  <th style="padding:8px; text-align:left;">Thao tác</th>
+                  <th style="padding:8px; text-align:left;">Chi tiết</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${logs.map(l => `
+                  <tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:7px 8px; white-space:nowrap; color:#64748b; font-size:11.5px;">${escapeHtml(String(l.time || '').slice(0, 19).replace('T', ' '))}</td>
+                    <td style="padding:7px 8px; font-weight:700; color:#0284c7;">${escapeHtml(l.action || '')}</td>
+                    <td style="padding:7px 8px; color:#334155;">${escapeHtml(l.detail || '')}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `}
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+window.optimizeCloudDbSize = async function () {
+  if (!confirm('Dọn dẹp các thông báo cũ (>120 bản ghi) và nhật ký thừa để giúp Cloud DB tải siêu nhanh 0ms? (Toàn bộ điểm số, tiêu chí, bài nộp, lịch sử Lan Tỏa được giữ nguyên 100%)')) {
+    return;
+  }
+  let removedNotifs = 0;
+  await mutateCloudDB(db => {
+    if (Array.isArray(db.notifications) && db.notifications.length > 80) {
+      removedNotifs = db.notifications.length - 80;
+      db.notifications = db.notifications.slice(0, 80);
+    }
+    if (Array.isArray(db.audit_logs) && db.audit_logs.length > 60) {
+      db.audit_logs = db.audit_logs.slice(0, 60);
+    }
+    recordAdminAuditLog(db, 'Tối ưu Cloud DB', `Đã gọn ${removedNotifs} thông báo cũ.`);
+  }, 'Optimize Cloud DB size');
+  if (typeof showToast === 'function') showToast(`🧹 Đã tối ưu Cloud DB (dọn ${removedNotifs} thông báo cũ)!`, 'success');
 };

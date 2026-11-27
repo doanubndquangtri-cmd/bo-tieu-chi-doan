@@ -282,3 +282,8 @@
            - Cập nhật `_renderAppPreservingFbScroll` lưu và khôi phục vị trí cuộn của cả 2 khung bảng khi đồng bộ ngầm.
          - **24. Phóng to cân đối & ghim dính (sticky) tên Cơ sở Đoàn, số link và điểm theo khung cuộn (27/11/2026)**:
            - Trong bảng Kiểu Google Sheet của tab `Link FB`, tăng cỡ chữ tên cơ sở Đoàn lên `14.5px` đậm nét, căn giữa kèm pill nổi bật `(x/N link)`, đồng thời dùng `position: sticky; top: 46px;` cho 3 ô gộp dòng (`TT`, `Tổ chức cơ sở Đoàn trực thuộc`, `ĐIỂM`) để khi cuộn qua các đơn vị dài 20–30 dòng luôn nhìn rõ tên đơn vị và điểm.
+         - **25. Nâng cấp toàn diện "Siêu Ứng Dụng" Bộ Tiêu Chí (4 giai đoạn) (27/11/2026)**:
+           - **Giai đoạn 1 (Giao diện & Chuẩn hóa):** Gom gọn thanh công cụ `Link FB` (4 nút chính + menu `⚙️ Tiện ích ▾` không tràn màn hình), thêm nút Sáng/Tối (`🌙/☀️`) & Cỡ chữ (`A-/A+`) lưu theo máy, chuẩn hóa hiển thị số điểm `formatFbScoreDisplay` 2 chữ số thập phân.
+           - **Giai đoạn 2 (Mobile & Điều hành):** Giao diện Thẻ dọc tối ưu trên Mobile cho tab `Link FB`, thêm Dashboard Mini điều hành đầu Bảng Xếp Hạng (Dẫn đầu, Điểm TB toàn khối, Tiêu chí sắp hết hạn 24h) + nút `📑 Báo cáo 1 chạm` xuất Excel đa sheet.
+           - **Giai đoạn 3 (Nhắc hạn & Minh bạch):** Thêm `🔔 Nhắc hạn đơn vị chưa nộp` (`sendFbSheetSmartReminders`) gửi thông báo tự động tới các đơn vị chưa đủ link hợp lệ, và Nhật ký thao tác Admin (`recordAdminAuditLog` / `openAdminAuditLogModal`).
+           - **Giai đoạn 4 (Tự động 24/7 & Tối ưu DB):** Bổ sung `setupAutoScanTrigger5Min()` trong `google_sheets_fb_auto.gs` để Google Sheet tự động quét link mỗi 5 phút 24/7 kể cả khi tắt máy, kèm công cụ `🧹 Tối ưu dung lượng Cloud DB`.

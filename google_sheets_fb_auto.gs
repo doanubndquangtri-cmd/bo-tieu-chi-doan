@@ -476,3 +476,31 @@ function doPost(e) {
     lock.releaseLock();
   }
 }
+
+/**
+ * ============================================================================
+ * TỰ ĐỘNG QUÉT NGẦM 24/7 TRÊN SERVER GOOGLE APPS SCRIPT (KHÔNG CẦN MỞ MÁY)
+ * Admin chỉ cần chạy hàm setupAutoScanTrigger5Min() 1 lần trong Apps Script.
+ * ============================================================================
+ */
+function autoScanPendingTrigger_() {
+  try {
+    scanAllPendingRows_(false);
+  } catch (e) {
+    Logger.log("autoScanPendingTrigger_ error: " + e.message);
+  }
+}
+
+function setupAutoScanTrigger5Min() {
+  const triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(t => {
+    if (t.getHandlerFunction() === "autoScanPendingTrigger_") {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+  ScriptApp.newTrigger("autoScanPendingTrigger_")
+    .timeBased()
+    .everyMinutes(5)
+    .create();
+  SpreadsheetApp.getUi().alert("✅ Đã kích hoạt tự động quét link FB mới mỗi 5 phút 24/7 (kể cả khi tắt máy tính)!");
+}
