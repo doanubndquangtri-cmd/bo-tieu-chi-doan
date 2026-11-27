@@ -262,3 +262,5 @@
            - **Copy & Paste ảnh (`onChatPaste`)**: Cho phép `Ctrl+V` dán trực tiếp ảnh chụp màn hình/ảnh từ clipboard vào ô chat Toàn khối & Riêng tư, hiển thị ảnh xem trước ngay trên thanh nhập liệu và tự động tải/gửi khi bấm `Gửi 📤`.
            - **Thả cảm xúc vào tin nhắn (`toggleChatMessageReaction`)**: Bổ sung thanh phản ứng nhanh (`👍`, `❤️`, `😆`, `😢`, `👏`) ngay dưới mỗi tin nhắn của người gửi, hiển thị số lượt thả và lưu đồng bộ lên `cloud_db.json`.
            - **Mặt cười nhanh tức thì (`onChatInput` + `convertEmoticonsToEmoji`)**: Mở rộng hỗ trợ `:))` (`😂`), `=))` (`🤣`), `:((` (`😭`), `:D` (`😄`), `:)` (`😊`), `:(` (`😞`), `<3` (`❤️`), `:P` (`😜`), `:v` (`✌️`), `(y)` (`👍`), tự động chuyển đổi ngay khi gõ dấu cách và khi gửi.
+         - **20. Thu gọn thanh thả cảm xúc tin nhắn thành nút `😊` bật bảng chọn nổi kiểu Messenger/Zalo (27/11/2026)**:
+           - Thay thế hàng 5 icon cố định dưới mỗi tin nhắn bằng 1 nút `😊` gọn gàng cạnh giờ gửi; khi bấm vào sẽ bật bảng chọn nổi `openChatReactionPopover` (`👍`, `❤️`, `😆`, `😮`, `😢`, `👏`), chỉ hiển thị pill số lượng đối với những cảm xúc đã có người thả.

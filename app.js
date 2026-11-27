@@ -22636,8 +22636,8 @@ function renderFloatingChatWidget() {
                   ${!isGuest ? (() => {
                     const reactions = (m.reactions && typeof m.reactions === 'object') ? m.reactions : {};
                     const myReactKey = isAdmin ? 'admin' : ('unit_' + myId);
-                    const quickEmojis = ['👍', '❤️', '😆', '😢', '👏'];
                     const activePills = Object.keys(reactions).filter(em => Array.isArray(reactions[em]) && reactions[em].length > 0);
+                    if (activePills.length === 0) return '';
                     return `
                       <div class="chat-reactions-bar" style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; margin-top:3px; justify-content:${isMine ? 'flex-end' : 'flex-start'};">
                         ${activePills.map(em => {
@@ -22645,15 +22645,13 @@ function renderFloatingChatWidget() {
                           const reacted = arr.includes(myReactKey);
                           return `<button type="button" onclick="toggleChatMessageReaction('${escapeHtml(m.id)}', '${em}')" style="border:1px solid ${reacted ? '#3b82f6' : '#cbd5e1'}; background:${reacted ? '#eff6ff' : '#fff'}; color:${reacted ? '#1d4ed8' : '#334155'}; border-radius:12px; padding:1px 6px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:2px; line-height:1.3;">${em} <span>${arr.length}</span></button>`;
                         }).join('')}
-                        <span style="display:inline-flex; align-items:center; gap:1px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:1px 4px;">
-                          ${quickEmojis.map(em => `<button type="button" onclick="toggleChatMessageReaction('${escapeHtml(m.id)}', '${em}')" title="Thả ${em}" style="border:none; background:none; padding:0 2px; font-size:11.5px; cursor:pointer; opacity:0.75; line-height:1.2;" onmouseover="this.style.opacity='1'; this.style.transform='scale(1.2)'" onmouseout="this.style.opacity='0.75'; this.style.transform='scale(1)'">${em}</button>`).join('')}
-                        </span>
                       </div>
                     `;
                   })() : ''}
 
                   <div class="chat-message-time" style="display:flex; align-items:center; gap:6px; justify-content:${isMine ? 'flex-end' : 'flex-start'};">
                     <span>${escapeHtml(m.time_str || '')}</span>
+                    ${!isGuest ? `<button type="button" onclick="openChatReactionPopover('${escapeHtml(m.id)}', this, event)" title="Thả cảm xúc (Like, Tim, Cười...)" style="background:none; border:none; padding:1px 3px; font-size:12px; cursor:pointer; opacity:0.7; line-height:1; display:inline-flex; align-items:center;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">😊</button>` : ''}
                     ${(() => {
                       const rs = getMergedChatReadStatus();
                       const mTs = getMsgTimestamp(m);
@@ -41353,6 +41351,61 @@ window.clearChatPendingImage = function () {
   state.chatPendingImageFile = null;
   state.chatPendingImagePreview = '';
   renderApp();
+};
+
+// Popover chọn thả cảm xúc gọn đẹp kiểu Messenger/Zalo
+window.openChatReactionPopover = function (msgId, btnEl, ev) {
+  if (ev) ev.stopPropagation();
+  const existing = document.getElementById('chat-reaction-popover');
+  if (existing) {
+    const sameMsg = existing.dataset.msgId === String(msgId);
+    existing.remove();
+    if (sameMsg) return;
+  }
+
+  const isAdmin = state.user && state.user.role === 'admin';
+  const myReactKey = isAdmin ? 'admin' : ('unit_' + (state.user ? state.user.id : 0));
+  const msg = (state.chatMessages || []).find(m => String(m.id) === String(msgId));
+  const reactions = (msg && msg.reactions && typeof msg.reactions === 'object') ? msg.reactions : {};
+
+  const pop = document.createElement('div');
+  pop.id = 'chat-reaction-popover';
+  pop.dataset.msgId = String(msgId);
+  const rect = btnEl ? btnEl.getBoundingClientRect() : { left: 100, top: 200 };
+  const popWidth = 216;
+  const left = Math.min(Math.max(8, rect.left - popWidth / 2 + 10), window.innerWidth - popWidth - 8);
+  const top = Math.max(8, rect.top - 44);
+
+  pop.style.cssText = `position:fixed; left:${left}px; top:${top}px; z-index:999999999; background:#fff; border:1px solid #cbd5e1; border-radius:24px; padding:4px 8px; box-shadow:0 8px 24px rgba(15,23,42,0.18); display:flex; align-items:center; gap:4px;`;
+
+  const emojis = ['👍', '❤️', '😆', '😮', '😢', '👏'];
+  emojis.forEach(em => {
+    const reacted = Array.isArray(reactions[em]) && reactions[em].includes(myReactKey);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = em;
+    b.title = 'Thả ' + em;
+    b.style.cssText = `border:none; background:${reacted ? '#dbeafe' : 'transparent'}; border-radius:50%; width:30px; height:30px; font-size:17px; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; transition:transform 0.12s;`;
+    b.onmouseover = () => { b.style.transform = 'scale(1.25)'; };
+    b.onmouseout = () => { b.style.transform = 'scale(1)'; };
+    b.onclick = (e2) => {
+      e2.stopPropagation();
+      pop.remove();
+      toggleChatMessageReaction(msgId, em);
+    };
+    pop.appendChild(b);
+  });
+
+  document.body.appendChild(pop);
+  setTimeout(() => {
+    const closeFn = (e3) => {
+      if (!pop.contains(e3.target)) {
+        pop.remove();
+        document.removeEventListener('click', closeFn);
+      }
+    };
+    document.addEventListener('click', closeFn);
+  }, 10);
 };
 
 // Thả cảm xúc (👍, ❤️, 😆, 😢, 👏) vào tin nhắn trong Chat chung & Chat riêng
