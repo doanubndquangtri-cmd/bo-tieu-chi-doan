@@ -39677,7 +39677,14 @@ function renderFbSheetHubTab() {
   let sheetData = state.fbSheetData;
   if (activeBoard) {
     _sanitizeLanToaBoardUnits(activeBoard, state.units);
+    if (activeBoard.linkedGoogleSheet && webAppUrl && !state.fbSheetData && !state.fbSheetLoading && !state._fbSheetAutoFetchAttempted) {
+      state._fbSheetAutoFetchAttempted = true;
+      setTimeout(() => { if (typeof window.syncFbScoreBoardWithSheet === 'function') window.syncFbScoreBoardWithSheet('pull', true); }, 50);
+    }
     const maxS = Number(activeBoard.maxScore || 3);
+    const gsScoreBoard = (activeBoard.linkedGoogleSheet && state.fbSheetData && Array.isArray(state.fbSheetData.scoreBoard))
+      ? state.fbSheetData.scoreBoard
+      : [];
     const mappedUnits = (activeBoard.units || []).map((u, uIdx) => {
       const slots = (u.slots || []).map((s, sIdx) => ({
         ...s,
@@ -39685,7 +39692,11 @@ function renderFbSheetHubTab() {
       }));
       const links = slots.filter(s => s.url && s.url.trim());
       const vCnt = links.filter(l => l.isValid).length;
-      const sc = Math.min(maxS, Number(((vCnt / Math.max(1, u.maxSlots || slots.length)) * maxS).toFixed(2)));
+      const calcSc = Math.min(maxS, Number(((vCnt / Math.max(1, u.maxSlots || slots.length)) * maxS).toFixed(2)));
+      const gsSbMatch = gsScoreBoard.length > 0 ? _matchSheetUnitToUser(gsScoreBoard, u.unitName) : null;
+      const sc = (gsSbMatch && gsSbMatch.score !== '' && gsSbMatch.score !== undefined && !isNaN(Number(gsSbMatch.score)))
+        ? Number(Number(gsSbMatch.score).toFixed(2))
+        : calcSc;
       return {
         tt: u.tt || String(uIdx + 1),
         unitName: u.unitName,
@@ -39740,9 +39751,9 @@ function renderFbSheetHubTab() {
           </div>
         </div>
         <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-          ${!isLanToaMode && webAppUrl ? `
-            <button type="button" class="btn btn-sm" onclick="fetchFbSheetData(false)" ${state.fbSheetLoading ? 'disabled' : ''} style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.4); color:#fff; font-weight:700; border-radius:7px; padding:6px 11px; cursor:pointer;">
-              ${state.fbSheetLoading ? '⏳ Đang tải...' : '🔄 Đồng bộ'}
+          ${webAppUrl ? `
+            <button type="button" class="btn btn-sm" onclick="${isLanToaMode ? "syncFbScoreBoardWithSheet('pull', false)" : 'fetchFbSheetData(false)'}" ${state.fbSheetLoading ? 'disabled' : ''} style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.4); color:#fff; font-weight:700; border-radius:7px; padding:6px 11px; cursor:pointer;" title="Đồng bộ dữ liệu &amp; điểm Cột K trực tiếp từ Google Sheet">
+              ${state.fbSheetLoading ? '⏳ Đang tải...' : '🔄 Đồng bộ Sheet'}
             </button>
           ` : ''}
           ${isAdmin ? `
@@ -40202,9 +40213,16 @@ function renderFbSheetHubTab() {
 
                 <!-- KHUNG PHẢI: BẢNG ĐIỂM (ĐIỂM AI CHẤM) GIỐNG GOOGLE SHEET -->
                 <div style="background:#fff; border:1.5px solid #93c5fd; border-radius:10px; overflow:hidden; box-shadow:0 2px 8px rgba(37,99,235,0.06);">
-                  <div style="background:linear-gradient(135deg, #1e3a8a, #2563eb); color:#fff; padding:9px 12px; font-weight:800; font-size:13px; display:flex; justify-content:space-between; align-items:center;">
+                  <div style="background:linear-gradient(135deg, #1e3a8a, #2563eb); color:#fff; padding:9px 12px; font-weight:800; font-size:13px; display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap;">
                     <span>🏆 BẢNG ĐIỂM AI CHẤM</span>
-                    <span style="background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:10px; font-size:11.5px;">Tổng: ${Number(totalBoardScore.toFixed(2))}đ</span>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      ${webAppUrl ? `
+                        <button type="button" onclick="syncFbScoreBoardWithSheet('both', false)" ${state.fbSheetLoading ? 'disabled' : ''} style="background:rgba(255,255,255,0.22); border:1px solid rgba(255,255,255,0.45); color:#fff; border-radius:8px; padding:2px 7px; font-size:11px; font-weight:700; cursor:pointer;" title="Đồng bộ 2 chiều giữa Bảng Điểm AI Chấm và Cột K trên Google Sheet">
+                          🔄 Cột K
+                        </button>
+                      ` : ''}
+                      <span style="background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:10px; font-size:11.5px;">Tổng: ${Number(totalBoardScore.toFixed(2))}đ</span>
+                    </div>
                   </div>
                   <div style="overflow-x:auto;">
                     <table style="width:100%; border-collapse:collapse; font-size:12px;">
@@ -41012,3 +41030,61 @@ setInterval(() => {
     window.scheduleCheckExpiredLanToaBoards();
   }
 }, 60000);
+
+window.syncFbScoreBoardWithSheet = async function (mode, silent) {
+  const webAppUrl = typeof window.getFbSheetWebAppUrl === 'function' ? window.getFbSheetWebAppUrl() : '';
+  if (!webAppUrl) {
+    if (!silent && typeof showToast === 'function') showToast('⚠️ Chưa cấu hình Link Web App Google Sheet!', 'warning');
+    return;
+  }
+  const activeBoard = (state.activeLanToaBoardId && state.activeLanToaBoardId !== 'gsheet')
+    ? (state.lanToaBoards || {})[state.activeLanToaBoardId]
+    : null;
+
+  state.fbSheetLoading = true;
+  if (!silent) renderApp();
+
+  try {
+    // 1. Luôn kéo dữ liệu mới nhất từ Google Sheet (bao gồm Cột K Điểm AI Chấm)
+    const res = await fetch(webAppUrl + (webAppUrl.includes('?') ? '&' : '?') + 't=' + Date.now());
+    const json = await res.json();
+    if (json && json.ok) {
+      state.fbSheetData = json;
+      if (activeBoard && activeBoard.linkedGoogleSheet && Array.isArray(json.units)) {
+        _syncGoogleSheetDataIntoLanToaBoard(activeBoard, json);
+        _sanitizeLanToaBoardUnits(activeBoard, state.units || []);
+        _recalcLanToaBoardDuplicatesAndScores(activeBoard);
+      }
+    }
+
+    // 2. Nếu đang ở chế độ both/push và có bảng Lệnh lan tỏa đang mở -> đẩy điểm sang Cột K (nếu ô Cột K không khóa công thức)
+    if ((mode === 'both' || mode === 'push') && activeBoard && Array.isArray(activeBoard.units)) {
+      const maxS = Number(activeBoard.maxScore || 3);
+      const scoresPayload = activeBoard.units.map(u => {
+        const vCnt = (u.slots || []).filter(s => s.isValid).length;
+        const sc = Math.min(maxS, Number(((vCnt / Math.max(1, u.maxSlots || (u.slots || []).length)) * maxS).toFixed(2)));
+        return { unitName: u.unitName, score: sc };
+      });
+      const pushRes = await fetch(webAppUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'sync_scores', scores: scoresPayload })
+      });
+      const pushJson = await pushRes.json().catch(() => null);
+      if (pushJson && pushJson.ok) {
+        state.fbSheetData = pushJson;
+      }
+    }
+
+    if (!silent && typeof showToast === 'function') {
+      showToast('✅ Đã đồng bộ trực tiếp Bảng Điểm AI Chấm với Cột K Google Sheet!', 'success');
+    }
+  } catch (err) {
+    if (!silent && typeof showToast === 'function') {
+      showToast('⚠️ Lỗi đồng bộ Cột K Google Sheet: ' + (err.message || err), 'error');
+    }
+  } finally {
+    state.fbSheetLoading = false;
+    renderApp();
+  }
+};

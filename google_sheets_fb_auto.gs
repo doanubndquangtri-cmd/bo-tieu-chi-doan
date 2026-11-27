@@ -279,7 +279,7 @@ function buildSheetJsonPayload_() {
         scoreBoard.push({
           code: colI,
           unitName: colJ,
-          score: colK !== "" && colK !== null && colK !== undefined ? Number(colK) : 0
+          score: colK !== "" && colK !== null && colK !== undefined ? Number(Number(colK).toFixed(2)) : 0
         });
       }
 
@@ -426,6 +426,45 @@ function doPost(e) {
         const numRows = lastRow - 2;
         sheet.getRange(3, 4, numRows, 4).clearContent();
         sheet.getRange(3, 7, numRows, 1).setBackground(null);
+      }
+      return _jsonResponse(buildSheetJsonPayload_());
+    }
+
+    if (action === "sync_scores") {
+      const scores = Array.isArray(payload.scores) ? payload.scores : [];
+      const lastRow = sheet.getLastRow();
+      if (lastRow >= 3 && scores.length > 0) {
+        const rangeJ = sheet.getRange(3, 10, lastRow - 2, 1).getValues();
+        const rangeK = sheet.getRange(3, 11, lastRow - 2, 1);
+        const formulasK = rangeK.getFormulas();
+        const valsK = rangeK.getValues();
+        const scoreMap = {};
+        scores.forEach(s => {
+          if (s && s.unitName) {
+            scoreMap[String(s.unitName).replace(/\s+/g, " ").trim().toLowerCase()] = Number(s.score || 0);
+          }
+        });
+        let updatedCount = 0;
+        for (let i = 0; i < rangeJ.length; i++) {
+          const uName = String(rangeJ[i][0] || "").replace(/\s+/g, " ").trim().toLowerCase();
+          if (!uName) continue;
+          let matchedScore = scoreMap.hasOwnProperty(uName) ? scoreMap[uName] : null;
+          if (matchedScore === null) {
+            for (const k in scoreMap) {
+              if (uName.indexOf(k) !== -1 || k.indexOf(uName) !== -1) {
+                matchedScore = scoreMap[k];
+                break;
+              }
+            }
+          }
+          if (matchedScore !== null && (!formulasK[i][0] || payload.forceOverwrite)) {
+            valsK[i][0] = matchedScore;
+            updatedCount++;
+          }
+        }
+        if (updatedCount > 0) {
+          rangeK.setValues(valsK);
+        }
       }
       return _jsonResponse(buildSheetJsonPayload_());
     }

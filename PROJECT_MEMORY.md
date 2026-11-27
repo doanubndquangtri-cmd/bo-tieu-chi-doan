@@ -247,3 +247,7 @@
          - **15. Đồng bộ 2 chiều tự động giữa mục Tiêu Chí và Bảng Lệnh Lan Tỏa trong Link FB (27/11/2026)**:
            - Khi Admin sửa thông tin tiêu chí (tên tiêu chí, ngày hết hạn `deadline`, giờ hết hạn `deadline_time`, điểm tối đa `max_score`) trong tab `Tiêu Chí`, hệ thống tự động cập nhật đồng bộ sang `db.lan_toa_boards[crit.id]`.
            - Khi hiển thị tab `🔗 Link FB` (`renderFbSheetHubTab`), mỗi đợt Lệnh lan tỏa luôn tự động đối chiếu lấy tên, ngày/giờ hết hạn và điểm tối đa mới nhất từ tiêu chí liên kết (VD: `Cột 10`), giúp tiêu đề, danh sách chọn đợt và dòng trạng thái `Đang mở nộp đến ...` luôn khớp 100% theo thời gian thực.
+         - **16. Đồng bộ trực tiếp 2 chiều giữa `🏆 BẢNG ĐIỂM AI CHẤM` và Cột K trên Google Sheet (27/11/2026)**:
+           - Bổ sung action `sync_scores` trong `google_sheets_fb_auto.gs` để nhận mảng điểm 40 đơn vị và cập nhật vào Cột K (`Điểm AI Chấm`, bảo toàn công thức nếu ô Cột K đang dùng công thức).
+           - Trong `renderFbSheetHubTab` (`app.js`), khi bảng Lệnh lan tỏa có bật `linkedGoogleSheet`, tự động kéo dữ liệu từ Google Sheet và ưu tiên hiển thị điểm Cột K (`state.fbSheetData.scoreBoard`) đồng bộ trực tiếp vào `🏆 BẢNG ĐIỂM AI CHẤM`.
+           - Thêm nút **`🔄 Cột K`** ngay trên tiêu đề khung **`🏆 BẢNG ĐIỂM AI CHẤM`** và nút **`🔄 Đồng bộ Sheet`** trên thanh header (`syncFbScoreBoardWithSheet`) để đồng bộ 2 chiều ngay lập tức.
