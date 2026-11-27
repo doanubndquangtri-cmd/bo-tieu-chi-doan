@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <!-- Tối ưu tốc độ mở trang cực hạn (0ms): Preload tài nguyên trọng yếu -->
-  <link rel="preload" href="./app.js?v=20261119_chat_1795759188873" as="script" />
-  <link rel="preload" href="./styles.css?v=20261119_chat_1795759188873" as="style" />
+  <link rel="preload" href="./app.js?v=20261119_chat_1795760324252" as="script" />
+  <link rel="preload" href="./styles.css?v=20261119_chat_1795760324252" as="style" />
   <title>Bộ tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh - Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí</title>
   
   <!-- PWA & Mobile Web App Meta Tags -->
@@ -45980,13 +45980,39 @@ function renderFbSheetHubTab() {
       <div style="flex-shrink:0; background:#ecfdf5; border-bottom:1.5px solid #a7f3d0; padding:8px 18px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;">
         <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
           <span style="font-size:12.5px; font-weight:800; color:#065f46;">📌 Chọn bảng / đợt Lệnh lan tỏa:</span>
-          <select onchange="state.activeLanToaBoardId=this.value; if(this.value==='gsheet' && !state.fbSheetData){ fetchFbSheetData(true); } renderApp();" style="padding:5px 10px; border-radius:7px; border:1.5px solid #10b981; font-size:12.5px; font-weight:700; color:#0f172a; background:#fff; max-width:420px; cursor:pointer;">
+          <select onchange="state.activeLanToaBoardId=this.value; if(this.value==='gsheet' && !state.fbSheetData){ fetchFbSheetData(true); } renderApp();" style="padding:5px 10px; border-radius:7px; border:1.5px solid #10b981; font-size:12.5px; font-weight:700; color:#0f172a; background:#fff; max-width:380px; cursor:pointer;">
             ${allBoards.map(b => {
               const exp = b.finalized || _isLanToaBoardExpired(b);
-              return `<option value="${b.criterionId}" ${String(state.activeLanToaBoardId) === String(b.criterionId) ? 'selected' : ''}>${exp ? '🔒' : '🟢'} ${escapeHtml(b.title)} (Hạn ${escapeHtml(b.deadlineTime || '17:00')} ${escapeHtml(b.deadline || '')})</option>`;
+              const bCrit = (state.criteria || []).find(c => Number(c.id) === Number(b.criterionId));
+              const colTag = bCrit ? `[${bCrit.col_label || ('Cột ' + bCrit.col_number)}] ` : '';
+              return `<option value="${b.criterionId}" ${String(state.activeLanToaBoardId) === String(b.criterionId) ? 'selected' : ''}>${exp ? '🔒' : '🟢'} ${escapeHtml(colTag + b.title)} (Hạn ${escapeHtml(b.deadlineTime || '17:00')} ${escapeHtml(b.deadline || '')})</option>`;
             }).join('')}
             <option value="gsheet" ${state.activeLanToaBoardId === 'gsheet' ? 'selected' : ''}>📊 Bảng Google Sheet trực tiếp</option>
           </select>
+          ${isAdmin ? (() => {
+            const critList = Array.isArray(state.criteria) ? state.criteria : [];
+            const defaultTargetCritId = activeBoard
+              ? activeBoard.criterionId
+              : ((critList.find(c => String(c.col_number) === '7' || String(c.col_label || '').trim() === 'Cột 7') || critList[0] || {}).id || '');
+            return `
+              <span style="font-size:12px; font-weight:800; color:#065f46; margin-left:4px;">🎯 Cột tiêu chí áp dụng:</span>
+              <select id="fb-bar-target-crit" style="padding:5px 9px; border-radius:7px; border:1.5px solid #0284c7; font-size:12px; font-weight:700; color:#0f172a; background:#fff; max-width:260px; cursor:pointer;">
+                ${critList.map(c => `<option value="${c.id}" ${String(c.id) === String(defaultTargetCritId) ? 'selected' : ''}>${escapeHtml(c.col_label || ('Cột ' + c.col_number))} — ${escapeHtml(c.title)}</option>`).join('')}
+              </select>
+              ${isLanToaMode && activeBoard ? `
+                <button type="button" class="btn btn-sm" onclick="openEditLanToaBoardModal(${activeBoard.criterionId}, document.getElementById('fb-bar-target-crit') ? document.getElementById('fb-bar-target-crit').value : '')" style="background:#0284c7; border:none; color:#fff; font-weight:800; border-radius:7px; padding:5px 11px; font-size:12px; cursor:pointer;" title="Thay đổi cột tiêu chí áp dụng, sửa tên, hạn nộp hoặc mở khóa lại bảng này">
+                  ✏️ Thay đổi / Sửa
+                </button>
+                <button type="button" class="btn btn-sm" onclick="openApplyGoogleSheetToCriterionModal(document.getElementById('fb-bar-target-crit') ? document.getElementById('fb-bar-target-crit').value : '')" style="background:#fde047; border:none; color:#854d0e; font-weight:800; border-radius:7px; padding:5px 11px; font-size:12px; cursor:pointer;" title="Áp dụng bảng Google Sheet vào một cột tiêu chí mới">
+                  ➕ Áp dụng cột mới
+                </button>
+              ` : `
+                <button type="button" class="btn btn-sm" onclick="openApplyGoogleSheetToCriterionModal(document.getElementById('fb-bar-target-crit') ? document.getElementById('fb-bar-target-crit').value : '')" ${units.length === 0 ? 'disabled' : ''} style="background:#fde047; border:none; color:#854d0e; font-weight:800; border-radius:7px; padding:5px 11px; font-size:12px; cursor:pointer;" title="Áp dụng bảng Google Sheet hiện tại vào cột tiêu chí đã chọn">
+                  📌 Áp dụng vào cột này
+                </button>
+              `}
+            `;
+          })() : ''}
         </div>
         ${activeBoard ? `
           <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
@@ -46891,15 +46917,15 @@ function _syncGoogleSheetDataIntoLanToaBoard(board, sheetJson) {
   });
 }
 
-window.openApplyGoogleSheetToCriterionModal = function () {
+window.openApplyGoogleSheetToCriterionModal = function (preselectedCritId) {
   const sheetData = state.fbSheetData;
   if (!sheetData || !Array.isArray(sheetData.units) || sheetData.units.length === 0) {
-    alert('Vui lòng đợi tải xong dữ liệu từ Google Sheet trước!');
+    alert('Vui lòng đợi tải xong dữ liệu từ Google Sheet trước (hoặc chuyển sang "📊 Bảng Google Sheet trực tiếp" để tải dữ liệu)!');
     return;
   }
   const criteria = Array.isArray(state.criteria) ? state.criteria : [];
-  // Tự tìm tiêu chí Cột 7 hoặc tiêu chí Lệnh lan tỏa mới nhất
-  const defaultCrit = criteria.find(c => String(c.col_number) === '7' || String(c.col_label || '').trim() === 'Cột 7')
+  const defaultCrit = (preselectedCritId ? criteria.find(c => String(c.id) === String(preselectedCritId)) : null)
+    || criteria.find(c => String(c.col_number) === '7' || String(c.col_label || '').trim() === 'Cột 7')
     || criteria.slice().reverse().find(c => /lan\s*t[oỏ]a/i.test(c.title || ''))
     || criteria[0];
 
@@ -46983,6 +47009,158 @@ window.confirmApplyGoogleSheetToCriterion = async function () {
   }
 };
 
+window.openEditLanToaBoardModal = function (boardId, preselectedNewCritId) {
+  const board = (state.lanToaBoards || {})[String(boardId)];
+  if (!board) return;
+  const criteria = Array.isArray(state.criteria) ? state.criteria : [];
+  const targetCritId = (preselectedNewCritId && criteria.some(c => String(c.id) === String(preselectedNewCritId)))
+    ? preselectedNewCritId
+    : board.criterionId;
+
+  const modalRoot = document.getElementById('modal-root');
+  if (!modalRoot) return;
+
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this)closeModal()" style="position:fixed; inset:0; background:rgba(15, 23, 42, 0.22); z-index:9999999; display:flex; align-items:center; justify-content:center; padding:16px; backdrop-filter:none;">
+      <div class="modal-box" style="background:#fff; border-radius:14px; width:100%; max-width:600px; box-shadow:0 20px 40px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.06); overflow:hidden; border:1px solid #cbd5e1; margin:auto;">
+        <div style="background:linear-gradient(135deg, #0369a1 0%, #0284c7 100%); color:#fff; padding:14px 20px; display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-weight:800; font-size:15px;">✏️ Thay Đổi / Sửa Đợt Lệnh Lan Tỏa &amp; Cột Tiêu Chí</div>
+          <button type="button" onclick="closeModal()" style="background:none; border:none; color:#fff; font-size:20px; font-weight:700; cursor:pointer;">✕</button>
+        </div>
+        <div style="padding:18px 22px; max-height:80vh; overflow-y:auto;">
+          <div style="margin-bottom:12px;">
+            <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:5px;">1. Cột tiêu chí áp dụng trong Bộ Tiêu Chí:</label>
+            <select id="edit-lt-crit-id" style="width:100%; padding:8px 10px; font-size:13px; border:1.5px solid #0284c7; border-radius:7px; font-weight:600;">
+              ${criteria.map(c => `<option value="${c.id}" ${String(c.id) === String(targetCritId) ? 'selected' : ''}>${escapeHtml(c.col_label || ('Cột ' + c.col_number))} — ${escapeHtml(c.title)} (${c.max_score}đ)</option>`).join('')}
+            </select>
+            <div style="font-size:11.5px; color:#64748b; margin-top:4px;">Nếu chọn cột khác, toàn bộ dữ liệu link &amp; bảng điểm của đợt này sẽ được chuyển sang cột tiêu chí mới.</div>
+          </div>
+          <div style="margin-bottom:12px;">
+            <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:5px;">2. Tên bảng / đợt Lệnh lan tỏa:</label>
+            <input type="text" id="edit-lt-title" value="${escapeHtml(board.title || '')}" style="width:100%; padding:8px 10px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:7px; font-weight:600;" />
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:12px;">
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">3. Ngày hết hạn:</label>
+              <input type="date" id="edit-lt-deadline" value="${escapeHtml(board.deadline || todayISO())}" style="width:100%; padding:7px 10px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:7px;" />
+            </div>
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">4. Giờ hết hạn:</label>
+              <input type="time" id="edit-lt-time" value="${escapeHtml(board.deadlineTime || '17:00')}" style="width:100%; padding:7px 10px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:7px;" />
+            </div>
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">5. Điểm tối đa:</label>
+              <input type="number" step="0.1" min="0" id="edit-lt-maxscore" value="${Number(board.maxScore || 3)}" style="width:100%; padding:7px 10px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:7px;" />
+            </div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;">
+            <label style="display:flex; align-items:center; gap:8px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:8px 12px; cursor:pointer;">
+              <input type="checkbox" id="edit-lt-linked-gs" ${board.linkedGoogleSheet ? 'checked' : ''} style="width:16px; height:16px; cursor:pointer;" />
+              <span style="font-size:12.5px; color:#166534; font-weight:600;">Liên kết đồng bộ dữ liệu từ Google Sheet trước khi tự động chốt</span>
+            </label>
+            <label style="display:flex; align-items:center; gap:8px; background:#fefce8; border:1px solid #fde047; border-radius:8px; padding:8px 12px; cursor:pointer;">
+              <input type="checkbox" id="edit-lt-clear-gs" ${board.clearGoogleSheetOnFinalize ? 'checked' : ''} style="width:16px; height:16px; cursor:pointer;" />
+              <span style="font-size:12.5px; color:#854d0e; font-weight:600;">Tự động xóa các link Cột D trên Google Sheet sau khi hết hạn</span>
+            </label>
+            ${board.finalized ? `
+              <label style="display:flex; align-items:center; gap:8px; background:#eff6ff; border:1px solid #93c5fd; border-radius:8px; padding:8px 12px; cursor:pointer;">
+                <input type="checkbox" id="edit-lt-reopen" style="width:16px; height:16px; cursor:pointer;" />
+                <span style="font-size:12.5px; color:#1d4ed8; font-weight:700;">🔓 Mở khóa lại để tiếp tục nhận link (gỡ trạng thái Đã chốt điểm)</span>
+              </label>
+            ` : ''}
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-sm" onclick="deleteLanToaBoard(${board.criterionId})" style="background:#fee2e2; border:1px solid #fca5a5; color:#b91c1c; font-weight:700; padding:7px 12px; border-radius:7px; cursor:pointer;">🗑️ Gỡ bảng khỏi cột</button>
+            <div style="display:flex; gap:8px;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal()">Hủy</button>
+              <button type="button" class="btn btn-primary btn-sm" onclick="confirmEditLanToaBoard(${board.criterionId})" style="background:#0284c7; border:none; font-weight:800; padding:8px 16px;">💾 Lưu Thay Đổi</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+window.confirmEditLanToaBoard = async function (oldBoardId) {
+  const newCritId = Number(document.getElementById('edit-lt-crit-id') ? document.getElementById('edit-lt-crit-id').value : oldBoardId);
+  const title = (document.getElementById('edit-lt-title') ? document.getElementById('edit-lt-title').value : '').trim();
+  const deadline = document.getElementById('edit-lt-deadline') ? document.getElementById('edit-lt-deadline').value : todayISO();
+  const dlTime = document.getElementById('edit-lt-time') ? document.getElementById('edit-lt-time').value : '17:00';
+  const maxScore = Number(document.getElementById('edit-lt-maxscore') ? document.getElementById('edit-lt-maxscore').value : 3) || 3;
+  const linkedGS = document.getElementById('edit-lt-linked-gs') ? document.getElementById('edit-lt-linked-gs').checked : false;
+  const clearGS = document.getElementById('edit-lt-clear-gs') ? document.getElementById('edit-lt-clear-gs').checked : false;
+  const reopen = document.getElementById('edit-lt-reopen') ? document.getElementById('edit-lt-reopen').checked : false;
+
+  if (!newCritId) return;
+  if (String(newCritId) !== String(oldBoardId) && (state.lanToaBoards || {})[String(newCritId)]) {
+    if (!confirm('Cột tiêu chí mới đã có sẵn một bảng Lệnh lan tỏa. Bạn có muốn ghi đè sang cột này không?')) {
+      return;
+    }
+  }
+
+  await mutateCloudDB(db => {
+    if (!db.lan_toa_boards || typeof db.lan_toa_boards !== 'object') db.lan_toa_boards = {};
+    const board = db.lan_toa_boards[String(oldBoardId)];
+    if (!board) return;
+
+    const newCrit = (db.criteria || []).find(c => Number(c.id) === newCritId);
+    if (!newCrit) return;
+
+    if (String(newCritId) !== String(oldBoardId)) {
+      const oldCrit = (db.criteria || []).find(c => Number(c.id) === Number(oldBoardId));
+      if (oldCrit) oldCrit.is_lan_toa = false;
+      delete db.lan_toa_boards[String(oldBoardId)];
+    }
+
+    newCrit.is_lan_toa = true;
+    newCrit.deadline = deadline;
+    newCrit.deadline_time = dlTime;
+
+    board.criterionId = newCritId;
+    board.title = title || newCrit.title || board.title;
+    board.deadline = deadline;
+    board.deadlineTime = dlTime;
+    board.maxScore = maxScore;
+    board.linkedGoogleSheet = linkedGS;
+    board.clearGoogleSheetOnFinalize = clearGS;
+    if (reopen) {
+      board.finalized = false;
+      delete board.finalizedAt;
+    }
+    _recalcLanToaBoardDuplicatesAndScores(board);
+    db.lan_toa_boards[String(newCritId)] = board;
+  }, `Edit/Move Lan Toa board #${oldBoardId} -> #${newCritId}`);
+
+  state.activeLanToaBoardId = String(newCritId);
+  if (typeof closeModal === 'function') closeModal();
+  if (typeof showToast === 'function') {
+    showToast(`✅ Đã cập nhật bảng Lệnh lan tỏa (Hạn ${dlTime} ngày ${deadline})!`, 'success');
+  }
+  renderApp();
+  if (typeof window.scheduleCheckExpiredLanToaBoards === 'function') {
+    window.scheduleCheckExpiredLanToaBoards();
+  }
+};
+
+window.deleteLanToaBoard = async function (boardId) {
+  if (!confirm('Bạn có chắc muốn gỡ bảng Lệnh lan tỏa này khỏi cột tiêu chí? (Điểm đã chốt trước đó trong Bảng Tổng Hợp vẫn giữ nguyên)')) {
+    return;
+  }
+  await mutateCloudDB(db => {
+    if (db.lan_toa_boards && db.lan_toa_boards[String(boardId)]) {
+      delete db.lan_toa_boards[String(boardId)];
+    }
+    const crit = (db.criteria || []).find(c => Number(c.id) === Number(boardId));
+    if (crit) crit.is_lan_toa = false;
+  }, `Remove Lan Toa board #${boardId}`);
+
+  state.activeLanToaBoardId = 'gsheet';
+  if (typeof closeModal === 'function') closeModal();
+  if (typeof showToast === 'function') showToast('🗑️ Đã gỡ bảng khỏi cột tiêu chí!', 'info');
+  renderApp();
+};
+
 // Tự động kiểm tra hết hạn mỗi phút để đúng 17:00 tự chốt điểm, gắn tệp & xóa trắng Google Sheet
 setInterval(() => {
   if (typeof window.scheduleCheckExpiredLanToaBoards === 'function') {
@@ -46993,7 +47171,7 @@ setInterval(() => {
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795759188873;
+    const CURRENT_BUILD_TS = 1795760324252;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;

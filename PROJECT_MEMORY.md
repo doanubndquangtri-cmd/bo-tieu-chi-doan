@@ -236,3 +236,8 @@
            - Bổ sung action `clear_all_links` trong `google_sheets_fb_auto.gs` để xóa sạch Cột D, E, F, G trên Google Sheet sau khi chốt.
            - Thêm nút `📌 Áp dụng vào Tiêu Chí` (`openApplyGoogleSheetToCriterionModal`) tự động nhận diện Cột 7 (`Phát động Lệnh lan tỏa ngày 27/11`), set hạn chuẩn `2026-11-27 17:00`, đồng bộ 154+ link từ Google Sheet vào bảng của Cột 7.
            - Đúng `17:00` (kiểm tra tự động mỗi 60 giây): đồng bộ lần cuối từ Google Sheet → khóa bảng → cộng điểm vào Cột 7 cho 40 đơn vị → lưu tệp Excel gắn vào mục `📎 Tệp` của Cột 7 → tự động xóa trắng Cột D trên Google Sheet để chờ đợt mới.
+
+         - **13. Chọn cột tiêu chí áp dụng & Thay đổi/Sửa trực tiếp ngay trên thanh `📌 Chọn bảng / đợt Lệnh lan tỏa:` (27/11/2026)**:
+           - Bổ sung nhãn `[Cột X]` vào danh sách bảng/đợt Lệnh lan tỏa và thêm dropdown `🎯 Cột tiêu chí áp dụng:` ngay tại thanh chọn bảng trong tab `🔗 Link FB` (cho phép Admin chọn bất kỳ cột tiêu chí nào để áp dụng ngay).
+           - Thêm nút `✏️ Thay đổi / Sửa` (`openEditLanToaBoardModal` / `confirmEditLanToaBoard` / `deleteLanToaBoard`): cho phép chuyển đổi bảng sang cột tiêu chí khác, sửa tên đợt, ngày/giờ hết hạn, điểm tối đa, tùy chọn liên kết/xóa Google Sheet, mở khóa lại bảng đã chốt để nộp tiếp hoặc gỡ bảng khỏi cột.
+           - Thêm nút `➕ Áp dụng cột mới` / `📌 Áp dụng vào cột này` truyền sẵn cột đang chọn trên thanh vào `openApplyGoogleSheetToCriterionModal(preselectedCritId)`.
