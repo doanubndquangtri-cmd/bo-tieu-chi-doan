@@ -118,6 +118,7 @@ function onSheetEditTrigger(e) {
       const linkVal = String(sheet.getRange(r, 4).getValue() || "").trim();
       if (!linkVal) {
         sheet.getRange(r, 5, 1, 3).clearContent().setBackground(null);
+        refreshDuplicateAccountsInColE_(sheet);
         continue;
       }
       if (/^https?:\/\//i.test(linkVal) || /facebook\.com|fb\.com|fb\.watch/i.test(linkVal)) {
@@ -162,11 +163,12 @@ function scanAllPendingRows_(silent) {
     const colG = String(data[i][3] || "").trim();
 
     if (linkVal && /facebook\.com|fb\.com|fb\.watch/i.test(linkVal) && (!colE || !colG || colE === "⏳ Đang kiểm tra...")) {
-      processSingleRow_(sheet, rowIdx, linkVal);
+      processSingleRow_(sheet, rowIdx, linkVal, true);
       count++;
       Utilities.sleep(250);
     }
   }
+  if (count > 0) refreshDuplicateAccountsInColE_(sheet);
   return count;
 }
 
@@ -184,18 +186,82 @@ function rescanAllRows() {
     const rowIdx = i + 3;
     const linkVal = String(links[i][0] || "").trim();
     if (linkVal && /facebook\.com|fb\.com|fb\.watch/i.test(linkVal)) {
-      processSingleRow_(sheet, rowIdx, linkVal);
+      processSingleRow_(sheet, rowIdx, linkVal, true);
       count++;
       Utilities.sleep(250);
     }
   }
+  if (count > 0) refreshDuplicateAccountsInColE_(sheet);
   SpreadsheetApp.getActiveSpreadsheet().toast(`Đã quét lại xong ${count} link!`, "✅ Hoàn tất", 5);
+}
+
+/**
+ * Trích xuất khóa định danh tài khoản từ Cột E để kiểm tra trùng lặp chính xác
+ * (Ưu tiên ID nếu có; nếu không có ID thì dùng tên tài khoản)
+ */
+function getAccountIdentityKey_(colEText) {
+  const raw = String(colEText || "").trim();
+  if (!raw || raw.startsWith("⏳") || raw.startsWith("(Không xác định)") || raw.startsWith("(Lỗi")) {
+    return "";
+  }
+  const mId = raw.match(/\(ID:\s*([^)]+)\)/i);
+  if (mId && mId[1]) {
+    return "id:" + mId[1].trim().toLowerCase();
+  }
+  return "name:" + raw.toLowerCase().replace(/\s+/g, " ");
+}
+
+/**
+ * Rà soát toàn bộ Cột E: nếu xuất hiện trùng tài khoản (từ lần thứ 2 trở đi) -> Cột G báo ❌ Không hợp lệ (Trùng tài khoản)
+ */
+function refreshDuplicateAccountsInColE_(sheet) {
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 3) return;
+
+  const numRows = lastRow - 2;
+  const rangeEFG = sheet.getRange(3, 5, numRows, 3);
+  const values = rangeEFG.getValues(); // [E, F, G]
+  const seenKeys = new Set();
+  const excludedKws = getExcludedAccountKeywords_();
+
+  for (let i = 0; i < values.length; i++) {
+    const colE = String(values[i][0] || "").trim();
+    const colF = String(values[i][1] || "").trim();
+    const colG = String(values[i][2] || "").trim();
+    if (!colE || colE === "⏳ Đang kiểm tra...") continue;
+
+    const key = getAccountIdentityKey_(colE);
+    const cellG = sheet.getRange(i + 3, 7);
+
+    if (key && seenKeys.has(key)) {
+      // Tài khoản bị trùng lặp từ dòng thứ 2 trở đi
+      if (!colG.includes("Dùng lại link bài gốc")) {
+        cellG.setValue("❌ Không hợp lệ (Trùng tài khoản)")
+             .setBackground("#fee2e2")
+             .setFontColor("#b91c1c")
+             .setFontWeight("bold");
+      }
+    } else {
+      if (key) seenKeys.add(key);
+      // Nếu trước đây bị đánh dấu trùng tài khoản nhưng nay không còn trùng (do dòng trên đã xóa/đổi) -> khôi phục lại trạng thái Hợp lệ nếu đủ điều kiện
+      if (colG === "❌ Không hợp lệ (Trùng tài khoản)") {
+        const matchedExcluded = excludedKws.find(kw => colE.toLowerCase().includes(kw));
+        if (matchedExcluded) {
+          cellG.setValue("❌ Không hợp lệ (Dùng lại link bài gốc)")
+               .setBackground("#fee2e2").setFontColor("#b91c1c").setFontWeight("bold");
+        } else if (colF === "Công khai") {
+          cellG.setValue("✅ Hợp lệ")
+               .setBackground("#dcfce7").setFontColor("#15803d").setFontWeight("bold");
+        }
+      }
+    }
+  }
 }
 
 /**
  * Gọi API KINI AI, kiểm tra từ khóa Cột E và ghi kết quả vào 3 cột E (5), F (6), G (7)
  */
-function processSingleRow_(sheet, rowIdx, linkVal) {
+function processSingleRow_(sheet, rowIdx, linkVal, skipDupRefresh) {
   sheet.getRange(rowIdx, 5, 1, 3).setValues([["⏳ Đang kiểm tra...", "Đang quét...", "⏳"]]);
   SpreadsheetApp.flush();
 
@@ -251,6 +317,10 @@ function processSingleRow_(sheet, rowIdx, linkVal) {
       cellG.setBackground("#dcfce7").setFontColor("#15803d").setFontWeight("bold");
     } else {
       cellG.setBackground("#fee2e2").setFontColor("#b91c1c").setFontWeight("bold");
+    }
+
+    if (!skipDupRefresh) {
+      refreshDuplicateAccountsInColE_(sheet);
     }
   } catch (err) {
     sheet.getRange(rowIdx, 5, 1, 3).setValues([
