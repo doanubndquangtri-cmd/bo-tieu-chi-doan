@@ -10,10 +10,11 @@
  */
 
 const FB_API_ENDPOINT = "https://kini-ai.onrender.com/api/fb-check";
+const PROP_KEY_EXCLUDED_ACCOUNTS = "FB_EXCLUDED_ACCOUNT_KEYWORDS";
 
-// Từ khóa bắt buộc (phân tách bằng dấu phẩy). Để rỗng "" nếu chỉ kiểm tra Công khai & lấy Tên chủ tài khoản.
-const REQUIRED_KEYWORDS = []; // Ví dụ: ["Bình dân học vụ số", "Đoàn UBND", "tập huấn"]
-const KEYWORD_MODE = "any";   // "any" = khớp ít nhất 1 từ khóa, "all" = khớp tất cả
+// Từ khóa nội dung bắt buộc (để [] nếu chỉ kiểm tra Công khai & chống dùng lại link bài gốc)
+const REQUIRED_KEYWORDS = [];
+const KEYWORD_MODE = "any";
 const REQUIRE_PUBLIC = true;
 
 /**
@@ -22,14 +23,87 @@ const REQUIRE_PUBLIC = true;
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("🔍 Thẩm Định FB")
+    .addItem("⚙️ Nhập từ khóa Cột E (chống link bài gốc)", "openExcludedKeywordsPrompt")
+    .addSeparator()
+    .addItem("⚡ Bật TỰ ĐỘNG quét khi có người nhập link", "enableAutoScanTrigger")
     .addItem("🚀 Quét tất cả link chưa kiểm tra", "scanAllPendingRows")
     .addItem("🔄 Quét lại toàn bộ bảng từ đầu", "rescanAllRows")
     .addToUi();
 }
 
 /**
- * Hàm chạy tự động khi có người sửa/dán link vào cột D (NHẬP LINK)
- * LƯU Ý: Phải cài đặt Trigger "Khi chỉnh sửa" (On edit) cho hàm này trong mục Kích hoạt (Triggers)!
+ * Hộp thoại nhập danh sách từ khóa Cột E (nếu Cột E trùng từ khóa -> Không hợp lệ: Dùng lại link bài gốc)
+ */
+function openExcludedKeywordsPrompt() {
+  const ui = SpreadsheetApp.getUi();
+  const props = PropertiesService.getDocumentProperties();
+  const current = props.getProperty(PROP_KEY_EXCLUDED_ACCOUNTS) || "";
+
+  const resp = ui.prompt(
+    "⚙️ Cài Đặt Từ Khóa Chống Dùng Lại Link Bài Gốc (Cột E)",
+    "Nhập tên trang / chủ tài khoản bài gốc (phân tách nhiều từ khóa bằng dấu phẩy `,`).\n" +
+    "Nếu Cột E trùng với bất kỳ từ khóa nào dưới đây, Cột G sẽ tự động báo: ❌ Không hợp lệ (Dùng lại link bài gốc).\n\n" +
+    "Ví dụ: Đoàn TNCS Hồ Chí Minh UBND tỉnh, Ngọc Khanh\n" +
+    "Từ khóa hiện tại: " + (current || "(Chưa cài đặt)"),
+    ui.ButtonSet.OK_CANCEL
+  );
+
+  if (resp.getSelectedButton() === ui.Button.OK) {
+    const val = (resp.getResponseText() || "").trim();
+    props.setProperty(PROP_KEY_EXCLUDED_ACCOUNTS, val);
+    ui.alert(
+      val
+        ? `✅ Đã lưu từ khóa kiểm tra Cột E:\n"${val}"\n\nNếu muốn áp dụng ngay cho các dòng đã quét trước đó, anh bấm mục "🔄 Quét lại toàn bộ bảng từ đầu".`
+        : "✅ Đã xóa danh sách từ khóa loại trừ Cột E."
+    );
+  }
+}
+
+/**
+ * Lấy mảng từ khóa loại trừ ở Cột E (đã chuẩn hóa chữ thường)
+ */
+function getExcludedAccountKeywords_() {
+  const raw = PropertiesService.getDocumentProperties().getProperty(PROP_KEY_EXCLUDED_ACCOUNTS) || "";
+  return raw
+    .split(/[,;\n]+/)
+    .map(s => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+/**
+ * Bấm 1 lần duy nhất (bằng tài khoản Chủ sở hữu) để tự động cài Trigger quét tức thì + quét bù mỗi phút
+ */
+function enableAutoScanTrigger() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const triggers = ScriptApp.getProjectTriggers();
+  triggers.forEach(t => {
+    const fn = t.getHandlerFunction();
+    if (fn === "onSheetEditTrigger" || fn === "autoScanPendingEveryMinute") {
+      ScriptApp.deleteTrigger(t);
+    }
+  });
+
+  // 1. Trigger chạy ngay lập tức khi có bất kỳ ai dán/sửa link ở Cột D
+  ScriptApp.newTrigger("onSheetEditTrigger")
+    .forSpreadsheet(ss)
+    .onEdit()
+    .create();
+
+  // 2. Trigger chạy ngầm mỗi 1 phút để quét bù nếu nhiều đơn vị dán cùng lúc
+  ScriptApp.newTrigger("autoScanPendingEveryMinute")
+    .timeBased()
+    .everyMinutes(1)
+    .create();
+
+  SpreadsheetApp.getUi().alert(
+    "✅ ĐÃ BẬT CHẾ ĐỘ TỰ ĐỘNG QUÉT 24/7!\n\n" +
+    "• Từ giờ, hễ có cơ sở Đoàn nào vừa dán link vào Cột D, hệ thống sẽ tự động quét và điền ngay vào Cột E, F, G trong 1–2 giây.\n" +
+    "• Ngoài ra có thêm bộ quét bù tự động mỗi phút để không bao giờ bỏ sót link khi nhiều người nhập cùng lúc."
+  );
+}
+
+/**
+ * Hàm chạy tự động ngay khi có người sửa/dán link vào Cột D (NHẬP LINK)
  */
 function onSheetEditTrigger(e) {
   if (!e || !e.range) return;
@@ -39,13 +113,11 @@ function onSheetEditTrigger(e) {
   const startCol = e.range.getColumn();
   const endCol = startCol + e.range.getNumColumns() - 1;
 
-  // Chỉ xử lý nếu vùng chỉnh sửa có đụng tới cột D (cột 4) và từ dòng 3 trở xuống
   if (startCol <= 4 && endCol >= 4) {
     for (let r = Math.max(3, startRow); r < startRow + numRows; r++) {
       const linkVal = String(sheet.getRange(r, 4).getValue() || "").trim();
       if (!linkVal) {
-        // Nếu người dùng xóa link -> xóa trắng 3 cột kết quả
-        sheet.getRange(r, 5, 1, 3).clearContent();
+        sheet.getRange(r, 5, 1, 3).clearContent().setBackground(null);
         continue;
       }
       if (/^https?:\/\//i.test(linkVal) || /facebook\.com|fb\.com|fb\.watch/i.test(linkVal)) {
@@ -56,12 +128,30 @@ function onSheetEditTrigger(e) {
 }
 
 /**
- * Quét tất cả các dòng có link ở cột D nhưng chưa có kết quả ở cột E/F/G
+ * Trigger chạy ngầm mỗi 1 phút quét các dòng mới chưa có kết quả (chống sót khi nhiều người dán đồng thời)
+ */
+function autoScanPendingEveryMinute() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(3000)) return;
+  try {
+    scanAllPendingRows_(true);
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * Quét tất cả các dòng có link ở Cột D nhưng chưa có kết quả ở Cột E/G
  */
 function scanAllPendingRows() {
+  const count = scanAllPendingRows_(false);
+  SpreadsheetApp.getActiveSpreadsheet().toast(`Đã kiểm tra xong ${count} link mới!`, "✅ Hoàn tất", 5);
+}
+
+function scanAllPendingRows_(silent) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
   const lastRow = sheet.getLastRow();
-  if (lastRow < 3) return;
+  if (lastRow < 3) return 0;
 
   const data = sheet.getRange(3, 4, lastRow - 2, 4).getValues(); // D, E, F, G
   let count = 0;
@@ -74,14 +164,14 @@ function scanAllPendingRows() {
     if (linkVal && /facebook\.com|fb\.com|fb\.watch/i.test(linkVal) && (!colE || !colG || colE === "⏳ Đang kiểm tra...")) {
       processSingleRow_(sheet, rowIdx, linkVal);
       count++;
-      Utilities.sleep(300); // Giãn nhịp nhẹ tránh nghẽn
+      Utilities.sleep(250);
     }
   }
-  SpreadsheetApp.getActiveSpreadsheet().toast(`Đã kiểm tra xong ${count} link mới!`, "✅ Hoàn tất", 5);
+  return count;
 }
 
 /**
- * Quét lại toàn bộ các dòng có link ở cột D (ghi đè kết quả cũ)
+ * Quét lại toàn bộ các dòng có link ở Cột D (ghi đè kết quả cũ)
  */
 function rescanAllRows() {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
@@ -96,31 +186,29 @@ function rescanAllRows() {
     if (linkVal && /facebook\.com|fb\.com|fb\.watch/i.test(linkVal)) {
       processSingleRow_(sheet, rowIdx, linkVal);
       count++;
-      Utilities.sleep(300);
+      Utilities.sleep(250);
     }
   }
   SpreadsheetApp.getActiveSpreadsheet().toast(`Đã quét lại xong ${count} link!`, "✅ Hoàn tất", 5);
 }
 
 /**
- * Gọi API KINI AI và ghi kết quả vào 3 cột E (5), F (6), G (7)
+ * Gọi API KINI AI, kiểm tra từ khóa Cột E và ghi kết quả vào 3 cột E (5), F (6), G (7)
  */
 function processSingleRow_(sheet, rowIdx, linkVal) {
   sheet.getRange(rowIdx, 5, 1, 3).setValues([["⏳ Đang kiểm tra...", "Đang quét...", "⏳"]]);
   SpreadsheetApp.flush();
 
   try {
-    const payload = {
-      url: linkVal,
-      required_keywords: REQUIRED_KEYWORDS,
-      keyword_mode: KEYWORD_MODE,
-      require_public: REQUIRE_PUBLIC
-    };
-
     const res = UrlFetchApp.fetch(FB_API_ENDPOINT, {
       method: "post",
       contentType: "application/json",
-      payload: JSON.stringify(payload),
+      payload: JSON.stringify({
+        url: linkVal,
+        required_keywords: REQUIRED_KEYWORDS,
+        keyword_mode: KEYWORD_MODE,
+        require_public: REQUIRE_PUBLIC
+      }),
       muteHttpExceptions: true
     });
 
@@ -132,20 +220,34 @@ function processSingleRow_(sheet, rowIdx, linkVal) {
     }
 
     const data = JSON.parse(res.getContentText());
-    const accountText = data.account_id && data.account_name && data.account_name !== "(Không xác định)"
-      ? `${data.account_name} (ID: ${data.account_id})`
-      : (data.account_name || "(Không xác định)");
+    const rawAccountName = (data.account_name || "").trim();
+    const accountText = data.account_id && rawAccountName && rawAccountName !== "(Không xác định)"
+      ? `${rawAccountName} (ID: ${data.account_id})`
+      : (rawAccountName || "(Không xác định)");
 
     const visibilityText = data.visibility || "Không rõ";
-    const resultText = data.is_valid
-      ? "✅ Hợp lệ"
-      : `❌ Không hợp lệ (${data.reason || "Kiểm tra lại"})`;
+
+    // Kiểm tra Cột E có trùng với từ khóa bài gốc hay không
+    const excludedKws = getExcludedAccountKeywords_();
+    const accountHaystack = accountText.toLowerCase();
+    const matchedExcluded = excludedKws.find(kw => accountHaystack.includes(kw));
+
+    let isFinalValid = Boolean(data.is_valid);
+    let resultText = "";
+
+    if (matchedExcluded) {
+      isFinalValid = false;
+      resultText = "❌ Không hợp lệ (Dùng lại link bài gốc)";
+    } else if (isFinalValid) {
+      resultText = "✅ Hợp lệ";
+    } else {
+      resultText = `❌ Không hợp lệ (${data.reason || "Kiểm tra lại"})`;
+    }
 
     sheet.getRange(rowIdx, 5, 1, 3).setValues([[accountText, visibilityText, resultText]]);
 
-    // Tô màu trực quan nhẹ cho cột Kết quả (Cột G)
     const cellG = sheet.getRange(rowIdx, 7);
-    if (data.is_valid) {
+    if (isFinalValid) {
       cellG.setBackground("#dcfce7").setFontColor("#15803d").setFontWeight("bold");
     } else {
       cellG.setBackground("#fee2e2").setFontColor("#b91c1c").setFontWeight("bold");
