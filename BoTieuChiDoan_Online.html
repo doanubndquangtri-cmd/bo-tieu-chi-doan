@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <!-- Tối ưu tốc độ mở trang cực hạn (0ms): Preload tài nguyên trọng yếu -->
-  <link rel="preload" href="./app.js?v=20261119_chat_1795783650130" as="script" />
-  <link rel="preload" href="./styles.css?v=20261119_chat_1795783650130" as="style" />
+  <link rel="preload" href="./app.js?v=20261119_chat_1795784263840" as="script" />
+  <link rel="preload" href="./styles.css?v=20261119_chat_1795784263840" as="style" />
   <title>Bộ tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh - Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí</title>
   
   <!-- PWA & Mobile Web App Meta Tags -->
@@ -47248,6 +47248,7 @@ window.finalizeLanToaBoard = async function (boardId, isAuto) {
       try {
         const clrRes = await fetch(webAppUrlAfter, {
           method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({ action: 'clear_all_links' })
         });
         const clrJson = await clrRes.json();
@@ -47533,6 +47534,13 @@ window.applyGoogleSheetToCriterionDirect = async function (critIdParam) {
   const deadline = targetCrit.deadline || todayISO();
   const dlTime = targetCrit.deadline_time || '17:00';
 
+  const dlCheck = new Date(`${deadline}T${String(dlTime).padStart(5, '0')}:00`);
+  if (!isNaN(dlCheck.getTime()) && new Date() >= dlCheck) {
+    if (!confirm(`⚠️ Lưu ý: Thời hạn của ${targetCrit.col_label || ('Cột ' + critId)} (${dlTime} ngày ${deadline}) đã qua! Nếu tiếp tục, hệ thống sẽ tự động chốt điểm, gắn tệp Excel và xóa trắng Cột D trên Google Sheet sau 2 phút. Bạn có chắc chắn muốn áp dụng không?`)) {
+      return;
+    }
+  }
+
   await mutateCloudDB(db => {
     const crit = (db.criteria || []).find(c => Number(c.id) === critId);
     if (!crit) return;
@@ -47546,7 +47554,7 @@ window.applyGoogleSheetToCriterionDirect = async function (critIdParam) {
     board.deadline = deadline;
     board.deadlineTime = dlTime;
     board.linkedGoogleSheet = true;
-    board.clearGoogleSheetOnFinalize = false;
+    board.clearGoogleSheetOnFinalize = true;
     _syncGoogleSheetDataIntoLanToaBoard(board, state.fbSheetData);
     _recalcLanToaBoardDuplicatesAndScores(board);
     db.lan_toa_boards = { [String(critId)]: board };
@@ -48163,7 +48171,7 @@ window.toggleChatMessageReaction = async function (msgId, emoji) {
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795783650130;
+    const CURRENT_BUILD_TS = 1795784263840;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;

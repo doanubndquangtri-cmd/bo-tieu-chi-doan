@@ -275,3 +275,5 @@
          - **21. Bật lại mặc định tự động xóa trắng Google Sheet sau khi chốt điểm & gắn tệp (kèm cảnh báo nếu chọn hạn quá khứ) (27/11/2026)**:
            - Tích sẵn mặc định `apply-gs-clear-after` (`checked`) trong modal Áp dụng bảng Google Sheet để sau khi hết hạn (tự động cộng điểm 40 đơn vị + gắn file Excel vào mục Tệp của tiêu chí xong) hệ thống tự động gọi `clear_all_links` xóa trắng Cột D trên Google Sheet chờ đợt mới.
            - Bổ sung cảnh báo xác nhận trong `confirmApplyGoogleSheetToCriterion` nếu người dùng chọn ngày/giờ hết hạn đã trôi qua trong quá khứ, kết hợp khóa bảo vệ 2 phút trong `scheduleCheckExpiredLanToaBoards` để tránh xóa nhầm dữ liệu.
+         - **22. Sửa dứt điểm lỗi nút `📌 Áp dụng vào cột này` (áp dụng trực tiếp) đặt `clearGoogleSheetOnFinalize = false` (27/11/2026)**:
+           - Trong hàm áp dụng trực tiếp (`Direct apply Google Sheet FB board`), bật `board.clearGoogleSheetOnFinalize = true;` (thay vì `false`) kèm cảnh báo xác nhận nếu hạn nộp của cột đã qua, và bổ sung `Content-Type: text/plain;charset=utf-8` khi gọi `clear_all_links`.
