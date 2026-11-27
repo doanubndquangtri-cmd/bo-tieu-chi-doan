@@ -204,3 +204,6 @@
              + Khi Facebook chuyển hướng hoặc chặn request, hệ thống tự động gọi Meta Embed với User-Agent chuẩn để bóc tách toàn bộ các đoạn văn bản (`<p>`), tên tác giả (chủ tài khoản), hình ảnh đính kèm và ngày tháng đăng bài.
              + Nhận diện chính xác 100% bài viết cá nhân `story.php` (ví dụ link `story_fbid=3675016415996422&id=100004642993109` -> tác giả `Ngọc Khanh`, bài viết `ĐOÀN UBND TỈNH TỔ CHỨC HỘI NGHỊ TẬP HUẤN...`, ngày `23/11/2026`, đạt chuẩn HỢP LỆ).
              + Cập nhật đồng bộ trên cả dự án Bộ Tiêu Chí và backend KINI AI (`origin/main`).
+         - **4. Cân đối lại thanh Tab điều hướng ngang (`.nav-tabs`, `.nav-tab`) trên Desktop/Laptop (27/11/2026)**:
+           - Khắc phục tình trạng 10 tab trên thanh ngang bị tràn mép phải và che mất chữ `🔐 Đổi Mật Khẩu` ở màn hình laptop/desktop.
+           - Tinh gọn nhãn tab hợp lý (giữ nguyên `title` đầy đủ khi di chuột) + dùng CSS responsive `font-size: clamp(12px, 0.88vw, 14px)`, `padding: 0 clamp(6px, 0.68vw, 13px)`, `justify-content: space-between`, `flex-wrap: wrap` trên desktop và giữ nguyên vuốt ngang mượt mà trên mobile (`@media (max-width: 768px)`).

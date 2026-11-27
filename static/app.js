@@ -6299,7 +6299,7 @@ function renderNavTabs() {
 
   if (isAdmin) {
     return `
-      <nav class="nav-tabs" style="scrollbar-width:none !important; -ms-overflow-style:none !important; overflow-x:auto;">
+      <nav class="nav-tabs">
         <div class="nav-tab ${state.activeTab === 'ranking' ? 'active' : ''}" onclick="setTab('ranking')" title="Bảng Xếp Hạng Thi Đua Toàn Khối">
           🏆 Bảng Xếp Hạng
         </div>
@@ -6308,19 +6308,19 @@ function renderNavTabs() {
         </div>
         ${twoReportsTabs}
         <div class="nav-tab ${state.activeTab === 'units' ? 'active' : ''}" onclick="setTab('units')" title="Quản Lý Danh Sách 40 Cơ Sở Đoàn & Tài Khoản">
-          👥 Quản Lý Đơn Vị (${state.units ? state.units.length : 40})
+          👥 Đơn Vị (${state.units ? state.units.length : 40})
         </div>
         <div class="nav-tab ${state.activeTab === 'criteria' ? 'active' : ''}" onclick="setTab('criteria')" title="Quản Lý Bộ Tiêu Chí & Hạn Nộp Chi Tiết">
-          ⚙️ Quản Lý Tiêu Chí (${state.criteria ? state.criteria.length : 127})
+          ⚙️ Tiêu Chí (${state.criteria ? state.criteria.length : 127})
         </div>
         <div class="nav-tab ${state.activeTab === 'admin_docs' ? 'active' : ''}" onclick="setTab('admin_docs')" title="Kho Văn Bản, Chỉ Đạo & Hướng Dẫn">
-          📂 Hệ Thống Văn Bản
+          📂 Văn Bản
         </div>
         <div class="nav-tab ${state.activeTab === 'fb_checker' ? 'active' : ''}" onclick="setTab('fb_checker')" title="Thẩm Định Link Minh Chứng Facebook">
-          🔍 Thẩm Định Link FB
+          🔍 Thẩm Định FB
         </div>
         <div class="nav-tab ${state.activeTab === 'gallery' ? 'active' : ''}" onclick="setTab('gallery')" title="Thư Viện Ảnh Tập Thể & Hoạt Động Đoàn UBND Tỉnh">
-          📸 Bản Tin / Thư Viện Ảnh
+          📸 Bản Tin & Ảnh
         </div>
         <div class="nav-tab ${state.activeTab === 'admin_password' ? 'active' : ''}" onclick="setTab('admin_password')" title="Đổi Mật Khẩu Quản Trị Viên">
           🔐 Đổi Mật Khẩu
@@ -6329,7 +6329,7 @@ function renderNavTabs() {
     `;
   } else if (isGuest) {
     return `
-      <nav class="nav-tabs" style="scrollbar-width:none !important; -ms-overflow-style:none !important; overflow-x:auto;">
+      <nav class="nav-tabs">
         <div class="nav-tab ${state.activeTab === 'ranking' ? 'active' : ''}" onclick="setTab('ranking')">
           🏆 Bảng Xếp Hạng
         </div>
@@ -6337,44 +6337,44 @@ function renderNavTabs() {
           📋 Bảng Tổng Hợp (Chỉ Xem)
         </div>
         ${twoReportsTabs}
-        <div class="nav-tab ${state.activeTab === 'admin_docs' ? 'active' : ''}" onclick="setTab('admin_docs')">
+        <div class="nav-tab ${state.activeTab === 'admin_docs' ? 'active' : ''}" onclick="setTab('admin_docs')" title="Hệ Thống Văn Bản">
           📂 Hệ Thống Văn Bản
         </div>
-        <div class="nav-tab ${state.activeTab === 'fb_checker' ? 'active' : ''}" onclick="setTab('fb_checker')">
+        <div class="nav-tab ${state.activeTab === 'fb_checker' ? 'active' : ''}" onclick="setTab('fb_checker')" title="Thẩm Định Link Minh Chứng Facebook">
           🔍 Thẩm Định Link FB
         </div>
-        <div class="nav-tab ${state.activeTab === 'gallery' ? 'active' : ''}" onclick="setTab('gallery')">
-          📸 Bản Tin / Thư Viện Ảnh
+        <div class="nav-tab ${state.activeTab === 'gallery' ? 'active' : ''}" onclick="setTab('gallery')" title="Bản Tin / Thư Viện Ảnh">
+          📸 Bản Tin & Ảnh
         </div>
       </nav>
     `;
   } else {
     return `
-      <nav class="nav-tabs" style="scrollbar-width:none !important; -ms-overflow-style:none !important; overflow-x:auto;">
+      <nav class="nav-tabs">
         <div class="nav-tab ${state.activeTab === 'ranking' ? 'active' : ''}" onclick="setTab('ranking')">
           🏆 Bảng Xếp Hạng
         </div>
-        <div class="nav-tab ${state.activeTab === 'unit_submit' ? 'active' : ''}" onclick="setTab('unit_submit')">
-          📤 Nộp Báo Cáo & Tiêu Chí
+        <div class="nav-tab ${state.activeTab === 'unit_submit' ? 'active' : ''}" onclick="setTab('unit_submit')" title="Nộp Báo Cáo & Tiêu Chí">
+          📤 Nộp Báo Cáo
         </div>
-        <div class="nav-tab ${state.activeTab === 'master' ? 'active' : ''}" onclick="setTab('master')">
-          📋 Bảng Tổng Hợp Chấm Điểm
+        <div class="nav-tab ${state.activeTab === 'master' ? 'active' : ''}" onclick="setTab('master')" title="Bảng Tổng Hợp Chấm Điểm">
+          📋 Bảng Tổng Hợp
         </div>
         ${twoReportsTabs}
-        <div class="nav-tab ${state.activeTab === 'admin_docs' ? 'active' : ''}" onclick="setTab('admin_docs')">
-          📂 Hệ Thống Văn Bản
+        <div class="nav-tab ${state.activeTab === 'admin_docs' ? 'active' : ''}" onclick="setTab('admin_docs')" title="Hệ Thống Văn Bản">
+          📂 Văn Bản
         </div>
         <div class="nav-tab ${state.activeTab === 'fb_checker' ? 'active' : ''}" onclick="setTab('fb_checker')" title="Kiểm Tra Link Minh Chứng Facebook">
-          🔍 Thẩm Định Link FB
+          🔍 Thẩm Định FB
         </div>
-        <div class="nav-tab ${state.activeTab === 'gallery' ? 'active' : ''}" onclick="setTab('gallery')">
-          📸 Bản Tin / Thư Viện Ảnh
+        <div class="nav-tab ${state.activeTab === 'gallery' ? 'active' : ''}" onclick="setTab('gallery')" title="Bản Tin / Thư Viện Ảnh">
+          📸 Bản Tin & Ảnh
         </div>
-        <div class="nav-tab ${state.activeTab === 'unit_password' ? 'active' : ''}" onclick="setTab('unit_password')">
-          🔐 Đổi Mật Khẩu Đơn Vị
+        <div class="nav-tab ${state.activeTab === 'unit_password' ? 'active' : ''}" onclick="setTab('unit_password')" title="Đổi Mật Khẩu Đơn Vị">
+          🔐 Đổi Mật Khẩu
         </div>
-        <div class="nav-tab ${state.activeTab === 'unit_history' ? 'active' : ''}" onclick="setTab('unit_history')">
-          🕒 Lịch Sử Đã Nộp
+        <div class="nav-tab ${state.activeTab === 'unit_history' ? 'active' : ''}" onclick="setTab('unit_history')" title="Lịch Sử Đã Nộp">
+          🕒 Lịch Sử Nộp
         </div>
       </nav>
     `;
