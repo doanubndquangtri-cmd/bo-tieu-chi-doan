@@ -38238,6 +38238,10 @@ window.testFbCheckerServerConnection = async function () {
 window.updateFbLinksCount = function () {
   const textarea = document.getElementById('fb-links-input');
   const countSpan = document.getElementById('fb-links-count');
+  if (textarea) {
+    state.fbLinksRaw = textarea.value;
+    try { sessionStorage.setItem('btc_fb_links_raw', textarea.value); } catch (_) {}
+  }
   if (textarea && countSpan) {
     const links = textarea.value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
     countSpan.textContent = links.length;
@@ -38246,12 +38250,20 @@ window.updateFbLinksCount = function () {
 
 window.clearFbLinksInput = function () {
   state.fbLinkUnitMap = {};
+  state.fbLinksRaw = '';
+  state.fbCheckerResults = [];
+  try {
+    sessionStorage.removeItem('btc_fb_links_raw');
+    sessionStorage.removeItem('btc_fb_results');
+  } catch (_) {}
   const textarea = document.getElementById('fb-links-input');
   if (textarea) {
     textarea.value = '';
     window.updateFbLinksCount();
   }
   window.updateFbUnitMatchBadge();
+  window.updateFbCheckerCounts();
+  window.renderFbCheckerTable();
 };
 
 window.fillSampleFbLink = function () {
@@ -38835,6 +38847,7 @@ window.runFbCheck = async function () {
               evt.data.unit_id = unitMeta ? unitMeta.unitId : null;
             }
             state.fbCheckerResults.push(evt.data);
+            try { sessionStorage.setItem('btc_fb_results', JSON.stringify(state.fbCheckerResults)); } catch (_) {}
             const pct = Math.round((evt.index / evt.total) * 100);
             if (progText) progText.textContent = `Đã kiểm tra ${evt.index}/${evt.total}: ${evt.data.unit_name || evt.data.account_name || evt.data.url}`;
             if (progPct) progPct.textContent = `${pct}%`;
@@ -39037,8 +39050,28 @@ window.exportFbCheckerExcel = async function () {
 function renderFbCheckerTab() {
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
   const serverUrl = window.getFbCheckerServerUrl();
+  if ((!state.fbCheckerResults || state.fbCheckerResults.length === 0)) {
+    try {
+      const savedRes = sessionStorage.getItem('btc_fb_results');
+      if (savedRes) {
+        const parsedRes = JSON.parse(savedRes);
+        if (Array.isArray(parsedRes)) state.fbCheckerResults = parsedRes;
+      }
+    } catch (_) {}
+  }
+  if (!state.fbLinksRaw) {
+    try { state.fbLinksRaw = sessionStorage.getItem('btc_fb_links_raw') || ''; } catch (_) {}
+  }
+  const savedLinksRaw = state.fbLinksRaw || '';
   const allResults = state.fbCheckerResults || [];
   const currentFilter = state.fbCheckerFilter || 'all';
+  setTimeout(() => {
+    if (typeof window.updateFbLinksCount === 'function') window.updateFbLinksCount();
+    if (typeof window.updateFbUnitMatchBadge === 'function') window.updateFbUnitMatchBadge();
+    if (typeof window.renderFbCheckerTable === 'function' && (state.fbCheckerResults || []).length > 0) {
+      window.renderFbCheckerTable();
+    }
+  }, 0);
 
   return `
     <div class="panel fb-checker-panel" style="${isMobile ? 'display:flex; flex-direction:column; margin-bottom:14px; border-radius:10px; overflow:visible;' : 'display:flex; flex-direction:column; flex:1 1 auto; height:calc(100vh - 128px); min-height:560px; margin-bottom:2px; border-radius:10px; overflow:hidden;'}">
@@ -39096,7 +39129,7 @@ function renderFbCheckerTab() {
                 </button>
               </div>
             </div>
-            <textarea id="fb-links-input" oninput="updateFbLinksCount()" placeholder="Dán 1 hoặc nhiều đường link bài viết Facebook vào đây (mỗi dòng 1 link)...&#10;Ví dụ: https://www.facebook.com/story.php?story_fbid=...&id=...&#10;Hoặc link dạng: https://www.facebook.com/share/p/.../" style="width:100%; height:160px; padding:10px 12px; font-size:12.5px; font-family:monospace; border:1.5px solid #cbd5e1; border-radius:8px; line-height:1.5; resize:vertical; outline:none; box-sizing:border-box; color:#0f172a;"></textarea>
+            <textarea id="fb-links-input" oninput="updateFbLinksCount()" placeholder="Dán 1 hoặc nhiều đường link bài viết Facebook vào đây (mỗi dòng 1 link)...&#10;Ví dụ: https://www.facebook.com/story.php?story_fbid=...&id=...&#10;Hoặc link dạng: https://www.facebook.com/share/p/.../" style="width:100%; height:160px; padding:10px 12px; font-size:12.5px; font-family:monospace; border:1.5px solid #cbd5e1; border-radius:8px; line-height:1.5; resize:vertical; outline:none; box-sizing:border-box; color:#0f172a;">${escapeHtml(savedLinksRaw)}</textarea>
           </div>
 
           <!-- Card 2: Cấu hình Tiêu chí thẩm định -->
