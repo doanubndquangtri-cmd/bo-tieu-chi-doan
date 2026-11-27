@@ -1077,6 +1077,12 @@ const state = {
 
   mobileSearch: '',
 
+  fbSheetData: null,
+  fbSheetLoading: false,
+  fbSheetFilter: 'all',
+  fbSheetExpandedUnits: {},
+  fbSheetViewMode: 'auto', // 'auto' | 'all'
+
   user: null,
 
   settings: {},
@@ -6316,6 +6322,9 @@ function renderNavTabs() {
         <div class="nav-tab ${state.activeTab === 'admin_docs' ? 'active' : ''}" onclick="setTab('admin_docs')" title="Kho Văn Bản, Chỉ Đạo & Hướng Dẫn">
           📂 Văn Bản
         </div>
+        <div class="nav-tab ${state.activeTab === 'fb_checker' ? 'active' : ''}" onclick="setTab('fb_checker')" title="Nộp & Thẩm Định Link Facebook (Đồng bộ Google Sheets)">
+          🔗 Link FB
+        </div>
         <div class="nav-tab ${state.activeTab === 'gallery' ? 'active' : ''}" onclick="setTab('gallery')" title="Thư Viện Ảnh Tập Thể & Hoạt Động Đoàn UBND Tỉnh">
           📸 Bản Tin & Ảnh
         </div>
@@ -6337,6 +6346,9 @@ function renderNavTabs() {
         <div class="nav-tab ${state.activeTab === 'admin_docs' ? 'active' : ''}" onclick="setTab('admin_docs')" title="Hệ Thống Văn Bản">
           📂 Hệ Thống Văn Bản
         </div>
+        <div class="nav-tab ${state.activeTab === 'fb_checker' ? 'active' : ''}" onclick="setTab('fb_checker')" title="Link Facebook Chính Thống">
+          🔗 Link FB
+        </div>
         <div class="nav-tab ${state.activeTab === 'gallery' ? 'active' : ''}" onclick="setTab('gallery')" title="Bản Tin / Thư Viện Ảnh">
           📸 Bản Tin & Ảnh
         </div>
@@ -6357,6 +6369,9 @@ function renderNavTabs() {
         ${twoReportsTabs}
         <div class="nav-tab ${state.activeTab === 'admin_docs' ? 'active' : ''}" onclick="setTab('admin_docs')" title="Hệ Thống Văn Bản">
           📂 Văn Bản
+        </div>
+        <div class="nav-tab ${state.activeTab === 'fb_checker' ? 'active' : ''}" onclick="setTab('fb_checker')" title="Nộp & Kiểm Tra Link Facebook Chính Thống">
+          🔗 Link FB
         </div>
         <div class="nav-tab ${state.activeTab === 'gallery' ? 'active' : ''}" onclick="setTab('gallery')" title="Bản Tin / Thư Viện Ảnh">
           📸 Bản Tin & Ảnh
@@ -6395,13 +6410,16 @@ window.setReportsSubSection = function (mode) {
 
 window.setTab = function (tabId) {
   const isGuest = state.user && state.user.role === 'guest';
-  if (isGuest && tabId !== 'master' && tabId !== 'ranking' && tabId !== 'reports' && tabId !== 'admin_docs' && tabId !== 'donations' && tabId !== 'gallery') {
+  if (isGuest && tabId !== 'master' && tabId !== 'ranking' && tabId !== 'reports' && tabId !== 'admin_docs' && tabId !== 'donations' && tabId !== 'gallery' && tabId !== 'fb_checker') {
     return;
   }
   state.activeTab = tabId;
   state.reportsDropdownOpen = false;
   if (tabId === 'reports' && !state.reportsSubSection) {
     state.reportsSubSection = 'matrix';
+  }
+  if (tabId === 'fb_checker' && !state.fbSheetData && !state.fbSheetLoading && typeof window.fetchFbSheetData === 'function') {
+    window.fetchFbSheetData(true);
   }
   renderApp();
   window.scrollTo(0, 0);
@@ -6411,13 +6429,16 @@ function renderActiveTabContent() {
 
   const isGuest = state.user && state.user.role === 'guest';
 
-  if (isGuest && state.activeTab !== 'master' && state.activeTab !== 'ranking' && state.activeTab !== 'reports' && state.activeTab !== 'admin_docs' && state.activeTab !== 'donations' && state.activeTab !== 'gallery') {
+  if (isGuest && state.activeTab !== 'master' && state.activeTab !== 'ranking' && state.activeTab !== 'reports' && state.activeTab !== 'admin_docs' && state.activeTab !== 'donations' && state.activeTab !== 'gallery' && state.activeTab !== 'fb_checker') {
 
     state.activeTab = 'ranking';
 
   }
 
   switch (state.activeTab) {
+
+    case 'fb_checker':
+      return renderFbSheetHubTab();
 
     case 'gallery':
       return renderPhotoGalleryTab();
@@ -39261,3 +39282,600 @@ function renderFbCheckerTab() {
   `;
 }
 
+
+/* ==========================================================================
+   MODULE TÍCH HỢP GOOGLE SHEETS 2 CHIỀU: NỘP & THẨM ĐỊNH LINK FB CHÍNH THỐNG
+   ========================================================================== */
+const FB_GOOGLE_SHEET_DIRECT_URL = 'https://docs.google.com/spreadsheets/d/1kaGmR3ReyRBKM1Pyd8bnrzEMIR2MXuyDfkZM2CWjh_0/edit';
+
+window.getFbSheetWebAppUrl = function () {
+  if (state.settings && state.settings.fb_sheet_webapp_url && String(state.settings.fb_sheet_webapp_url).trim()) {
+    return String(state.settings.fb_sheet_webapp_url).trim();
+  }
+  const local = (typeof localStorage !== 'undefined' && localStorage.getItem('doan2026_fb_sheet_webapp_url')) || '';
+  return local.trim();
+};
+
+window.saveFbSheetWebAppUrl = async function () {
+  const inp = document.getElementById('cfg-fb-sheet-webapp-url');
+  if (!inp) return;
+  const val = inp.value.trim();
+  if (val && !val.startsWith('https://script.google.com/')) {
+    alert('Đường link Web App phải bắt đầu bằng https://script.google.com/macros/s/.../exec');
+    return;
+  }
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('doan2026_fb_sheet_webapp_url', val);
+  }
+  if (!state.settings) state.settings = {};
+  state.settings.fb_sheet_webapp_url = val;
+
+  // Lưu lên Cloud DB để toàn bộ 40 cơ sở Đoàn dùng chung tự động
+  if (typeof mutateCloudDB === 'function' && state.user && state.user.role === 'admin') {
+    await mutateCloudDB(db => {
+      if (!db.settings) db.settings = {};
+      db.settings.fb_sheet_webapp_url = val;
+    }, 'Cập nhật link Google Sheets Web App thẩm định FB').catch(() => {});
+  }
+
+  if (typeof closeModal === 'function') closeModal();
+  if (typeof showToast === 'function') showToast('✅ Đã lưu kết nối Google Sheet và đồng bộ toàn hệ thống!', 'success');
+  state.fbSheetData = null;
+  if (val) await window.fetchFbSheetData(false);
+  else renderApp();
+};
+
+window.openFbSheetConfigModal = function () {
+  const currentUrl = window.getFbSheetWebAppUrl();
+  const modalRoot = document.getElementById('modal-root');
+  if (!modalRoot) return;
+
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this)closeModal()" style="position:fixed; inset:0; background:rgba(15, 23, 42, 0.22); z-index:9999999; display:flex; align-items:center; justify-content:center; padding:16px; backdrop-filter:none;">
+      <div class="modal-box" style="background:#fff; border-radius:14px; width:100%; max-width:580px; box-shadow:0 20px 40px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.06); overflow:hidden; border:1px solid #cbd5e1; margin:auto;">
+        <div style="background:linear-gradient(135deg, #065f46 0%, #059669 100%); color:#fff; padding:14px 20px; display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-weight:800; font-size:15px; display:flex; align-items:center; gap:8px;">
+            <span>🔌 Kết Nối Google Sheet Thẩm Định FB</span>
+          </div>
+          <button type="button" onclick="closeModal()" style="background:none; border:none; color:#fff; font-size:20px; font-weight:700; cursor:pointer;">✕</button>
+        </div>
+        <div style="padding:18px 22px;">
+          <p style="font-size:13px; color:#334155; margin-bottom:12px; line-height:1.5;">
+            Dán đường link <b>Ứng dụng Web (Web App URL)</b> sau khi anh bấm <b>Triển khai (Deploy)</b> trong Apps Script của Google Sheet. Sau khi Admin lưu 1 lần, toàn bộ 40 cơ sở Đoàn sẽ tự động kết nối được ngay!
+          </p>
+          <div style="margin-bottom:12px;">
+            <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Link Web App (Apps Script):</label>
+            <input type="text" id="cfg-fb-sheet-webapp-url" value="${escapeHtml(currentUrl)}" placeholder="https://script.google.com/macros/s/.../exec" style="width:100%; box-sizing:border-box; padding:9px 12px; font-size:12.5px; border:1.5px solid #cbd5e1; border-radius:7px; font-family:monospace;" />
+          </div>
+          <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:10px 12px; font-size:12px; color:#166534; margin-bottom:16px; line-height:1.55;">
+            <b>Cách lấy link trong 30 giây:</b><br/>
+            1. Mở Google Sheet → <b>Tiện ích → Apps Script</b> (dán mã mới nhất).<br/>
+            2. Bấm nút xanh <b>Triển khai → Tùy chọn triển khai mới</b> → Chọn loại: <b>Ứng dụng web</b>.<br/>
+            3. Thực thi dưới tên: <b>Tôi</b> | Ai có quyền truy cập: <b>Bất kỳ ai</b> → Bấm <b>Triển khai</b> và copy link dán vào ô trên.
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:8px;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal()">Đóng</button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="saveFbSheetWebAppUrl()" style="background:#059669; border-color:#047857; font-weight:700;">💾 Lưu &amp; Đồng Bộ Toàn Khối</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+window.fetchFbSheetData = async function (silent) {
+  const url = window.getFbSheetWebAppUrl();
+  if (!url) {
+    state.fbSheetData = null;
+    state.fbSheetLoading = false;
+    renderApp();
+    return;
+  }
+  state.fbSheetLoading = true;
+  if (!silent) renderApp();
+
+  try {
+    const res = await fetch(url + (url.includes('?') ? '&' : '?') + 't=' + Date.now());
+    const json = await res.json();
+    if (json && json.ok) {
+      state.fbSheetData = json;
+      if (!silent && typeof showToast === 'function') {
+        showToast('✅ Đã đồng bộ dữ liệu mới nhất từ Google Sheet!', 'success');
+      }
+    } else {
+      throw new Error((json && json.error) || 'Không đọc được dữ liệu từ Google Sheet');
+    }
+  } catch (err) {
+    console.error('fetchFbSheetData error:', err);
+    if (!silent && typeof showToast === 'function') {
+      showToast('⚠️ Lỗi kết nối Google Sheet: ' + err.message, 'error');
+    }
+  } finally {
+    state.fbSheetLoading = false;
+    renderApp();
+  }
+};
+
+async function _postFbSheetAction(payloadObj, loadingMsg) {
+  const url = window.getFbSheetWebAppUrl();
+  if (!url) {
+    if (typeof showToast === 'function') showToast('Chưa cấu hình Link Web App Google Sheet!', 'warning');
+    return null;
+  }
+  state.fbSheetLoading = true;
+  if (loadingMsg && typeof showToast === 'function') showToast(loadingMsg, 'info');
+  renderApp();
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      body: JSON.stringify(payloadObj)
+    });
+    const json = await res.json();
+    if (json && json.ok) {
+      state.fbSheetData = json;
+      return json;
+    } else {
+      throw new Error((json && json.error) || 'Lỗi xử lý trên Google Sheet');
+    }
+  } catch (err) {
+    alert('Lỗi khi đồng bộ với Google Sheet: ' + (err.message || err));
+    return null;
+  } finally {
+    state.fbSheetLoading = false;
+    renderApp();
+  }
+}
+
+window.submitFbSheetLinks = async function (unitName, inputId) {
+  const inp = document.getElementById(inputId || 'fb-sheet-unit-links-input');
+  const raw = (inp ? inp.value : '').trim();
+  if (!raw) {
+    if (typeof showToast === 'function') showToast('Vui lòng dán ít nhất 1 đường link Facebook!', 'warning');
+    return;
+  }
+  const links = raw.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+  const validLinks = links.filter(l => /facebook\.com|fb\.com|fb\.watch/i.test(l) || /^https?:\/\//i.test(l));
+  if (validLinks.length === 0) {
+    alert('Không nhận diện được đường link Facebook hợp lệ. Mỗi dòng dán 1 link bắt đầu bằng https://...');
+    return;
+  }
+
+  const out = await _postFbSheetAction(
+    { action: 'submit_links', unitName: unitName, links: validLinks },
+    `⏳ Đang gửi ${validLinks.length} link lên Google Sheet và tự động kiểm tra...`
+  );
+  if (out) {
+    if (inp) inp.value = '';
+    if (typeof showToast === 'function') showToast(`✅ Đã gửi và thẩm định xong ${validLinks.length} link lên Google Sheet!`, 'success');
+  }
+};
+
+window.editFbSheetLink = async function (rowIdx, oldUrl) {
+  const newUrl = prompt('Nhập đường link Facebook mới để thay thế cho dòng này:', oldUrl || '');
+  if (newUrl === null) return;
+  const clean = newUrl.trim();
+  if (!clean) return;
+  const out = await _postFbSheetAction(
+    { action: 'submit_links', rowIdx: rowIdx, url: clean },
+    '⏳ Đang cập nhật link mới và kiểm tra lại...'
+  );
+  if (out && typeof showToast === 'function') {
+    showToast('✅ Đã cập nhật link mới và chấm lại kết quả!', 'success');
+  }
+};
+
+window.deleteFbSheetLink = async function (rowIdx) {
+  if (!confirm('Bạn có chắc muốn xóa đường link này khỏi bảng Google Sheet không?')) return;
+  const out = await _postFbSheetAction(
+    { action: 'delete_link', rowIdx: rowIdx },
+    '⏳ Đang xóa link khỏi Google Sheet...'
+  );
+  if (out && typeof showToast === 'function') {
+    showToast('🗑️ Đã xóa link và cập nhật lại trạng thái trùng tài khoản!', 'success');
+  }
+};
+
+window.openFbSheetExcludedKwModal = async function () {
+  const current = (state.fbSheetData && state.fbSheetData.excludedKeywords) || '';
+  const val = prompt(
+    '⚙️ CÀI ĐẶT TỪ KHÓA CHỐNG DÙNG LẠI LINK BÀI GỐC (CỘT E)\n\n' +
+    'Nhập tên trang/chủ tài khoản bài gốc (nhiều từ khóa cách nhau bằng dấu phẩy).\n' +
+    'Nếu Cột E trùng từ khóa này, Cột G sẽ báo ❌ Không hợp lệ (Dùng lại link bài gốc):',
+    current
+  );
+  if (val === null) return;
+  const out = await _postFbSheetAction(
+    { action: 'set_excluded_keywords', keywords: val.trim() },
+    '⏳ Đang cập nhật từ khóa bài gốc và rà lại kết quả...'
+  );
+  if (out && typeof showToast === 'function') {
+    showToast('✅ Đã cập nhật từ khóa bài gốc lên Google Sheet!', 'success');
+  }
+};
+
+window.triggerFbSheetScan = async function (mode) {
+  const action = mode === 'all' ? 'rescan_all' : 'scan_pending';
+  const msg = mode === 'all'
+    ? '⏳ Đang quét lại toàn bộ link trên Google Sheet (vui lòng đợi giây lát)...'
+    : '⏳ Đang quét các link mới chưa kiểm tra trên Google Sheet...';
+  const out = await _postFbSheetAction({ action }, msg);
+  if (out && typeof showToast === 'function') {
+    showToast('✅ Đã hoàn tất quét và đồng bộ kết quả từ Google Sheet!', 'success');
+  }
+};
+
+window.toggleFbSheetUnitExpand = function (idx) {
+  if (!state.fbSheetExpandedUnits) state.fbSheetExpandedUnits = {};
+  state.fbSheetExpandedUnits[idx] = !state.fbSheetExpandedUnits[idx];
+  renderApp();
+};
+
+window.toggleAllFbSheetUnits = function (expand) {
+  const units = (state.fbSheetData && state.fbSheetData.units) || [];
+  state.fbSheetExpandedUnits = {};
+  if (expand) {
+    units.forEach((_, idx) => { state.fbSheetExpandedUnits[idx] = true; });
+  }
+  renderApp();
+};
+
+window.exportFbSheetExcel = async function () {
+  const units = (state.fbSheetData && state.fbSheetData.units) || [];
+  if (units.length === 0) {
+    if (typeof showToast === 'function') showToast('Chưa có dữ liệu để xuất Excel!', 'warning');
+    return;
+  }
+  if (typeof XLSX === 'undefined' && window.ensureXlsxLoaded) {
+    await window.ensureXlsxLoaded().catch(() => {});
+  }
+  if (typeof XLSX === 'undefined') {
+    alert('Đang tải thư viện Excel, vui lòng thử lại sau 2 giây.');
+    return;
+  }
+  const rows = [
+    [(state.fbSheetData && state.fbSheetData.sheetTitle) || 'BẢNG TỔNG HỢP LINK FACEBOOK CHÍNH THỐNG'],
+    [],
+    ['TT', 'Số link', 'Tổ chức cơ sở Đoàn trực thuộc', 'Đường link Facebook', 'Tên trang cá nhân / Chủ tài khoản', 'Trạng thái hiển thị', 'Kết quả']
+  ];
+  units.forEach(u => {
+    if (!u.links || u.links.length === 0) {
+      rows.push([u.tt, 0, u.unitName, '', '', '', 'Chưa nộp']);
+    } else {
+      u.links.forEach((lk, i) => {
+        rows.push([i === 0 ? u.tt : '', lk.slotNo || (i + 1), i === 0 ? u.unitName : '', lk.url, lk.accountName, lk.visibility, lk.resultText]);
+      });
+    }
+  });
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{ wch: 6 }, { wch: 9 }, { wch: 42 }, { wch: 46 }, { wch: 30 }, { wch: 24 }, { wch: 32 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Link_Facebook');
+  XLSX.writeFile(wb, `Bang_Link_Facebook_Chinh_Thong_${Date.now()}.xlsx`);
+  if (typeof showToast === 'function') showToast('✅ Đã xuất file Excel thành công!', 'success');
+};
+
+function _matchSheetUnitToUser(sheetUnits, userUnitName) {
+  if (!userUnitName || !Array.isArray(sheetUnits)) return null;
+  const cleanUser = String(userUnitName).replace(/\s+/g, ' ').toLowerCase().trim();
+  const exact = sheetUnits.find(u => u.unitName.toLowerCase() === cleanUser);
+  if (exact) return exact;
+  if (typeof matchUnitByName === 'function' && Array.isArray(state.units)) {
+    const userObj = matchUnitByName(userUnitName, state.units);
+    if (userObj && userObj.unit) {
+      for (const su of sheetUnits) {
+        const m = matchUnitByName(su.unitName, state.units);
+        if (m && m.unit && m.unit.id === userObj.unit.id) return su;
+      }
+    }
+  }
+  return sheetUnits.find(u => u.unitName.toLowerCase().includes(cleanUser) || cleanUser.includes(u.unitName.toLowerCase())) || null;
+}
+
+function renderFbSheetHubTab() {
+  const isAdmin = state.user && state.user.role === 'admin';
+  const isUnit = state.user && state.user.role === 'unit';
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
+  const webAppUrl = window.getFbSheetWebAppUrl();
+  const sheetData = state.fbSheetData;
+  const units = (sheetData && sheetData.units) || [];
+
+  let totalLinks = 0, totalValid = 0, totalInvalid = 0, submittedUnits = 0;
+  units.forEach(u => {
+    const lks = u.links || [];
+    if (lks.length > 0) submittedUnits++;
+    totalLinks += lks.length;
+    lks.forEach(l => {
+      if (l.isValid) totalValid++;
+      else if (l.resultText) totalInvalid++;
+    });
+  });
+
+  const mySheetUnit = isUnit ? _matchSheetUnitToUser(units, state.user.unit_name) : null;
+  const showUnitSelfView = isUnit && state.fbSheetViewMode !== 'all';
+
+  return `
+    <div class="panel" style="display:flex; flex-direction:column; margin-bottom:16px; border-radius:12px; overflow:hidden; border:1px solid #cbd5e1; box-shadow:0 4px 16px rgba(15,23,42,0.06);">
+      <!-- Header -->
+      <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; background:linear-gradient(135deg, #065f46 0%, #059669 55%, #0284c7 100%); color:#fff; padding:14px 20px;">
+        <div>
+          <div style="font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px;">
+            <span>🔗 NỘP &amp; THẨM ĐỊNH LINK FACEBOOK CHÍNH THỐNG</span>
+          </div>
+          <div style="font-size:12px; opacity:0.92; margin-top:2px;">
+            ${escapeHtml((sheetData && sheetData.sheetTitle) || 'Đồng bộ trực tiếp 2 chiều với Google Sheet • Tự kiểm tra Công khai, Chủ tài khoản, Trùng lặp &amp; Bài gốc')}
+          </div>
+        </div>
+        <div style="display:flex; gap:7px; align-items:center; flex-wrap:wrap;">
+          ${webAppUrl ? `
+            <button type="button" class="btn btn-sm" onclick="fetchFbSheetData(false)" ${state.fbSheetLoading ? 'disabled' : ''} style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.4); color:#fff; font-weight:700; border-radius:7px; padding:6px 11px; cursor:pointer;">
+              ${state.fbSheetLoading ? '⏳ Đang tải...' : '🔄 Đồng bộ'}
+            </button>
+          ` : ''}
+          ${isAdmin ? `
+            <button type="button" class="btn btn-sm" onclick="openFbSheetExcludedKwModal()" style="background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.35); color:#fff; font-weight:700; border-radius:7px; padding:6px 11px; cursor:pointer;" title="Cài từ khóa tên trang bài gốc cần loại trừ ở Cột E">
+              ⚙️ Từ khóa bài gốc
+            </button>
+            <button type="button" class="btn btn-sm" onclick="triggerFbSheetScan('pending')" ${state.fbSheetLoading || !webAppUrl ? 'disabled' : ''} style="background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.35); color:#fff; font-weight:700; border-radius:7px; padding:6px 11px; cursor:pointer;">
+              🚀 Quét link mới
+            </button>
+            <button type="button" class="btn btn-sm" onclick="triggerFbSheetScan('all')" ${state.fbSheetLoading || !webAppUrl ? 'disabled' : ''} style="background:rgba(255,255,255,0.16); border:1px solid rgba(255,255,255,0.35); color:#fff; font-weight:700; border-radius:7px; padding:6px 11px; cursor:pointer;">
+              🔁 Quét lại tất cả
+            </button>
+            <button type="button" class="btn btn-sm" onclick="openFbSheetConfigModal()" style="background:#fef3c7; border:1px solid #fde68a; color:#92400e; font-weight:800; border-radius:7px; padding:6px 11px; cursor:pointer;">
+              🔌 Kết nối Sheet
+            </button>
+          ` : ''}
+          <button type="button" class="btn btn-sm" onclick="exportFbSheetExcel()" ${units.length === 0 ? 'disabled' : ''} style="background:#ffffff; border:none; color:#065f46; font-weight:800; border-radius:7px; padding:6px 11px; cursor:pointer;">
+            📊 Xuất Excel
+          </button>
+          <a href="${FB_GOOGLE_SHEET_DIRECT_URL}" target="_blank" rel="noopener" style="background:rgba(15,23,42,0.28); border:1px solid rgba(255,255,255,0.35); color:#fff; font-size:12px; font-weight:700; border-radius:7px; padding:6px 11px; text-decoration:none;">
+            📄 Mở Sheet gốc ↗
+          </a>
+        </div>
+      </div>
+
+      <div class="panel-body" style="padding:${isMobile ? '12px' : '16px 20px'}; background:#f8fafc;">
+        ${!webAppUrl ? `
+          <div style="background:#fff; border:1.5px dashed #10b981; border-radius:12px; padding:28px 20px; text-align:center;">
+            <div style="font-size:34px; margin-bottom:8px;">🔌</div>
+            <div style="font-size:16px; font-weight:800; color:#065f46; margin-bottom:6px;">Chưa gắn Link Web App của Google Sheet</div>
+            <p style="font-size:13.5px; color:#475569; max-width:560px; margin:0 auto 14px auto; line-height:1.5;">
+              ${isAdmin
+                ? 'Anh bấm nút <b>🔌 Kết nối Sheet</b> ở góc trên, dán đường link Ứng dụng Web (Apps Script) vào để kích hoạt đồng bộ 2 chiều cho cả 40 cơ sở Đoàn.'
+                : 'Quản trị viên đang hoàn tất kết nối với bảng Google Sheet. Trong lúc chờ, anh/chị có thể bấm nút <b>📄 Mở Sheet gốc</b> ở góc trên.'}
+            </p>
+            ${isAdmin ? `<button type="button" class="btn btn-primary" onclick="openFbSheetConfigModal()" style="background:#059669; border:none; padding:9px 18px; border-radius:8px; font-weight:700;">🔌 Kết Nối Google Sheet Ngay</button>` : ''}
+          </div>
+        ` : (state.fbSheetLoading && !sheetData) ? `
+          <div style="background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:36px 20px; text-align:center; color:#475569;">
+            <div style="font-size:28px; margin-bottom:8px;">⏳</div>
+            <div style="font-weight:700;">Đang tải dữ liệu trực tiếp từ Google Sheet...</div>
+          </div>
+        ` : `
+          ${isUnit ? `
+            <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
+              <button type="button" onclick="state.fbSheetViewMode='auto'; renderApp();" style="padding:7px 14px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; border:1px solid ${showUnitSelfView ? '#059669' : '#cbd5e1'}; background:${showUnitSelfView ? '#059669' : '#fff'}; color:${showUnitSelfView ? '#fff' : '#334155'};">
+                📤 Nộp &amp; Xem Link Của Đơn Vị
+              </button>
+              <button type="button" onclick="state.fbSheetViewMode='all'; renderApp();" style="padding:7px 14px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; border:1px solid ${!showUnitSelfView ? '#0284c7' : '#cbd5e1'}; background:${!showUnitSelfView ? '#0284c7' : '#fff'}; color:${!showUnitSelfView ? '#fff' : '#334155'};">
+                📋 Xem Tổng Hợp 40 Đơn Vị (${totalLinks} link)
+              </button>
+            </div>
+          ` : ''}
+
+          ${showUnitSelfView && mySheetUnit ? (() => {
+            const myLinks = mySheetUnit.links || [];
+            const myValid = myLinks.filter(l => l.isValid).length;
+            const myInvalid = myLinks.filter(l => !l.isValid && l.resultText).length;
+            return `
+              <!-- Giao diện riêng siêu dễ nhập & dễ xem cho từng Cơ sở Đoàn -->
+              <div style="background:#fff; border:1.5px solid #a7f3d0; border-radius:12px; padding:16px; margin-bottom:14px; box-shadow:0 2px 8px rgba(5,150,105,0.06);">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px; border-bottom:1px solid #e2e8f0; padding-bottom:10px;">
+                  <div>
+                    <div style="font-size:12px; font-weight:700; color:#059669; text-transform:uppercase;">Đơn vị của bạn</div>
+                    <div style="font-size:16px; font-weight:800; color:#0f172a;">🏢 ${escapeHtml(mySheetUnit.unitName)}</div>
+                  </div>
+                  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <span style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:700;">Đã nộp: ${myLinks.length}</span>
+                    <span style="background:#dcfce7; color:#15803d; border:1px solid #86efac; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:700;">✅ Hợp lệ: ${myValid}</span>
+                    <span style="background:#fee2e2; color:#b91c1c; border:1px solid #fecaca; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:700;">❌ Không hợp lệ: ${myInvalid}</span>
+                  </div>
+                </div>
+
+                <label style="display:block; font-size:13px; font-weight:700; color:#1e293b; margin-bottom:6px;">
+                  Dán 1 hoặc nhiều đường link bài viết Facebook chia sẻ (mỗi dòng 1 link):
+                </label>
+                <textarea id="fb-sheet-unit-links-input" rows="4" placeholder="Dán các đường link Facebook vào đây (mỗi dòng 1 link)...&#10;Hệ thống sẽ tự động ghi lên Google Sheet và kiểm tra Công khai, Chủ tài khoản, Trùng lặp ngay lập tức!" style="width:100%; box-sizing:border-box; padding:10px 12px; font-size:13px; font-family:monospace; border:1.5px solid #cbd5e1; border-radius:8px; margin-bottom:10px; resize:vertical;"></textarea>
+                <div style="display:flex; justify-content:flex-end;">
+                  <button type="button" onclick="submitFbSheetLinks('${escapeHtml(mySheetUnit.unitName)}', 'fb-sheet-unit-links-input')" ${state.fbSheetLoading ? 'disabled' : ''} style="background:linear-gradient(135deg, #059669, #0d9488); color:#fff; border:none; padding:9px 18px; border-radius:8px; font-size:13.5px; font-weight:800; cursor:pointer; box-shadow:0 3px 10px rgba(5,150,105,0.28);">
+                    ${state.fbSheetLoading ? '⏳ Đang gửi &amp; kiểm tra...' : '🚀 Gửi &amp; Kiểm Tra Link Ngay'}
+                  </button>
+                </div>
+              </div>
+
+              <!-- Bảng link đã nộp của đơn vị -->
+              <div style="background:#fff; border:1px solid #cbd5e1; border-radius:12px; overflow:hidden;">
+                <div style="padding:12px 16px; background:#f1f5f9; border-bottom:1px solid #cbd5e1; font-weight:800; font-size:13.5px; color:#0f172a;">
+                  📋 Danh Sách Link Đã Nộp (${myLinks.length} link)
+                </div>
+                <div style="overflow-x:auto;">
+                  <table class="table" style="width:100%; border-collapse:collapse; font-size:13px;">
+                    <thead>
+                      <tr style="background:#f8fafc; border-bottom:1.5px solid #cbd5e1;">
+                        <th style="width:50px; text-align:center;">STT</th>
+                        <th style="min-width:240px;">Link bài viết Facebook</th>
+                        <th style="min-width:190px;">Tên trang / Chủ tài khoản (Cột E)</th>
+                        <th style="width:140px; text-align:center;">Trạng thái (Cột F)</th>
+                        <th style="min-width:200px; text-align:center;">Kết quả (Cột G)</th>
+                        <th style="width:120px; text-align:center;">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${myLinks.length === 0 ? `
+                        <tr><td colspan="6" style="text-align:center; padding:30px; color:#94a3b8; font-style:italic;">Đơn vị chưa nộp link nào. Hãy dán link ở khung trên để nộp ngay!</td></tr>
+                      ` : myLinks.map((lk, idx) => `
+                        <tr style="border-bottom:1px solid #f1f5f9;">
+                          <td style="text-align:center; font-weight:700; color:#64748b;">${idx + 1}</td>
+                          <td style="max-width:280px; word-break:break-all;"><a href="${escapeHtml(lk.url)}" target="_blank" rel="noopener" style="color:#0284c7; font-weight:600; text-decoration:none;">${escapeHtml(lk.url)}</a></td>
+                          <td style="font-weight:700; color:#0f172a;">${escapeHtml(lk.accountName || '—')}</td>
+                          <td style="text-align:center;">
+                            <span style="display:inline-block; padding:3px 9px; border-radius:12px; font-size:11.5px; font-weight:700; background:${lk.visibility === 'Công khai' ? '#dcfce7' : '#fef3c7'}; color:${lk.visibility === 'Công khai' ? '#15803d' : '#b45309'};">${escapeHtml(lk.visibility || 'Chờ quét')}</span>
+                          </td>
+                          <td style="text-align:center;">
+                            <span style="display:inline-block; padding:4px 10px; border-radius:8px; font-size:12px; font-weight:700; background:${lk.isValid ? '#dcfce7' : '#fee2e2'}; color:${lk.isValid ? '#15803d' : '#b91c1c'};">${escapeHtml(lk.resultText || 'Chưa kiểm tra')}</span>
+                          </td>
+                          <td style="text-align:center; white-space:nowrap;">
+                            <button type="button" onclick="editFbSheetLink(${lk.rowIdx}, '${escapeHtml(lk.url)}')" style="border:1px solid #cbd5e1; background:#fff; border-radius:6px; padding:4px 8px; font-size:11.5px; font-weight:700; cursor:pointer; margin-right:4px;" title="Sửa/thay link khác">✏️</button>
+                            <button type="button" onclick="deleteFbSheetLink(${lk.rowIdx})" style="border:1px solid #fecaca; background:#fff1f2; color:#dc2626; border-radius:6px; padding:4px 8px; font-size:11.5px; font-weight:700; cursor:pointer;" title="Xóa link này">🗑️</button>
+                          </td>
+                        </tr>
+                      `).join('')}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            `;
+          })() : (() => {
+            // Chế độ Tổng hợp toàn khối 40 đơn vị (Admin / Khách / Đơn vị xem chung)
+            const q = (state.fbSheetSearch || '').trim().toLowerCase();
+            const fMode = state.fbSheetFilter || 'all';
+            const filteredUnits = units.filter(u => {
+              const lks = u.links || [];
+              const inv = lks.filter(l => !l.isValid && l.resultText).length;
+              if (fMode === 'submitted' && lks.length === 0) return false;
+              if (fMode === 'invalid' && inv === 0) return false;
+              if (fMode === 'empty' && lks.length > 0) return false;
+              if (q) {
+                const hay = (u.unitName + ' ' + lks.map(l => l.accountName + ' ' + l.url).join(' ')).toLowerCase();
+                if (!hay.includes(q)) return false;
+              }
+              return true;
+            });
+
+            return `
+              <!-- 4 Thẻ thống kê nhanh -->
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:10px; margin-bottom:14px;">
+                <div style="background:#fff; border:1px solid #cbd5e1; border-radius:10px; padding:12px 14px;">
+                  <div style="font-size:12px; color:#64748b; font-weight:700;">Đơn vị đã nộp</div>
+                  <div style="font-size:22px; font-weight:800; color:#0f172a; margin-top:2px;">${submittedUnits} / ${units.length}</div>
+                </div>
+                <div style="background:#fff; border:1px solid #bfdbfe; border-radius:10px; padding:12px 14px;">
+                  <div style="font-size:12px; color:#1d4ed8; font-weight:700;">Tổng số link</div>
+                  <div style="font-size:22px; font-weight:800; color:#1d4ed8; margin-top:2px;">${totalLinks}</div>
+                </div>
+                <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:10px; padding:12px 14px;">
+                  <div style="font-size:12px; color:#15803d; font-weight:700;">✅ Link Hợp lệ</div>
+                  <div style="font-size:22px; font-weight:800; color:#15803d; margin-top:2px;">${totalValid}</div>
+                </div>
+                <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:10px; padding:12px 14px;">
+                  <div style="font-size:12px; color:#b91c1c; font-weight:700;">❌ Không hợp lệ</div>
+                  <div style="font-size:22px; font-weight:800; color:#b91c1c; margin-top:2px;">${totalInvalid}</div>
+                </div>
+              </div>
+
+              <!-- Thanh lọc & tìm kiếm -->
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                  ${[
+                    { id: 'all', label: `Tất cả (${units.length})`, bg: '#0284c7' },
+                    { id: 'submitted', label: `Đã nộp (${submittedUnits})`, bg: '#059669' },
+                    { id: 'invalid', label: 'Có link lỗi/trùng', bg: '#dc2626' },
+                    { id: 'empty', label: `Chưa nộp (${units.length - submittedUnits})`, bg: '#64748b' }
+                  ].map(p => `
+                    <button type="button" onclick="state.fbSheetFilter='${p.id}'; renderApp();" style="padding:6px 12px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer; border:1px solid ${fMode === p.id ? p.bg : '#cbd5e1'}; background:${fMode === p.id ? p.bg : '#fff'}; color:${fMode === p.id ? '#fff' : '#334155'};">${p.label}</button>
+                  `).join('')}
+                  <button type="button" onclick="toggleAllFbSheetUnits(true)" style="padding:6px 10px; border-radius:8px; font-size:12px; font-weight:700; border:1px solid #cbd5e1; background:#fff; color:#334155; cursor:pointer;">👁️ Mở hết</button>
+                  <button type="button" onclick="toggleAllFbSheetUnits(false)" style="padding:6px 10px; border-radius:8px; font-size:12px; font-weight:700; border:1px solid #cbd5e1; background:#fff; color:#334155; cursor:pointer;">🔼 Thu gọn</button>
+                </div>
+                <input type="text" value="${escapeHtml(state.fbSheetSearch || '')}" oninput="state.fbSheetSearch=this.value; renderApp();" placeholder="🔍 Tìm tên đơn vị hoặc chủ tài khoản FB..." style="padding:7px 12px; font-size:12.5px; border:1.5px solid #cbd5e1; border-radius:7px; width:270px; max-width:100%; background:#fff;" />
+              </div>
+
+              <!-- Bảng Tổng Hợp 40 Đơn Vị -->
+              <div style="background:#fff; border:1.5px solid #cbd5e1; border-radius:10px; overflow-x:auto;">
+                <table class="table" style="width:100%; border-collapse:collapse; font-size:13px;">
+                  <thead>
+                    <tr style="background:#f1f5f9; border-bottom:2px solid #cbd5e1;">
+                      <th style="width:45px; text-align:center;">TT</th>
+                      <th style="min-width:250px;">Tổ chức cơ sở Đoàn trực thuộc</th>
+                      <th style="width:95px; text-align:center;">Số link</th>
+                      <th style="width:95px; text-align:center;">✅ Hợp lệ</th>
+                      <th style="width:110px; text-align:center;">❌ Lỗi / Trùng</th>
+                      <th style="width:130px; text-align:center;">Chi tiết</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${filteredUnits.map((u, idx) => {
+                      const origIdx = units.indexOf(u);
+                      const lks = u.links || [];
+                      const vCnt = lks.filter(l => l.isValid).length;
+                      const invCnt = lks.filter(l => !l.isValid && l.resultText).length;
+                      const isExp = Boolean(state.fbSheetExpandedUnits && state.fbSheetExpandedUnits[origIdx]);
+                      return `
+                        <tr onclick="toggleFbSheetUnitExpand(${origIdx})" style="border-bottom:1px solid #e2e8f0; cursor:pointer; background:${isExp ? '#f0f9ff' : '#fff'};">
+                          <td style="text-align:center; font-weight:700; color:#64748b;">${escapeHtml(u.tt || (idx + 1))}</td>
+                          <td style="font-weight:700; color:#0f172a;">${escapeHtml(u.unitName)}</td>
+                          <td style="text-align:center; font-weight:800; color:#1d4ed8;">${lks.length}</td>
+                          <td style="text-align:center; font-weight:800; color:#15803d;">${vCnt}</td>
+                          <td style="text-align:center; font-weight:800; color:${invCnt > 0 ? '#dc2626' : '#94a3b8'};">${invCnt}</td>
+                          <td style="text-align:center;">
+                            <span style="display:inline-block; padding:3px 9px; border-radius:6px; font-size:11.5px; font-weight:700; background:#e0f2fe; color:#0369a1;">${isExp ? '🔼 Thu gọn' : '👁️ Xem link'}</span>
+                          </td>
+                        </tr>
+                        ${isExp ? `
+                          <tr>
+                            <td colspan="6" style="background:#f8fafc; padding:12px 16px; border-bottom:2px solid #cbd5e1;">
+                              ${isAdmin ? `
+                                <div style="display:flex; gap:8px; margin-bottom:10px; align-items:center; flex-wrap:wrap;">
+                                  <input type="text" id="admin-add-link-${origIdx}" placeholder="Admin dán nhanh link bổ sung cho đơn vị này..." style="flex:1; min-width:220px; padding:6px 10px; font-size:12.5px; border:1px solid #cbd5e1; border-radius:6px;" onclick="event.stopPropagation()" />
+                                  <button type="button" onclick="event.stopPropagation(); submitFbSheetLinks('${escapeHtml(u.unitName)}', 'admin-add-link-${origIdx}')" style="background:#059669; color:#fff; border:none; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">➕ Thêm &amp; Quét</button>
+                                </div>
+                              ` : ''}
+                              ${lks.length === 0 ? `<div style="color:#94a3b8; font-style:italic; font-size:12.5px;">Đơn vị chưa có đường link nào.</div>` : `
+                                <table style="width:100%; border-collapse:collapse; font-size:12.5px; background:#fff; border:1px solid #e2e8f0; border-radius:6px;">
+                                  <thead>
+                                    <tr style="background:#f1f5f9; border-bottom:1px solid #cbd5e1;">
+                                      <th style="width:45px; text-align:center; padding:6px;">STT</th>
+                                      <th style="padding:6px;">Link Facebook</th>
+                                      <th style="padding:6px;">Tên trang / Chủ tài khoản (Cột E)</th>
+                                      <th style="padding:6px; text-align:center;">Trạng thái (Cột F)</th>
+                                      <th style="padding:6px; text-align:center;">Kết quả (Cột G)</th>
+                                      ${isAdmin ? '<th style="width:85px; text-align:center; padding:6px;">Sửa/Xóa</th>' : ''}
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    ${lks.map((lk, li) => `
+                                      <tr style="border-bottom:1px solid #f1f5f9;">
+                                        <td style="text-align:center; padding:6px; color:#64748b; font-weight:700;">${li + 1}</td>
+                                        <td style="padding:6px; max-width:250px; word-break:break-all;"><a href="${escapeHtml(lk.url)}" target="_blank" rel="noopener" style="color:#0284c7; font-weight:600; text-decoration:none;">${escapeHtml(lk.url)}</a></td>
+                                        <td style="padding:6px; font-weight:700; color:#0f172a;">${escapeHtml(lk.accountName || '—')}</td>
+                                        <td style="padding:6px; text-align:center;">${escapeHtml(lk.visibility || 'Chờ quét')}</td>
+                                        <td style="padding:6px; text-align:center;">
+                                          <span style="display:inline-block; padding:2px 8px; border-radius:6px; font-weight:700; background:${lk.isValid ? '#dcfce7' : '#fee2e2'}; color:${lk.isValid ? '#15803d' : '#b91c1c'};">${escapeHtml(lk.resultText || 'Chưa quét')}</span>
+                                        </td>
+                                        ${isAdmin ? `
+                                          <td style="padding:6px; text-align:center; white-space:nowrap;">
+                                            <button type="button" onclick="event.stopPropagation(); editFbSheetLink(${lk.rowIdx}, '${escapeHtml(lk.url)}')" style="border:1px solid #cbd5e1; background:#fff; border-radius:5px; padding:2px 6px; cursor:pointer;">✏️</button>
+                                            <button type="button" onclick="event.stopPropagation(); deleteFbSheetLink(${lk.rowIdx})" style="border:1px solid #fecaca; background:#fff1f2; color:#dc2626; border-radius:5px; padding:2px 6px; cursor:pointer;">🗑️</button>
+                                          </td>
+                                        ` : ''}
+                                      </tr>
+                                    `).join('')}
+                                  </tbody>
+                                </table>
+                              `}
+                            </td>
+                          </tr>
+                        ` : ''}
+                      `;
+                    }).join('')}
+                  </tbody>
+                </table>
+              </div>
+            `;
+          })()}
+        `}
+      </div>
+    </div>
+  `;
+}

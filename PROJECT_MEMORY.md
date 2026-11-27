@@ -213,3 +213,7 @@
            - Bổ sung cột **`Cơ sở Đoàn`** vào Bảng Kết Quả Thẩm Định, bộ lọc tìm kiếm nhanh, nút Copy Bảng và file Excel `.xlsx` xuất ra.
          - **6. Gỡ bỏ tab `🔍 Thẩm Định FB` khỏi thanh điều hướng (27/11/2026)**:
            - Theo yêu cầu của người dùng, gỡ bỏ nút tab `🔍 Thẩm Định FB` ở cả 3 vai trò (Admin, Guest, Unit) và loại bỏ điều hướng `fb_checker` trong `app.js`, giữ nguyên 100% toàn bộ các tính năng còn lại.
+         - **7. Tích hợp đồng bộ 2 chiều trực tiếp với Google Sheets vào tab `🔗 Link FB` (27/11/2026)**:
+           - Nâng cấp `google_sheets_fb_auto.gs` thành Web App API (`doGet` / `doPost`) đọc/ghi trực tiếp 40 đơn vị, giữ nguyên tự động quét Cột E, F, G, chống dùng lại link bài gốc và chống trùng tài khoản.
+           - Xây dựng `renderFbSheetHubTab()` trong `app.js`: giao diện riêng siêu trực quan cho từng Cơ sở Đoàn (tự nhận diện đúng đơn vị, dán nhiều link cùng lúc, sửa/xóa link nếu bị lỗi/trùng) và bảng tổng hợp 40 đơn vị cho Admin (thống kê, lọc nhanh, mở rộng từng đơn vị, cấu hình từ khóa bài gốc, xuất Excel, mở Sheet gốc).
+           - Lưu `fb_sheet_webapp_url` lên `cloud_db.json` (`db.settings`) để Admin cấu hình 1 lần là toàn bộ 40 đơn vị tự động kết nối dùng chung.
