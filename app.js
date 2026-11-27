@@ -40275,12 +40275,14 @@ function renderFbSheetHubTab() {
                             const isLastOfUnit = lIdx === displayRows.length - 1;
                             return `
                               <tr style="border-bottom:${isLastOfUnit ? '1.5px solid #94a3b8' : '1px solid #f1f5f9'}; background:${hasUrl ? (lIdx % 2 === 0 ? '#ffffff' : '#f8fafc') : '#fefce8'};">
-                                ${lIdx === 0 ? `<td rowspan="${rowSpan}" style="text-align:center; font-weight:800; color:#0f172a; vertical-align:middle; background:#f8fafc; border-right:1px solid #cbd5e1;">${escapeHtml(u.tt || (uIdx + 1))}</td>` : ''}
+                                ${lIdx === 0 ? `<td rowspan="${rowSpan}" style="vertical-align:top; background:#f8fafc; border-right:1px solid #cbd5e1; padding:0;"><div style="position:sticky; top:46px; padding:12px 4px; text-align:center; font-weight:800; font-size:14px; color:#0f172a;">${escapeHtml(u.tt || (uIdx + 1))}</div></td>` : ''}
                                 <td style="text-align:center; font-weight:700; color:${hasUrl ? '#0f172a' : '#64748b'}; border-right:1px solid #e2e8f0;">${escapeHtml(lk.slotNo || (lIdx + 1))}</td>
                                 ${lIdx === 0 ? `
-                                  <td rowspan="${rowSpan}" style="font-weight:700; color:#065f46; vertical-align:middle; background:#f0fdf4; border-right:1px solid #bbf7d0; padding:8px;">
-                                    <div>${escapeHtml(u.unitName)}</div>
-                                    <div style="font-size:11px; color:#047857; font-weight:600; margin-top:3px;">(${lks.length}/${rowSpan} link)</div>
+                                  <td rowspan="${rowSpan}" style="vertical-align:top; background:#f0fdf4; border-right:1px solid #bbf7d0; padding:0;">
+                                    <div style="position:sticky; top:46px; padding:14px 10px; text-align:center;">
+                                      <div style="font-size:14.5px; font-weight:800; color:#065f46; line-height:1.4;">${escapeHtml(u.unitName)}</div>
+                                      <div style="display:inline-block; margin-top:7px; padding:3px 10px; border-radius:14px; font-size:12.5px; font-weight:800; background:${lks.length > 0 ? '#dcfce7' : '#fef9c3'}; color:${lks.length > 0 ? '#15803d' : '#854d0e'}; border:1px solid ${lks.length > 0 ? '#86efac' : '#fde047'};">(${lks.length}/${rowSpan} link)</div>
+                                    </div>
                                   </td>
                                 ` : ''}
                                 ${hasUrl ? `
@@ -40304,7 +40306,7 @@ function renderFbSheetHubTab() {
                                     ` : '<span style="font-style:italic;">(Chưa nhập link)</span>'}
                                   </td>
                                 `}
-                                ${lIdx === 0 ? `<td rowspan="${rowSpan}" style="text-align:center; font-weight:800; font-size:13.5px; color:#1d4ed8; vertical-align:middle; background:#eff6ff; border-right:1px solid #e2e8f0;">${escapeHtml(String(unitScore))}</td>` : ''}
+                                ${lIdx === 0 ? `<td rowspan="${rowSpan}" style="vertical-align:top; background:#eff6ff; border-right:1px solid #e2e8f0; padding:0;"><div style="position:sticky; top:46px; padding:12px 4px; text-align:center; font-weight:800; font-size:15px; color:#1d4ed8;">${escapeHtml(String(unitScore))}</div></td>` : ''}
                                 ${isAdmin ? `
                                   <td style="text-align:center; white-space:nowrap; padding:4px;">
                                     ${hasUrl ? `

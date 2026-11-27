@@ -280,3 +280,5 @@
          - **23. Cố định phần Thống kê, Bộ lọc & Tiêu đề 2 bảng trong tab `Link FB` khi cuộn xuống (27/11/2026)**:
            - Trên Desktop, khóa cố định 4 thẻ thống kê nhanh, thanh lọc/tìm kiếm và phần tiêu đề của cả Bảng Link (`#fb-left-table-wrap`) lẫn `🏆 BẢNG ĐIỂM AI CHẤM` (`#fb-right-board-wrap`) bằng `position: sticky; top: 0;` và cuộn độc lập phần nội dung 2 bảng bên dưới.
            - Cập nhật `_renderAppPreservingFbScroll` lưu và khôi phục vị trí cuộn của cả 2 khung bảng khi đồng bộ ngầm.
+         - **24. Phóng to cân đối & ghim dính (sticky) tên Cơ sở Đoàn, số link và điểm theo khung cuộn (27/11/2026)**:
+           - Trong bảng Kiểu Google Sheet của tab `Link FB`, tăng cỡ chữ tên cơ sở Đoàn lên `14.5px` đậm nét, căn giữa kèm pill nổi bật `(x/N link)`, đồng thời dùng `position: sticky; top: 46px;` cho 3 ô gộp dòng (`TT`, `Tổ chức cơ sở Đoàn trực thuộc`, `ĐIỂM`) để khi cuộn qua các đơn vị dài 20–30 dòng luôn nhìn rõ tên đơn vị và điểm.
