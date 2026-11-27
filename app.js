@@ -5874,6 +5874,7 @@ function renderHeader() {
           <div style="display:inline-flex; align-items:center; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.22); border-radius:7px; height:30px; padding:0 3px; gap:1px;" title="Giao diện Sáng/Tối &amp; Cỡ chữ">
             <button type="button" class="btn btn-sm" onclick="toggleAppDarkMode()" title="Chuyển chế độ Sáng / Tối" style="border:none; background:transparent; color:#fde047; font-size:13px; padding:0 6px; height:100%; cursor:pointer;">${localStorage.getItem('btc_theme') === 'dark' ? '☀️' : '🌙'}</button>
             <button type="button" class="btn btn-sm" onclick="adjustAppFontScale(-1)" title="Giảm cỡ chữ" style="border:none; border-left:1px solid rgba(255,255,255,0.18); background:transparent; color:#f8fafc; font-size:11px; font-weight:800; padding:0 5px; height:100%; cursor:pointer;">A-</button>
+            <span style="font-size:10px; font-weight:700; color:#cbd5e1; padding:0 3px; user-select:none;">${({ sm: '90%', md: '100%', lg: '110%', xl: '120%' })[document.documentElement.getAttribute('data-font-scale') || 'md'] || '100%'}</span>
             <button type="button" class="btn btn-sm" onclick="adjustAppFontScale(1)" title="Tăng cỡ chữ" style="border:none; border-left:1px solid rgba(255,255,255,0.18); background:transparent; color:#f8fafc; font-size:11.5px; font-weight:800; padding:0 5px; height:100%; cursor:pointer;">A+</button>
           </div>
 
@@ -11339,16 +11340,16 @@ function renderReportsLogTableComponent(filteredLogs, activeUnits) {
         </div>
       </div>
       <div class="panel-body reports-log-container" style="flex:1 1 auto; min-height:480px; height:calc(100vh - 185px); padding:0; overflow:auto !important;">
-        <table class="data-table">
+        <table class="data-table" style="width:100%; table-layout:auto;">
           <thead style="position:sticky; top:0; z-index:20; background:#f8fafc; box-shadow:0 1px 2px rgba(0,0,0,0.08);">
             <tr>
-              <th style="position:sticky; top:0; background:#f8fafc; width:130px;">Thời gian nộp</th>
-              <th style="position:sticky; top:0; background:#f8fafc; width:220px;">Đơn vị</th>
-              <th style="position:sticky; top:0; background:#f8fafc; min-width:240px;">Tiêu chí</th>
-              <th style="position:sticky; top:0; background:#f8fafc; width:120px;">Ngày nộp / Hạn chót</th>
-              <th style="position:sticky; top:0; background:#f8fafc; width:100px; text-align:center;">Trạng thái</th>
-              <th style="position:sticky; top:0; background:#f8fafc; width:90px; text-align:center;">Điểm cộng</th>
-              <th style="position:sticky; top:0; background:#f8fafc; min-width:200px;">Nội dung & File đính kèm</th>
+              <th style="position:sticky; top:0; background:#f8fafc; width:105px;">Thời gian</th>
+              <th style="position:sticky; top:0; background:#f8fafc; width:185px;">Đơn vị</th>
+              <th style="position:sticky; top:0; background:#f8fafc; min-width:190px;">Tiêu chí</th>
+              <th style="position:sticky; top:0; background:#f8fafc; width:105px;">Ngày nộp / Hạn</th>
+              <th style="position:sticky; top:0; background:#f8fafc; width:95px; text-align:center;">Trạng thái</th>
+              <th style="position:sticky; top:0; background:#f8fafc; width:68px; text-align:center;">Điểm</th>
+              <th style="position:sticky; top:0; background:#f8fafc; width:235px; max-width:250px;">Nội dung & File đính kèm</th>
             </tr>
           </thead>
           <tbody>
@@ -42033,10 +42034,6 @@ window.adjustAppFontScale = function (delta) {
   document.documentElement.setAttribute('data-font-scale', next);
   try { localStorage.setItem('btc_font_scale', next); } catch (_) {}
   renderApp();
-  if (typeof showToast === 'function') {
-    const labels = { sm: 'Nhỏ (90%)', md: 'Chuẩn (100%)', lg: 'Lớn (110%)', xl: 'Rất lớn (120%)' };
-    showToast(`🔠 Cỡ chữ: ${labels[next]}`, 'info');
-  }
 };
 
 window.toggleFbSheetToolsMenu = function (btnEl, ev, isAdmin, unitCount) {

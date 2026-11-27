@@ -6185,3 +6185,28 @@ html[data-theme="dark"] table th {
 html[data-theme="dark"] table td {
   border-color: #334155 !important;
 }
+
+html[data-theme="dark"] .panel-body div[style*="background:#fff"],
+html[data-theme="dark"] .panel-body div[style*="background:#ffffff"],
+html[data-theme="dark"] .panel-body div[style*="background:#f8fafc"],
+html[data-theme="dark"] .panel-body tr[style*="background:#fff"],
+html[data-theme="dark"] .panel-body tr[style*="background:#ffffff"],
+html[data-theme="dark"] .panel-body tr[style*="background:#f8fafc"] {
+  background: #1e293b !important;
+  color: #e2e8f0 !important;
+}
+html[data-theme="dark"] .panel-body td[style*="background:#f0fdf4"],
+html[data-theme="dark"] .panel-body td[style*="background:#f8fafc"],
+html[data-theme="dark"] .panel-body td[style*="background:#eff6ff"],
+html[data-theme="dark"] .panel-body tr[style*="background:#fefce8"] {
+  background: #0f172a !important;
+  color: #e2e8f0 !important;
+}
+html[data-theme="dark"] .panel-body [style*="color:#0f172a"],
+html[data-theme="dark"] .panel-body [style*="color:#1e293b"],
+html[data-theme="dark"] .panel-body [style*="color:#334155"] {
+  color: #e2e8f0 !important;
+}
+html[data-theme="dark"] .panel-body [style*="color:#065f46"] {
+  color: #34d399 !important;
+}

@@ -290,3 +290,7 @@
          - **26. Sửa triệt để nút Cỡ chữ (`A-/A+`) & lỗi tràn tên file dài ở Nhật Ký Minh Chứng (27/11/2026)**:
            - Sửa `data-font-scale` trong `styles.css` dùng `zoom` tỷ lệ thực (`0.90`, `1.00`, `1.10`, `1.20`) trên `.panel`, `.card`, `.section-card`, `.mobile-submit-card` kèm `renderApp()` để khi bấm `A-`/`A+` chữ và bảng to/nhỏ rõ rệt ngay lập tức.
            - Cắt gọn tên file đính kèm quá dài trong `renderSubmissionEvidenceAndFiles` (`max-width: 210px; text-overflow: ellipsis;`) và khóa `max-width: 290px; overflow: hidden;` trên cột `Nội dung & File đính kèm` của Bảng 2 (`Nhật Ký Minh Chứng`), xóa bỏ hoàn toàn tình trạng tràn chữ ra ngoài khung bảng.
+         - **27. Hoàn thiện cân cột Bảng 2 (Nhật Ký Minh Chứng), phủ đều Dark Mode & hiển thị % cỡ chữ trên Header (27/11/2026)**:
+           - Giữ nguyên cả 2 nút riêng biệt `📜 Lịch sử (x)` (xem lại lịch sử) và `💾 Lưu 2 File Lịch Sử` (lưu ngay 2 file mới).
+           - Căn chỉnh lại độ rộng 7 cột trong Bảng 2 (`Nhật Ký Minh Chứng`) cho vừa khít màn hình laptop không bị đẩy lệch cột `Thời gian` & `Đơn vị`.
+           - Bổ sung quy tắc Dark Mode cho các ô bảng/thẻ inline trong `styles.css` và hiển thị trực tiếp `%` cỡ chữ (`90%`/`100%`/`110%`/`120%`) ngay trên thanh Header giữa `A-` và `A+`.
