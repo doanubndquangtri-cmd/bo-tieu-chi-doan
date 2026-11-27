@@ -258,3 +258,7 @@
            - Loại bỏ danh sách nhiều bảng/đợt Lệnh lan tỏa rời rạc (`📌 Chọn bảng / đợt Lệnh lan tỏa:`), giữ duy nhất **1 bảng Google Sheet trực tiếp** đồng bộ 2 chiều với Google Sheet & Cột K.
            - Trên thanh điều khiển chỉ hiển thị `📊 Bảng Google Sheet trực tiếp`, ô chọn `🎯 Áp dụng vào cột tiêu chí:`, nút `📌 Áp dụng vào cột này`, nút `🏁 Chốt Điểm` và nút `🗑️ Xóa liên kết / đợt cũ` (`clearAllLanToaBoards`) để dọn sạch 2 đợt cũ (`Cột 10` và `28/11`).
            - Khi tạo tiêu chí Lệnh lan tỏa mới hoặc áp dụng cột tiêu chí, hệ thống chỉ gắn `db.settings.fb_sheet_active_criterion_id` vào đúng cột đó mà không nhảy sang bảng rời khác.
+         - **19. Nâng cấp Trao Đổi Đoàn (Chat chung Toàn khối & Chat riêng Tư): Copy/Paste ảnh, thả cảm xúc & gõ tắt mặt cười nhanh (27/11/2026)**:
+           - **Copy & Paste ảnh (`onChatPaste`)**: Cho phép `Ctrl+V` dán trực tiếp ảnh chụp màn hình/ảnh từ clipboard vào ô chat Toàn khối & Riêng tư, hiển thị ảnh xem trước ngay trên thanh nhập liệu và tự động tải/gửi khi bấm `Gửi 📤`.
+           - **Thả cảm xúc vào tin nhắn (`toggleChatMessageReaction`)**: Bổ sung thanh phản ứng nhanh (`👍`, `❤️`, `😆`, `😢`, `👏`) ngay dưới mỗi tin nhắn của người gửi, hiển thị số lượt thả và lưu đồng bộ lên `cloud_db.json`.
+           - **Mặt cười nhanh tức thì (`onChatInput` + `convertEmoticonsToEmoji`)**: Mở rộng hỗ trợ `:))` (`😂`), `=))` (`🤣`), `:((` (`😭`), `:D` (`😄`), `:)` (`😊`), `:(` (`😞`), `<3` (`❤️`), `:P` (`😜`), `:v` (`✌️`), `(y)` (`👍`), tự động chuyển đổi ngay khi gõ dấu cách và khi gửi.

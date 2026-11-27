@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <!-- Tối ưu tốc độ mở trang cực hạn (0ms): Preload tài nguyên trọng yếu -->
-  <link rel="preload" href="./app.js?v=20261119_chat_1795764322685" as="script" />
-  <link rel="preload" href="./styles.css?v=20261119_chat_1795764322685" as="style" />
+  <link rel="preload" href="./app.js?v=20261119_chat_1795765475322" as="script" />
+  <link rel="preload" href="./styles.css?v=20261119_chat_1795765475322" as="style" />
   <title>Bộ tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh - Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí</title>
   
   <!-- PWA & Mobile Web App Meta Tags -->
@@ -28071,8 +28071,27 @@ window.sendChatMessage = async function() {
 
   const rawText = input.value.trim();
   const text = typeof convertEmoticonsToEmoji === 'function' ? convertEmoticonsToEmoji(rawText) : rawText;
+  const pendingImg = state.chatPendingImageFile;
 
-  if (!text) return;
+  if (!text && !pendingImg) return;
+
+  if (pendingImg && (state.chatTab === 'public' || state.chatTab === 'private')) {
+    const fileToSend = pendingImg;
+    state.chatPendingImageFile = null;
+    state.chatPendingImagePreview = '';
+    if (text) {
+      input.value = '';
+      input.style.height = '';
+      state.chatDraft = '';
+    }
+    if (!text) {
+      renderApp();
+      await onChatFilePicked({ files: [fileToSend], value: '' });
+      return;
+    }
+    // Nếu có cả chữ lẫn ảnh dán: gửi chữ trước rồi gửi ảnh ngay sau đó
+    setTimeout(() => { onChatFilePicked({ files: [fileToSend], value: '' }); }, 250);
+  }
 
   // Chống gửi lặp nhiều lần khi bấm liên tiếp hoặc chạm đúp trên điện thoại
   const sendNowTs = Date.now();
@@ -28829,6 +28848,25 @@ function renderFloatingChatWidget() {
 
                   <div class="chat-message-bubble">${textHtml}${attachHtml}</div>
 
+                  ${!isGuest ? (() => {
+                    const reactions = (m.reactions && typeof m.reactions === 'object') ? m.reactions : {};
+                    const myReactKey = isAdmin ? 'admin' : ('unit_' + myId);
+                    const quickEmojis = ['👍', '❤️', '😆', '😢', '👏'];
+                    const activePills = Object.keys(reactions).filter(em => Array.isArray(reactions[em]) && reactions[em].length > 0);
+                    return `
+                      <div class="chat-reactions-bar" style="display:flex; align-items:center; gap:4px; flex-wrap:wrap; margin-top:3px; justify-content:${isMine ? 'flex-end' : 'flex-start'};">
+                        ${activePills.map(em => {
+                          const arr = reactions[em];
+                          const reacted = arr.includes(myReactKey);
+                          return `<button type="button" onclick="toggleChatMessageReaction('${escapeHtml(m.id)}', '${em}')" style="border:1px solid ${reacted ? '#3b82f6' : '#cbd5e1'}; background:${reacted ? '#eff6ff' : '#fff'}; color:${reacted ? '#1d4ed8' : '#334155'}; border-radius:12px; padding:1px 6px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:2px; line-height:1.3;">${em} <span>${arr.length}</span></button>`;
+                        }).join('')}
+                        <span style="display:inline-flex; align-items:center; gap:1px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:1px 4px;">
+                          ${quickEmojis.map(em => `<button type="button" onclick="toggleChatMessageReaction('${escapeHtml(m.id)}', '${em}')" title="Thả ${em}" style="border:none; background:none; padding:0 2px; font-size:11.5px; cursor:pointer; opacity:0.75; line-height:1.2;" onmouseover="this.style.opacity='1'; this.style.transform='scale(1.2)'" onmouseout="this.style.opacity='0.75'; this.style.transform='scale(1)'">${em}</button>`).join('')}
+                        </span>
+                      </div>
+                    `;
+                  })() : ''}
+
                   <div class="chat-message-time" style="display:flex; align-items:center; gap:6px; justify-content:${isMine ? 'flex-end' : 'flex-start'};">
                     <span>${escapeHtml(m.time_str || '')}</span>
                     ${(() => {
@@ -28877,6 +28915,19 @@ function renderFloatingChatWidget() {
         <!-- KHUNG NHẬP LIỆU & NÚT ĐÍNH KÈM FILE + EMOJI / STICKER (ẨN KHI Ở TAB GIỌNG NÓI AI HOẶC MÃ QR) -->
 
         ${(state.chatTab === 'tts' || state.chatTab === 'qr') ? '' : `
+
+          ${state.chatPendingImagePreview && (state.chatTab === 'public' || state.chatTab === 'private') ? `
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 12px; background:#eff6ff; border-top:1px solid #bfdbfe; font-size:12px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <img src="${state.chatPendingImagePreview}" alt="Ảnh đã dán" style="width:42px; height:42px; object-fit:cover; border-radius:6px; border:1px solid #93c5fd;" />
+                <div>
+                  <div style="font-weight:700; color:#1e40af;">🖼️ Ảnh đã dán (sẵn sàng gửi)</div>
+                  <div style="font-size:11px; color:#64748b;">Có thể gõ thêm lời nhắn rồi bấm Gửi</div>
+                </div>
+              </div>
+              <button type="button" onclick="clearChatPendingImage()" style="background:#fee2e2; border:1px solid #fca5a5; color:#b91c1c; border-radius:6px; padding:3px 8px; font-size:11px; font-weight:700; cursor:pointer;">✕ Hủy ảnh</button>
+            </div>
+          ` : ''}
 
           <div class="chat-input-row" style="position:relative; gap:6px; padding-bottom:calc(8px + env(safe-area-inset-bottom, 0px));">
 
@@ -28932,9 +28983,11 @@ function renderFloatingChatWidget() {
 
               rows="1"
 
-              oninput="state.chatDraft = this.value; this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 120) + 'px';"
+              oninput="onChatInput(this)"
 
-              placeholder="${state.chatTab === 'ai' ? 'Hỏi Trợ lý AI... (Enter xuống dòng, bấm Gửi AI để gửi)' : 'Nhập nội dung tin nhắn... (Enter để xuống dòng, bấm Gửi để gửi)'}"
+              onpaste="onChatPaste(event)"
+
+              placeholder="${state.chatTab === 'ai' ? 'Hỏi Trợ lý AI... (Enter xuống dòng, bấm Gửi AI để gửi)' : 'Nhập tin nhắn, gõ nhanh :D :)) :( <3 hoặc Ctrl+V dán ảnh...'}"
 
               onkeydown="onChatKeydown(event)"
 
@@ -42464,6 +42517,9 @@ const GALLERY_COMMENT_EMOJIS = [
 function convertEmoticonsToEmoji(str) {
   if (!str || typeof str !== 'string') return str || '';
   const rules = [
+    [/(\s|^)(:-?\){2,})(?=\s|$|[.,!?])/g, '$1😂'],
+    [/(\s|^)(=+\){2,})(?=\s|$|[.,!?])/g, '$1🤣'],
+    [/(\s|^)(:-?\({2,})(?=\s|$|[.,!?])/g, '$1😭'],
     [/(\s|^)(:-?\))(?=\s|$|[.,!?])/g, '$1😊'],
     [/(\s|^)(:-?D)(?=\s|$|[.,!?])/g, '$1😄'],
     [/(\s|^)(:'\()(?=\s|$|[.,!?])/g, '$1😢'],
@@ -42472,6 +42528,8 @@ function convertEmoticonsToEmoji(str) {
     [/(\s|^)(:-?[Pp])(?=\s|$|[.,!?])/g, '$1😜'],
     [/(\s|^)(:-\*|\:\*)(?=\s|$|[.,!?])/g, '$1😘'],
     [/(\s|^)(:-?[Oo])(?=\s|$|[.,!?])/g, '$1😮'],
+    [/(\s|^)(:v|:V)(?=\s|$|[.,!?])/g, '$1✌️'],
+    [/(\s|^)(:3)(?=\s|$|[.,!?])/g, '$1😺'],
     [/(\s|^)(<3)(?=\s|$|[.,!?])/g, '$1❤️'],
     [/(\s|^)(\^_\^|\^\^)(?=\s|$|[.,!?])/g, '$1😁'],
     [/(\s|^)(B\)|8\))(?=\s|$|[.,!?])/g, '$1😎'],
@@ -47454,10 +47512,98 @@ setInterval(() => {
   }
 }, 8000);
 
+// Gõ tắt biểu cảm nhanh ngay khi gõ dấu cách trong khung chat (:D, :)), :(, <3, ...)
+window.onChatInput = function (el) {
+  if (!el) return;
+  let val = el.value || '';
+  if (/\s$/.test(val) && typeof convertEmoticonsToEmoji === 'function') {
+    const body = val.slice(0, -1);
+    const converted = convertEmoticonsToEmoji(body) + val.slice(-1);
+    if (converted !== val) {
+      const pos = el.selectionStart || converted.length;
+      const diff = converted.length - val.length;
+      el.value = converted;
+      if (typeof el.setSelectionRange === 'function') {
+        const nextPos = Math.max(0, pos + diff);
+        el.setSelectionRange(nextPos, nextPos);
+      }
+    }
+  }
+  state.chatDraft = el.value;
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+};
+
+// Dán ảnh trực tiếp (Ctrl+V) vào khung chat Toàn Khối và Riêng Tư
+window.onChatPaste = function (e) {
+  if (state.chatTab !== 'public' && state.chatTab !== 'private') return;
+  const items = (e && e.clipboardData && e.clipboardData.items) ? Array.from(e.clipboardData.items) : [];
+  const imgItem = items.find(it => it && it.type && it.type.indexOf('image/') === 0);
+  if (!imgItem) return;
+
+  e.preventDefault();
+  const blob = imgItem.getAsFile();
+  if (!blob) return;
+
+  const ext = (blob.type && blob.type.split('/')[1]) ? blob.type.split('/')[1].replace(/[^a-z0-9]/gi, '') : 'png';
+  const file = new File([blob], `anh_chat_${Date.now()}.${ext || 'png'}`, { type: blob.type || 'image/png' });
+  state.chatPendingImageFile = file;
+  try {
+    state.chatPendingImagePreview = URL.createObjectURL(blob);
+  } catch (_) {
+    state.chatPendingImagePreview = '';
+  }
+  if (typeof showToast === 'function') showToast('🖼️ Đã dán ảnh! Bấm Gửi 📤 để gửi ngay.', 'info');
+  renderApp();
+  setTimeout(() => {
+    const inp = document.getElementById('chat-input-field');
+    if (inp) inp.focus();
+  }, 50);
+};
+
+window.clearChatPendingImage = function () {
+  if (state.chatPendingImagePreview && state.chatPendingImagePreview.startsWith('blob:')) {
+    try { URL.revokeObjectURL(state.chatPendingImagePreview); } catch (_) {}
+  }
+  state.chatPendingImageFile = null;
+  state.chatPendingImagePreview = '';
+  renderApp();
+};
+
+// Thả cảm xúc (👍, ❤️, 😆, 😢, 👏) vào tin nhắn trong Chat chung & Chat riêng
+window.toggleChatMessageReaction = async function (msgId, emoji) {
+  if (!state.user || state.user.role === 'guest') return;
+  const isAdmin = state.user.role === 'admin';
+  const myReactKey = isAdmin ? 'admin' : ('unit_' + state.user.id);
+
+  // Cập nhật ngay trên RAM (0ms)
+  const localMsg = (state.chatMessages || []).find(m => String(m.id) === String(msgId));
+  if (localMsg) {
+    if (!localMsg.reactions || typeof localMsg.reactions !== 'object') localMsg.reactions = {};
+    const arr = Array.isArray(localMsg.reactions[emoji]) ? localMsg.reactions[emoji] : [];
+    const idx = arr.indexOf(myReactKey);
+    if (idx >= 0) arr.splice(idx, 1);
+    else arr.push(myReactKey);
+    localMsg.reactions[emoji] = arr;
+    renderApp();
+  }
+
+  await mutateCloudDB(db => {
+    const msg = (db.chat_messages || []).find(m => String(m.id) === String(msgId));
+    if (!msg) return;
+    if (!msg.reactions || typeof msg.reactions !== 'object') msg.reactions = {};
+    const arr = Array.isArray(msg.reactions[emoji]) ? msg.reactions[emoji] : [];
+    const idx = arr.indexOf(myReactKey);
+    if (idx >= 0) arr.splice(idx, 1);
+    else arr.push(myReactKey);
+    msg.reactions[emoji] = arr;
+  }, `React ${emoji} on chat message ${msgId}`);
+};
+
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795764322685;
+    const CURRENT_BUILD_TS = 1795765475322;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;
