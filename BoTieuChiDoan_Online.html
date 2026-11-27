@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <!-- Tối ưu tốc độ mở trang cực hạn (0ms): Preload tài nguyên trọng yếu -->
-  <link rel="preload" href="./app.js?v=20261119_chat_1795760734745" as="script" />
-  <link rel="preload" href="./styles.css?v=20261119_chat_1795760734745" as="style" />
+  <link rel="preload" href="./app.js?v=20261119_chat_1795761509647" as="script" />
+  <link rel="preload" href="./styles.css?v=20261119_chat_1795761509647" as="style" />
   <title>Bộ tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh - Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí</title>
   
   <!-- PWA & Mobile Web App Meta Tags -->
@@ -19297,6 +19297,14 @@ window.saveCriterionEdit = async function (critId) {
     c.max_score = maxS;
 
     c.unit_step_score = maxS;
+
+    if (db.lan_toa_boards && db.lan_toa_boards[String(c.id)]) {
+      const lb = db.lan_toa_boards[String(c.id)];
+      lb.title = c.title;
+      lb.deadline = c.deadline;
+      lb.deadlineTime = c.deadline_time || '17:00';
+      lb.maxScore = maxS;
+    }
 
 
 
@@ -45864,7 +45872,16 @@ function renderFbSheetHubTab() {
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
   const webAppUrl = window.getFbSheetWebAppUrl();
 
-  const allBoards = Object.values(state.lanToaBoards || {}).sort((a, b) => Number(b.criterionId || 0) - Number(a.criterionId || 0));
+  const allBoards = Object.values(state.lanToaBoards || {}).map(b => {
+    const linkedCrit = (state.criteria || []).find(c => Number(c.id) === Number(b.criterionId));
+    if (linkedCrit) {
+      b.title = linkedCrit.title || b.title;
+      b.deadline = linkedCrit.deadline || b.deadline;
+      b.deadlineTime = linkedCrit.deadline_time || b.deadlineTime || '17:00';
+      b.maxScore = Number(linkedCrit.max_score || b.maxScore || 3);
+    }
+    return b;
+  }).sort((a, b) => Number(b.criterionId || 0) - Number(a.criterionId || 0));
   if (!state.activeLanToaBoardId) {
     state.activeLanToaBoardId = allBoards.length > 0 ? String(allBoards[0].criterionId) : 'gsheet';
   }
@@ -47214,7 +47231,7 @@ setInterval(() => {
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795760734745;
+    const CURRENT_BUILD_TS = 1795761509647;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;

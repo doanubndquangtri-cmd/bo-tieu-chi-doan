@@ -13083,6 +13083,14 @@ window.saveCriterionEdit = async function (critId) {
 
     c.unit_step_score = maxS;
 
+    if (db.lan_toa_boards && db.lan_toa_boards[String(c.id)]) {
+      const lb = db.lan_toa_boards[String(c.id)];
+      lb.title = c.title;
+      lb.deadline = c.deadline;
+      lb.deadlineTime = c.deadline_time || '17:00';
+      lb.maxScore = maxS;
+    }
+
 
 
     // AUTOMATICALLY RE-SORT CHRONOLOGICALLY BY DEADLINE!
@@ -39649,7 +39657,16 @@ function renderFbSheetHubTab() {
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
   const webAppUrl = window.getFbSheetWebAppUrl();
 
-  const allBoards = Object.values(state.lanToaBoards || {}).sort((a, b) => Number(b.criterionId || 0) - Number(a.criterionId || 0));
+  const allBoards = Object.values(state.lanToaBoards || {}).map(b => {
+    const linkedCrit = (state.criteria || []).find(c => Number(c.id) === Number(b.criterionId));
+    if (linkedCrit) {
+      b.title = linkedCrit.title || b.title;
+      b.deadline = linkedCrit.deadline || b.deadline;
+      b.deadlineTime = linkedCrit.deadline_time || b.deadlineTime || '17:00';
+      b.maxScore = Number(linkedCrit.max_score || b.maxScore || 3);
+    }
+    return b;
+  }).sort((a, b) => Number(b.criterionId || 0) - Number(a.criterionId || 0));
   if (!state.activeLanToaBoardId) {
     state.activeLanToaBoardId = allBoards.length > 0 ? String(allBoards[0].criterionId) : 'gsheet';
   }
