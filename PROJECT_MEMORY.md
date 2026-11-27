@@ -224,3 +224,6 @@
          - **9. Hiển thị chính xác số dòng ô link theo Cột B của từng cơ sở Đoàn (27/11/2026)**:
            - Cập nhật `buildSheetJsonPayload_` trong `google_sheets_fb_auto.gs` trả về đủ mảng `slots` cho toàn bộ các ô Cột B (cả ô đã điền lẫn ô trống) của từng đơn vị (VD: Hải quan IX = 20 ô, Sở VHTT&DL = 10 ô, Sở Y tế = 25 ô...).
            - Cập nhật `renderFbSheetHubTab` trong `app.js` render đúng đủ số dòng `slots` đó kèm ô dán link trực tiếp trên từng dòng trống cho Admin và đơn vị tương ứng.
+         - **10. Đồng bộ giao diện Cơ sở Đoàn theo đúng số ô chỉ tiêu làm sẵn trên Google Sheet (27/11/2026)**:
+           - Giao diện tài khoản Cơ sở Đoàn hiển thị đúng từng ô số thứ tự `1..N` theo Cột B của đơn vị đó trên Google Sheet (ô đã nộp hiện kết quả + nút ✏️/🗑️, ô trống hiện ô dán link + nút Gửi trực tiếp), kèm nút phụ `⚡ Dán nhanh nhiều link` giới hạn trong số ô trống còn lại.
+           - Khóa giới hạn trong `doPost` (`submit_links`) của `google_sheets_fb_auto.gs` để không tự ý chèn vượt số dòng chỉ tiêu làm sẵn trên Google Sheet.

@@ -382,20 +382,11 @@ function doPost(e) {
           }
         }
 
-        for (let k = 0; k < links.length; k++) {
-          if (k < emptyRows.length) {
-            const rIdx = emptyRows[k];
-            sheet.getRange(rIdx, 4).setValue(links[k]);
-            processSingleRow_(sheet, rIdx, links[k], true);
-          } else {
-            // Hết dòng trống có sẵn -> chèn thêm dòng ngay dưới dòng cuối của đơn vị
-            const insertAfter = unitObj.endRow + (k - emptyRows.length);
-            sheet.insertRowAfter(insertAfter);
-            const newRow = insertAfter + 1;
-            sheet.getRange(newRow, 2).setValue(unitObj.maxSlots + (k - emptyRows.length) + 1);
-            sheet.getRange(newRow, 4).setValue(links[k]);
-            processSingleRow_(sheet, newRow, links[k], true);
-          }
+        const maxCount = Math.min(links.length, emptyRows.length);
+        for (let k = 0; k < maxCount; k++) {
+          const rIdx = emptyRows[k];
+          sheet.getRange(rIdx, 4).setValue(links[k]);
+          processSingleRow_(sheet, rIdx, links[k], true);
         }
         refreshDuplicateAccountsInColE_(sheet);
       }

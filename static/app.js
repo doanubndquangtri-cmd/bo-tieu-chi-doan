@@ -39672,71 +39672,102 @@ function renderFbSheetHubTab() {
             const myInvalid = myLinks.filter(l => !l.isValid && l.resultText).length;
             const sbItem = scoreBoard.find(s => s.unitName.toLowerCase() === mySheetUnit.unitName.toLowerCase());
             const myScoreVal = sbItem ? sbItem.score : (mySheetUnit.sheetScore !== '' ? mySheetUnit.sheetScore : (myValid * 0.3).toFixed(1));
+            const mySlots = (Array.isArray(mySheetUnit.slots) && mySheetUnit.slots.length > 0)
+              ? mySheetUnit.slots
+              : Array.from({ length: Math.max(1, mySheetUnit.maxSlots || myLinks.length || 1) }, (_, idx) => (
+                  myLinks[idx] || {
+                    rowIdx: (mySheetUnit.startRow || 3) + idx,
+                    slotNo: String(idx + 1),
+                    url: '',
+                    accountName: '',
+                    visibility: '',
+                    resultText: '',
+                    isValid: false
+                  }
+                ));
+            const emptySlotsCount = mySlots.filter(s => !s.url || !s.url.trim()).length;
+
             return `
-              <div style="background:#fff; border:1.5px solid #a7f3d0; border-radius:12px; padding:16px; margin-bottom:14px; box-shadow:0 2px 8px rgba(5,150,105,0.06); flex-shrink:0;">
-                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px; border-bottom:1px solid #e2e8f0; padding-bottom:10px;">
+              <!-- Thông tin tổng quan đơn vị + chỉ tiêu số ô theo Google Sheet -->
+              <div style="background:#fff; border:1.5px solid #a7f3d0; border-radius:12px; padding:12px 16px; margin-bottom:12px; box-shadow:0 2px 8px rgba(5,150,105,0.06); flex-shrink:0;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                   <div>
-                    <div style="font-size:12px; font-weight:700; color:#059669; text-transform:uppercase;">Đơn vị của bạn</div>
+                    <div style="font-size:11.5px; font-weight:700; color:#059669; text-transform:uppercase;">Đơn vị của bạn • Chỉ tiêu trên Google Sheet: ${mySlots.length} link</div>
                     <div style="font-size:16px; font-weight:800; color:#0f172a;">🏢 ${escapeHtml(mySheetUnit.unitName)}</div>
                   </div>
-                  <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                    <span style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:700;">Đã nộp: ${myLinks.length}</span>
+                  <div style="display:flex; gap:7px; flex-wrap:wrap; align-items:center;">
+                    <span style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:700;">Đã nộp: ${myLinks.length} / ${mySlots.length}</span>
                     <span style="background:#dcfce7; color:#15803d; border:1px solid #86efac; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:700;">✅ Hợp lệ: ${myValid}</span>
                     <span style="background:#fee2e2; color:#b91c1c; border:1px solid #fecaca; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:700;">❌ Không hợp lệ: ${myInvalid}</span>
                     <span style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:800;">🏆 Điểm: ${escapeHtml(String(myScoreVal))}</span>
+                    ${emptySlotsCount > 0 ? `
+                      <button type="button" onclick="var b=document.getElementById('unit-bulk-paste-box'); b.style.display=(b.style.display==='none'?'block':'none');" style="background:#059669; color:#fff; border:none; padding:5px 11px; border-radius:7px; font-size:12px; font-weight:700; cursor:pointer;">⚡ Dán nhanh nhiều link (${emptySlotsCount} ô trống)</button>
+                    ` : ''}
                   </div>
                 </div>
 
-                <label style="display:block; font-size:13px; font-weight:700; color:#1e293b; margin-bottom:6px;">
-                  Dán 1 hoặc nhiều đường link bài viết Facebook chia sẻ (mỗi dòng 1 link):
-                </label>
-                <textarea id="fb-sheet-unit-links-input" rows="3" placeholder="Dán các đường link Facebook vào đây (mỗi dòng 1 link)...&#10;Hệ thống sẽ tự động ghi lên Google Sheet và kiểm tra Công khai, Chủ tài khoản, Trùng lặp ngay lập tức!" style="width:100%; box-sizing:border-box; padding:10px 12px; font-size:13px; font-family:monospace; border:1.5px solid #cbd5e1; border-radius:8px; margin-bottom:10px; resize:vertical;"></textarea>
-                <div style="display:flex; justify-content:flex-end;">
-                  <button type="button" onclick="submitFbSheetLinks('${escapeHtml(mySheetUnit.unitName)}', 'fb-sheet-unit-links-input')" ${state.fbSheetLoading ? 'disabled' : ''} style="background:linear-gradient(135deg, #059669, #0d9488); color:#fff; border:none; padding:9px 18px; border-radius:8px; font-size:13.5px; font-weight:800; cursor:pointer; box-shadow:0 3px 10px rgba(5,150,105,0.28);">
-                    ${state.fbSheetLoading ? '⏳ Đang gửi &amp; kiểm tra...' : '🚀 Gửi &amp; Kiểm Tra Link Ngay'}
-                  </button>
+                <!-- Khung dán nhanh nhiều link (ẩn gọn mặc định, bấm nút mới mở) -->
+                <div id="unit-bulk-paste-box" style="display:none; margin-top:12px; padding-top:12px; border-top:1px dashed #cbd5e1;">
+                  <label style="display:block; font-size:12.5px; font-weight:700; color:#1e293b; margin-bottom:5px;">
+                    Dán tối đa ${emptySlotsCount} đường link Facebook vào các ô trống còn lại (mỗi dòng 1 link):
+                  </label>
+                  <textarea id="fb-sheet-unit-links-input" rows="3" placeholder="Dán mỗi dòng 1 link Facebook..." style="width:100%; box-sizing:border-box; padding:8px 10px; font-size:12.5px; font-family:monospace; border:1.5px solid #cbd5e1; border-radius:7px; margin-bottom:8px; resize:vertical;"></textarea>
+                  <div style="display:flex; justify-content:flex-end;">
+                    <button type="button" onclick="submitFbSheetLinks('${escapeHtml(mySheetUnit.unitName)}', 'fb-sheet-unit-links-input')" ${state.fbSheetLoading ? 'disabled' : ''} style="background:linear-gradient(135deg, #059669, #0d9488); color:#fff; border:none; padding:7px 16px; border-radius:7px; font-size:13px; font-weight:800; cursor:pointer;">
+                      ${state.fbSheetLoading ? '⏳ Đang gửi &amp; kiểm tra...' : '🚀 Điền Vào Ô Trống &amp; Kiểm Tra Ngay'}
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <div style="background:#fff; border:1px solid #cbd5e1; border-radius:12px; overflow:hidden; flex-shrink:0;">
-                <div style="padding:10px 16px; background:#f1f5f9; border-bottom:1px solid #cbd5e1; font-weight:800; font-size:13.5px; color:#0f172a;">
-                  📋 Danh Sách Link Đã Nộp (${myLinks.length} link)
-                </div>
-                <div style="overflow-x:auto;">
-                  <table class="table" style="width:100%; border-collapse:collapse; font-size:13px;">
-                    <thead>
-                      <tr style="background:#f8fafc; border-bottom:1.5px solid #cbd5e1;">
-                        <th style="width:50px; text-align:center;">STT</th>
-                        <th style="min-width:240px;">Link bài viết Facebook</th>
-                        <th style="min-width:190px;">Tên trang / Chủ tài khoản (Cột E)</th>
-                        <th style="width:140px; text-align:center;">Trạng thái (Cột F)</th>
-                        <th style="min-width:200px; text-align:center;">Kết quả (Cột G)</th>
-                        <th style="width:120px; text-align:center;">Thao tác</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${myLinks.length === 0 ? `
-                        <tr><td colspan="6" style="text-align:center; padding:30px; color:#94a3b8; font-style:italic;">Đơn vị chưa nộp link nào. Hãy dán link ở khung trên để nộp ngay!</td></tr>
-                      ` : myLinks.map((lk, idx) => `
-                        <tr style="border-bottom:1px solid #f1f5f9;">
-                          <td style="text-align:center; font-weight:700; color:#64748b;">${idx + 1}</td>
-                          <td style="max-width:280px; word-break:break-all;"><a href="${escapeHtml(lk.url)}" target="_blank" rel="noopener" style="color:#0284c7; font-weight:600; text-decoration:none;">${escapeHtml(lk.url)}</a></td>
-                          <td style="font-weight:700; color:#0f172a;">${escapeHtml(lk.accountName || '—')}</td>
-                          <td style="text-align:center;">
-                            <span style="display:inline-block; padding:3px 9px; border-radius:12px; font-size:11.5px; font-weight:700; background:${lk.visibility === 'Công khai' ? '#dcfce7' : '#fef3c7'}; color:${lk.visibility === 'Công khai' ? '#15803d' : '#b45309'};">${escapeHtml(lk.visibility || 'Chờ quét')}</span>
-                          </td>
-                          <td style="text-align:center;">
-                            <span style="display:inline-block; padding:4px 10px; border-radius:8px; font-size:12px; font-weight:700; background:${lk.isValid ? '#dcfce7' : '#fee2e2'}; color:${lk.isValid ? '#15803d' : '#b91c1c'};">${escapeHtml(lk.resultText || 'Chưa kiểm tra')}</span>
-                          </td>
-                          <td style="text-align:center; white-space:nowrap;">
-                            <button type="button" onclick="editFbSheetLink(${lk.rowIdx}, '${escapeHtml(lk.url)}')" style="border:1px solid #cbd5e1; background:#fff; border-radius:6px; padding:4px 8px; font-size:11.5px; font-weight:700; cursor:pointer; margin-right:4px;" title="Sửa/thay link khác">✏️</button>
-                            <button type="button" onclick="deleteFbSheetLink(${lk.rowIdx})" style="border:1px solid #fecaca; background:#fff1f2; color:#dc2626; border-radius:6px; padding:4px 8px; font-size:11.5px; font-weight:700; cursor:pointer;" title="Xóa link này">🗑️</button>
-                          </td>
+              <!-- Bảng từng ô số 1..N giống hệt cấu trúc Google Sheet -->
+              <div style="background:#fff; border:1.5px solid #cbd5e1; border-radius:10px; overflow-x:auto; flex-shrink:0;">
+                <table class="table" style="width:100%; border-collapse:collapse; font-size:12.5px;">
+                  <thead style="position:sticky; top:0; z-index:10; background:#d1fae5;">
+                    <tr style="background:#d1fae5; border-bottom:2px solid #10b981; color:#065f46;">
+                      <th style="width:65px; text-align:center; padding:9px 6px; border-right:1px solid #a7f3d0;">Số link</th>
+                      <th style="min-width:280px; padding:9px 10px; border-right:1px solid #a7f3d0;">NHẬP LINK (${mySlots.length} ô chỉ tiêu)</th>
+                      <th style="min-width:190px; padding:9px 10px; border-right:1px solid #a7f3d0;">Tên trang cá nhân / Chủ tài khoản (Cột E)</th>
+                      <th style="width:130px; text-align:center; padding:9px 6px; border-right:1px solid #a7f3d0;">Trạng thái hiển thị</th>
+                      <th style="min-width:180px; text-align:center; padding:9px 8px; border-right:1px solid #a7f3d0;">Kết quả (Cột G)</th>
+                      <th style="width:90px; text-align:center; padding:9px 6px;">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${mySlots.map((lk, idx) => {
+                      const hasUrl = Boolean(lk.url && lk.url.trim());
+                      return `
+                        <tr style="border-bottom:1px solid #e2e8f0; background:${hasUrl ? (idx % 2 === 0 ? '#ffffff' : '#f8fafc') : '#fefce8'};">
+                          <td style="text-align:center; font-weight:800; color:${hasUrl ? '#065f46' : '#64748b'}; border-right:1px solid #e2e8f0; background:${hasUrl ? '#f0fdf4' : '#fef9c3'};">${escapeHtml(lk.slotNo || (idx + 1))}</td>
+                          ${hasUrl ? `
+                            <td style="max-width:300px; word-break:break-all; border-right:1px solid #e2e8f0; padding:7px 10px;">
+                              <a href="${escapeHtml(lk.url)}" target="_blank" rel="noopener" style="color:#0284c7; font-weight:600; text-decoration:none;">${escapeHtml(lk.url)}</a>
+                            </td>
+                            <td style="font-weight:700; color:#0f172a; border-right:1px solid #e2e8f0; padding:7px 10px;">${escapeHtml(lk.accountName || '—')}</td>
+                            <td style="text-align:center; border-right:1px solid #e2e8f0; padding:7px 6px;">
+                              <span style="display:inline-block; padding:3px 9px; border-radius:12px; font-size:11.5px; font-weight:700; background:${lk.visibility === 'Công khai' ? '#dcfce7' : '#fef3c7'}; color:${lk.visibility === 'Công khai' ? '#15803d' : '#b45309'};">${escapeHtml(lk.visibility || 'Chờ quét')}</span>
+                            </td>
+                            <td style="text-align:center; border-right:1px solid #e2e8f0; padding:7px 8px;">
+                              <span style="display:inline-block; padding:4px 10px; border-radius:8px; font-size:12px; font-weight:700; background:${lk.isValid ? '#dcfce7' : '#fee2e2'}; color:${lk.isValid ? '#15803d' : '#b91c1c'};">${escapeHtml(lk.resultText || 'Chưa kiểm tra')}</span>
+                            </td>
+                            <td style="text-align:center; white-space:nowrap; padding:6px;">
+                              <button type="button" onclick="editFbSheetLink(${lk.rowIdx}, '${escapeHtml(lk.url)}')" style="border:1px solid #cbd5e1; background:#fff; border-radius:6px; padding:4px 7px; font-size:11.5px; font-weight:700; cursor:pointer; margin-right:3px;" title="Sửa/thay link khác">✏️</button>
+                              <button type="button" onclick="deleteFbSheetLink(${lk.rowIdx})" style="border:1px solid #fecaca; background:#fff1f2; color:#dc2626; border-radius:6px; padding:4px 7px; font-size:11.5px; font-weight:700; cursor:pointer;" title="Xóa link này">🗑️</button>
+                            </td>
+                          ` : `
+                            <td colspan="4" style="border-right:1px solid #e2e8f0; padding:5px 10px;">
+                              <div style="display:flex; gap:6px; align-items:center;">
+                                <input type="text" id="unit-slot-input-${lk.rowIdx}" placeholder="Dán link Facebook vào ô số ${escapeHtml(lk.slotNo || (idx + 1))}..." style="flex:1; padding:5px 9px; font-size:12.5px; border:1px solid #cbd5e1; border-radius:5px; background:#fff;" />
+                                <button type="button" onclick="var v=document.getElementById('unit-slot-input-${lk.rowIdx}').value.trim(); if(v){ _postFbSheetAction({action:'submit_links', rowIdx:${lk.rowIdx}, url:v}, '⏳ Đang gửi & kiểm tra ô số ${escapeHtml(lk.slotNo || (idx + 1))}...'); }" style="background:#059669; color:#fff; border:none; border-radius:5px; padding:5px 12px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap;">Gửi</button>
+                              </div>
+                            </td>
+                            <td style="text-align:center; color:#94a3b8;">—</td>
+                          `}
                         </tr>
-                      `).join('')}
-                    </tbody>
-                  </table>
-                </div>
+                      `;
+                    }).join('')}
+                  </tbody>
+                </table>
               </div>
             `;
           })() : (() => {
