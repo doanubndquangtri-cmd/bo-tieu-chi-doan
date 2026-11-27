@@ -39579,6 +39579,8 @@ function renderFbSheetHubTab() {
   const webAppUrl = window.getFbSheetWebAppUrl();
   const sheetData = state.fbSheetData;
   const units = (sheetData && sheetData.units) || [];
+  const scoreBoard = (sheetData && Array.isArray(sheetData.scoreBoard)) ? sheetData.scoreBoard : [];
+  const tableStyleMode = state.fbSheetTableMode || 'sheet'; // 'sheet' (giống Google Sheet) | 'compact' (thu gọn)
 
   let totalLinks = 0, totalValid = 0, totalInvalid = 0, submittedUnits = 0;
   units.forEach(u => {
@@ -39595,18 +39597,18 @@ function renderFbSheetHubTab() {
   const showUnitSelfView = isUnit && state.fbSheetViewMode !== 'all';
 
   return `
-    <div class="panel" style="display:flex; flex-direction:column; margin-bottom:16px; border-radius:12px; overflow:hidden; border:1px solid #cbd5e1; box-shadow:0 4px 16px rgba(15,23,42,0.06);">
+    <div class="panel" style="${isMobile ? 'display:flex; flex-direction:column; margin-bottom:14px; border-radius:10px; overflow:visible;' : 'display:flex; flex-direction:column; flex:1 1 auto; height:calc(100vh - 128px); min-height:540px; margin-bottom:2px; border-radius:10px; overflow:hidden;'} border:1px solid #cbd5e1; box-shadow:0 4px 16px rgba(15,23,42,0.06);">
       <!-- Header -->
-      <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; background:linear-gradient(135deg, #065f46 0%, #059669 55%, #0284c7 100%); color:#fff; padding:14px 20px;">
+      <div class="panel-header" style="flex-shrink:0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; background:linear-gradient(135deg, #065f46 0%, #059669 55%, #0284c7 100%); color:#fff; padding:12px 18px;">
         <div>
-          <div style="font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px;">
+          <div style="font-size:15.5px; font-weight:800; display:flex; align-items:center; gap:8px;">
             <span>🔗 NỘP &amp; THẨM ĐỊNH LINK FACEBOOK CHÍNH THỐNG</span>
           </div>
           <div style="font-size:12px; opacity:0.92; margin-top:2px;">
             ${escapeHtml((sheetData && sheetData.sheetTitle) || 'Đồng bộ trực tiếp 2 chiều với Google Sheet • Tự kiểm tra Công khai, Chủ tài khoản, Trùng lặp &amp; Bài gốc')}
           </div>
         </div>
-        <div style="display:flex; gap:7px; align-items:center; flex-wrap:wrap;">
+        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
           ${webAppUrl ? `
             <button type="button" class="btn btn-sm" onclick="fetchFbSheetData(false)" ${state.fbSheetLoading ? 'disabled' : ''} style="background:rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.4); color:#fff; font-weight:700; border-radius:7px; padding:6px 11px; cursor:pointer;">
               ${state.fbSheetLoading ? '⏳ Đang tải...' : '🔄 Đồng bộ'}
@@ -39635,7 +39637,7 @@ function renderFbSheetHubTab() {
         </div>
       </div>
 
-      <div class="panel-body" style="padding:${isMobile ? '12px' : '16px 20px'}; background:#f8fafc;">
+      <div class="panel-body" style="${isMobile ? 'padding:12px 10px; display:flex; flex-direction:column; overflow:visible;' : 'padding:14px 18px; display:flex; flex-direction:column; flex:1 1 auto; min-height:0; overflow-y:auto !important; background:#f8fafc;'}">
         ${!webAppUrl ? `
           <div style="background:#fff; border:1.5px dashed #10b981; border-radius:12px; padding:28px 20px; text-align:center;">
             <div style="font-size:34px; margin-bottom:8px;">🔌</div>
@@ -39654,12 +39656,12 @@ function renderFbSheetHubTab() {
           </div>
         ` : `
           ${isUnit ? `
-            <div style="display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;">
+            <div style="display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; flex-shrink:0;">
               <button type="button" onclick="state.fbSheetViewMode='auto'; renderApp();" style="padding:7px 14px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; border:1px solid ${showUnitSelfView ? '#059669' : '#cbd5e1'}; background:${showUnitSelfView ? '#059669' : '#fff'}; color:${showUnitSelfView ? '#fff' : '#334155'};">
                 📤 Nộp &amp; Xem Link Của Đơn Vị
               </button>
               <button type="button" onclick="state.fbSheetViewMode='all'; renderApp();" style="padding:7px 14px; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; border:1px solid ${!showUnitSelfView ? '#0284c7' : '#cbd5e1'}; background:${!showUnitSelfView ? '#0284c7' : '#fff'}; color:${!showUnitSelfView ? '#fff' : '#334155'};">
-                📋 Xem Tổng Hợp 40 Đơn Vị (${totalLinks} link)
+                📋 Xem Bảng Google Sheet &amp; Bảng Điểm (${totalLinks} link)
               </button>
             </div>
           ` : ''}
@@ -39668,9 +39670,10 @@ function renderFbSheetHubTab() {
             const myLinks = mySheetUnit.links || [];
             const myValid = myLinks.filter(l => l.isValid).length;
             const myInvalid = myLinks.filter(l => !l.isValid && l.resultText).length;
+            const sbItem = scoreBoard.find(s => s.unitName.toLowerCase() === mySheetUnit.unitName.toLowerCase());
+            const myScoreVal = sbItem ? sbItem.score : (mySheetUnit.sheetScore !== '' ? mySheetUnit.sheetScore : (myValid * 0.3).toFixed(1));
             return `
-              <!-- Giao diện riêng siêu dễ nhập & dễ xem cho từng Cơ sở Đoàn -->
-              <div style="background:#fff; border:1.5px solid #a7f3d0; border-radius:12px; padding:16px; margin-bottom:14px; box-shadow:0 2px 8px rgba(5,150,105,0.06);">
+              <div style="background:#fff; border:1.5px solid #a7f3d0; border-radius:12px; padding:16px; margin-bottom:14px; box-shadow:0 2px 8px rgba(5,150,105,0.06); flex-shrink:0;">
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:12px; border-bottom:1px solid #e2e8f0; padding-bottom:10px;">
                   <div>
                     <div style="font-size:12px; font-weight:700; color:#059669; text-transform:uppercase;">Đơn vị của bạn</div>
@@ -39680,13 +39683,14 @@ function renderFbSheetHubTab() {
                     <span style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:700;">Đã nộp: ${myLinks.length}</span>
                     <span style="background:#dcfce7; color:#15803d; border:1px solid #86efac; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:700;">✅ Hợp lệ: ${myValid}</span>
                     <span style="background:#fee2e2; color:#b91c1c; border:1px solid #fecaca; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:700;">❌ Không hợp lệ: ${myInvalid}</span>
+                    <span style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; padding:4px 10px; border-radius:20px; font-size:12px; font-weight:800;">🏆 Điểm: ${escapeHtml(String(myScoreVal))}</span>
                   </div>
                 </div>
 
                 <label style="display:block; font-size:13px; font-weight:700; color:#1e293b; margin-bottom:6px;">
                   Dán 1 hoặc nhiều đường link bài viết Facebook chia sẻ (mỗi dòng 1 link):
                 </label>
-                <textarea id="fb-sheet-unit-links-input" rows="4" placeholder="Dán các đường link Facebook vào đây (mỗi dòng 1 link)...&#10;Hệ thống sẽ tự động ghi lên Google Sheet và kiểm tra Công khai, Chủ tài khoản, Trùng lặp ngay lập tức!" style="width:100%; box-sizing:border-box; padding:10px 12px; font-size:13px; font-family:monospace; border:1.5px solid #cbd5e1; border-radius:8px; margin-bottom:10px; resize:vertical;"></textarea>
+                <textarea id="fb-sheet-unit-links-input" rows="3" placeholder="Dán các đường link Facebook vào đây (mỗi dòng 1 link)...&#10;Hệ thống sẽ tự động ghi lên Google Sheet và kiểm tra Công khai, Chủ tài khoản, Trùng lặp ngay lập tức!" style="width:100%; box-sizing:border-box; padding:10px 12px; font-size:13px; font-family:monospace; border:1.5px solid #cbd5e1; border-radius:8px; margin-bottom:10px; resize:vertical;"></textarea>
                 <div style="display:flex; justify-content:flex-end;">
                   <button type="button" onclick="submitFbSheetLinks('${escapeHtml(mySheetUnit.unitName)}', 'fb-sheet-unit-links-input')" ${state.fbSheetLoading ? 'disabled' : ''} style="background:linear-gradient(135deg, #059669, #0d9488); color:#fff; border:none; padding:9px 18px; border-radius:8px; font-size:13.5px; font-weight:800; cursor:pointer; box-shadow:0 3px 10px rgba(5,150,105,0.28);">
                     ${state.fbSheetLoading ? '⏳ Đang gửi &amp; kiểm tra...' : '🚀 Gửi &amp; Kiểm Tra Link Ngay'}
@@ -39694,9 +39698,8 @@ function renderFbSheetHubTab() {
                 </div>
               </div>
 
-              <!-- Bảng link đã nộp của đơn vị -->
-              <div style="background:#fff; border:1px solid #cbd5e1; border-radius:12px; overflow:hidden;">
-                <div style="padding:12px 16px; background:#f1f5f9; border-bottom:1px solid #cbd5e1; font-weight:800; font-size:13.5px; color:#0f172a;">
+              <div style="background:#fff; border:1px solid #cbd5e1; border-radius:12px; overflow:hidden; flex-shrink:0;">
+                <div style="padding:10px 16px; background:#f1f5f9; border-bottom:1px solid #cbd5e1; font-weight:800; font-size:13.5px; color:#0f172a;">
                   📋 Danh Sách Link Đã Nộp (${myLinks.length} link)
                 </div>
                 <div style="overflow-x:auto;">
@@ -39737,7 +39740,6 @@ function renderFbSheetHubTab() {
               </div>
             `;
           })() : (() => {
-            // Chế độ Tổng hợp toàn khối 40 đơn vị (Admin / Khách / Đơn vị xem chung)
             const q = (state.fbSheetSearch || '').trim().toLowerCase();
             const fMode = state.fbSheetFilter || 'all';
             const filteredUnits = units.filter(u => {
@@ -39753,124 +39755,256 @@ function renderFbSheetHubTab() {
               return true;
             });
 
+            // Chuẩn bị danh sách bảng điểm bên phải
+            const displayScoreBoard = scoreBoard.length > 0
+              ? scoreBoard
+              : units.map((u, idx) => {
+                  const vCnt = (u.links || []).filter(l => l.isValid).length;
+                  return {
+                    code: 'donvi' + String(idx + 1).padStart(2, '0'),
+                    unitName: u.unitName,
+                    score: u.sheetScore !== '' ? Number(u.sheetScore) : Number((vCnt * 0.3).toFixed(2))
+                  };
+                });
+            const totalBoardScore = displayScoreBoard.reduce((acc, s) => acc + (Number(s.score) || 0), 0);
+
             return `
               <!-- 4 Thẻ thống kê nhanh -->
-              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); gap:10px; margin-bottom:14px;">
-                <div style="background:#fff; border:1px solid #cbd5e1; border-radius:10px; padding:12px 14px;">
-                  <div style="font-size:12px; color:#64748b; font-weight:700;">Đơn vị đã nộp</div>
-                  <div style="font-size:22px; font-weight:800; color:#0f172a; margin-top:2px;">${submittedUnits} / ${units.length}</div>
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:8px; margin-bottom:10px; flex-shrink:0;">
+                <div style="background:#fff; border:1px solid #cbd5e1; border-radius:9px; padding:9px 12px;">
+                  <div style="font-size:11.5px; color:#64748b; font-weight:700;">Đơn vị đã nộp</div>
+                  <div style="font-size:19px; font-weight:800; color:#0f172a;">${submittedUnits} / ${units.length}</div>
                 </div>
-                <div style="background:#fff; border:1px solid #bfdbfe; border-radius:10px; padding:12px 14px;">
-                  <div style="font-size:12px; color:#1d4ed8; font-weight:700;">Tổng số link</div>
-                  <div style="font-size:22px; font-weight:800; color:#1d4ed8; margin-top:2px;">${totalLinks}</div>
+                <div style="background:#fff; border:1px solid #bfdbfe; border-radius:9px; padding:9px 12px;">
+                  <div style="font-size:11.5px; color:#1d4ed8; font-weight:700;">Tổng số link</div>
+                  <div style="font-size:19px; font-weight:800; color:#1d4ed8;">${totalLinks}</div>
                 </div>
-                <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:10px; padding:12px 14px;">
-                  <div style="font-size:12px; color:#15803d; font-weight:700;">✅ Link Hợp lệ</div>
-                  <div style="font-size:22px; font-weight:800; color:#15803d; margin-top:2px;">${totalValid}</div>
+                <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:9px; padding:9px 12px;">
+                  <div style="font-size:11.5px; color:#15803d; font-weight:700;">✅ Link Hợp lệ</div>
+                  <div style="font-size:19px; font-weight:800; color:#15803d;">${totalValid}</div>
                 </div>
-                <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:10px; padding:12px 14px;">
-                  <div style="font-size:12px; color:#b91c1c; font-weight:700;">❌ Không hợp lệ</div>
-                  <div style="font-size:22px; font-weight:800; color:#b91c1c; margin-top:2px;">${totalInvalid}</div>
+                <div style="background:#fef2f2; border:1px solid #fecaca; border-radius:9px; padding:9px 12px;">
+                  <div style="font-size:11.5px; color:#b91c1c; font-weight:700;">❌ Không hợp lệ</div>
+                  <div style="font-size:19px; font-weight:800; color:#b91c1c;">${totalInvalid}</div>
                 </div>
               </div>
 
-              <!-- Thanh lọc & tìm kiếm -->
-              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
-                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              <!-- Thanh lọc, chuyển kiểu bảng & tìm kiếm -->
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px; flex-shrink:0;">
+                <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
                   ${[
                     { id: 'all', label: `Tất cả (${units.length})`, bg: '#0284c7' },
                     { id: 'submitted', label: `Đã nộp (${submittedUnits})`, bg: '#059669' },
                     { id: 'invalid', label: 'Có link lỗi/trùng', bg: '#dc2626' },
                     { id: 'empty', label: `Chưa nộp (${units.length - submittedUnits})`, bg: '#64748b' }
                   ].map(p => `
-                    <button type="button" onclick="state.fbSheetFilter='${p.id}'; renderApp();" style="padding:6px 12px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer; border:1px solid ${fMode === p.id ? p.bg : '#cbd5e1'}; background:${fMode === p.id ? p.bg : '#fff'}; color:${fMode === p.id ? '#fff' : '#334155'};">${p.label}</button>
+                    <button type="button" onclick="state.fbSheetFilter='${p.id}'; renderApp();" style="padding:5px 11px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer; border:1px solid ${fMode === p.id ? p.bg : '#cbd5e1'}; background:${fMode === p.id ? p.bg : '#fff'}; color:${fMode === p.id ? '#fff' : '#334155'};">${p.label}</button>
                   `).join('')}
-                  <button type="button" onclick="toggleAllFbSheetUnits(true)" style="padding:6px 10px; border-radius:8px; font-size:12px; font-weight:700; border:1px solid #cbd5e1; background:#fff; color:#334155; cursor:pointer;">👁️ Mở hết</button>
-                  <button type="button" onclick="toggleAllFbSheetUnits(false)" style="padding:6px 10px; border-radius:8px; font-size:12px; font-weight:700; border:1px solid #cbd5e1; background:#fff; color:#334155; cursor:pointer;">🔼 Thu gọn</button>
+                  <span style="border-left:1.5px solid #cbd5e1; height:18px; margin:0 2px;"></span>
+                  <button type="button" onclick="state.fbSheetTableMode='sheet'; renderApp();" style="padding:5px 10px; border-radius:7px; font-size:12px; font-weight:700; cursor:pointer; border:1px solid ${tableStyleMode === 'sheet' ? '#059669' : '#cbd5e1'}; background:${tableStyleMode === 'sheet' ? '#dcfce7' : '#fff'}; color:${tableStyleMode === 'sheet' ? '#065f46' : '#475569'};">📊 Kiểu Google Sheet</button>
+                  <button type="button" onclick="state.fbSheetTableMode='compact'; renderApp();" style="padding:5px 10px; border-radius:7px; font-size:12px; font-weight:700; cursor:pointer; border:1px solid ${tableStyleMode === 'compact' ? '#0284c7' : '#cbd5e1'}; background:${tableStyleMode === 'compact' ? '#e0f2fe' : '#fff'}; color:${tableStyleMode === 'compact' ? '#0369a1' : '#475569'};">📋 Thu gọn 40 ĐV</button>
                 </div>
-                <input type="text" value="${escapeHtml(state.fbSheetSearch || '')}" oninput="state.fbSheetSearch=this.value; renderApp();" placeholder="🔍 Tìm tên đơn vị hoặc chủ tài khoản FB..." style="padding:7px 12px; font-size:12.5px; border:1.5px solid #cbd5e1; border-radius:7px; width:270px; max-width:100%; background:#fff;" />
+                <input type="text" value="${escapeHtml(state.fbSheetSearch || '')}" oninput="state.fbSheetSearch=this.value; renderApp();" placeholder="🔍 Tìm tên đơn vị hoặc chủ tài khoản FB..." style="padding:6px 11px; font-size:12.5px; border:1.5px solid #cbd5e1; border-radius:7px; width:260px; max-width:100%; background:#fff;" />
               </div>
 
-              <!-- Bảng Tổng Hợp 40 Đơn Vị -->
-              <div style="background:#fff; border:1.5px solid #cbd5e1; border-radius:10px; overflow-x:auto;">
-                <table class="table" style="width:100%; border-collapse:collapse; font-size:13px;">
-                  <thead>
-                    <tr style="background:#f1f5f9; border-bottom:2px solid #cbd5e1;">
-                      <th style="width:45px; text-align:center;">TT</th>
-                      <th style="min-width:250px;">Tổ chức cơ sở Đoàn trực thuộc</th>
-                      <th style="width:95px; text-align:center;">Số link</th>
-                      <th style="width:95px; text-align:center;">✅ Hợp lệ</th>
-                      <th style="width:110px; text-align:center;">❌ Lỗi / Trùng</th>
-                      <th style="width:130px; text-align:center;">Chi tiết</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${filteredUnits.map((u, idx) => {
-                      const origIdx = units.indexOf(u);
-                      const lks = u.links || [];
-                      const vCnt = lks.filter(l => l.isValid).length;
-                      const invCnt = lks.filter(l => !l.isValid && l.resultText).length;
-                      const isExp = Boolean(state.fbSheetExpandedUnits && state.fbSheetExpandedUnits[origIdx]);
-                      return `
-                        <tr onclick="toggleFbSheetUnitExpand(${origIdx})" style="border-bottom:1px solid #e2e8f0; cursor:pointer; background:${isExp ? '#f0f9ff' : '#fff'};">
-                          <td style="text-align:center; font-weight:700; color:#64748b;">${escapeHtml(u.tt || (idx + 1))}</td>
-                          <td style="font-weight:700; color:#0f172a;">${escapeHtml(u.unitName)}</td>
-                          <td style="text-align:center; font-weight:800; color:#1d4ed8;">${lks.length}</td>
-                          <td style="text-align:center; font-weight:800; color:#15803d;">${vCnt}</td>
-                          <td style="text-align:center; font-weight:800; color:${invCnt > 0 ? '#dc2626' : '#94a3b8'};">${invCnt}</td>
-                          <td style="text-align:center;">
-                            <span style="display:inline-block; padding:3px 9px; border-radius:6px; font-size:11.5px; font-weight:700; background:#e0f2fe; color:#0369a1;">${isExp ? '🔼 Thu gọn' : '👁️ Xem link'}</span>
-                          </td>
+              <!-- Bố cục 2 cột: Trái là Bảng Link (giống Google Sheet) | Phải là Bảng Điểm (ĐIỂM AI CHẤM) -->
+              <div style="display:grid; grid-template-columns:${isMobile ? '1fr' : 'minmax(0, 1fr) 335px'}; gap:12px; align-items:start;">
+                
+                <!-- KHUNG TRÁI: BẢNG LINK -->
+                <div style="background:#fff; border:1.5px solid #cbd5e1; border-radius:10px; overflow-x:auto;">
+                  ${tableStyleMode === 'sheet' ? `
+                    <table class="table" style="width:100%; border-collapse:collapse; font-size:12.5px;">
+                      <thead style="position:sticky; top:0; z-index:10; background:#ecfdf5;">
+                        <tr style="background:#d1fae5; border-bottom:2px solid #10b981; color:#065f46;">
+                          <th style="width:38px; text-align:center; padding:8px 4px; border-right:1px solid #a7f3d0;">TT</th>
+                          <th style="width:52px; text-align:center; padding:8px 4px; border-right:1px solid #a7f3d0;">Số link</th>
+                          <th style="min-width:190px; padding:8px 8px; border-right:1px solid #a7f3d0;">Tổ chức cơ sở Đoàn trực thuộc</th>
+                          <th style="min-width:210px; padding:8px 8px; border-right:1px solid #a7f3d0;">NHẬP LINK</th>
+                          <th style="min-width:165px; padding:8px 8px; border-right:1px solid #a7f3d0;">Tên trang cá nhân / Chủ tài khoản</th>
+                          <th style="width:110px; text-align:center; padding:8px 6px; border-right:1px solid #a7f3d0;">Trạng thái hiển thị</th>
+                          <th style="min-width:145px; text-align:center; padding:8px 6px; border-right:1px solid #a7f3d0;">Kết quả</th>
+                          <th style="width:58px; text-align:center; padding:8px 4px; border-right:1px solid #a7f3d0;">ĐIỂM</th>
+                          ${isAdmin ? '<th style="width:72px; text-align:center; padding:8px 4px;">Thao tác</th>' : ''}
                         </tr>
-                        ${isExp ? `
-                          <tr>
-                            <td colspan="6" style="background:#f8fafc; padding:12px 16px; border-bottom:2px solid #cbd5e1;">
-                              ${isAdmin ? `
-                                <div style="display:flex; gap:8px; margin-bottom:10px; align-items:center; flex-wrap:wrap;">
-                                  <input type="text" id="admin-add-link-${origIdx}" placeholder="Admin dán nhanh link bổ sung cho đơn vị này..." style="flex:1; min-width:220px; padding:6px 10px; font-size:12.5px; border:1px solid #cbd5e1; border-radius:6px;" onclick="event.stopPropagation()" />
-                                  <button type="button" onclick="event.stopPropagation(); submitFbSheetLinks('${escapeHtml(u.unitName)}', 'admin-add-link-${origIdx}')" style="background:#059669; color:#fff; border:none; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">➕ Thêm &amp; Quét</button>
-                                </div>
+                      </thead>
+                      <tbody>
+                        ${filteredUnits.map((u, uIdx) => {
+                          const lks = u.links || [];
+                          const vCnt = lks.filter(l => l.isValid).length;
+                          const unitScore = u.sheetScore !== '' && u.sheetScore !== undefined ? u.sheetScore : (vCnt > 0 ? (vCnt * 0.3).toFixed(1) : '0');
+                          const rowSpan = Math.max(1, lks.length);
+                          const origIdx = units.indexOf(u);
+
+                          if (lks.length === 0) {
+                            return `
+                              <tr style="border-bottom:1.5px solid #cbd5e1; background:#ffffff;">
+                                <td style="text-align:center; font-weight:700; color:#475569; border-right:1px solid #e2e8f0;">${escapeHtml(u.tt || (uIdx + 1))}</td>
+                                <td style="text-align:center; color:#94a3b8; border-right:1px solid #e2e8f0;">0</td>
+                                <td style="font-weight:700; color:#0f172a; border-right:1px solid #e2e8f0;">${escapeHtml(u.unitName)}</td>
+                                <td colspan="4" style="color:#94a3b8; font-style:italic; border-right:1px solid #e2e8f0; padding:7px 10px;">
+                                  ${isAdmin ? `
+                                    <div style="display:flex; gap:6px; align-items:center;">
+                                      <input type="text" id="sheet-add-${origIdx}" placeholder="Dán link Facebook cho đơn vị này..." style="flex:1; padding:4px 8px; font-size:12px; border:1px solid #cbd5e1; border-radius:5px;" />
+                                      <button type="button" onclick="submitFbSheetLinks('${escapeHtml(u.unitName)}', 'sheet-add-${origIdx}')" style="background:#059669; color:#fff; border:none; border-radius:5px; padding:4px 9px; font-size:11.5px; font-weight:700; cursor:pointer;">➕ Gửi</button>
+                                    </div>
+                                  ` : 'Chưa có link nộp'}
+                                </td>
+                                <td style="text-align:center; font-weight:800; color:#64748b; border-right:1px solid #e2e8f0;">0</td>
+                                ${isAdmin ? '<td style="text-align:center; color:#cbd5e1;">—</td>' : ''}
+                              </tr>
+                            `;
+                          }
+
+                          return lks.map((lk, lIdx) => `
+                            <tr style="border-bottom:${lIdx === lks.length - 1 ? '1.5px solid #cbd5e1' : '1px solid #f1f5f9'}; background:${lIdx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                              ${lIdx === 0 ? `<td rowspan="${rowSpan}" style="text-align:center; font-weight:800; color:#0f172a; vertical-align:middle; background:#f8fafc; border-right:1px solid #e2e8f0;">${escapeHtml(u.tt || (uIdx + 1))}</td>` : ''}
+                              <td style="text-align:center; font-weight:600; color:#64748b; border-right:1px solid #e2e8f0;">${escapeHtml(lk.slotNo || (lIdx + 1))}</td>
+                              ${lIdx === 0 ? `
+                                <td rowspan="${rowSpan}" style="font-weight:700; color:#065f46; vertical-align:middle; background:#f0fdf4; border-right:1px solid #bbf7d0; padding:8px;">
+                                  <div>${escapeHtml(u.unitName)}</div>
+                                  ${isAdmin ? `
+                                    <div style="margin-top:6px;">
+                                      <button type="button" onclick="var el=document.getElementById('inline-add-box-${origIdx}'); el.style.display=(el.style.display==='none'?'flex':'none');" style="background:#fff; border:1px solid #10b981; color:#059669; border-radius:5px; padding:2px 7px; font-size:11px; font-weight:700; cursor:pointer;">➕ Thêm link</button>
+                                      <div id="inline-add-box-${origIdx}" style="display:none; gap:4px; margin-top:5px; flex-direction:column;">
+                                        <input type="text" id="sheet-add-${origIdx}" placeholder="Dán link..." style="padding:4px 6px; font-size:11.5px; border:1px solid #cbd5e1; border-radius:4px;" />
+                                        <button type="button" onclick="submitFbSheetLinks('${escapeHtml(u.unitName)}', 'sheet-add-${origIdx}')" style="background:#059669; color:#fff; border:none; border-radius:4px; padding:4px; font-size:11px; font-weight:700; cursor:pointer;">Gửi &amp; Quét</button>
+                                      </div>
+                                    </div>
+                                  ` : ''}
+                                </td>
                               ` : ''}
-                              ${lks.length === 0 ? `<div style="color:#94a3b8; font-style:italic; font-size:12.5px;">Đơn vị chưa có đường link nào.</div>` : `
-                                <table style="width:100%; border-collapse:collapse; font-size:12.5px; background:#fff; border:1px solid #e2e8f0; border-radius:6px;">
-                                  <thead>
-                                    <tr style="background:#f1f5f9; border-bottom:1px solid #cbd5e1;">
-                                      <th style="width:45px; text-align:center; padding:6px;">STT</th>
-                                      <th style="padding:6px;">Link Facebook</th>
-                                      <th style="padding:6px;">Tên trang / Chủ tài khoản (Cột E)</th>
-                                      <th style="padding:6px; text-align:center;">Trạng thái (Cột F)</th>
-                                      <th style="padding:6px; text-align:center;">Kết quả (Cột G)</th>
-                                      ${isAdmin ? '<th style="width:85px; text-align:center; padding:6px;">Sửa/Xóa</th>' : ''}
-                                    </tr>
-                                  </thead>
-                                  <tbody>
-                                    ${lks.map((lk, li) => `
-                                      <tr style="border-bottom:1px solid #f1f5f9;">
-                                        <td style="text-align:center; padding:6px; color:#64748b; font-weight:700;">${li + 1}</td>
-                                        <td style="padding:6px; max-width:250px; word-break:break-all;"><a href="${escapeHtml(lk.url)}" target="_blank" rel="noopener" style="color:#0284c7; font-weight:600; text-decoration:none;">${escapeHtml(lk.url)}</a></td>
-                                        <td style="padding:6px; font-weight:700; color:#0f172a;">${escapeHtml(lk.accountName || '—')}</td>
-                                        <td style="padding:6px; text-align:center;">${escapeHtml(lk.visibility || 'Chờ quét')}</td>
-                                        <td style="padding:6px; text-align:center;">
-                                          <span style="display:inline-block; padding:2px 8px; border-radius:6px; font-weight:700; background:${lk.isValid ? '#dcfce7' : '#fee2e2'}; color:${lk.isValid ? '#15803d' : '#b91c1c'};">${escapeHtml(lk.resultText || 'Chưa quét')}</span>
-                                        </td>
-                                        ${isAdmin ? `
-                                          <td style="padding:6px; text-align:center; white-space:nowrap;">
-                                            <button type="button" onclick="event.stopPropagation(); editFbSheetLink(${lk.rowIdx}, '${escapeHtml(lk.url)}')" style="border:1px solid #cbd5e1; background:#fff; border-radius:5px; padding:2px 6px; cursor:pointer;">✏️</button>
-                                            <button type="button" onclick="event.stopPropagation(); deleteFbSheetLink(${lk.rowIdx})" style="border:1px solid #fecaca; background:#fff1f2; color:#dc2626; border-radius:5px; padding:2px 6px; cursor:pointer;">🗑️</button>
-                                          </td>
-                                        ` : ''}
-                                      </tr>
-                                    `).join('')}
-                                  </tbody>
-                                </table>
-                              `}
-                            </td>
+                              <td style="max-width:220px; word-break:break-all; border-right:1px solid #e2e8f0; padding:6px 8px;">
+                                <a href="${escapeHtml(lk.url)}" target="_blank" rel="noopener" style="color:#0284c7; font-weight:600; text-decoration:none;">${escapeHtml(lk.url)}</a>
+                              </td>
+                              <td style="font-weight:700; color:#0f172a; border-right:1px solid #e2e8f0; padding:6px 8px;">${escapeHtml(lk.accountName || '—')}</td>
+                              <td style="text-align:center; border-right:1px solid #e2e8f0; padding:6px 6px;">
+                                <span style="display:inline-block; padding:2px 7px; border-radius:10px; font-size:11px; font-weight:700; background:${lk.visibility === 'Công khai' ? '#dcfce7' : '#fef3c7'}; color:${lk.visibility === 'Công khai' ? '#15803d' : '#b45309'};">${escapeHtml(lk.visibility || 'Chờ quét')}</span>
+                              </td>
+                              <td style="text-align:center; border-right:1px solid #e2e8f0; padding:6px 6px;">
+                                <span style="display:inline-block; padding:3px 8px; border-radius:6px; font-size:11.5px; font-weight:700; background:${lk.isValid ? '#dcfce7' : '#fee2e2'}; color:${lk.isValid ? '#15803d' : '#b91c1c'};">${escapeHtml(lk.resultText || 'Chưa quét')}</span>
+                              </td>
+                              ${lIdx === 0 ? `<td rowspan="${rowSpan}" style="text-align:center; font-weight:800; font-size:13.5px; color:#1d4ed8; vertical-align:middle; background:#eff6ff; border-right:1px solid #e2e8f0;">${escapeHtml(String(unitScore))}</td>` : ''}
+                              ${isAdmin ? `
+                                <td style="text-align:center; white-space:nowrap; padding:4px;">
+                                  <button type="button" onclick="editFbSheetLink(${lk.rowIdx}, '${escapeHtml(lk.url)}')" style="border:1px solid #cbd5e1; background:#fff; border-radius:5px; padding:2px 5px; cursor:pointer;" title="Sửa">✏️</button>
+                                  <button type="button" onclick="deleteFbSheetLink(${lk.rowIdx})" style="border:1px solid #fecaca; background:#fff1f2; color:#dc2626; border-radius:5px; padding:2px 5px; cursor:pointer;" title="Xóa">🗑️</button>
+                                </td>
+                              ` : ''}
+                            </tr>
+                          `).join('');
+                        }).join('')}
+                      </tbody>
+                    </table>
+                  ` : `
+                    <table class="table" style="width:100%; border-collapse:collapse; font-size:13px;">
+                      <thead>
+                        <tr style="background:#f1f5f9; border-bottom:2px solid #cbd5e1;">
+                          <th style="width:45px; text-align:center;">TT</th>
+                          <th style="min-width:240px;">Tổ chức cơ sở Đoàn trực thuộc</th>
+                          <th style="width:80px; text-align:center;">Số link</th>
+                          <th style="width:85px; text-align:center;">✅ Hợp lệ</th>
+                          <th style="width:95px; text-align:center;">❌ Lỗi/Trùng</th>
+                          <th style="width:110px; text-align:center;">Chi tiết</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${filteredUnits.map((u, idx) => {
+                          const origIdx = units.indexOf(u);
+                          const lks = u.links || [];
+                          const vCnt = lks.filter(l => l.isValid).length;
+                          const invCnt = lks.filter(l => !l.isValid && l.resultText).length;
+                          const isExp = Boolean(state.fbSheetExpandedUnits && state.fbSheetExpandedUnits[origIdx]);
+                          return `
+                            <tr onclick="toggleFbSheetUnitExpand(${origIdx})" style="border-bottom:1px solid #e2e8f0; cursor:pointer; background:${isExp ? '#f0f9ff' : '#fff'};">
+                              <td style="text-align:center; font-weight:700; color:#64748b;">${escapeHtml(u.tt || (idx + 1))}</td>
+                              <td style="font-weight:700; color:#0f172a;">${escapeHtml(u.unitName)}</td>
+                              <td style="text-align:center; font-weight:800; color:#1d4ed8;">${lks.length}</td>
+                              <td style="text-align:center; font-weight:800; color:#15803d;">${vCnt}</td>
+                              <td style="text-align:center; font-weight:800; color:${invCnt > 0 ? '#dc2626' : '#94a3b8'};">${invCnt}</td>
+                              <td style="text-align:center;">
+                                <span style="display:inline-block; padding:3px 9px; border-radius:6px; font-size:11.5px; font-weight:700; background:#e0f2fe; color:#0369a1;">${isExp ? '🔼 Thu gọn' : '👁️ Xem link'}</span>
+                              </td>
+                            </tr>
+                            ${isExp ? `
+                              <tr>
+                                <td colspan="6" style="background:#f8fafc; padding:10px 14px; border-bottom:2px solid #cbd5e1;">
+                                  ${isAdmin ? `
+                                    <div style="display:flex; gap:8px; margin-bottom:8px; align-items:center; flex-wrap:wrap;">
+                                      <input type="text" id="admin-add-link-${origIdx}" placeholder="Admin dán nhanh link bổ sung cho đơn vị này..." style="flex:1; min-width:200px; padding:6px 10px; font-size:12.5px; border:1px solid #cbd5e1; border-radius:6px;" onclick="event.stopPropagation()" />
+                                      <button type="button" onclick="event.stopPropagation(); submitFbSheetLinks('${escapeHtml(u.unitName)}', 'admin-add-link-${origIdx}')" style="background:#059669; color:#fff; border:none; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer;">➕ Thêm &amp; Quét</button>
+                                    </div>
+                                  ` : ''}
+                                  ${lks.length === 0 ? `<div style="color:#94a3b8; font-style:italic; font-size:12.5px;">Đơn vị chưa có đường link nào.</div>` : `
+                                    <table style="width:100%; border-collapse:collapse; font-size:12px; background:#fff; border:1px solid #e2e8f0;">
+                                      <thead>
+                                        <tr style="background:#f1f5f9; border-bottom:1px solid #cbd5e1;">
+                                          <th style="width:40px; text-align:center; padding:5px;">STT</th>
+                                          <th style="padding:5px;">Link Facebook</th>
+                                          <th style="padding:5px;">Chủ tài khoản (Cột E)</th>
+                                          <th style="padding:5px; text-align:center;">Trạng thái</th>
+                                          <th style="padding:5px; text-align:center;">Kết quả</th>
+                                          ${isAdmin ? '<th style="width:75px; text-align:center; padding:5px;">Sửa/Xóa</th>' : ''}
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        ${lks.map((lk, li) => `
+                                          <tr style="border-bottom:1px solid #f1f5f9;">
+                                            <td style="text-align:center; padding:5px; color:#64748b; font-weight:700;">${li + 1}</td>
+                                            <td style="padding:5px; max-width:220px; word-break:break-all;"><a href="${escapeHtml(lk.url)}" target="_blank" rel="noopener" style="color:#0284c7; font-weight:600; text-decoration:none;">${escapeHtml(lk.url)}</a></td>
+                                            <td style="padding:5px; font-weight:700; color:#0f172a;">${escapeHtml(lk.accountName || '—')}</td>
+                                            <td style="padding:5px; text-align:center;">${escapeHtml(lk.visibility || 'Chờ quét')}</td>
+                                            <td style="padding:5px; text-align:center;">
+                                              <span style="display:inline-block; padding:2px 7px; border-radius:6px; font-weight:700; background:${lk.isValid ? '#dcfce7' : '#fee2e2'}; color:${lk.isValid ? '#15803d' : '#b91c1c'};">${escapeHtml(lk.resultText || 'Chưa quét')}</span>
+                                            </td>
+                                            ${isAdmin ? `
+                                              <td style="padding:5px; text-align:center; white-space:nowrap;">
+                                                <button type="button" onclick="event.stopPropagation(); editFbSheetLink(${lk.rowIdx}, '${escapeHtml(lk.url)}')" style="border:1px solid #cbd5e1; background:#fff; border-radius:5px; padding:2px 5px; cursor:pointer;">✏️</button>
+                                                <button type="button" onclick="event.stopPropagation(); deleteFbSheetLink(${lk.rowIdx})" style="border:1px solid #fecaca; background:#fff1f2; color:#dc2626; border-radius:5px; padding:2px 5px; cursor:pointer;">🗑️</button>
+                                              </td>
+                                            ` : ''}
+                                          </tr>
+                                        `).join('')}
+                                      </tbody>
+                                    </table>
+                                  `}
+                                </td>
+                              </tr>
+                            ` : ''}
+                          `;
+                        }).join('')}
+                      </tbody>
+                    </table>
+                  `}
+                </div>
+
+                <!-- KHUNG PHẢI: BẢNG ĐIỂM (ĐIỂM AI CHẤM) GIỐNG GOOGLE SHEET -->
+                <div style="background:#fff; border:1.5px solid #93c5fd; border-radius:10px; overflow:hidden; box-shadow:0 2px 8px rgba(37,99,235,0.06);">
+                  <div style="background:linear-gradient(135deg, #1e3a8a, #2563eb); color:#fff; padding:9px 12px; font-weight:800; font-size:13px; display:flex; justify-content:space-between; align-items:center;">
+                    <span>🏆 BẢNG ĐIỂM AI CHẤM</span>
+                    <span style="background:rgba(255,255,255,0.2); padding:2px 8px; border-radius:10px; font-size:11.5px;">Tổng: ${Number(totalBoardScore.toFixed(2))}đ</span>
+                  </div>
+                  <div style="overflow-x:auto;">
+                    <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                      <thead>
+                        <tr style="background:#eff6ff; border-bottom:1.5px solid #bfdbfe; color:#1e3a8a;">
+                          <th style="width:58px; padding:6px 5px; text-align:center;">Mã ĐV</th>
+                          <th style="padding:6px 6px; text-align:left;">Đơn vị trực thuộc</th>
+                          <th style="width:52px; padding:6px 5px; text-align:center;">Điểm</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${displayScoreBoard.map((sb, i) => `
+                          <tr style="border-bottom:1px solid #f1f5f9; background:${Number(sb.score) > 0 ? '#f0fdf4' : (i % 2 === 0 ? '#fff' : '#f8fafc')};">
+                            <td style="padding:5px; text-align:center; font-family:monospace; font-size:11px; color:#64748b; font-weight:700;">${escapeHtml(sb.code)}</td>
+                            <td style="padding:5px 6px; font-weight:${Number(sb.score) > 0 ? '700' : '500'}; color:${Number(sb.score) > 0 ? '#065f46' : '#334155'}; line-height:1.3;">${escapeHtml(sb.unitName)}</td>
+                            <td style="padding:5px; text-align:center; font-weight:800; color:${Number(sb.score) > 0 ? '#15803d' : '#94a3b8'};">${escapeHtml(String(sb.score))}</td>
                           </tr>
-                        ` : ''}
-                      `;
-                    }).join('')}
-                  </tbody>
-                </table>
+                        `).join('')}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
               </div>
             `;
           })()}

@@ -217,3 +217,7 @@
            - Nâng cấp `google_sheets_fb_auto.gs` thành Web App API (`doGet` / `doPost`) đọc/ghi trực tiếp 40 đơn vị, giữ nguyên tự động quét Cột E, F, G, chống dùng lại link bài gốc và chống trùng tài khoản.
            - Xây dựng `renderFbSheetHubTab()` trong `app.js`: giao diện riêng siêu trực quan cho từng Cơ sở Đoàn (tự nhận diện đúng đơn vị, dán nhiều link cùng lúc, sửa/xóa link nếu bị lỗi/trùng) và bảng tổng hợp 40 đơn vị cho Admin (thống kê, lọc nhanh, mở rộng từng đơn vị, cấu hình từ khóa bài gốc, xuất Excel, mở Sheet gốc).
            - Lưu `fb_sheet_webapp_url` lên `cloud_db.json` (`db.settings`) để Admin cấu hình 1 lần là toàn bộ 40 đơn vị tự động kết nối dùng chung.
+         - **8. Sửa cuộn dọc tab `🔗 Link FB` & hiển thị bảng cấu trúc giống hệt Google Sheet kèm Bảng Điểm AI Chấm (27/11/2026)**:
+           - Sửa lỗi không cuộn dọc được trên Desktop bằng `height: calc(100vh - 128px)` trên `.panel` và `flex: 1 1 auto; min-height: 0; overflow-y: auto !important;` trên `.panel-body`.
+           - Nâng cấp `google_sheets_fb_auto.gs` đọc thêm cột H (`ĐIỂM`) và cột I–K (`ĐIỂM AI CHẤM` 40 đơn vị).
+           - Hiển thị giao diện 2 khung song song: Bảng Link bên trái theo đúng cấu trúc gộp ô Google Sheet (`TT | Số link | Tổ chức cơ sở Đoàn trực thuộc | NHẬP LINK | Tên trang / Chủ tài khoản | Trạng thái hiển thị | Kết quả | ĐIỂM`) và Bảng Điểm AI Chấm bên phải (`Mã ĐV | Đơn vị | Điểm`), có nút chuyển đổi qua lại kiểu bảng thu gọn nếu cần.

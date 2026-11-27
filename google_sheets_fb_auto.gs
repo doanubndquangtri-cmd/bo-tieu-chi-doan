@@ -251,12 +251,14 @@ function processSingleRow_(sheet, rowIdx, linkVal, skipDupRefresh) {
 function buildSheetJsonPayload_() {
   const sheet = getMainSheet_();
   const lastRow = sheet.getLastRow();
+  const lastCol = Math.max(7, Math.min(12, sheet.getLastColumn()));
   const sheetTitle = String(sheet.getRange(1, 1).getValue() || "ĐƯỜNG LINK FACEBOOK").trim();
   const excludedKeywords = PropertiesService.getDocumentProperties().getProperty(PROP_KEY_EXCLUDED_ACCOUNTS) || "";
 
   const units = [];
+  const scoreBoard = []; // Bảng ĐIỂM AI CHẤM (cột I, J, K)
   if (lastRow >= 3) {
-    const vals = sheet.getRange(3, 1, lastRow - 2, 7).getValues();
+    const vals = sheet.getRange(3, 1, lastRow - 2, lastCol).getValues();
     let currentUnit = null;
 
     for (let i = 0; i < vals.length; i++) {
@@ -268,6 +270,18 @@ function buildSheetJsonPayload_() {
       const colE = String(vals[i][4] || "").trim();
       const colF = String(vals[i][5] || "").trim();
       const colG = String(vals[i][6] || "").trim();
+      const colH = lastCol >= 8 ? vals[i][7] : "";
+      const colI = lastCol >= 9 ? String(vals[i][8] || "").trim() : "";
+      const colJ = lastCol >= 10 ? String(vals[i][9] || "").replace(/\s+/g, " ").trim() : "";
+      const colK = lastCol >= 11 ? vals[i][10] : "";
+
+      if (colI && /^donvi\d+$/i.test(colI) && colJ) {
+        scoreBoard.push({
+          code: colI,
+          unitName: colJ,
+          score: colK !== "" && colK !== null && colK !== undefined ? Number(colK) : 0
+        });
+      }
 
       if (colC) {
         currentUnit = {
@@ -276,6 +290,7 @@ function buildSheetJsonPayload_() {
           startRow: rowIdx,
           endRow: rowIdx,
           maxSlots: 0,
+          sheetScore: colH !== "" && colH !== null && colH !== undefined ? colH : "",
           links: []
         };
         units.push(currentUnit);
@@ -292,6 +307,7 @@ function buildSheetJsonPayload_() {
             accountName: colE,
             visibility: colF,
             resultText: colG,
+            linkScore: colH !== "" && colH !== null && colH !== undefined ? colH : "",
             isValid: colG.startsWith("✅")
           });
         }
@@ -304,7 +320,8 @@ function buildSheetJsonPayload_() {
     sheetTitle: sheetTitle,
     excludedKeywords: excludedKeywords,
     updatedAt: new Date().toISOString(),
-    units: units
+    units: units,
+    scoreBoard: scoreBoard
   };
 }
 
