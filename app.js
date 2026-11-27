@@ -18169,8 +18169,8 @@ window.openEditIncomingDocModal = function (docId) {
   if (!modalRoot) return;
 
   modalRoot.innerHTML = `
-    <div class="modal-overlay" onclick="if(event.target===this)closeModal()" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(15,23,42,0.6); z-index:9999; display:flex; align-items:center; justify-content:center; padding:16px;">
-      <div class="modal-content" style="background:#fff; border-radius:12px; width:100%; max-width:620px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04); overflow:hidden; border:1px solid #cbd5e1; animation:modalPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);">
+    <div class="modal-backdrop" onclick="if(event.target===this)closeModal()" style="position:fixed; inset:0; background:rgba(15, 23, 42, 0.22); z-index:9999999; display:flex; align-items:center; justify-content:center; padding:16px; backdrop-filter:none;">
+      <div class="modal-box" style="background:#fff; border-radius:14px; width:100%; max-width:620px; box-shadow:0 20px 40px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.06); overflow:hidden; border:1px solid #cbd5e1; animation:modalPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1); margin:auto;">
         
         <div style="background:linear-gradient(135deg, #059669 0%, #047857 100%); color:#fff; padding:14px 20px; display:flex; align-items:center; justify-content:space-between;">
           <div style="font-weight:800; font-size:15px; display:flex; align-items:center; gap:8px;">
@@ -36794,8 +36794,8 @@ window.openGalleryCommentsModal = function (photoId) {
   const root = document.getElementById('modal-root');
   if (!root) return;
   root.innerHTML = `
-    <div class="modal-backdrop" onclick="closeModal()" style="position:fixed; inset:0; background:rgba(15, 23, 42, 0.68); backdrop-filter:blur(4px); z-index:99999; display:flex; align-items:center; justify-content:center; padding:12px; box-sizing:border-box;">
-      <div class="modal-content" onclick="event.stopPropagation()" style="background:#ffffff; border-radius:16px; overflow:hidden; max-width:600px; width:100%; max-height:92dvh; display:flex; flex-direction:column; box-shadow:0 24px 60px rgba(15,23,42,0.38); border:1px solid #e2e8f0;">
+    <div class="modal-backdrop" onclick="closeModal()" style="position:fixed; inset:0; background:rgba(15, 23, 42, 0.22); backdrop-filter:none; z-index:99999; display:flex; align-items:center; justify-content:center; padding:12px; box-sizing:border-box;">
+      <div class="modal-content" onclick="event.stopPropagation()" style="background:#ffffff; border-radius:14px; overflow:hidden; max-width:600px; width:100%; max-height:92dvh; display:flex; flex-direction:column; box-shadow:0 20px 40px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.06); border:1px solid #e2e8f0; margin:auto;">
         <div style="background:linear-gradient(135deg, #0b2259 0%, #1552be 100%); color:#fff; padding:13px 16px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-shrink:0;">
           <div style="min-width:0;">
             <div style="font-size:14.5px; font-weight:800; color:#fff; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">💬 Giao Lưu &amp; Bình Luận Ảnh</div>
@@ -37430,8 +37430,8 @@ window.openAddGalleryPhotoModal = function (mode = 'photo') {
   if (mode === 'status') {
     window._feelingPickerTab = 'feeling';
     root.innerHTML = `
-      <div class="modal-backdrop" onclick="closeModal()" style="position:fixed; inset:0; background:rgba(15, 23, 42, 0.65); backdrop-filter:blur(4px); z-index:99999; display:flex; align-items:center; justify-content:center; padding:14px; box-sizing:border-box;">
-        <div class="modal-content" onclick="event.stopPropagation()" style="background:#ffffff; border-radius:16px; overflow:hidden; max-width:520px; width:100%; max-height:88dvh; display:flex; flex-direction:column; box-shadow:0 24px 60px rgba(15,23,42,0.38); border:1px solid #e2e8f0;">
+      <div class="modal-backdrop" onclick="closeModal()" style="position:fixed; inset:0; background:rgba(15, 23, 42, 0.22); backdrop-filter:none; z-index:99999; display:flex; align-items:center; justify-content:center; padding:14px; box-sizing:border-box;">
+        <div class="modal-content" onclick="event.stopPropagation()" style="background:#ffffff; border-radius:14px; overflow:hidden; max-width:520px; width:100%; max-height:88dvh; display:flex; flex-direction:column; box-shadow:0 20px 40px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.06); border:1px solid #e2e8f0; margin:auto;">
           <div style="padding:14px 16px; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between; background:#ffffff; flex-shrink:0;">
             <button type="button" onclick="window._selectedGalleryFeeling=''; openAddGalleryPhotoModal('status_compose');" title="Bỏ qua chọn cảm xúc, viết bài ngay" style="border:none; background:#f1f5f9; color:#334155; padding:6px 11px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">Viết ngay ➔</button>
             <h3 style="margin:0; font-size:17px; font-weight:800; color:#0f172a;">Bạn đang cảm thấy thế nào?</h3>
@@ -37459,8 +37459,8 @@ window.openAddGalleryPhotoModal = function (mode = 'photo') {
   if (mode === 'status_compose') {
     const feeling = window._selectedGalleryFeeling || '';
     root.innerHTML = `
-      <div class="modal-backdrop" onclick="closeModal()" style="position:fixed; inset:0; background:rgba(15, 23, 42, 0.65); backdrop-filter:blur(4px); z-index:99999; display:flex; align-items:center; justify-content:center; padding:14px; box-sizing:border-box;">
-        <div class="modal-content" onclick="event.stopPropagation()" style="background:#ffffff; border-radius:16px; overflow:hidden; max-width:520px; width:100%; max-height:90dvh; display:flex; flex-direction:column; box-shadow:0 24px 60px rgba(15,23,42,0.38); border:1px solid #e2e8f0;">
+      <div class="modal-backdrop" onclick="closeModal()" style="position:fixed; inset:0; background:rgba(15, 23, 42, 0.22); backdrop-filter:none; z-index:99999; display:flex; align-items:center; justify-content:center; padding:14px; box-sizing:border-box;">
+        <div class="modal-content" onclick="event.stopPropagation()" style="background:#ffffff; border-radius:14px; overflow:hidden; max-width:520px; width:100%; max-height:90dvh; display:flex; flex-direction:column; box-shadow:0 20px 40px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.06); border:1px solid #e2e8f0; margin:auto;">
           <div style="padding:14px 16px; border-bottom:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between; background:#fff; flex-shrink:0;">
             <button type="button" onclick="openAddGalleryPhotoModal('status')" title="Chọn lại cảm xúc" style="border:none; background:#f1f5f9; color:#334155; padding:6px 10px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">← Cảm xúc</button>
             <h3 style="margin:0; font-size:17px; font-weight:800; color:#0f172a;">Tạo bài viết</h3>
@@ -37505,8 +37505,8 @@ window.openAddGalleryPhotoModal = function (mode = 'photo') {
   // CHẾ ĐỘ 3: ĐĂNG VIDEO RIÊNG BIỆT (BẤM NÚT CAMERA/VIDEO 🎬)
   if (mode === 'video') {
     root.innerHTML = `
-      <div class="modal-backdrop" onclick="closeModal()" style="position:fixed; inset:0; background:rgba(15, 23, 42, 0.65); backdrop-filter:blur(4px); z-index:99999; display:flex; align-items:center; justify-content:center; padding:14px; box-sizing:border-box;">
-        <div class="modal-content" onclick="event.stopPropagation()" style="background:#ffffff; border-radius:16px; overflow:hidden; max-width:560px; width:100%; max-height:92dvh; display:flex; flex-direction:column; box-shadow:0 24px 60px rgba(15, 23, 42, 0.38); border:1px solid #e2e8f0;">
+      <div class="modal-backdrop" onclick="closeModal()" style="position:fixed; inset:0; background:rgba(15, 23, 42, 0.22); backdrop-filter:none; z-index:99999; display:flex; align-items:center; justify-content:center; padding:14px; box-sizing:border-box;">
+        <div class="modal-content" onclick="event.stopPropagation()" style="background:#ffffff; border-radius:14px; overflow:hidden; max-width:560px; width:100%; max-height:92dvh; display:flex; flex-direction:column; box-shadow:0 20px 40px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.06); border:1px solid #e2e8f0; margin:auto;">
           <div style="background:linear-gradient(135deg, #be123c 0%, #e11d48 100%); color:#fff; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-shrink:0;">
             <div style="display:flex; align-items:center; gap:9px;">
               <span style="font-size:21px;">🎬</span>
@@ -37567,8 +37567,8 @@ window.openAddGalleryPhotoModal = function (mode = 'photo') {
 
   // CHẾ ĐỘ 4: ĐĂNG ẢNH RIÊNG BIỆT (BẤM NÚT ẢNH 🖼️)
   root.innerHTML = `
-    <div class="modal-backdrop" onclick="closeModal()" style="position:fixed; inset:0; background:rgba(15, 23, 42, 0.65); backdrop-filter:blur(4px); z-index:99999; display:flex; align-items:center; justify-content:center; padding:14px; box-sizing:border-box;">
-      <div class="modal-content" onclick="event.stopPropagation()" style="background:#ffffff; border-radius:16px; overflow:hidden; max-width:560px; width:100%; max-height:92dvh; display:flex; flex-direction:column; box-shadow:0 24px 60px rgba(15, 23, 42, 0.38); border:1px solid #e2e8f0;">
+    <div class="modal-backdrop" onclick="closeModal()" style="position:fixed; inset:0; background:rgba(15, 23, 42, 0.22); backdrop-filter:none; z-index:99999; display:flex; align-items:center; justify-content:center; padding:14px; box-sizing:border-box;">
+      <div class="modal-content" onclick="event.stopPropagation()" style="background:#ffffff; border-radius:14px; overflow:hidden; max-width:560px; width:100%; max-height:92dvh; display:flex; flex-direction:column; box-shadow:0 20px 40px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0,0,0,0.06); border:1px solid #e2e8f0; margin:auto;">
         <div style="background:linear-gradient(135deg, #0b2259 0%, #1552be 100%); color:#fff; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-shrink:0;">
           <div style="display:flex; align-items:center; gap:9px;">
             <span style="font-size:20px;">🖼️</span>
@@ -37963,8 +37963,8 @@ window.openEditGalleryPostModal = function (postId) {
   if (!root) return;
 
   root.innerHTML = `
-    <div class="modal-backdrop" onclick="closeModal()" style="position:fixed; inset:0; background:rgba(15, 23, 42, 0.68); backdrop-filter:blur(4px); z-index:99999; display:flex; align-items:center; justify-content:center; padding:14px; box-sizing:border-box;">
-      <div class="modal-content" onclick="event.stopPropagation()" style="background:#ffffff; border-radius:16px; overflow:hidden; max-width:580px; width:100%; max-height:92dvh; display:flex; flex-direction:column; box-shadow:0 24px 60px rgba(15,23,42,0.38); border:1px solid #e2e8f0;">
+    <div class="modal-backdrop" onclick="closeModal()" style="position:fixed; inset:0; background:rgba(15, 23, 42, 0.22); backdrop-filter:none; z-index:99999; display:flex; align-items:center; justify-content:center; padding:14px; box-sizing:border-box;">
+      <div class="modal-content" onclick="event.stopPropagation()" style="background:#ffffff; border-radius:14px; overflow:hidden; max-width:580px; width:100%; max-height:92dvh; display:flex; flex-direction:column; box-shadow:0 20px 40px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.06); border:1px solid #e2e8f0; margin:auto;">
         <div style="background:linear-gradient(135deg, #0b2259 0%, #1552be 100%); color:#fff; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-shrink:0;">
           <div style="display:flex; align-items:center; gap:9px;">
             <span style="font-size:19px;">✏️</span>
@@ -38084,18 +38084,21 @@ window.submitEditGalleryPost = async function (postId) {
 window._fbCheckerAbortController = null;
 
 window.getFbCheckerServerUrl = function () {
-  if (state.fbCheckerServerUrl && state.fbCheckerServerUrl.trim()) {
+  if (state.fbCheckerServerUrl && state.fbCheckerServerUrl.trim() && !state.fbCheckerServerUrl.includes('trycloudflare.com')) {
     return state.fbCheckerServerUrl.trim().replace(/\/+$/, '');
   }
   const stored = (typeof localStorage !== 'undefined' && localStorage.getItem('fb_checker_server_url')) || '';
-  if (stored && stored.trim()) {
+  if (stored && stored.trim() && !stored.includes('trycloudflare.com')) {
     state.fbCheckerServerUrl = stored.trim().replace(/\/+$/, '');
     return state.fbCheckerServerUrl;
   }
-  if (typeof window !== 'undefined' && window.location && window.location.protocol === 'https:') {
-    return 'https://leaders-poster-integrating-mixture.trycloudflare.com';
+  // Mặc định cố định link máy chủ chính thức KINI AI trên Render
+  const defaultUrl = 'https://kini-ai.onrender.com';
+  state.fbCheckerServerUrl = defaultUrl;
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('fb_checker_server_url', defaultUrl);
   }
-  return 'http://127.0.0.1:8000';
+  return defaultUrl;
 };
 
 window.setFbCheckerServerUrl = function (url) {
@@ -38111,29 +38114,29 @@ window.openFbCheckerServerConfigModal = function () {
   if (!modalRoot) return;
 
   modalRoot.innerHTML = `
-    <div class="modal-overlay" onclick="if(event.target===this)closeModal()" style="position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(15,23,42,0.65); z-index:9999; display:flex; align-items:center; justify-content:center; padding:16px;">
-      <div class="modal-content" style="background:#fff; border-radius:12px; width:100%; max-width:540px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.15); overflow:hidden; border:1px solid #cbd5e1;">
+    <div class="modal-backdrop" onclick="if(event.target===this)closeModal()" style="position:fixed; inset:0; background:rgba(15, 23, 42, 0.22); z-index:9999999; display:flex; align-items:center; justify-content:center; padding:16px; backdrop-filter:none;">
+      <div class="modal-box" style="background:#fff; border-radius:14px; width:100%; max-width:540px; box-shadow:0 20px 40px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.06); overflow:hidden; border:1px solid #cbd5e1; margin:auto;">
         <div style="background:linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%); color:#fff; padding:14px 20px; display:flex; align-items:center; justify-content:space-between;">
           <div style="font-weight:800; font-size:15px; display:flex; align-items:center; gap:8px;">
             <span>⚙️ Cấu Hình Máy Chủ Thẩm Định Facebook</span>
           </div>
-          <button type="button" onclick="closeModal()" style="background:none; border:none; color:#fff; font-size:20px; font-weight:700; cursor:pointer;">✕</button>
+          <button type="button" onclick="closeModal()" style="background:none; border:none; color:#fff; font-size:20px; font-weight:700; cursor:pointer;" title="Đóng">✕</button>
         </div>
         <div style="padding:18px 22px;">
           <p style="font-size:13px; color:#475569; margin-bottom:12px; line-height:1.5;">
-            Máy chủ Backend thực hiện quét dữ liệu Facebook thực tế và tránh bị trình duyệt chặn CORS.
+            Máy chủ Backend thực hiện quét dữ liệu Facebook thực tế và giải quyết giới hạn CORS trình duyệt.
           </p>
           <div style="margin-bottom:14px;">
             <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:6px;">Địa chỉ Server (API Endpoint):</label>
-            <input type="text" id="cfg-fb-server-url" value="${escapeHtml(currentUrl)}" placeholder="http://127.0.0.1:8000 hoặc https://leaders-poster-integrating-mixture.trycloudflare.com" style="width:100%; padding:9px 12px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:7px; font-family:monospace;" />
+            <input type="text" id="cfg-fb-server-url" value="${escapeHtml(currentUrl)}" placeholder="https://kini-ai.onrender.com hoặc http://127.0.0.1:8000" style="width:100%; box-sizing:border-box; padding:9px 12px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:7px; font-family:monospace;" />
           </div>
           <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 12px; font-size:12px; color:#64748b; margin-bottom:16px; line-height:1.5;">
             <b>Gợi ý kết nối:</b><br/>
-            • <b>Chạy cục bộ / Offline:</b> <code>http://127.0.0.1:8000</code> (Bấm đúp file <code>run_fb_server.bat</code> trong thư mục hoặc mở KINI AI).<br/>
-            • <b>Duyệt trên web Online:</b> <code>https://leaders-poster-integrating-mixture.trycloudflare.com</code> (kết nối qua Cloudflare Tunnel không bị lỗi Mixed Content HTTPS).
+            • <b>Máy chủ Cloud 24/7 (Khuyên dùng):</b> <code>https://kini-ai.onrender.com</code> (Luôn mở trực tuyến, đã tích hợp sẵn).<br/>
+            • <b>Chạy cục bộ / Offline:</b> <code>http://127.0.0.1:8000</code> (Chạy file <code>run_fb_server.bat</code> trên máy tính).
           </div>
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
-            <button type="button" class="btn btn-outline btn-sm" onclick="testFbCheckerServerConnection()" style="font-size:12px; font-weight:700; color:#2563eb; border-color:#93c5fd;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="testFbCheckerServerConnection()" style="font-size:12px; font-weight:700; color:#2563eb; border-color:#93c5fd; background:#eff6ff;">
               🔍 Kiểm tra kết nối
             </button>
             <div style="display:flex; gap:8px;">

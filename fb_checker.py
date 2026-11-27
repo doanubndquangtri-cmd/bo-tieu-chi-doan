@@ -64,6 +64,77 @@ def _parse_vn_date(date_str: str) -> Optional[datetime]:
     return None
 
 
+def fetch_facebook_via_embed(raw_url: str) -> Optional[Dict[str, Any]]:
+    """
+    Sử dụng endpoint Meta Embed chính thức (plugins/post.php & plugins/video.php)
+    để giải mã nội dung bài viết công khai, tác giả và ngày đăng ngay cả khi IP server
+    bị Facebook chuyển hướng về trang /login/.
+    """
+    clean_ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+    headers = {
+        "User-Agent": clean_ua,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "vi-VN,vi;q=0.9,en;q=0.8",
+    }
+    endpoints = [
+        f"https://www.facebook.com/plugins/post.php?href={urllib.parse.quote(raw_url, safe='')}",
+        f"https://www.facebook.com/plugins/video.php?href={urllib.parse.quote(raw_url, safe='')}",
+    ]
+    for ep in endpoints:
+        try:
+            r = requests.get(ep, headers=headers, timeout=10)
+            if r.status_code != 200 or len(r.text) < 500:
+                continue
+            soup = BeautifulSoup(r.text, "html.parser")
+            full_text = soup.get_text(" ", strip=True)
+            if any(k in full_text.lower() for k in [
+                "nội dung này hiện không khả dụng",
+                "this content isn't available",
+                "liên kết bạn đã theo dõi có thể bị hỏng",
+                "trang này không tồn tại",
+                "rất tiếc, đã xảy ra lỗi",
+                "sorry, something went wrong",
+            ]):
+                return {"visibility": "Riêng tư / Yêu cầu đăng nhập", "content": "", "author": "", "image": ""}
+
+            paragraphs = [p.get_text(" ", strip=True) for p in soup.find_all("p") if p.get_text(" ", strip=True)]
+            
+            author = ""
+            m_author = re.search(r"Facebook\s+([^\n·•]+?)(?:\s+vào|\s+đã|\s+chia sẻ|\s+·|\s+\d+\s+người)", full_text)
+            if m_author:
+                author = m_author.group(1).strip()
+            if not author:
+                for a in soup.find_all("a"):
+                    t = a.get_text(strip=True)
+                    if t and len(t) > 2 and t.lower() not in ["facebook", "help", "trợ giúp", "xem thêm", "chia sẻ", "go back"]:
+                        author = t
+                        break
+
+            # Tìm ảnh bài đăng
+            img_src = ""
+            for img in soup.find_all("img"):
+                src = img.get("src", "")
+                if src and ("fbcdn" in src or "fbsbx" in src) and not any(k in src.lower() for k in ["emoji", "static", "rsrc.php"]):
+                    img_src = src
+                    break
+
+            content = "\n\n".join(paragraphs) if paragraphs else ""
+            if not content:
+                clean_lines = [l.strip() for l in soup.get_text("\n", strip=True).split("\n") if len(l.strip()) > 30 and "facebook" not in l.lower()]
+                content = "\n\n".join(clean_lines[:6])
+
+            if content:
+                return {
+                    "visibility": "Công khai",
+                    "account_name": author,
+                    "content": content,
+                    "image": img_src,
+                }
+        except Exception:
+            pass
+    return None
+
+
 def check_single_fb_link(
     url: str,
     required_keywords: Optional[List[str]] = None,
@@ -108,8 +179,9 @@ def check_single_fb_link(
 
     user_agents = [
         "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "WhatsApp/2.21.12.21 A",
         "Twitterbot/1.0",
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     ]
 
     res = None
@@ -134,51 +206,72 @@ def check_single_fb_link(
             last_err = str(exc)
 
     if res is None:
-        return {
-            "url": raw_url,
-            "canonical_url": "",
-            "account_name": "",
-            "account_id": extract_account_id(raw_url),
-            "visibility": "Link lỗi / Không truy cập được",
-            "post_date": "",
-            "content": "",
-            "image": "",
-            "is_valid": False,
-            "status_label": "Không hợp lệ",
-            "reason": f"Không thể truy cập liên kết ({last_err or 'timeout'})",
-        }
+        # Thử fallback qua Embed API trước khi báo lỗi
+        embed_data = fetch_facebook_via_embed(raw_url)
+        if not embed_data:
+            return {
+                "url": raw_url,
+                "canonical_url": "",
+                "account_name": "",
+                "account_id": extract_account_id(raw_url),
+                "visibility": "Link lỗi / Không truy cập được",
+                "post_date": "",
+                "content": "",
+                "image": "",
+                "is_valid": False,
+                "status_label": "Không hợp lệ",
+                "reason": f"Không thể truy cập liên kết ({last_err or 'timeout'})",
+            }
 
-    soup = BeautifulSoup(res.content, "html.parser")
+    soup = BeautifulSoup(res.content, "html.parser") if res else None
 
     def _meta(prop_name: str) -> str:
+        if not soup:
+            return ""
         tag = soup.find("meta", attrs={"property": prop_name}) or soup.find("meta", attrs={"name": prop_name})
         return (tag.get("content") or "").strip() if tag else ""
 
     og_title = _meta("og:title")
     og_desc = _meta("og:description") or _meta("description")
-    og_url = _meta("og:url") or res.url
+    og_url = _meta("og:url") or (res.url if res else raw_url)
     og_image = _meta("og:image")
-    page_title = soup.title.string.strip() if (soup.title and soup.title.string) else ""
+    page_title = soup.title.string.strip() if (soup and soup.title and soup.title.string) else ""
 
     account_name = og_title or page_title
-    final_url_low = (res.url or "").lower()
+    content_text = og_desc
+    account_id = extract_account_id(raw_url, og_url)
+
+    final_url_low = ((res.url if res else "") or "").lower()
     login_blocked = (
         "/login" in final_url_low
         or "checkpoint" in final_url_low
         or account_name.lower() in ("", "facebook", "log in or sign up", "đăng nhập hoặc đăng ký", "log into facebook")
-        and not og_desc
+        and not content_text
     )
+
+    # NẾU BỊ ĐIỀU HƯỚNG VỀ LOGIN HOẶC CHƯA LẤY ĐƯỢC NỘI DUNG: DÙNG EMBED META FALLBACK
+    if login_blocked or not content_text:
+        embed_data = fetch_facebook_via_embed(raw_url)
+        if embed_data:
+            if embed_data.get("visibility") == "Công khai" and embed_data.get("content"):
+                login_blocked = False
+                content_text = embed_data["content"]
+                if embed_data.get("account_name"):
+                    account_name = embed_data["account_name"]
+                if embed_data.get("image") and not og_image:
+                    og_image = embed_data["image"]
+            elif embed_data.get("visibility") == "Riêng tư / Yêu cầu đăng nhập":
+                login_blocked = True
 
     if login_blocked:
         visibility = "Riêng tư / Yêu cầu đăng nhập"
         account_name = "" if account_name.lower() in ("facebook", "log into facebook", "log in or sign up") else account_name
-    elif og_desc or (account_name and account_name.lower() != "facebook"):
+    elif content_text or (account_name and account_name.lower() != "facebook"):
         visibility = "Công khai"
     else:
         visibility = "Không đọc được nội dung"
 
-    account_id = extract_account_id(raw_url, og_url)
-    dates_found = extract_post_dates(og_desc)
+    dates_found = extract_post_dates(content_text)
     post_date = dates_found[0] if dates_found else ""
 
     reasons: List[str] = []
@@ -187,7 +280,7 @@ def check_single_fb_link(
 
     clean_kws = [k.strip().lower() for k in (required_keywords or []) if k.strip()]
     if clean_kws:
-        haystack = f"{account_name} {og_desc}".lower()
+        haystack = f"{account_name} {content_text}".lower()
         matched = [k for k in clean_kws if k in haystack]
         if keyword_mode == "all":
             missing = [k for k in clean_kws if k not in haystack]
@@ -214,8 +307,8 @@ def check_single_fb_link(
         "account_name": account_name or "(Không xác định)",
         "account_id": account_id,
         "visibility": visibility,
-        "post_date": post_date or "(Không ghi trong đoạn đầu)",
-        "content": og_desc or "(Không có nội dung hiển thị công khai)",
+        "post_date": post_date or "(Không ghi trong bài)",
+        "content": content_text or "(Không có nội dung hiển thị công khai)",
         "image": og_image,
         "is_valid": is_valid,
         "status_label": "Hợp lệ" if is_valid else "Không hợp lệ",

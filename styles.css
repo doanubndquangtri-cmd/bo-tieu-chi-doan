@@ -920,32 +920,42 @@ thead th.sticky-col-total {
   z-index: 9999999 !important;
 }
 
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: transparent !important;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999999 !important;
-  padding: 16px;
+.modal-backdrop, .modal-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  width: 100% !important;
+  height: 100vh !important;
+  height: 100% !important;
+  background: rgba(15, 23, 42, 0.22) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 9999999 !important;
+  padding: 16px !important;
+  box-sizing: border-box !important;
 }
 
-.modal-box {
+.modal-box, .modal-content {
   background: #fff;
   position: relative;
   z-index: 10000000 !important;
   width: 100%;
   max-width: 640px;
-  border-radius: 10px;
-  box-shadow: 0 20px 35px rgba(0, 0, 0, 0.35);
+  border-radius: 12px !important;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0,0,0,0.06) !important;
   overflow: hidden;
   max-height: 90vh;
   max-height: 90dvh;
   display: flex;
   flex-direction: column;
+  margin: auto !important;
 }
 
 .modal-header {
@@ -4106,27 +4116,28 @@ body.dark-mode #tts-result-box {
   }
 
   /* MODAL NỘP BÁO CÁO / XEM CHI TIẾT VỪA VẶN MÀN HÌNH MOBILE */
-  .modal-backdrop {
+  .modal-backdrop, .modal-overlay {
     padding: 6px !important;
-    align-items: flex-start !important;
+    align-items: center !important;
+    justify-content: center !important;
     padding-top: calc(8px + env(safe-area-inset-top, 0px)) !important;
     padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
     z-index: 9999999 !important;
-    background: transparent !important;
+    background: rgba(15, 23, 42, 0.22) !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }
-  .modal-box {
+  .modal-box, .modal-content {
     width: 100% !important;
     max-width: 100% !important;
     max-height: calc(100dvh - 16px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
-    border-radius: 10px !important;
-    margin: 0 auto !important;
+    border-radius: 12px !important;
+    margin: auto !important;
     z-index: 10000000 !important;
     display: flex !important;
     flex-direction: column !important;
     overflow: hidden !important;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2) !important;
   }
   .modal-header {
     padding: 10px 14px !important;

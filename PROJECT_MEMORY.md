@@ -187,3 +187,20 @@
              - Ô tìm kiếm nhanh theo tên tài khoản hoặc nội dung.
              - Nút `📋 Copy Bảng`: Sao chép định dạng bảng TSV để dán trực tiếp vào Excel hoặc Google Sheets.
              - Nút `📊 Xuất Excel (.xlsx)`: Xuất file Excel chuẩn đẹp mắt kèm cột, định dạng màu sắc cho hồ sơ minh chứng Đoàn.
+
+       - **Cố Định Máy Chủ KINI AI, Tối Ưu Bảng Modal Trắng & Nâng Cấp Bóc Tách Link Facebook (27/11/2026)**:
+         - **1. Cố định Server Thẩm Định Facebook sang KINI AI trên Render**:
+           - Thiết lập địa chỉ máy chủ mặc định vĩnh viễn: `https://kini-ai.onrender.com` (thay thế cho đường link tạm thời Cloudflare Tunnel).
+           - Tự động di chuyển (auto-migrate) các thiết bị đã lưu cache cũ sang link mới mà không cần người dùng phải cấu hình lại thủ công.
+         - **2. Xóa mờ đen xung quanh & Căn chính giữa 100% các bảng trắng (Modals)**:
+           - Rà soát toàn bộ hệ thống modal trong `styles.css` và `app.js` (`.modal-backdrop`, `.modal-overlay`, `.modal-box`, `.modal-content`).
+           - Xóa bỏ hoàn toàn lớp phủ đen tối mịt xám xịt (`rgba(15,23,42,0.65)`) và hiệu ứng làm mờ nhòe (`backdrop-filter: blur(4px)`).
+           - Áp dụng lớp phủ trong suốt trang nhã (`rgba(15, 23, 42, 0.22)`) với viền bóng đổ thanh lịch (`box-shadow: 0 20px 40px rgba(0,0,0,0.2)`).
+           - Thiết lập `display: flex; align-items: center; justify-content: center; inset: 0; margin: auto;` đảm bảo mọi bảng thông tin/cấu hình khi bật lên luôn luôn nằm ngay ngắn ở chính giữa màn hình trên mọi kích thước thiết bị (Desktop lẫn Mobile).
+         - **3. Khắc phục lỗi thẩm định link Facebook công khai (story.php / trang cá nhân)**:
+           - **Nguyên nhân**: Khi máy chủ đám mây (Render tại datacenter US/Frankfurt) gửi request đến Facebook bằng trình duyệt thông thường, Facebook phát hiện IP đám mây và tự động chuyển hướng (302) sang trang `https://www.facebook.com/login/`. Điều này dẫn đến kết quả sai lệch là bài viết bị báo "Riêng tư / Cần đăng nhập".
+           - **Giải pháp xử lý triệt để**:
+             + Tích hợp Meta Embed Fallback Engine (`fetch_facebook_via_embed`) sử dụng endpoint chính thức của Meta (`plugins/post.php` và `plugins/video.php`).
+             + Khi Facebook chuyển hướng hoặc chặn request, hệ thống tự động gọi Meta Embed với User-Agent chuẩn để bóc tách toàn bộ các đoạn văn bản (`<p>`), tên tác giả (chủ tài khoản), hình ảnh đính kèm và ngày tháng đăng bài.
+             + Nhận diện chính xác 100% bài viết cá nhân `story.php` (ví dụ link `story_fbid=3675016415996422&id=100004642993109` -> tác giả `Ngọc Khanh`, bài viết `ĐOÀN UBND TỈNH TỔ CHỨC HỘI NGHỊ TẬP HUẤN...`, ngày `23/11/2026`, đạt chuẩn HỢP LỆ).
+             + Cập nhật đồng bộ trên cả dự án Bộ Tiêu Chí và backend KINI AI (`origin/main`).
