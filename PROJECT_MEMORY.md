@@ -294,3 +294,6 @@
            - Giữ nguyên cả 2 nút riêng biệt `📜 Lịch sử (x)` (xem lại lịch sử) và `💾 Lưu 2 File Lịch Sử` (lưu ngay 2 file mới).
            - Căn chỉnh lại độ rộng 7 cột trong Bảng 2 (`Nhật Ký Minh Chứng`) cho vừa khít màn hình laptop không bị đẩy lệch cột `Thời gian` & `Đơn vị`.
            - Bổ sung quy tắc Dark Mode cho các ô bảng/thẻ inline trong `styles.css` và hiển thị trực tiếp `%` cỡ chữ (`90%`/`100%`/`110%`/`120%`) ngay trên thanh Header giữa `A-` và `A+`.
+         - **28. Thêm mục `🗄️ Kho văn bản Đoàn UBND tỉnh` (Chỉ Admin) & tinh gọn thanh Dashboard đầu Bảng Xếp Hạng (27/11/2026)**:
+           - Trong tab `Văn Bản`, bổ sung mục thứ 3 **`🗄️ Kho văn bản Đoàn UBND tỉnh`** (chỉ Admin xem và sử dụng, lưu vào `db.admin_vault_docs`), hỗ trợ kéo thả nhiều tệp, chọn nhiều tệp hoặc copy/paste (`Ctrl+V`) là tự động tải lên Google Drive và phân loại theo thư mục (`Chung`, `Kế hoạch`, `Công văn`, `Báo cáo`, `Biểu mẫu`, hoặc tự đặt tên).
+           - Gỡ bỏ 2 thẻ *Dẫn đầu bảng xếp hạng* và *Điểm trung bình toàn khối* ở đầu Bảng Xếp Hạng theo yêu cầu, chỉ giữ lại đúng thanh **`⏰ Tiêu chí sắp hết hạn (24h tới)`**.

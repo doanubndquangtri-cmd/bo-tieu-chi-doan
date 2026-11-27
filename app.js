@@ -2771,6 +2771,7 @@ function ingestCloudDB(db) {
   state.lanToaBoards = (db.lan_toa_boards && typeof db.lan_toa_boards === 'object') ? db.lan_toa_boards : {};
   state.lanToaHistory = Array.isArray(db.lan_toa_history) ? db.lan_toa_history : [];
   state.auditLogs = Array.isArray(db.audit_logs) ? db.audit_logs : [];
+  state.adminVaultDocs = Array.isArray(db.admin_vault_docs) ? db.admin_vault_docs : [];
   if (typeof window.scheduleCheckExpiredLanToaBoards === 'function') {
     window.scheduleCheckExpiredLanToaBoards();
   }
@@ -16738,6 +16739,8 @@ function renderAdminDocsTab() {
     state.adminDocsSubTab = 'outbound';
   }
   const isIncoming = isAdmin && state.adminDocsSubTab === 'incoming';
+  const isVault = isAdmin && state.adminDocsSubTab === 'vault';
+  const vaultDocs = isAdmin ? (state.adminVaultDocs || []).slice() : [];
 
   const isMobile = typeof window !== 'undefined' && window.innerWidth <= 768;
   const draft = window._adminDocDraft || {};
@@ -16763,13 +16766,13 @@ function renderAdminDocsTab() {
   return `
 
     <div class="panel admin-docs-panel" style="${isMobile ? 'display:flex; flex-direction:column; margin-bottom:14px; border-radius:8px; overflow:visible;' : 'display:flex; flex-direction:column; flex:1 1 auto; height:calc(100vh - 128px); min-height:520px; margin-bottom:2px; border-radius:8px; overflow:hidden;'}">
-      <div class="panel-header" style="flex-shrink:0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; background:${isIncoming ? 'linear-gradient(135deg, #059669 0%, #047857 100%)' : 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)'}; color:#fff; border-radius:8px 8px 0 0; padding:10px 18px;">
+      <div class="panel-header" style="flex-shrink:0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; background:${isVault ? 'linear-gradient(135deg, #6d28d9 0%, #4c1d95 100%)' : (isIncoming ? 'linear-gradient(135deg, #059669 0%, #047857 100%)' : 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)')}; color:#fff; border-radius:8px 8px 0 0; padding:10px 18px;">
         <div>
           <div class="panel-title" style="font-size:16px; font-weight:800; display:flex; align-items:center; gap:8px;">
-            ${isIncoming ? '📥 SỔ QUẢN LÝ VĂN BẢN ĐẾN (NỘI BỘ BTV & QUẢN TRỊ VIÊN)' : '📂 HỆ THỐNG VĂN BẢN & CHỈ ĐẠO ĐOÀN CẤP TRÊN'}
+            ${isVault ? '🗄️ KHO VĂN BẢN ĐOÀN UBND TỈNH (🔒 CHỈ ADMIN)' : (isIncoming ? '📥 SỔ QUẢN LÝ VĂN BẢN ĐẾN (NỘI BỘ BTV & QUẢN TRỊ VIÊN)' : '📂 HỆ THỐNG VĂN BẢN & CHỈ ĐẠO ĐOÀN CẤP TRÊN')}
           </div>
           <div style="font-size:12px; opacity:0.9; margin-top:2px;">
-            ${isIncoming ? 'Tiếp nhận, vào sổ, theo dõi và lưu trữ văn bản đến từ các cấp, ngành, cơ quan, đơn vị' : 'Lưu trữ tập trung các Văn bản, Kế hoạch, Hướng dẫn, Thông báo chính thức trên Google Drive'}
+            ${isVault ? 'Kho lưu trữ cá nhân của Admin — chỉ cần kéo thả hoặc chọn tệp là tự động cất giữ gọn gàng lên Google Drive' : (isIncoming ? 'Tiếp nhận, vào sổ, theo dõi và lưu trữ văn bản đến từ các cấp, ngành, cơ quan, đơn vị' : 'Lưu trữ tập trung các Văn bản, Kế hoạch, Hướng dẫn, Thông báo chính thức trên Google Drive')}
           </div>
         </div>
       </div>
@@ -16777,26 +16780,31 @@ function renderAdminDocsTab() {
       <div class="panel-body" style="${isMobile ? 'padding:10px 12px; display:flex; flex-direction:column; overflow:visible;' : 'padding:12px 18px; display:flex; flex-direction:column; flex:1 1 auto; min-height:0; overflow-y:auto !important;'}">
         
         ${isAdmin ? `
-        <!-- Sub-Navigation chọn Văn bản đi / Văn bản đến dành cho Admin -->
+        <!-- Sub-Navigation chọn Văn bản đi / Văn bản đến / Kho văn bản dành cho Admin -->
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px; background:#f8fafc; padding:8px 12px; border-radius:8px; border:1px solid #e2e8f0; flex-shrink:0;">
           <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-            <button type="button" class="btn ${!isIncoming ? 'btn-primary' : 'btn-outline'}" onclick="setAdminDocsSubTab('outbound')" style="font-weight:700; padding:8px 16px; font-size:13px; border-radius:7px; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+            <button type="button" class="btn ${!isIncoming && !isVault ? 'btn-primary' : 'btn-outline'}" onclick="setAdminDocsSubTab('outbound')" style="font-weight:700; padding:8px 16px; font-size:13px; border-radius:7px; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
               <span>📤 Văn Bản Đi / Chỉ Đạo</span>
-              <span class="badge" style="background:${!isIncoming ? 'rgba(255,255,255,0.25)' : '#0284c7'}; color:#fff; border-radius:12px; padding:2px 8px; font-size:11px;">${docs.length}</span>
+              <span class="badge" style="background:${!isIncoming && !isVault ? 'rgba(255,255,255,0.25)' : '#0284c7'}; color:#fff; border-radius:12px; padding:2px 8px; font-size:11px;">${docs.length}</span>
             </button>
-            <button type="button" class="btn ${isIncoming ? 'btn-primary' : 'btn-outline'}" onclick="setAdminDocsSubTab('incoming')" style="font-weight:700; padding:8px 16px; font-size:13px; border-radius:7px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; ${isIncoming ? 'background:#059669; border-color:#059669;' : 'color:#059669; border-color:#a7f3d0; background:#f0fdf4;'}">
+            <button type="button" class="btn ${isIncoming ? 'btn-primary' : 'btn-outline'}" onclick="setAdminDocsSubTab('incoming')" style="font-weight:700; padding:8px 16px; font-size:13px; border-radius:7px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; ${isIncoming ? 'background:#059669; border-color:#059669; color:#fff;' : 'color:#059669; border-color:#a7f3d0; background:#f0fdf4;'}">
               <span>📥 Sổ Quản Lý Văn Bản Đến</span>
               <span style="font-size:11px; background:#fef3c7; color:#92400e; padding:1px 6px; border-radius:10px; font-weight:800; border:1px solid #fde68a;">🔒 Chỉ Admin</span>
               <span class="badge" style="background:${isIncoming ? 'rgba(255,255,255,0.25)' : '#059669'}; color:#fff; border-radius:12px; padding:2px 8px; font-size:11px;">${incomingDocs.length}</span>
             </button>
+            <button type="button" class="btn ${isVault ? 'btn-primary' : 'btn-outline'}" onclick="setAdminDocsSubTab('vault')" style="font-weight:700; padding:8px 16px; font-size:13px; border-radius:7px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; ${isVault ? 'background:#6d28d9; border-color:#6d28d9; color:#fff;' : 'color:#6d28d9; border-color:#ddd6fe; background:#f5f3ff;'}">
+              <span>🗄️ Kho văn bản Đoàn UBND tỉnh</span>
+              <span style="font-size:11px; background:#fef3c7; color:#92400e; padding:1px 6px; border-radius:10px; font-weight:800; border:1px solid #fde68a;">🔒 Chỉ Admin</span>
+              <span class="badge" style="background:${isVault ? 'rgba(255,255,255,0.25)' : '#6d28d9'}; color:#fff; border-radius:12px; padding:2px 8px; font-size:11px;">${vaultDocs.length}</span>
+            </button>
           </div>
           <div style="font-size:12px; color:#64748b; font-weight:600; display:flex; align-items:center; gap:6px;">
-            ${isIncoming ? '<span style="color:#059669; font-weight:700;">🛡️ Bảo mật: Dữ liệu văn bản đến chỉ dành riêng cho Admin (cơ sở Đoàn & khách không xem được)</span>' : '<span style="color:#0284c7;">🌐 Văn bản đi được công khai cho tất cả cơ sở Đoàn tra cứu & thực hiện</span>'}
+            ${isVault ? '<span style="color:#6d28d9; font-weight:700;">🗄️ Kho lưu trữ riêng của Admin: Kéo thả hoặc copy/paste tệp vào là lưu ngay</span>' : (isIncoming ? '<span style="color:#059669; font-weight:700;">🛡️ Bảo mật: Dữ liệu văn bản đến chỉ dành riêng cho Admin (cơ sở Đoàn & khách không xem được)</span>' : '<span style="color:#0284c7;">🌐 Văn bản đi được công khai cho tất cả cơ sở Đoàn tra cứu & thực hiện</span>')}
           </div>
         </div>
         ` : ''}
 
-        ${isIncoming ? `
+        ${isVault ? renderAdminVaultDocsSection(vaultDocs) : isIncoming ? `
         <!-- KHỐI QUẢN LÝ VĂN BẢN ĐẾN (DÀNH RIÊNG ADMIN) -->
         <div style="background:#ffffff; border:1.5px solid #a7f3d0; border-radius:8px; padding:14px 18px; margin-bottom:14px; box-shadow:0 1px 4px rgba(0,0,0,0.04); flex-shrink:0;">
           <div style="font-weight:800; font-size:14px; color:#065f46; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
@@ -42099,9 +42107,6 @@ window.toggleFbSheetToolsMenu = function (btnEl, ev, isAdmin, unitCount) {
    GIAI ĐOẠN 2: DASHBOARD MINI ĐIỀU HÀNH & XUẤT BÁO CÁO TỔNG KẾT 1 CHẠM
    ========================================================================== */
 function renderExecutiveMiniDashboard(rankings) {
-  if (!Array.isArray(rankings) || rankings.length === 0) return '';
-  const top1 = rankings[0];
-  const avgScore = rankings.reduce((acc, r) => acc + Number(r.total_score || 0), 0) / Math.max(1, rankings.length);
   const now = new Date();
   const in24h = new Date(now.getTime() + 24 * 3600 * 1000);
   const upcomingCrits = (state.criteria || []).filter(c => {
@@ -42111,21 +42116,15 @@ function renderExecutiveMiniDashboard(rankings) {
   });
 
   return `
-    <div style="flex-shrink:0; display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:8px; padding:8px 14px; background:#f8fafc; border-bottom:1px solid #e2e8f0;">
-      <div style="background:#fff; border:1px solid #fde68a; border-left:4px solid #eab308; border-radius:8px; padding:7px 11px;">
-        <div style="font-size:11px; font-weight:700; color:#854d0e;">🥇 Dẫn đầu bảng xếp hạng</div>
-        <div style="font-size:13px; font-weight:800; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px;" title="${escapeHtml(top1.unit_name)}">${escapeHtml(top1.unit_name)} (${Number(top1.total_score || 0).toFixed(2)}đ)</div>
-      </div>
-      <div style="background:#fff; border:1px solid #bfdbfe; border-left:4px solid #0284c7; border-radius:8px; padding:7px 11px;">
-        <div style="font-size:11px; font-weight:700; color:#0369a1;">📈 Điểm trung bình toàn khối</div>
-        <div style="font-size:14px; font-weight:800; color:#0f172a; margin-top:2px;">${avgScore.toFixed(2)}đ <span style="font-size:11.5px; font-weight:600; color:#64748b;">/ ${rankings.length} đơn vị</span></div>
-      </div>
-      <div style="background:#fff; border:1px solid ${upcomingCrits.length > 0 ? '#fca5a5' : '#bbf7d0'}; border-left:4px solid ${upcomingCrits.length > 0 ? '#ef4444' : '#10b981'}; border-radius:8px; padding:7px 11px;">
-        <div style="font-size:11px; font-weight:700; color:${upcomingCrits.length > 0 ? '#b91c1c' : '#065f46'};">⏰ Tiêu chí sắp hết hạn (24h tới)</div>
-        <div style="font-size:13px; font-weight:800; color:#0f172a; margin-top:2px;">
-          ${upcomingCrits.length > 0
-            ? `${upcomingCrits.length} tiêu chí (${escapeHtml(upcomingCrits[0].col_label || '')}...)`
-            : 'Không có tiêu chí nào hết hạn trong 24h'}
+    <div style="flex-shrink:0; padding:7px 14px; background:#f8fafc; border-bottom:1px solid #e2e8f0;">
+      <div style="background:#fff; border:1px solid ${upcomingCrits.length > 0 ? '#fca5a5' : '#bbf7d0'}; border-left:4px solid ${upcomingCrits.length > 0 ? '#ef4444' : '#10b981'}; border-radius:8px; padding:7px 12px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+        <div style="font-size:12px; font-weight:800; color:${upcomingCrits.length > 0 ? '#b91c1c' : '#065f46'};">
+          ⏰ Tiêu chí sắp hết hạn (24h tới):
+          <span style="color:#0f172a; font-weight:700; margin-left:4px;">
+            ${upcomingCrits.length > 0
+              ? upcomingCrits.map(c => `${escapeHtml(c.col_label || '')} (${escapeHtml(c.deadline_time || '17:00')})`).join(', ')
+              : 'Không có tiêu chí nào hết hạn trong 24h'}
+          </span>
         </div>
       </div>
     </div>
@@ -42287,4 +42286,193 @@ window.optimizeCloudDbSize = async function () {
     recordAdminAuditLog(db, 'Tối ưu Cloud DB', `Đã gọn ${removedNotifs} thông báo cũ.`);
   }, 'Optimize Cloud DB size');
   if (typeof showToast === 'function') showToast(`🧹 Đã tối ưu Cloud DB (dọn ${removedNotifs} thông báo cũ)!`, 'success');
+};
+
+/* ==========================================================================
+   KHO VĂN BẢN ĐOÀN UBND TỈNH (CHỈ ADMIN - KÉO THẢ / COPY PASTE LƯU NGAY)
+   ========================================================================== */
+function renderAdminVaultDocsSection(vaultDocs) {
+  const folderFilter = state.vaultFolderFilter || 'all';
+  const searchQ = (state.vaultSearch || '').trim().toLowerCase();
+  const folderSet = new Set(['Chung', 'Kế hoạch', 'Công văn', 'Báo cáo', 'Biểu mẫu']);
+  vaultDocs.forEach(d => { if (d.folder) folderSet.add(d.folder); });
+  const folders = Array.from(folderSet);
+
+  const filtered = vaultDocs.filter(d => {
+    if (folderFilter !== 'all' && (d.folder || 'Chung') !== folderFilter) return false;
+    if (searchQ && !((d.title || '') + ' ' + (d.file_name || '') + ' ' + (d.folder || '')).toLowerCase().includes(searchQ)) return false;
+    return true;
+  });
+
+  return `
+    <div onpaste="onVaultPasteFiles(event)" style="display:flex; flex-direction:column; gap:12px;">
+      <!-- Vùng kéo thả / chọn nhanh nhiều tệp -->
+      <div id="vault-dropzone"
+           ondragover="event.preventDefault(); this.style.borderColor='#6d28d9'; this.style.background='#ede9fe';"
+           ondragleave="this.style.borderColor='#a78bfa'; this.style.background='#f5f3ff';"
+           ondrop="onVaultDropFiles(event)"
+           style="background:#f5f3ff; border:2px dashed #a78bfa; border-radius:12px; padding:18px 16px; text-align:center; transition:all 0.15s;">
+        <div style="font-size:28px; margin-bottom:4px;">🗄️</div>
+        <div style="font-size:14px; font-weight:800; color:#4c1d95;">Kéo &amp; thả nhiều văn bản/tệp vào đây, hoặc bấm chọn tệp từ máy</div>
+        <div style="font-size:12px; color:#6d28d9; margin-top:3px;">Hỗ trợ PDF, Word, Excel, PowerPoint, Ảnh, ZIP... (Có thể bấm Ctrl+V để dán trực tiếp tệp/ảnh)</div>
+        <div style="display:flex; justify-content:center; align-items:center; gap:8px; flex-wrap:wrap; margin-top:12px;">
+          <label style="font-size:12px; font-weight:700; color:#4c1d95;">📁 Thư mục lưu:</label>
+          <input type="text" id="vault-target-folder" list="vault-folder-datalist" value="${escapeHtml(state.vaultTargetFolder || 'Chung')}" oninput="state.vaultTargetFolder=this.value;" placeholder="VD: Chung, Kế hoạch..." style="padding:6px 10px; border:1.5px solid #c4b5fd; border-radius:7px; font-size:12.5px; font-weight:700; width:170px; background:#fff;" />
+          <datalist id="vault-folder-datalist">
+            ${folders.map(f => `<option value="${escapeHtml(f)}"></option>`).join('')}
+          </datalist>
+          <input type="file" id="vault-file-input" multiple style="display:none;" onchange="uploadFilesToAdminVault(this.files); this.value='';" />
+          <button type="button" class="btn btn-sm" onclick="document.getElementById('vault-file-input').click()" style="background:#6d28d9; color:#fff; border:none; font-weight:800; padding:7px 14px; border-radius:8px; cursor:pointer;">
+            ➕ Chọn nhiều tệp tải lên kho
+          </button>
+        </div>
+      </div>
+
+      <!-- Thanh lọc thư mục & tìm kiếm -->
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; background:#fff; border:1px solid #e2e8f0; border-radius:9px; padding:8px 12px;">
+        <div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
+          <button type="button" onclick="state.vaultFolderFilter='all'; renderApp();" style="padding:4px 10px; border-radius:16px; font-size:12px; font-weight:700; cursor:pointer; border:1px solid ${folderFilter === 'all' ? '#6d28d9' : '#cbd5e1'}; background:${folderFilter === 'all' ? '#6d28d9' : '#fff'}; color:${folderFilter === 'all' ? '#fff' : '#334155'};">Tất cả (${vaultDocs.length})</button>
+          ${folders.map(f => {
+            const cnt = vaultDocs.filter(d => (d.folder || 'Chung') === f).length;
+            if (cnt === 0 && f !== folderFilter) return '';
+            return `<button type="button" onclick="state.vaultFolderFilter='${escapeHtml(f)}'; renderApp();" style="padding:4px 10px; border-radius:16px; font-size:12px; font-weight:700; cursor:pointer; border:1px solid ${folderFilter === f ? '#6d28d9' : '#cbd5e1'}; background:${folderFilter === f ? '#6d28d9' : '#fff'}; color:${folderFilter === f ? '#fff' : '#334155'};">📁 ${escapeHtml(f)} (${cnt})</button>`;
+          }).join('')}
+        </div>
+        <input type="text" value="${escapeHtml(state.vaultSearch || '')}" oninput="state.vaultSearch=this.value; renderApp();" placeholder="🔍 Tìm văn bản trong kho..." style="padding:5px 10px; font-size:12.5px; border:1.5px solid #cbd5e1; border-radius:7px; width:240px; max-width:100%;" />
+      </div>
+
+      <!-- Bảng danh sách kho văn bản -->
+      <div style="background:#fff; border:1px solid #e2e8f0; border-radius:9px; overflow-x:auto;">
+        <table class="data-table" style="width:100%; border-collapse:collapse; font-size:12.5px;">
+          <thead>
+            <tr style="background:#f5f3ff; border-bottom:1.5px solid #ddd6fe; color:#4c1d95;">
+              <th style="width:45px; text-align:center; padding:8px;">STT</th>
+              <th style="width:135px; padding:8px;">Thư mục</th>
+              <th style="padding:8px;">Tên văn bản / Tệp lưu trữ</th>
+              <th style="width:90px; text-align:center; padding:8px;">Dung lượng</th>
+              <th style="width:125px; text-align:center; padding:8px;">Ngày lưu</th>
+              <th style="width:170px; text-align:center; padding:8px;">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${filtered.length === 0 ? `
+              <tr><td colspan="6" style="text-align:center; padding:28px; color:#64748b;">Kho văn bản chưa có tệp nào phù hợp. Hãy kéo thả tệp vào khung phía trên!</td></tr>
+            ` : filtered.map((d, idx) => `
+              <tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="text-align:center; font-weight:700; color:#64748b;">${idx + 1}</td>
+                <td><span style="background:#f5f3ff; color:#6d28d9; border:1px solid #ddd6fe; padding:2px 8px; border-radius:10px; font-size:11px; font-weight:700;">📁 ${escapeHtml(d.folder || 'Chung')}</span></td>
+                <td style="font-weight:700; color:#0f172a; word-break:break-word;">📄 ${escapeHtml(d.title || d.file_name || 'Văn bản')}</td>
+                <td style="text-align:center; color:#64748b; font-size:11.5px;">${d.file_size ? formatBytes(d.file_size) : '—'}</td>
+                <td style="text-align:center; color:#64748b; font-size:11.5px;">${escapeHtml(String(d.created_at || '').slice(0, 10))}</td>
+                <td style="text-align:center; white-space:nowrap;">
+                  <button type="button" onclick="openFileInlinePreviewModal('${escapeHtml(d.file_url)}', '${escapeHtml(d.file_name || d.title)}')" class="btn btn-sm" style="background:#e0f2fe; color:#0369a1; border:none; padding:3px 7px; border-radius:5px; font-size:11px; font-weight:700; cursor:pointer;">👁️ Xem</button>
+                  <a href="${escapeHtml(d.download_url || d.file_url)}" target="_blank" rel="noopener" class="btn btn-sm" style="background:#dcfce7; color:#15803d; border:none; padding:3px 7px; border-radius:5px; font-size:11px; font-weight:700; text-decoration:none;">📥 Tải</a>
+                  <button type="button" onclick="renameAdminVaultDoc('${escapeHtml(d.id)}')" style="border:1px solid #cbd5e1; background:#fff; border-radius:5px; padding:2px 6px; cursor:pointer;" title="Đổi tên / Chuyển thư mục">✏️</button>
+                  <button type="button" onclick="deleteAdminVaultDoc('${escapeHtml(d.id)}')" style="border:1px solid #fecaca; background:#fff1f2; color:#dc2626; border-radius:5px; padding:2px 6px; cursor:pointer;" title="Xóa khỏi kho">🗑️</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+window.onVaultDropFiles = function (e) {
+  e.preventDefault();
+  const dz = document.getElementById('vault-dropzone');
+  if (dz) { dz.style.borderColor = '#a78bfa'; dz.style.background = '#f5f3ff'; }
+  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+    uploadFilesToAdminVault(e.dataTransfer.files);
+  }
+};
+
+window.onVaultPasteFiles = function (e) {
+  const items = (e.clipboardData && e.clipboardData.items) ? Array.from(e.clipboardData.items) : [];
+  const files = items.map(it => it.kind === 'file' ? it.getAsFile() : null).filter(Boolean);
+  if (files.length > 0) {
+    e.preventDefault();
+    uploadFilesToAdminVault(files);
+  }
+};
+
+window.uploadFilesToAdminVault = async function (fileList) {
+  const files = Array.from(fileList || []);
+  if (files.length === 0) return;
+  const folderInput = document.getElementById('vault-target-folder');
+  const folder = (folderInput ? folderInput.value : (state.vaultTargetFolder || 'Chung')).trim() || 'Chung';
+  state.vaultTargetFolder = folder;
+
+  if (typeof showToast === 'function') showToast(`⏳ Đang tải ${files.length} tệp vào Kho văn bản (${folder})...`, 'info');
+  const newItems = [];
+
+  for (const file of files) {
+    try {
+      const b64 = await readFileAsDataURL(file);
+      let fileUrl = b64;
+      let downloadUrl = b64;
+      if (typeof uploadFileToCloud === 'function' && getGoogleDriveScriptUrl()) {
+        try {
+          const upRes = await uploadFileToCloud(b64, file.name, 0, 'admin_vault');
+          if (upRes && upRes.fileUrl) {
+            fileUrl = upRes.fileUrl;
+            downloadUrl = upRes.downloadUrl || upRes.fileUrl;
+          }
+        } catch (upErr) {
+          console.warn('Vault Drive upload fallback:', upErr);
+        }
+      }
+      newItems.push({
+        id: 'vault_' + Date.now() + '_' + Math.floor(Math.random() * 10000),
+        folder: folder,
+        title: file.name,
+        file_name: file.name,
+        file_size: file.size || 0,
+        file_url: fileUrl,
+        download_url: downloadUrl,
+        created_at: nowISO()
+      });
+    } catch (err) {
+      console.error('Vault file error:', err);
+    }
+  }
+
+  if (newItems.length > 0) {
+    await mutateCloudDB(db => {
+      if (!Array.isArray(db.admin_vault_docs)) db.admin_vault_docs = [];
+      newItems.slice().reverse().forEach(it => db.admin_vault_docs.unshift(it));
+      if (typeof recordAdminAuditLog === 'function') {
+        recordAdminAuditLog(db, 'Lưu Kho văn bản', `Đã thêm ${newItems.length} tệp vào thư mục "${folder}".`);
+      }
+    }, `Upload ${newItems.length} files to Admin Vault`);
+    if (typeof showToast === 'function') showToast(`✅ Đã lưu ${newItems.length} tệp vào Kho văn bản Đoàn UBND tỉnh!`, 'success');
+    renderApp();
+  }
+};
+
+window.renameAdminVaultDoc = async function (docId) {
+  const doc = (state.adminVaultDocs || []).find(d => String(d.id) === String(docId));
+  if (!doc) return;
+  const newTitle = prompt('Nhập tên hiển thị mới cho văn bản:', doc.title || doc.file_name || '');
+  if (newTitle === null) return;
+  const newFolder = prompt('Nhập tên thư mục lưu trữ:', doc.folder || 'Chung');
+  if (newFolder === null) return;
+
+  await mutateCloudDB(db => {
+    const item = (db.admin_vault_docs || []).find(d => String(d.id) === String(docId));
+    if (!item) return;
+    if (newTitle.trim()) item.title = newTitle.trim();
+    item.folder = newFolder.trim() || 'Chung';
+  }, `Rename vault doc ${docId}`);
+  renderApp();
+};
+
+window.deleteAdminVaultDoc = async function (docId) {
+  if (!confirm('Xóa văn bản này khỏi Kho văn bản Đoàn UBND tỉnh?')) return;
+  await mutateCloudDB(db => {
+    db.admin_vault_docs = (db.admin_vault_docs || []).filter(d => String(d.id) !== String(docId));
+  }, `Delete vault doc ${docId}`);
+  if (typeof showToast === 'function') showToast('🗑️ Đã xóa khỏi Kho văn bản!', 'info');
+  renderApp();
 };
