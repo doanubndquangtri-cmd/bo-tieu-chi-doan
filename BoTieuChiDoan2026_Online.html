@@ -46204,7 +46204,7 @@ function renderFbSheetHubTab() {
                 <option value="">-- Chưa chọn cột áp dụng --</option>
                 ${critList.map(c => `<option value="${c.id}" ${linkedCrit && String(c.id) === String(linkedCrit.id) ? 'selected' : ''}>${escapeHtml(c.col_label || ('Cột ' + c.col_number))} — ${escapeHtml(c.title)}</option>`).join('')}
               </select>
-              <button type="button" class="btn btn-sm" onclick="openApplyGoogleSheetToCriterionModal(document.getElementById('fb-bar-target-crit') ? document.getElementById('fb-bar-target-crit').value : '')" ${units.length === 0 ? 'disabled' : ''} style="background:#fde047; border:none; color:#854d0e; font-weight:800; border-radius:7px; padding:5px 11px; font-size:12px; cursor:pointer;" title="Gắn bảng Google Sheet hiện tại vào cột tiêu chí đã chọn">
+              <button type="button" class="btn btn-sm" onclick="applyGoogleSheetToCriterionDirect(document.getElementById('fb-bar-target-crit') ? document.getElementById('fb-bar-target-crit').value : '')" ${units.length === 0 ? 'disabled' : ''} style="background:#fde047; border:none; color:#854d0e; font-weight:800; border-radius:7px; padding:5px 11px; font-size:12px; cursor:pointer;" title="Áp dụng trực tiếp bảng Google Sheet vào cột tiêu chí đang chọn (không cần mở hộp thoại)">
                 📌 Áp dụng vào cột này
               </button>
               ${linkedCrit ? `
@@ -47513,6 +47513,52 @@ function _syncGoogleSheetDataIntoLanToaBoard(board, sheetJson) {
     }
   });
 }
+
+window.applyGoogleSheetToCriterionDirect = async function (critIdParam) {
+  const critId = Number(critIdParam || 0);
+  if (!critId) {
+    if (typeof showToast === 'function') showToast('⚠️ Vui lòng chọn cột tiêu chí cần áp dụng trước!', 'warning');
+    return;
+  }
+  const sheetData = state.fbSheetData;
+  if (!sheetData || !Array.isArray(sheetData.units) || sheetData.units.length === 0) {
+    if (typeof showToast === 'function') showToast('⚠️ Đang tải dữ liệu Google Sheet, vui lòng thử lại sau giây lát!', 'warning');
+    return;
+  }
+  const targetCrit = (state.criteria || []).find(c => Number(c.id) === critId);
+  if (!targetCrit) return;
+
+  const deadline = targetCrit.deadline || todayISO();
+  const dlTime = targetCrit.deadline_time || '17:00';
+
+  await mutateCloudDB(db => {
+    const crit = (db.criteria || []).find(c => Number(c.id) === critId);
+    if (!crit) return;
+    crit.deadline = deadline;
+    crit.deadline_time = dlTime;
+    crit.is_lan_toa = true;
+
+    db.settings = db.settings || {};
+    db.settings.fb_sheet_active_criterion_id = String(critId);
+    const board = buildInitialLanToaBoard(crit, db.units || state.units || []);
+    board.deadline = deadline;
+    board.deadlineTime = dlTime;
+    board.linkedGoogleSheet = true;
+    board.clearGoogleSheetOnFinalize = false;
+    _syncGoogleSheetDataIntoLanToaBoard(board, state.fbSheetData);
+    _recalcLanToaBoardDuplicatesAndScores(board);
+    db.lan_toa_boards = { [String(critId)]: board };
+  }, `Direct apply Google Sheet FB board to criterion #${critId}`);
+
+  state.activeLanToaBoardId = 'gsheet';
+  if (typeof showToast === 'function') {
+    showToast(`✅ Đã áp dụng trực tiếp vào ${targetCrit.col_label || ('Cột ' + critId)} (Hạn ${dlTime} ngày ${deadline})!`, 'success');
+  }
+  renderApp();
+  if (typeof window.scheduleCheckExpiredLanToaBoards === 'function') {
+    window.scheduleCheckExpiredLanToaBoards();
+  }
+};
 
 window.openApplyGoogleSheetToCriterionModal = function (preselectedCritId) {
   const sheetData = state.fbSheetData;
