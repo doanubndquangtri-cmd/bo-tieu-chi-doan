@@ -211,3 +211,5 @@
            - Hỗ trợ nạp đa định dạng: `.xlsx`, `.xls`, `.csv`, `.txt`, `.docx` (đọc trực tiếp XML + Hyperlink ẩn trong bảng và đoạn văn bản bằng JSZip, fallback Mammoth) và `.doc` (hỗ trợ cả HTML-in-doc lẫn file nhị phân UTF-16LE/ASCII).
            - Nâng cấp `extractFbLinksAndUnitsFromRows` & `matchUnitByName`: tự động nhận diện cột Đơn vị, loại trừ cột bảng điểm phụ bên phải (`donvi01`..`donvi40`, `ĐIỂM AI CHẤM`), kế thừa đúng tên cơ sở Đoàn từ dòng đầu nhóm cho tất cả các dòng link bên dưới.
            - Bổ sung cột **`Cơ sở Đoàn`** vào Bảng Kết Quả Thẩm Định, bộ lọc tìm kiếm nhanh, nút Copy Bảng và file Excel `.xlsx` xuất ra.
+         - **6. Gỡ bỏ tab `🔍 Thẩm Định FB` khỏi thanh điều hướng (27/11/2026)**:
+           - Theo yêu cầu của người dùng, gỡ bỏ nút tab `🔍 Thẩm Định FB` ở cả 3 vai trò (Admin, Guest, Unit) và loại bỏ điều hướng `fb_checker` trong `app.js`, giữ nguyên 100% toàn bộ các tính năng còn lại.

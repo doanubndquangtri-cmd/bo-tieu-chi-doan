@@ -6316,9 +6316,6 @@ function renderNavTabs() {
         <div class="nav-tab ${state.activeTab === 'admin_docs' ? 'active' : ''}" onclick="setTab('admin_docs')" title="Kho Văn Bản, Chỉ Đạo & Hướng Dẫn">
           📂 Văn Bản
         </div>
-        <div class="nav-tab ${state.activeTab === 'fb_checker' ? 'active' : ''}" onclick="setTab('fb_checker')" title="Thẩm Định Link Minh Chứng Facebook">
-          🔍 Thẩm Định FB
-        </div>
         <div class="nav-tab ${state.activeTab === 'gallery' ? 'active' : ''}" onclick="setTab('gallery')" title="Thư Viện Ảnh Tập Thể & Hoạt Động Đoàn UBND Tỉnh">
           📸 Bản Tin & Ảnh
         </div>
@@ -6340,9 +6337,6 @@ function renderNavTabs() {
         <div class="nav-tab ${state.activeTab === 'admin_docs' ? 'active' : ''}" onclick="setTab('admin_docs')" title="Hệ Thống Văn Bản">
           📂 Hệ Thống Văn Bản
         </div>
-        <div class="nav-tab ${state.activeTab === 'fb_checker' ? 'active' : ''}" onclick="setTab('fb_checker')" title="Thẩm Định Link Minh Chứng Facebook">
-          🔍 Thẩm Định Link FB
-        </div>
         <div class="nav-tab ${state.activeTab === 'gallery' ? 'active' : ''}" onclick="setTab('gallery')" title="Bản Tin / Thư Viện Ảnh">
           📸 Bản Tin & Ảnh
         </div>
@@ -6363,9 +6357,6 @@ function renderNavTabs() {
         ${twoReportsTabs}
         <div class="nav-tab ${state.activeTab === 'admin_docs' ? 'active' : ''}" onclick="setTab('admin_docs')" title="Hệ Thống Văn Bản">
           📂 Văn Bản
-        </div>
-        <div class="nav-tab ${state.activeTab === 'fb_checker' ? 'active' : ''}" onclick="setTab('fb_checker')" title="Kiểm Tra Link Minh Chứng Facebook">
-          🔍 Thẩm Định FB
         </div>
         <div class="nav-tab ${state.activeTab === 'gallery' ? 'active' : ''}" onclick="setTab('gallery')" title="Bản Tin / Thư Viện Ảnh">
           📸 Bản Tin & Ảnh
@@ -6404,7 +6395,7 @@ window.setReportsSubSection = function (mode) {
 
 window.setTab = function (tabId) {
   const isGuest = state.user && state.user.role === 'guest';
-  if (isGuest && tabId !== 'master' && tabId !== 'ranking' && tabId !== 'reports' && tabId !== 'admin_docs' && tabId !== 'donations' && tabId !== 'gallery' && tabId !== 'fb_checker') {
+  if (isGuest && tabId !== 'master' && tabId !== 'ranking' && tabId !== 'reports' && tabId !== 'admin_docs' && tabId !== 'donations' && tabId !== 'gallery') {
     return;
   }
   state.activeTab = tabId;
@@ -6420,16 +6411,13 @@ function renderActiveTabContent() {
 
   const isGuest = state.user && state.user.role === 'guest';
 
-  if (isGuest && state.activeTab !== 'master' && state.activeTab !== 'ranking' && state.activeTab !== 'reports' && state.activeTab !== 'admin_docs' && state.activeTab !== 'donations' && state.activeTab !== 'gallery' && state.activeTab !== 'fb_checker') {
+  if (isGuest && state.activeTab !== 'master' && state.activeTab !== 'ranking' && state.activeTab !== 'reports' && state.activeTab !== 'admin_docs' && state.activeTab !== 'donations' && state.activeTab !== 'gallery') {
 
     state.activeTab = 'ranking';
 
   }
 
   switch (state.activeTab) {
-
-    case 'fb_checker':
-      return renderFbCheckerTab();
 
     case 'gallery':
       return renderPhotoGalleryTab();
