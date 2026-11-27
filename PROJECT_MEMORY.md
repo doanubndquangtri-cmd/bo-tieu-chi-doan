@@ -207,3 +207,7 @@
          - **4. Cân đối lại thanh Tab điều hướng ngang (`.nav-tabs`, `.nav-tab`) trên Desktop/Laptop (27/11/2026)**:
            - Khắc phục tình trạng 10 tab trên thanh ngang bị tràn mép phải và che mất chữ `🔐 Đổi Mật Khẩu` ở màn hình laptop/desktop.
            - Tinh gọn nhãn tab hợp lý (giữ nguyên `title` đầy đủ khi di chuột) + dùng CSS responsive `font-size: clamp(12px, 0.88vw, 14px)`, `padding: 0 clamp(6px, 0.68vw, 13px)`, `justify-content: space-between`, `flex-wrap: wrap` trên desktop và giữ nguyên vuốt ngang mượt mà trên mobile (`@media (max-width: 768px)`).
+         - **5. Tự động nhận diện link & cơ sở Đoàn từ Excel/Word/CSV/TXT chính xác 100% (27/11/2026)**:
+           - Hỗ trợ nạp đa định dạng: `.xlsx`, `.xls`, `.csv`, `.txt`, `.docx` (đọc trực tiếp XML + Hyperlink ẩn trong bảng và đoạn văn bản bằng JSZip, fallback Mammoth) và `.doc` (hỗ trợ cả HTML-in-doc lẫn file nhị phân UTF-16LE/ASCII).
+           - Nâng cấp `extractFbLinksAndUnitsFromRows` & `matchUnitByName`: tự động nhận diện cột Đơn vị, loại trừ cột bảng điểm phụ bên phải (`donvi01`..`donvi40`, `ĐIỂM AI CHẤM`), kế thừa đúng tên cơ sở Đoàn từ dòng đầu nhóm cho tất cả các dòng link bên dưới.
+           - Bổ sung cột **`Cơ sở Đoàn`** vào Bảng Kết Quả Thẩm Định, bộ lọc tìm kiếm nhanh, nút Copy Bảng và file Excel `.xlsx` xuất ra.

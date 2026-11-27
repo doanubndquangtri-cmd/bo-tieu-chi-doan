@@ -14212,6 +14212,29 @@ window.ensureXlsxLoaded = function() {
   });
 };
 
+window.ensureDocxLibsLoaded = function() {
+  const loadScript = (id, src, checkFn) => new Promise((resolve) => {
+    if (checkFn()) return resolve(true);
+    const existing = document.getElementById(id);
+    if (existing) {
+      existing.addEventListener('load', () => resolve(true));
+      existing.addEventListener('error', () => resolve(false));
+      setTimeout(() => resolve(checkFn()), 2500);
+      return;
+    }
+    const s = document.createElement('script');
+    s.id = id;
+    s.src = src;
+    s.onload = () => resolve(true);
+    s.onerror = () => resolve(false);
+    document.head.appendChild(s);
+  });
+  return Promise.all([
+    loadScript('lib-jszip', 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js', () => typeof JSZip !== 'undefined'),
+    loadScript('lib-mammoth', 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js', () => typeof mammoth !== 'undefined')
+  ]);
+};
+
 window.ensurePdfJsLoaded = function() {
   return new Promise((resolve, reject) => {
     if (typeof pdfjsLib !== 'undefined') return resolve(window.pdfjsLib);
@@ -14228,6 +14251,29 @@ window.ensurePdfJsLoaded = function() {
     s.onerror = reject;
     document.head.appendChild(s);
   });
+};
+
+window.ensureDocxLibsLoaded = function() {
+  const loadScript = (id, src, checkFn) => new Promise((resolve) => {
+    if (checkFn()) return resolve(true);
+    const existing = document.getElementById(id);
+    if (existing) {
+      existing.addEventListener('load', () => resolve(true));
+      existing.addEventListener('error', () => resolve(false));
+      setTimeout(() => resolve(checkFn()), 2500);
+      return;
+    }
+    const s = document.createElement('script');
+    s.id = id;
+    s.src = src;
+    s.onload = () => resolve(true);
+    s.onerror = () => resolve(false);
+    document.head.appendChild(s);
+  });
+  return Promise.all([
+    loadScript('lib-jszip', 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js', () => typeof JSZip !== 'undefined'),
+    loadScript('lib-mammoth', 'https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js', () => typeof mammoth !== 'undefined')
+  ]);
 };
 
 window.loadHeavyLibrariesInBackground = function() {
@@ -31448,16 +31494,20 @@ const UNIT_KEYWORDS_MAP = {
 
 function matchUnitByName(rawText, activeUnits) {
   if (!rawText) return null;
-  const clean = String(rawText).replace(/https?:\/\/\S+/gi, ' ').normalize('NFC').toLowerCase().trim();
+  const clean = String(rawText).replace(/https?:\/\/\S+/gi, ' ').replace(/\s+/g, ' ').normalize('NFC').toLowerCase().trim();
   if (!clean) return null;
+  const cleanNoDash = clean.replace(/[-–—]/g, ' ').replace(/\s+/g, ' ').trim();
 
   // 1. So khớp trực tiếp bao hàm tên đầy đủ (Ưu tiên cao nhất)
   for (const u of activeUnits) {
-    const uClean = String(u.unit_name || '').normalize('NFC').toLowerCase().trim();
-    if (clean.includes(uClean) || uClean.includes(clean)) {
+    const uClean = String(u.unit_name || '').replace(/\s+/g, ' ').normalize('NFC').toLowerCase().trim();
+    if (!uClean) continue;
+    if (clean.includes(uClean)) {
       if (clean.length >= 8 && uClean.length >= 8) {
         return { unit: u, confidence: 1.0, confidenceLabel: '✅ Khớp 100%' };
       }
+    } else if (uClean.includes(clean) && clean.length >= 14 && !/^(tỉnh quảng trị|ubnd tỉnh|quảng trị|cơ quan|chi đoàn|đoàn trường)$/.test(clean)) {
+      return { unit: u, confidence: 0.98, confidenceLabel: '✅ Khớp 100%' };
     }
   }
 
@@ -31470,7 +31520,7 @@ function matchUnitByName(rawText, activeUnits) {
     if (!rule) continue;
     let score = 0;
     for (const kw of rule.kw) {
-      if (clean.includes(kw)) {
+      if (clean.includes(kw) || cleanNoDash.includes(kw)) {
         score = Math.max(score, kw.length * 10);
       }
     }
@@ -31483,7 +31533,7 @@ function matchUnitByName(rawText, activeUnits) {
     // c. Ban quản lý / Dự án không được gán cho Sở Xây dựng
     if ((clean.includes('ban quản lý') || clean.includes('bql') || clean.includes('dự án')) && u.id === 11) score = 0;
     // d. CĐ Kỹ thuật Công - Nông nghiệp không nhầm với CĐ Kỹ thuật
-    if (clean.includes('công nông nghiệp') && u.id === 26) score = 0;
+    if ((cleanNoDash.includes('công nông nghiệp') || clean.includes('công - nông nghiệp')) && u.id === 26) score = 0;
     // e. Sở Y tế không nhầm với CĐ Y tế
     if (clean.includes('sở y tế') && u.id === 18) score = 0;
     if ((clean.includes('cđ y tế') || clean.includes('cao đẳng y tế')) && u.id === 34) score = 0;
@@ -31492,6 +31542,8 @@ function matchUnitByName(rawText, activeUnits) {
     // g. Thủy lợi Quảng Bình không nhầm với Thủy lợi Quảng Trị
     if ((clean.includes('thủy lợi quảng bình') || clean.includes('cttl quảng bình') || clean.includes('ktcttl')) && u.id === 4) score = 0;
     if ((clean.includes('thủy lợi quảng trị') || clean.includes('cttl quảng trị') || clean.includes('qlkt cttl')) && u.id === 8) score = 0;
+    // h. Trung tâm Xúc tiến ĐT-TM-DL không nhầm với Sở VHTT&DL
+    if (clean.includes('xúc tiến') && u.id === 21) score = 0;
 
     if (score > bestScore) {
       bestScore = score;
@@ -38193,11 +38245,13 @@ window.updateFbLinksCount = function () {
 };
 
 window.clearFbLinksInput = function () {
+  state.fbLinkUnitMap = {};
   const textarea = document.getElementById('fb-links-input');
   if (textarea) {
     textarea.value = '';
     window.updateFbLinksCount();
   }
+  window.updateFbUnitMatchBadge();
 };
 
 window.fillSampleFbLink = function () {
@@ -38213,13 +38267,219 @@ window.fillSampleFbLink = function () {
   if (typeof showToast === 'function') showToast('Đã dán mẫu liên kết và từ khóa thẩm định!', 'info');
 };
 
+window.updateFbUnitMatchBadge = function () {
+  const badge = document.getElementById('fb-units-matched-badge');
+  const cntEl = document.getElementById('fb-units-matched-count');
+  if (!badge || !cntEl) return;
+  const map = state.fbLinkUnitMap || {};
+  const uniqueUnits = new Set(Object.values(map).map(m => m && m.unitName).filter(Boolean));
+  if (uniqueUnits.size > 0) {
+    cntEl.textContent = uniqueUnits.size;
+    badge.style.display = 'inline-flex';
+  } else {
+    badge.style.display = 'none';
+  }
+};
+
+function _extractFbUrlsFromText(text) {
+  if (!text) return [];
+  const urlRegex = /https?:\/\/(?:www\.|m\.|web\.|l\.)?(?:facebook\.com|fb\.com|fb\.watch)[^\s,;'"<>\]\)]+/gi;
+  return (String(text).match(urlRegex) || []).map(u => u.replace(/[.,;!?]+$/, '').trim()).filter(Boolean);
+}
+
+function _isAuxiliaryScoreColumnHeader(txt) {
+  const low = String(txt || '').toLowerCase().trim();
+  return low.includes('điểm ai chấm') || low === 'điểm' || /^donvi\d+$/i.test(low);
+}
+
+function extractFbLinksAndUnitsFromRows(rows) {
+  const activeUnits = Array.isArray(state.units) ? state.units : [];
+  const results = []; // { url, unit }
+  let preferredUnitCol = -1;
+  let auxStartCol = 9999;
+
+  // Dò 12 dòng đầu để nhận diện cột Tên đơn vị & ranh giới bảng phụ (nếu có)
+  for (let r = 0; r < Math.min(rows.length, 12); r++) {
+    const row = rows[r];
+    if (!Array.isArray(row)) continue;
+    for (let c = 0; c < row.length; c++) {
+      const cellStr = String(row[c] || '').replace(/\s+/g, ' ').trim();
+      const low = cellStr.toLowerCase();
+      if (auxStartCol === 9999 && (low.includes('điểm ai chấm') || /^donvi\d+$/i.test(low))) {
+        auxStartCol = c;
+      }
+      if (preferredUnitCol === -1 && c < auxStartCol && (
+        low.includes('tổ chức cơ sở đoàn') ||
+        low.includes('cơ sở đoàn') ||
+        low.includes('tên đơn vị') ||
+        low === 'đơn vị'
+      )) {
+        preferredUnitCol = c;
+      }
+    }
+  }
+
+  let currentActiveUnit = null;
+
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r];
+    if (!Array.isArray(row)) continue;
+
+    // Bỏ qua dòng tiêu đề bảng
+    const rowJoinedLow = row.map(x => String(x || '').toLowerCase()).join(' ');
+    if (rowJoinedLow.includes('tổ chức cơ sở đoàn trực thuộc') && rowJoinedLow.includes('nhập link')) {
+      continue;
+    }
+
+    // 1. Tìm tất cả các ô có chứa link Facebook trong dòng này (ưu tiên vùng bảng chính < auxStartCol)
+    const linkCells = [];
+    for (let c = 0; c < row.length; c++) {
+      const cellStr = String(row[c] || '').trim();
+      if (!cellStr) continue;
+      const urls = _extractFbUrlsFromText(cellStr);
+      if (urls.length > 0) {
+        linkCells.push({ col: c, urls });
+      }
+    }
+
+    // 2. Xác định đơn vị ở dòng hiện tại (chỉ quét vùng bảng chính: trước auxStartCol và ưu tiên cột đơn vị / bên trái cột link)
+    const maxScanCol = linkCells.length > 0
+      ? Math.min(auxStartCol, linkCells[0].col)
+      : Math.min(auxStartCol, row.length);
+
+    let rowMatchedUnit = null;
+    if (preferredUnitCol !== -1 && preferredUnitCol < maxScanCol) {
+      const uTxt = String(row[preferredUnitCol] || '').trim();
+      if (uTxt && !_extractFbUrlsFromText(uTxt).length) {
+        const m = matchUnitByName(uTxt, activeUnits);
+        if (m) rowMatchedUnit = m.unit;
+      }
+    }
+
+    if (!rowMatchedUnit) {
+      for (let c = maxScanCol - 1; c >= 0; c--) {
+        const cellTxt = String(row[c] || '').trim();
+        if (!cellTxt || cellTxt.length < 4 || /^\d+([.,]\d+)?$/.test(cellTxt)) continue;
+        if (_extractFbUrlsFromText(cellTxt).length > 0) continue;
+        if (/^donvi\d+$/i.test(cellTxt)) continue;
+        const m = matchUnitByName(cellTxt, activeUnits);
+        if (m) {
+          rowMatchedUnit = m.unit;
+          break;
+        }
+      }
+    }
+
+    // Fallback: Nếu dòng có link nhưng cột bên trái không có tên đơn vị và chưa có currentActiveUnit, thử quét bên phải cột link (nhưng dừng trước auxStartCol và bỏ qua cột sau donviXX)
+    if (!rowMatchedUnit && linkCells.length > 0) {
+      for (let c = linkCells[0].col + 1; c < Math.min(auxStartCol, row.length); c++) {
+        const prevTxt = c > 0 ? String(row[c - 1] || '').trim() : '';
+        if (/^donvi\d+$/i.test(prevTxt)) break;
+        const cellTxt = String(row[c] || '').trim();
+        if (!cellTxt || cellTxt.length < 5 || _extractFbUrlsFromText(cellTxt).length > 0) continue;
+        const m = matchUnitByName(cellTxt, activeUnits);
+        if (m) {
+          rowMatchedUnit = m.unit;
+          break;
+        }
+      }
+    }
+
+    if (rowMatchedUnit) {
+      currentActiveUnit = rowMatchedUnit;
+    }
+
+    // 3. Gán đơn vị đang hoạt động cho các link trên dòng này
+    linkCells.forEach(lc => {
+      lc.urls.forEach(u => {
+        results.push({ url: u, unit: currentActiveUnit });
+      });
+    });
+  }
+
+  return results;
+}
+
+function extractFbLinksAndUnitsFromLines(lines) {
+  const activeUnits = Array.isArray(state.units) ? state.units : [];
+  const results = [];
+  let currentActiveUnit = null;
+
+  (lines || []).forEach(line => {
+    const cleanLine = String(line || '').replace(/\s+/g, ' ').trim();
+    if (!cleanLine) return;
+
+    const urls = _extractFbUrlsFromText(cleanLine);
+    const textWithoutUrls = cleanLine.replace(/https?:\/\/\S+/gi, ' ').trim();
+    if (textWithoutUrls.length >= 4 && !/^donvi\d+$/i.test(textWithoutUrls)) {
+      const m = matchUnitByName(textWithoutUrls, activeUnits);
+      if (m) currentActiveUnit = m.unit;
+    }
+
+    urls.forEach(u => {
+      results.push({ url: u, unit: currentActiveUnit });
+    });
+  });
+
+  return results;
+}
+
+function parseDocBinaryToLines(arrayBuffer) {
+  const bytes = new Uint8Array(arrayBuffer);
+  // Kiểm tra nếu thực chất là HTML/MHTML/XML (nhiều file .doc xuất từ web/Word là HTML)
+  const headText = new TextDecoder('utf-8', { fatal: false }).decode(bytes.slice(0, 1500));
+  if (/<html|<body|<table|<!DOCTYPE html/i.test(headText)) {
+    const fullHtml = new TextDecoder('utf-8', { fatal: false }).decode(bytes);
+    const doc = new DOMParser().parseFromString(fullHtml, 'text/html');
+    const rows = [];
+    doc.querySelectorAll('tr').forEach(tr => {
+      const r = [];
+      tr.querySelectorAll('td, th').forEach(td => {
+        let cellText = (td.innerText || td.textContent || '').replace(/\s+/g, ' ').trim();
+        const links = Array.from(td.querySelectorAll('a[href]')).map(a => a.getAttribute('href') || '').filter(Boolean);
+        if (links.length > 0) cellText += ' ' + links.join(' ');
+        r.push(cellText.trim());
+      });
+      if (r.some(Boolean)) rows.push(r);
+    });
+    if (rows.length > 0) return { type: 'rows', data: rows };
+    const bodyText = (doc.body ? (doc.body.innerText || doc.body.textContent) : fullHtml) || '';
+    return { type: 'lines', data: bodyText.split(/\r?\n/) };
+  }
+
+  // File .doc nhị phân (OLE2): trích xuất cả chuỗi UTF-16LE (tiếng Việt) và chuỗi ASCII/UTF-8 (URL)
+  const lines = [];
+  let bufUtf16 = '';
+  for (let i = 0; i + 1 < bytes.length; i += 2) {
+    const code = bytes[i] | (bytes[i + 1] << 8);
+    if (code === 13 || code === 10 || code === 7 || code === 9) {
+      if (bufUtf16.trim().length >= 3) lines.push(bufUtf16.trim());
+      bufUtf16 = '';
+    } else if ((code >= 32 && code <= 126) || (code >= 0x00C0 && code <= 0x1EF9)) {
+      bufUtf16 += String.fromCharCode(code);
+    } else {
+      if (bufUtf16.trim().length >= 4) lines.push(bufUtf16.trim());
+      bufUtf16 = '';
+    }
+  }
+  if (bufUtf16.trim().length >= 4) lines.push(bufUtf16.trim());
+
+  // Bổ sung quét ASCII thuần cho URL Facebook lưu dạng 8-bit trong .doc
+  const asciiText = new TextDecoder('latin1').decode(bytes);
+  const asciiMatches = asciiText.match(/https?:\/\/(?:www\.|m\.|web\.)?(?:facebook\.com|fb\.com|fb\.watch)[A-Za-z0-9_.\-/?=&%#:~+]+/gi) || [];
+  asciiMatches.forEach(u => {
+    if (!lines.some(l => l.includes(u))) lines.push(u);
+  });
+
+  return { type: 'lines', data: lines };
+}
+
 window.handleFbFileImport = async function (input) {
   const file = input && input.files ? input.files[0] : null;
   if (!file) return;
 
   const fileName = file.name.toLowerCase();
-  const urlRegex = /https?:\/\/(?:www\.|m\.|web\.)?(?:facebook\.com|fb\.com|fb\.watch)[^\s,;'"<>]+/gi;
-  let foundUrls = [];
+  let parsedPairs = []; // { url, unit }
 
   try {
     if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
@@ -38231,38 +38491,155 @@ window.handleFbFileImport = async function (input) {
         const wb = XLSX.read(data, { type: 'array' });
         wb.SheetNames.forEach(sheetName => {
           const ws = wb.Sheets[sheetName];
-          const json = XLSX.utils.sheet_to_json(ws, { header: 1 });
-          json.forEach(row => {
-            if (Array.isArray(row)) {
-              row.forEach(cell => {
-                if (typeof cell === 'string') {
-                  const matches = cell.match(urlRegex);
-                  if (matches) foundUrls.push(...matches);
-                }
+          if (!ws || !ws['!ref']) return;
+          const range = XLSX.utils.decode_range(ws['!ref']);
+          const rows = [];
+          for (let r = range.s.r; r <= range.e.r; r++) {
+            const row = [];
+            for (let c = range.s.c; c <= range.e.c; c++) {
+              const addr = XLSX.utils.encode_cell({ r, c });
+              const cell = ws[addr];
+              if (!cell) {
+                row.push('');
+                continue;
+              }
+              let val = cell.v !== undefined && cell.v !== null ? String(cell.v) : (cell.w ? String(cell.w) : '');
+              // Hỗ trợ đọc cả Hyperlink ẩn gắn trong ô Excel
+              if (cell.l && cell.l.Target && !val.includes(cell.l.Target)) {
+                val = (val + ' ' + cell.l.Target).trim();
+              }
+              row.push(val);
+            }
+            rows.push(row);
+          }
+          parsedPairs.push(...extractFbLinksAndUnitsFromRows(rows));
+        });
+      }
+    } else if (fileName.endsWith('.csv')) {
+      if (typeof XLSX === 'undefined' && window.ensureXlsxLoaded) {
+        await window.ensureXlsxLoaded().catch(() => {});
+      }
+      const text = await file.text();
+      if (typeof XLSX !== 'undefined') {
+        const wb = XLSX.read(text, { type: 'string' });
+        wb.SheetNames.forEach(sheetName => {
+          const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: '' });
+          parsedPairs.push(...extractFbLinksAndUnitsFromRows(rows));
+        });
+      } else {
+        parsedPairs.push(...extractFbLinksAndUnitsFromLines(text.split(/\r?\n/)));
+      }
+    } else if (fileName.endsWith('.docx')) {
+      if (window.ensureDocxLibsLoaded) {
+        await window.ensureDocxLibsLoaded();
+      }
+      const arrayBuffer = await file.arrayBuffer();
+      let handledXml = false;
+      if (typeof JSZip !== 'undefined') {
+        try {
+          const zip = await JSZip.loadAsync(arrayBuffer);
+          const docFile = zip.file('word/document.xml');
+          if (docFile) {
+            const xmlStr = await docFile.async('string');
+            const relsMap = {};
+            const relsFile = zip.file('word/_rels/document.xml.rels');
+            if (relsFile) {
+              const relsXml = await relsFile.async('string');
+              const relsDoc = new DOMParser().parseFromString(relsXml, 'application/xml');
+              relsDoc.querySelectorAll('Relationship').forEach(rel => {
+                const id = rel.getAttribute('Id');
+                const target = rel.getAttribute('Target');
+                if (id && target) relsMap[id] = target;
               });
             }
-          });
-        });
+
+            const xmlDoc = new DOMParser().parseFromString(xmlStr, 'application/xml');
+            const getNodeTextWithLinks = (node) => {
+              let out = [];
+              const ps = node.getElementsByTagName('w:p');
+              const blocks = ps.length > 0 ? Array.from(ps) : [node];
+              blocks.forEach(p => {
+                let pText = '';
+                Array.from(p.getElementsByTagName('w:t')).forEach(t => { pText += (t.textContent || ''); });
+                Array.from(p.getElementsByTagName('w:hyperlink')).forEach(hl => {
+                  const rId = hl.getAttribute('r:id');
+                  if (rId && relsMap[rId]) pText += ' ' + relsMap[rId];
+                });
+                if (pText.trim()) out.push(pText.trim());
+              });
+              return out.join('\n');
+            };
+
+            const tables = Array.from(xmlDoc.getElementsByTagName('w:tbl'));
+            if (tables.length > 0) {
+              tables.forEach(tbl => {
+                const rows = [];
+                Array.from(tbl.getElementsByTagName('w:tr')).forEach(tr => {
+                  const r = [];
+                  Array.from(tr.getElementsByTagName('w:tc')).forEach(tc => {
+                    r.push(getNodeTextWithLinks(tc));
+                  });
+                  if (r.some(Boolean)) rows.push(r);
+                });
+                parsedPairs.push(...extractFbLinksAndUnitsFromRows(rows));
+              });
+            }
+
+            // Quét thêm các đoạn văn bản nằm ngoài bảng (nếu có)
+            const body = xmlDoc.getElementsByTagName('w:body')[0];
+            if (body) {
+              const topParagraphs = Array.from(body.children).filter(el => el.tagName === 'w:p');
+              const lines = topParagraphs.map(p => getNodeTextWithLinks(p)).filter(Boolean);
+              if (lines.length > 0) {
+                parsedPairs.push(...extractFbLinksAndUnitsFromLines(lines));
+              }
+            }
+            handledXml = parsedPairs.length > 0;
+          }
+        } catch (zipErr) {
+          console.warn('DOCX JSZip parse warning:', zipErr);
+        }
+      }
+
+      if (!handledXml && typeof mammoth !== 'undefined') {
+        const res = await mammoth.extractRawText({ arrayBuffer });
+        if (res && res.value) {
+          parsedPairs.push(...extractFbLinksAndUnitsFromLines(res.value.split(/\r?\n/)));
+        }
+      }
+    } else if (fileName.endsWith('.doc')) {
+      const arrayBuffer = await file.arrayBuffer();
+      const parsedDoc = parseDocBinaryToLines(arrayBuffer);
+      if (parsedDoc.type === 'rows') {
+        parsedPairs.push(...extractFbLinksAndUnitsFromRows(parsedDoc.data));
+      } else {
+        parsedPairs.push(...extractFbLinksAndUnitsFromLines(parsedDoc.data));
       }
     } else {
       const text = await file.text();
-      const matches = text.match(urlRegex);
-      if (matches) {
-        foundUrls = matches;
-      } else {
-        foundUrls = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-      }
+      parsedPairs.push(...extractFbLinksAndUnitsFromLines(text.split(/\r?\n/)));
     }
 
     const uniqueUrls = [];
     const seen = new Set();
-    foundUrls.forEach(u => {
-      const clean = u.trim();
-      if (clean && !seen.has(clean)) {
+    const linkUnitMap = {};
+
+    parsedPairs.forEach(item => {
+      const clean = (item && item.url ? item.url : '').trim();
+      if (!clean) return;
+      if (!seen.has(clean)) {
         seen.add(clean);
         uniqueUrls.push(clean);
       }
+      if (item.unit && !linkUnitMap[clean]) {
+        linkUnitMap[clean] = {
+          unitId: item.unit.id,
+          unitName: item.unit.unit_name
+        };
+      }
     });
+
+    state.fbLinkUnitMap = linkUnitMap;
 
     if (uniqueUrls.length > 0) {
       const textarea = document.getElementById('fb-links-input');
@@ -38270,10 +38647,14 @@ window.handleFbFileImport = async function (input) {
         textarea.value = uniqueUrls.join('\n');
         window.updateFbLinksCount();
       }
+      window.updateFbUnitMatchBadge();
+      const unitCount = new Set(Object.values(linkUnitMap).map(x => x.unitName)).size;
+      const unitMsg = unitCount > 0 ? ` và nhận diện chuẩn ${unitCount} cơ sở Đoàn` : '';
       if (typeof showToast === 'function') {
-        showToast(`✅ Đã nạp ${uniqueUrls.length} liên kết Facebook từ file "${file.name}"!`, 'success');
+        showToast(`✅ Đã nạp ${uniqueUrls.length} link Facebook${unitMsg} từ "${file.name}"!`, 'success');
       }
     } else {
+      window.updateFbUnitMatchBadge();
       if (typeof showToast === 'function') {
         showToast(`Không tìm thấy liên kết Facebook nào trong file "${file.name}"!`, 'warning');
       }
@@ -38327,14 +38708,14 @@ window.renderFbCheckerTable = function () {
     if (filter === 'valid' && !r.is_valid) return false;
     if (filter === 'invalid' && r.is_valid) return false;
     if (q) {
-      const hay = `${r.url || ''} ${r.account_name || ''} ${r.account_id || ''} ${r.content || ''} ${r.reason || ''}`.toLowerCase();
+      const hay = `${r.unit_name || ''} ${r.url || ''} ${r.account_name || ''} ${r.account_id || ''} ${r.content || ''} ${r.reason || ''}`.toLowerCase();
       if (!hay.includes(q)) return false;
     }
     return true;
   });
 
   if (filtered.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:38px 20px; color:#94a3b8; font-style:italic;">Không có dòng nào phù hợp bộ lọc hiện tại.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:38px 20px; color:#94a3b8; font-style:italic;">Không có dòng nào phù hợp bộ lọc hiện tại.</td></tr>`;
     return;
   }
 
@@ -38347,10 +38728,15 @@ window.renderFbCheckerTable = function () {
       ? `<span class="badge" style="background:#16a34a; color:#fff; font-weight:800; padding:4px 10px; border-radius:12px; font-size:11.5px; display:inline-flex; align-items:center; gap:3px;">✅ Hợp lệ</span>`
       : `<span class="badge" style="background:#dc2626; color:#fff; font-weight:800; padding:4px 10px; border-radius:12px; font-size:11.5px; display:inline-flex; align-items:center; gap:3px;">❌ Không hợp lệ</span>`;
 
+    const unitCell = r.unit_name
+      ? `<span style="display:inline-block; background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; border-radius:6px; padding:3px 8px; font-size:12px; font-weight:700; line-height:1.35;">${escapeHtml(r.unit_name)}</span>`
+      : `<span style="color:#94a3b8; font-size:12px;">—</span>`;
+
     return `
       <tr style="border-bottom:1px solid #f1f5f9;">
         <td style="text-align:center; font-weight:700; color:#64748b; padding:10px 8px;">${i + 1}</td>
-        <td style="max-width:240px; word-break:break-all; padding:10px 10px;">
+        <td style="min-width:190px; max-width:240px; padding:10px 8px;">${unitCell}</td>
+        <td style="max-width:230px; word-break:break-all; padding:10px 10px;">
           <a href="${escapeHtml(r.url || '#')}" target="_blank" rel="noopener" style="color:#0284c7; font-weight:600; text-decoration:none;" title="${escapeHtml(r.url || '')}">
             ${escapeHtml(r.url || '')}
           </a>
@@ -38363,11 +38749,11 @@ window.renderFbCheckerTable = function () {
         <td style="text-align:center; color:#475569; font-size:12.5px; white-space:nowrap; padding:10px 8px;">
           ${escapeHtml(r.post_date || '-')}
         </td>
-        <td style="max-width:320px; line-height:1.45; color:#1e293b; font-size:12.5px; padding:10px 10px; word-break:break-word;">
+        <td style="max-width:300px; line-height:1.45; color:#1e293b; font-size:12.5px; padding:10px 10px; word-break:break-word;">
           ${escapeHtml(r.content || '(Không có nội dung hiển thị)')}
         </td>
         <td style="text-align:center; white-space:nowrap; padding:10px 8px;">${statusBadge}</td>
-        <td style="max-width:260px; font-size:12px; font-weight:600; color:${r.is_valid ? '#15803d' : '#b91c1c'}; padding:10px 10px; line-height:1.4;">
+        <td style="max-width:250px; font-size:12px; font-weight:600; color:${r.is_valid ? '#15803d' : '#b91c1c'}; padding:10px 10px; line-height:1.4;">
           ${escapeHtml(r.reason || '')}
         </td>
       </tr>
@@ -38443,9 +38829,14 @@ window.runFbCheck = async function () {
         try {
           const evt = JSON.parse(t.slice(6));
           if (evt.type === 'item') {
+            const unitMeta = (state.fbLinkUnitMap && evt.data && evt.data.url) ? state.fbLinkUnitMap[evt.data.url] : null;
+            if (evt.data) {
+              evt.data.unit_name = unitMeta ? unitMeta.unitName : '';
+              evt.data.unit_id = unitMeta ? unitMeta.unitId : null;
+            }
             state.fbCheckerResults.push(evt.data);
             const pct = Math.round((evt.index / evt.total) * 100);
-            if (progText) progText.textContent = `Đã kiểm tra ${evt.index}/${evt.total}: ${evt.data.account_name || evt.data.url}`;
+            if (progText) progText.textContent = `Đã kiểm tra ${evt.index}/${evt.total}: ${evt.data.unit_name || evt.data.account_name || evt.data.url}`;
             if (progPct) progPct.textContent = `${pct}%`;
             if (progFill) progFill.style.width = `${pct}%`;
             window.updateFbCheckerCounts();
@@ -38499,9 +38890,10 @@ window.copyFbCheckerTableText = function () {
     else alert('Chưa có dữ liệu để sao chép!');
     return;
   }
-  const header = ['STT', 'Link Facebook', 'Chủ tài khoản', 'ID Tài khoản', 'Trạng thái', 'Thời gian', 'Nội dung', 'Kết luận', 'Lý do / Ghi chú'].join('\t');
+  const header = ['STT', 'Cơ sở Đoàn', 'Link Facebook', 'Chủ tài khoản', 'ID Tài khoản', 'Trạng thái', 'Thời gian', 'Nội dung', 'Kết luận', 'Lý do / Ghi chú'].join('\t');
   const lines = allResults.map((r, i) => [
     i + 1,
+    r.unit_name || '',
     r.url || '',
     r.account_name || '',
     r.account_id || '',
@@ -38543,12 +38935,13 @@ window.exportFbCheckerExcel = async function () {
         ['BÁO CÁO KIỂM TRA & THẨM ĐỊNH LINK MINH CHỨNG FACEBOOK'],
         [`Tiêu chí áp dụng: ${criteriaNote} | Thời gian xuất: ${timeNow}`],
         [],
-        ['STT', 'Link Facebook gốc', 'Chủ tài khoản Facebook', 'ID Tài khoản', 'Trạng thái hiển thị', 'Thời gian ghi nhận', 'Nội dung bài đăng', 'Kết luận', 'Lý do / Ghi chú']
+        ['STT', 'Tổ chức cơ sở Đoàn trực thuộc', 'Link Facebook gốc', 'Chủ tài khoản Facebook', 'ID Tài khoản', 'Trạng thái hiển thị', 'Thời gian ghi nhận', 'Nội dung bài đăng', 'Kết luận', 'Lý do / Ghi chú']
       ];
 
       allResults.forEach((r, idx) => {
         rows.push([
           idx + 1,
+          r.unit_name || '',
           r.url || '',
           r.account_name || '',
           r.account_id || '',
@@ -38563,6 +38956,7 @@ window.exportFbCheckerExcel = async function () {
       const ws = XLSX.utils.aoa_to_sheet(rows);
       ws['!cols'] = [
         { wch: 6 },
+        { wch: 36 },
         { wch: 40 },
         { wch: 25 },
         { wch: 18 },
@@ -38680,16 +39074,19 @@ function renderFbCheckerTab() {
           <!-- Card 1: Danh sách link -->
           <div style="background:#fff; border:1px solid #cbd5e1; border-radius:10px; padding:14px; box-shadow:0 1px 4px rgba(0,0,0,0.03); display:flex; flex-direction:column;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
-              <span style="font-size:13px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:6px;">
+              <span style="font-size:13px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                 <span>1. Danh sách Link Facebook cần kiểm tra</span>
                 <span class="badge" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd; font-size:11px; padding:2px 7px; border-radius:10px;">
                   <span id="fb-links-count">0</span> link
                 </span>
+                <span id="fb-units-matched-badge" class="badge" style="display:none; background:#dcfce7; color:#15803d; border:1px solid #86efac; font-size:11px; padding:2px 7px; border-radius:10px; align-items:center; gap:3px;">
+                  🏢 <span id="fb-units-matched-count">0</span> cơ sở Đoàn
+                </span>
               </span>
               <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                <label class="btn btn-sm btn-outline" style="padding:4px 9px; font-size:11.5px; font-weight:700; color:#0284c7; border:1px dashed #0284c7; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; margin:0;" title="Nhập danh sách link từ file Excel (.xlsx), .csv hoặc .txt">
-                  📂 Nạp file TXT/CSV/Excel
-                  <input type="file" id="fb-file-import" accept=".txt,.csv,.xlsx,.xls" style="display:none;" onchange="handleFbFileImport(this)" />
+                <label class="btn btn-sm btn-outline" style="padding:4px 9px; font-size:11.5px; font-weight:700; color:#0284c7; border:1px dashed #0284c7; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; margin:0;" title="Nhập danh sách link và tự nhận diện cơ sở Đoàn từ Excel (.xlsx/.xls), Word (.docx/.doc), CSV hoặc TXT">
+                  📂 Nạp Excel / Word / TXT
+                  <input type="file" id="fb-file-import" accept=".txt,.csv,.xlsx,.xls,.doc,.docx" style="display:none;" onchange="handleFbFileImport(this)" />
                 </label>
                 <button type="button" class="btn btn-sm btn-outline" onclick="fillSampleFbLink()" style="padding:4px 9px; font-size:11.5px; font-weight:700; color:#7c3aed; border-color:#ddd6fe; background:#f5f3ff; border-radius:6px; cursor:pointer;" title="Dán các liên kết Facebook mẫu và từ khóa mẫu để thử nghiệm">
                   ✨ Dán mẫu
@@ -38805,7 +39202,7 @@ function renderFbCheckerTab() {
             </button>
           </div>
           <div style="display:flex; gap:8px; align-items:center;">
-            <input type="text" id="fb-search-box" oninput="renderFbCheckerTable()" placeholder="🔍 Lọc nhanh theo tên tài khoản hoặc nội dung..." style="padding:6px 12px; font-size:12.5px; border:1.5px solid #cbd5e1; border-radius:6px; width:280px; max-width:100%; outline:none; background:#fff;" />
+            <input type="text" id="fb-search-box" oninput="renderFbCheckerTable()" placeholder="🔍 Lọc nhanh theo cơ sở Đoàn, tài khoản, nội dung..." style="padding:6px 12px; font-size:12.5px; border:1.5px solid #cbd5e1; border-radius:6px; width:300px; max-width:100%; outline:none; background:#fff;" />
           </div>
         </div>
 
@@ -38815,20 +39212,21 @@ function renderFbCheckerTab() {
             <thead style="position:sticky; top:0; z-index:15; background:#f1f5f9; box-shadow:0 1px 2px rgba(0,0,0,0.05);">
               <tr style="background:#f1f5f9; border-bottom:2px solid #cbd5e1;">
                 <th style="width:45px; text-align:center;">STT</th>
-                <th style="min-width:210px;">Link Facebook</th>
-                <th style="width:170px;">Chủ tài khoản FB</th>
-                <th style="width:125px; text-align:center;">Trạng thái hiển thị</th>
-                <th style="width:105px; text-align:center;">Thời gian</th>
-                <th style="min-width:300px;">Nội dung bài đăng</th>
-                <th style="width:120px; text-align:center;">Kết luận</th>
-                <th style="min-width:220px;">Lý do / Ghi chú</th>
+                <th style="min-width:190px;">Cơ sở Đoàn</th>
+                <th style="min-width:200px;">Link Facebook</th>
+                <th style="width:165px;">Chủ tài khoản FB</th>
+                <th style="width:120px; text-align:center;">Trạng thái hiển thị</th>
+                <th style="width:100px; text-align:center;">Thời gian</th>
+                <th style="min-width:280px;">Nội dung bài đăng</th>
+                <th style="width:115px; text-align:center;">Kết luận</th>
+                <th style="min-width:210px;">Lý do / Ghi chú</th>
               </tr>
             </thead>
             <tbody id="fb-results-tbody">
               ${allResults.length === 0 ? `
                 <tr>
-                  <td colspan="8" style="text-align:center; padding:38px 20px; color:#94a3b8; font-style:italic;">
-                    Chưa có dữ liệu. Hãy dán link Facebook ở trên và bấm <b>Bắt Đầu Kiểm Tra</b>.
+                  <td colspan="9" style="text-align:center; padding:38px 20px; color:#94a3b8; font-style:italic;">
+                    Chưa có dữ liệu. Hãy nạp file Excel/Word/CSV hoặc dán link Facebook ở trên rồi bấm <b>Bắt Đầu Kiểm Tra</b>.
                   </td>
                 </tr>
               ` : ''}
