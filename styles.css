@@ -6118,10 +6118,27 @@ main:has(.gallery-animated-page),
 /* ==========================================================================
    CHẾ ĐỘ SÁNG / TỐI (DARK MODE) & TÙY CHỈNH CỠ CHỮ (A- / A+)
    ========================================================================== */
-html[data-font-scale="sm"] body { font-size: 13px; }
-html[data-font-scale="md"] body { font-size: 14px; }
-html[data-font-scale="lg"] body { font-size: 15.5px; }
-html[data-font-scale="xl"] body { font-size: 17px; }
+html[data-font-scale="sm"] .panel,
+html[data-font-scale="sm"] .card,
+html[data-font-scale="sm"] .section-card,
+html[data-font-scale="sm"] .mobile-submit-card { zoom: 0.90; }
+html[data-font-scale="md"] .panel,
+html[data-font-scale="md"] .card,
+html[data-font-scale="md"] .section-card,
+html[data-font-scale="md"] .mobile-submit-card { zoom: 1; }
+html[data-font-scale="lg"] .panel,
+html[data-font-scale="lg"] .card,
+html[data-font-scale="lg"] .section-card,
+html[data-font-scale="lg"] .mobile-submit-card { zoom: 1.10; }
+html[data-font-scale="xl"] .panel,
+html[data-font-scale="xl"] .card,
+html[data-font-scale="xl"] .section-card,
+html[data-font-scale="xl"] .mobile-submit-card { zoom: 1.20; }
+
+.data-table td,
+.table td {
+  overflow-wrap: anywhere;
+}
 
 html[data-theme="dark"] body,
 html[data-theme="dark"] .main-content,

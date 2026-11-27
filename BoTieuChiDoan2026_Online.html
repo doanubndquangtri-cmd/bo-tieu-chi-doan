@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <!-- Tối ưu tốc độ mở trang cực hạn (0ms): Preload tài nguyên trọng yếu -->
-  <link rel="preload" href="./app.js?v=20261119_chat_1795786569583" as="script" />
-  <link rel="preload" href="./styles.css?v=20261119_chat_1795786569583" as="style" />
+  <link rel="preload" href="./app.js?v=20261119_chat_1795787058844" as="script" />
+  <link rel="preload" href="./styles.css?v=20261119_chat_1795787058844" as="style" />
   <title>Bộ tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh - Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí</title>
   
   <!-- PWA & Mobile Web App Meta Tags -->
@@ -6164,10 +6164,27 @@ main:has(.gallery-animated-page),
 /* ==========================================================================
    CHẾ ĐỘ SÁNG / TỐI (DARK MODE) & TÙY CHỈNH CỠ CHỮ (A- / A+)
    ========================================================================== */
-html[data-font-scale="sm"] body { font-size: 13px; }
-html[data-font-scale="md"] body { font-size: 14px; }
-html[data-font-scale="lg"] body { font-size: 15.5px; }
-html[data-font-scale="xl"] body { font-size: 17px; }
+html[data-font-scale="sm"] .panel,
+html[data-font-scale="sm"] .card,
+html[data-font-scale="sm"] .section-card,
+html[data-font-scale="sm"] .mobile-submit-card { zoom: 0.90; }
+html[data-font-scale="md"] .panel,
+html[data-font-scale="md"] .card,
+html[data-font-scale="md"] .section-card,
+html[data-font-scale="md"] .mobile-submit-card { zoom: 1; }
+html[data-font-scale="lg"] .panel,
+html[data-font-scale="lg"] .card,
+html[data-font-scale="lg"] .section-card,
+html[data-font-scale="lg"] .mobile-submit-card { zoom: 1.10; }
+html[data-font-scale="xl"] .panel,
+html[data-font-scale="xl"] .card,
+html[data-font-scale="xl"] .section-card,
+html[data-font-scale="xl"] .mobile-submit-card { zoom: 1.20; }
+
+.data-table td,
+.table td {
+  overflow-wrap: anywhere;
+}
 
 html[data-theme="dark"] body,
 html[data-theme="dark"] .main-content,
@@ -7933,7 +7950,7 @@ function renderSubmissionEvidenceAndFiles(l) {
       const fn = f.name || f.file_name || (typeof f === 'string' ? f.split('/').pop() : 'Tệp đính kèm');
       const fp = f.url || f.file_url || f.path || f.file_path || f.link || (typeof f === 'string' ? f : '');
       if (fp) {
-        buttons.push(`<button type="button" onclick="openFileInlinePreviewModal('${escapeHtml(fp)}', '${escapeHtml(fn)}')" class="btn btn-sm btn-primary" style="font-size:10.5px; padding:2px 7px; background:#0284c7; border:none; cursor:pointer; display:inline-flex; align-items:center; gap:3px; font-weight:600;" title="Xem trước / Tải về tệp">👁️ ${escapeHtml(fn)}</button>`);
+        buttons.push(`<button type="button" onclick="openFileInlinePreviewModal('${escapeHtml(fp)}', '${escapeHtml(fn)}')" class="btn btn-sm btn-primary" style="font-size:10.5px; padding:2px 7px; background:#0284c7; border:none; cursor:pointer; display:inline-flex; align-items:center; gap:3px; font-weight:600; max-width:250px;" title="${escapeHtml(fn)} (Bấm để xem trước / Tải về)"><span>👁️</span><span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:210px; display:inline-block;">${escapeHtml(fn)}</span></button>`);
       }
     });
   }
@@ -17661,7 +17678,7 @@ function renderReportsLogTableComponent(filteredLogs, activeUnits) {
                 <td style="font-weight:700; color:#15803d; font-size:13px; text-align:center;">
                   ${l.awarded_score !== null && l.awarded_score !== undefined ? '+' + formatScore(l.awarded_score) + 'đ' : '0đ'}
                 </td>
-                <td style="max-width:320px;">
+                <td style="max-width:290px; width:290px; overflow:hidden; word-break:break-word;">
                   ${renderSubmissionEvidenceAndFiles(l)}
                 </td>
               </tr>
@@ -48301,8 +48318,9 @@ window.adjustAppFontScale = function (delta) {
   const next = levels[nextIdx];
   document.documentElement.setAttribute('data-font-scale', next);
   try { localStorage.setItem('btc_font_scale', next); } catch (_) {}
+  renderApp();
   if (typeof showToast === 'function') {
-    const labels = { sm: 'Nhỏ', md: 'Chuẩn', lg: 'Lớn', xl: 'Rất lớn' };
+    const labels = { sm: 'Nhỏ (90%)', md: 'Chuẩn (100%)', lg: 'Lớn (110%)', xl: 'Rất lớn (120%)' };
     showToast(`🔠 Cỡ chữ: ${labels[next]}`, 'info');
   }
 };
@@ -48563,7 +48581,7 @@ window.optimizeCloudDbSize = async function () {
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795786569583;
+    const CURRENT_BUILD_TS = 1795787058844;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;

@@ -1664,7 +1664,7 @@ function renderSubmissionEvidenceAndFiles(l) {
       const fn = f.name || f.file_name || (typeof f === 'string' ? f.split('/').pop() : 'Tệp đính kèm');
       const fp = f.url || f.file_url || f.path || f.file_path || f.link || (typeof f === 'string' ? f : '');
       if (fp) {
-        buttons.push(`<button type="button" onclick="openFileInlinePreviewModal('${escapeHtml(fp)}', '${escapeHtml(fn)}')" class="btn btn-sm btn-primary" style="font-size:10.5px; padding:2px 7px; background:#0284c7; border:none; cursor:pointer; display:inline-flex; align-items:center; gap:3px; font-weight:600;" title="Xem trước / Tải về tệp">👁️ ${escapeHtml(fn)}</button>`);
+        buttons.push(`<button type="button" onclick="openFileInlinePreviewModal('${escapeHtml(fp)}', '${escapeHtml(fn)}')" class="btn btn-sm btn-primary" style="font-size:10.5px; padding:2px 7px; background:#0284c7; border:none; cursor:pointer; display:inline-flex; align-items:center; gap:3px; font-weight:600; max-width:250px;" title="${escapeHtml(fn)} (Bấm để xem trước / Tải về)"><span>👁️</span><span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:210px; display:inline-block;">${escapeHtml(fn)}</span></button>`);
       }
     });
   }
@@ -11392,7 +11392,7 @@ function renderReportsLogTableComponent(filteredLogs, activeUnits) {
                 <td style="font-weight:700; color:#15803d; font-size:13px; text-align:center;">
                   ${l.awarded_score !== null && l.awarded_score !== undefined ? '+' + formatScore(l.awarded_score) + 'đ' : '0đ'}
                 </td>
-                <td style="max-width:320px;">
+                <td style="max-width:290px; width:290px; overflow:hidden; word-break:break-word;">
                   ${renderSubmissionEvidenceAndFiles(l)}
                 </td>
               </tr>
@@ -42032,8 +42032,9 @@ window.adjustAppFontScale = function (delta) {
   const next = levels[nextIdx];
   document.documentElement.setAttribute('data-font-scale', next);
   try { localStorage.setItem('btc_font_scale', next); } catch (_) {}
+  renderApp();
   if (typeof showToast === 'function') {
-    const labels = { sm: 'Nhỏ', md: 'Chuẩn', lg: 'Lớn', xl: 'Rất lớn' };
+    const labels = { sm: 'Nhỏ (90%)', md: 'Chuẩn (100%)', lg: 'Lớn (110%)', xl: 'Rất lớn (120%)' };
     showToast(`🔠 Cỡ chữ: ${labels[next]}`, 'info');
   }
 };
