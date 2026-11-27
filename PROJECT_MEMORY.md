@@ -232,3 +232,7 @@
            - Khi tạo tiêu chí Lệnh lan tỏa, hệ thống tự tạo 1 bảng mới hoàn toàn trong `db.lan_toa_boards[criterionId]` với đủ 40 đơn vị và đúng số ô chỉ tiêu `1..N` cho từng đơn vị.
            - Trên tab `🔗 Link FB`, thêm thanh chọn đợt Lệnh lan tỏa (hoặc Google Sheet trực tiếp); cơ sở Đoàn nộp link vào từng ô được KINI AI kiểm tra tức thì (Công khai, Chủ tài khoản Cột E, Chống bài gốc, Chống trùng tài khoản).
            - Khi đến/quá thời hạn nộp (`deadline` + `deadline_time`), `scheduleCheckExpiredLanToaBoards` / `finalizeLanToaBoard` tự động tính điểm `= (Hợp lệ / Chỉ tiêu) * Điểm tối đa` nhập vào `db.scores` cho cả 40 cơ sở Đoàn, đồng thời xuất file Excel `.xlsx` tổng hợp gắn thẳng vào `crit.attachments` của tiêu chí đó.
+         - **12. Áp dụng Bảng Google Sheet vào Tiêu chí Cột 7 & Tự động xóa trắng Sheet chờ đợt mới sau khi hết hạn (27/11/2026)**:
+           - Bổ sung action `clear_all_links` trong `google_sheets_fb_auto.gs` để xóa sạch Cột D, E, F, G trên Google Sheet sau khi chốt.
+           - Thêm nút `📌 Áp dụng vào Tiêu Chí` (`openApplyGoogleSheetToCriterionModal`) tự động nhận diện Cột 7 (`Phát động Lệnh lan tỏa ngày 27/11`), set hạn chuẩn `2026-11-27 17:00`, đồng bộ 154+ link từ Google Sheet vào bảng của Cột 7.
+           - Đúng `17:00` (kiểm tra tự động mỗi 60 giây): đồng bộ lần cuối từ Google Sheet → khóa bảng → cộng điểm vào Cột 7 cho 40 đơn vị → lưu tệp Excel gắn vào mục `📎 Tệp` của Cột 7 → tự động xóa trắng Cột D trên Google Sheet để chờ đợt mới.

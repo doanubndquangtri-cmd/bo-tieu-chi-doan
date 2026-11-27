@@ -420,6 +420,16 @@ function doPost(e) {
       return _jsonResponse(buildSheetJsonPayload_());
     }
 
+    if (action === "clear_all_links") {
+      const lastRow = sheet.getLastRow();
+      if (lastRow >= 3) {
+        const numRows = lastRow - 2;
+        sheet.getRange(3, 4, numRows, 4).clearContent();
+        sheet.getRange(3, 7, numRows, 1).setBackground(null);
+      }
+      return _jsonResponse(buildSheetJsonPayload_());
+    }
+
     return _jsonResponse(buildSheetJsonPayload_());
   } catch (err) {
     return _jsonResponse({ ok: false, error: err.message });

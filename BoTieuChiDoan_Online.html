@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <!-- Tối ưu tốc độ mở trang cực hạn (0ms): Preload tài nguyên trọng yếu -->
-  <link rel="preload" href="./app.js?v=20261119_chat_1795758500075" as="script" />
-  <link rel="preload" href="./styles.css?v=20261119_chat_1795758500075" as="style" />
+  <link rel="preload" href="./app.js?v=20261119_chat_1795759188873" as="script" />
+  <link rel="preload" href="./styles.css?v=20261119_chat_1795759188873" as="style" />
   <title>Bộ tiêu chí các tổ chức cơ sở Đoàn trực thuộc Đoàn UBND tỉnh - Hệ thống Quản lý & Tổng hợp Bộ Tiêu chí</title>
   
   <!-- PWA & Mobile Web App Meta Tags -->
@@ -45960,6 +45960,9 @@ function renderFbSheetHubTab() {
               <button type="button" class="btn btn-sm" onclick="openFbSheetConfigModal()" style="background:#fef3c7; border:1px solid #fde68a; color:#92400e; font-weight:800; border-radius:7px; padding:6px 11px; cursor:pointer;">
                 🔌 Kết nối Sheet
               </button>
+              <button type="button" class="btn btn-sm" onclick="openApplyGoogleSheetToCriterionModal()" ${units.length === 0 ? 'disabled' : ''} style="background:#fde047; border:none; color:#854d0e; font-weight:800; border-radius:7px; padding:6px 11px; cursor:pointer;" title="Gắn bảng Google Sheet hiện tại vào một tiêu chí Lệnh lan tỏa để tự động chốt điểm, lưu tệp và xóa trắng Sheet khi hết hạn">
+                📌 Áp dụng vào Tiêu Chí
+              </button>
             `}
           ` : ''}
           <button type="button" class="btn btn-sm" onclick="exportFbSheetExcel()" ${units.length === 0 ? 'disabled' : ''} style="background:#ffffff; border:none; color:#065f46; font-weight:800; border-radius:7px; padding:6px 11px; cursor:pointer;">
@@ -46461,8 +46464,12 @@ function buildInitialLanToaBoard(criterion, unitsList) {
 }
 
 function _isLanToaBoardExpired(board) {
-  if (!board || !board.deadline) return false;
-  const dtStr = `${board.deadline}T${(board.deadlineTime || '23:59').padStart(5, '0')}:00`;
+  if (!board) return false;
+  const crit = (state.criteria || []).find(c => Number(c.id) === Number(board.criterionId));
+  const critDeadline = (crit && crit.deadline) || board.deadline || '';
+  const critTime = (crit && crit.deadline_time) || board.deadlineTime || '17:00';
+  if (!critDeadline) return false;
+  const dtStr = `${critDeadline}T${String(critTime).padStart(5, '0')}:00`;
   const dlDate = new Date(dtStr);
   if (isNaN(dlDate.getTime())) return false;
   return new Date() >= dlDate;
@@ -46688,6 +46695,20 @@ window.finalizeLanToaBoard = async function (boardId, isAuto) {
   renderApp();
 
   try {
+    // Nếu bảng này liên kết trực tiếp với Google Sheet -> đồng bộ lần cuối dữ liệu từ Sheet trước khi chốt
+    const webAppUrl = typeof window.getFbSheetWebAppUrl === 'function' ? window.getFbSheetWebAppUrl() : '';
+    if (board.linkedGoogleSheet && webAppUrl) {
+      try {
+        const resSheet = await fetch(webAppUrl + (webAppUrl.includes('?') ? '&' : '?') + 't=' + Date.now());
+        const jsonSheet = await resSheet.json();
+        if (jsonSheet && jsonSheet.ok && Array.isArray(jsonSheet.units)) {
+          _syncGoogleSheetDataIntoLanToaBoard(board, jsonSheet);
+        }
+      } catch (syncErr) {
+        console.warn('Pre-finalize Google Sheet sync warning:', syncErr);
+      }
+    }
+
     _recalcLanToaBoardDuplicatesAndScores(board);
     const maxS = Number(board.maxScore || 3);
 
@@ -46798,8 +46819,25 @@ window.finalizeLanToaBoard = async function (boardId, isAuto) {
       b.resultFileName = fileName;
     }, `Finalize Lan Toa board #${boardId}`);
 
+    // Nếu được cấu hình xóa trắng Google Sheet sau khi chốt -> gọi API clear_all_links
+    const webAppUrlAfter = typeof window.getFbSheetWebAppUrl === 'function' ? window.getFbSheetWebAppUrl() : '';
+    if (board.clearGoogleSheetOnFinalize && webAppUrlAfter) {
+      try {
+        const clrRes = await fetch(webAppUrlAfter, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'clear_all_links' })
+        });
+        const clrJson = await clrRes.json();
+        if (clrJson && clrJson.ok) {
+          state.fbSheetData = clrJson;
+        }
+      } catch (clrErr) {
+        console.warn('Clear Google Sheet links after finalize warning:', clrErr);
+      }
+    }
+
     if (typeof showToast === 'function') {
-      showToast(`🎉 Đã tự động chấm điểm 40 đơn vị và gắn tệp "${fileName}" vào tiêu chí!`, 'success');
+      showToast(`🎉 Đã tự động chấm điểm 40 đơn vị, gắn tệp "${fileName}" vào tiêu chí${board.clearGoogleSheetOnFinalize ? ' & xóa trắng Google Sheet chờ đợt mới' : ''}!`, 'success');
     }
   } catch (err) {
     console.error('finalizeLanToaBoard error:', err);
@@ -46829,10 +46867,133 @@ window.scheduleCheckExpiredLanToaBoards = function () {
   }, 1500);
 };
 
+function _syncGoogleSheetDataIntoLanToaBoard(board, sheetJson) {
+  if (!board || !sheetJson || !Array.isArray(sheetJson.units)) return;
+  const activeUnits = state.units || [];
+  if (sheetJson.excludedKeywords !== undefined) {
+    board.excludedKeywords = sheetJson.excludedKeywords;
+  }
+  (board.units || []).forEach(bu => {
+    const matched = _matchSheetUnitToUser(sheetJson.units, bu.unitName);
+    if (!matched) return;
+    const sheetSlots = Array.isArray(matched.slots) && matched.slots.length > 0 ? matched.slots : (matched.links || []);
+    if (sheetSlots.length > 0) {
+      bu.maxSlots = matched.maxSlots || sheetSlots.length;
+      bu.slots = sheetSlots.map((s, idx) => ({
+        slotNo: s.slotNo || (idx + 1),
+        url: s.url || '',
+        accountName: s.accountName || '',
+        visibility: s.visibility || '',
+        resultText: s.resultText || '',
+        isValid: Boolean(s.isValid)
+      }));
+    }
+  });
+}
+
+window.openApplyGoogleSheetToCriterionModal = function () {
+  const sheetData = state.fbSheetData;
+  if (!sheetData || !Array.isArray(sheetData.units) || sheetData.units.length === 0) {
+    alert('Vui lòng đợi tải xong dữ liệu từ Google Sheet trước!');
+    return;
+  }
+  const criteria = Array.isArray(state.criteria) ? state.criteria : [];
+  // Tự tìm tiêu chí Cột 7 hoặc tiêu chí Lệnh lan tỏa mới nhất
+  const defaultCrit = criteria.find(c => String(c.col_number) === '7' || String(c.col_label || '').trim() === 'Cột 7')
+    || criteria.slice().reverse().find(c => /lan\s*t[oỏ]a/i.test(c.title || ''))
+    || criteria[0];
+
+  const modalRoot = document.getElementById('modal-root');
+  if (!modalRoot) return;
+
+  modalRoot.innerHTML = `
+    <div class="modal-backdrop" onclick="if(event.target===this)closeModal()" style="position:fixed; inset:0; background:rgba(15, 23, 42, 0.22); z-index:9999999; display:flex; align-items:center; justify-content:center; padding:16px; backdrop-filter:none;">
+      <div class="modal-box" style="background:#fff; border-radius:14px; width:100%; max-width:580px; box-shadow:0 20px 40px rgba(0,0,0,0.2), 0 0 0 1px rgba(0,0,0,0.06); overflow:hidden; border:1px solid #cbd5e1; margin:auto;">
+        <div style="background:linear-gradient(135deg, #065f46 0%, #059669 100%); color:#fff; padding:14px 20px; display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-weight:800; font-size:15px;">📌 Áp Dụng Bảng Link FB Google Sheet Vào Tiêu Chí</div>
+          <button type="button" onclick="closeModal()" style="background:none; border:none; color:#fff; font-size:20px; font-weight:700; cursor:pointer;">✕</button>
+        </div>
+        <div style="padding:18px 22px;">
+          <div style="margin-bottom:12px;">
+            <label style="display:block; font-size:12.5px; font-weight:700; color:#334155; margin-bottom:5px;">1. Chọn Tiêu chí cần áp dụng (tự động cộng điểm &amp; gắn tệp):</label>
+            <select id="apply-gs-crit-id" style="width:100%; padding:8px 10px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:7px; font-weight:600;">
+              ${criteria.map(c => `<option value="${c.id}" ${defaultCrit && c.id === defaultCrit.id ? 'selected' : ''}>${escapeHtml(c.col_label || ('Cột ' + c.col_number))} — ${escapeHtml(c.title)} (${c.max_score}đ)</option>`).join('')}
+            </select>
+          </div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">2. Ngày hết hạn nộp:</label>
+              <input type="date" id="apply-gs-deadline" value="${todayISO()}" style="width:100%; padding:7px 10px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:7px;" />
+            </div>
+            <div>
+              <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:4px;">3. Giờ hết hạn (VD: 17:00):</label>
+              <input type="time" id="apply-gs-time" value="17:00" style="width:100%; padding:7px 10px; font-size:13px; border:1.5px solid #cbd5e1; border-radius:7px;" />
+            </div>
+          </div>
+          <label style="display:flex; align-items:flex-start; gap:8px; background:#fefce8; border:1px solid #fde047; border-radius:8px; padding:10px 12px; margin-bottom:14px; cursor:pointer;">
+            <input type="checkbox" id="apply-gs-clear-after" checked style="width:16px; height:16px; margin-top:2px; cursor:pointer;" />
+            <div style="font-size:12px; color:#854d0e; line-height:1.45;">
+              <b>Tự động xóa các link Cột D trên Google Sheet sau khi hết hạn (${todayISO()} 17:00):</b><br/>
+              Khi đến giờ hết hạn, hệ thống sẽ tự đồng bộ lần cuối, khóa bảng, cộng điểm cho 40 đơn vị, lưu file Excel gắn vào mục 📎 Tệp của tiêu chí và <b>xóa sạch Cột D trên Google Sheet</b> để chờ đợt mới.
+            </div>
+          </label>
+          <div style="display:flex; justify-content:flex-end; gap:8px;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="closeModal()">Hủy</button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="confirmApplyGoogleSheetToCriterion()" style="background:#059669; border:none; font-weight:800; padding:8px 16px;">✅ Áp Dụng &amp; Hẹn Giờ Chốt</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+window.confirmApplyGoogleSheetToCriterion = async function () {
+  const critId = Number(document.getElementById('apply-gs-crit-id') ? document.getElementById('apply-gs-crit-id').value : 0);
+  const deadline = document.getElementById('apply-gs-deadline') ? document.getElementById('apply-gs-deadline').value : todayISO();
+  const dlTime = document.getElementById('apply-gs-time') ? document.getElementById('apply-gs-time').value : '17:00';
+  const clearAfter = document.getElementById('apply-gs-clear-after') ? document.getElementById('apply-gs-clear-after').checked : true;
+  if (!critId) return;
+
+  await mutateCloudDB(db => {
+    const crit = (db.criteria || []).find(c => Number(c.id) === critId);
+    if (!crit) return;
+    crit.deadline = deadline;
+    crit.deadline_time = dlTime;
+    crit.is_lan_toa = true;
+
+    if (!db.lan_toa_boards || typeof db.lan_toa_boards !== 'object') db.lan_toa_boards = {};
+    const board = buildInitialLanToaBoard(crit, db.units || state.units || []);
+    board.deadline = deadline;
+    board.deadlineTime = dlTime;
+    board.linkedGoogleSheet = true;
+    board.clearGoogleSheetOnFinalize = clearAfter;
+    _syncGoogleSheetDataIntoLanToaBoard(board, state.fbSheetData);
+    _recalcLanToaBoardDuplicatesAndScores(board);
+    db.lan_toa_boards[String(critId)] = board;
+  }, `Apply Google Sheet FB board to criterion #${critId}`);
+
+  state.activeLanToaBoardId = String(critId);
+  if (typeof closeModal === 'function') closeModal();
+  if (typeof showToast === 'function') {
+    showToast(`✅ Đã gắn bảng Link FB vào tiêu chí (Hạn ${dlTime} ngày ${deadline})!`, 'success');
+  }
+  renderApp();
+  if (typeof window.scheduleCheckExpiredLanToaBoards === 'function') {
+    window.scheduleCheckExpiredLanToaBoards();
+  }
+};
+
+// Tự động kiểm tra hết hạn mỗi phút để đúng 17:00 tự chốt điểm, gắn tệp & xóa trắng Google Sheet
+setInterval(() => {
+  if (typeof window.scheduleCheckExpiredLanToaBoards === 'function') {
+    window.scheduleCheckExpiredLanToaBoards();
+  }
+}, 60000);
+
 </script>
   <script>
     // 0. Tự động kiểm tra bản cập nhật và dọn sạch cache cũ trên điện thoại / App PWA
-    const CURRENT_BUILD_TS = 1795758500075;
+    const CURRENT_BUILD_TS = 1795759188873;
     (async function autoUpdatePWA() {
       try {
         const lastTs = Number(localStorage.getItem('doan2026_pwa_ts')) || 0;
