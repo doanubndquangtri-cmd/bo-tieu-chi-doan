@@ -39659,6 +39659,7 @@ function renderFbSheetHubTab() {
 
   let sheetData = state.fbSheetData;
   if (activeBoard) {
+    _sanitizeLanToaBoardUnits(activeBoard, state.units);
     const maxS = Number(activeBoard.maxScore || 3);
     const mappedUnits = (activeBoard.units || []).map((u, uIdx) => {
       const slots = (u.slots || []).map((s, sIdx) => ({
@@ -40243,7 +40244,9 @@ function _getDefaultLanToaSlotsForUnit(u) {
 }
 
 function buildInitialLanToaBoard(criterion, unitsList) {
-  const activeUnits = (Array.isArray(unitsList) ? unitsList : []).slice(0, 40);
+  const activeUnits = (Array.isArray(unitsList) ? unitsList : [])
+    .filter(u => u && u.role !== 'admin' && Number(u.id) !== 0 && !/quản trị viên/i.test(u.unit_name || ''))
+    .slice(0, 40);
   return {
     criterionId: criterion.id,
     title: criterion.title,
@@ -40272,6 +40275,44 @@ function buildInitialLanToaBoard(criterion, unitsList) {
       };
     })
   };
+}
+
+function _sanitizeLanToaBoardUnits(board, unitsList) {
+  if (!board || !Array.isArray(board.units)) return false;
+  const nonAdminUnits = (Array.isArray(unitsList) ? unitsList : [])
+    .filter(u => u && u.role !== 'admin' && Number(u.id) !== 0 && !/quản trị viên/i.test(u.unit_name || ''))
+    .slice(0, 40);
+  const hadAdmin = board.units.some(u => Number(u.unitId) === 0 || /quản trị viên/i.test(u.unitName || ''));
+  let cleaned = board.units.filter(u => u && Number(u.unitId) !== 0 && !/quản trị viên/i.test(u.unitName || ''));
+  let changed = hadAdmin;
+
+  nonAdminUnits.forEach(u => {
+    const exists = cleaned.some(bu => Number(bu.unitId) === Number(u.id) || (bu.unitName && bu.unitName === u.unit_name));
+    if (!exists) {
+      const cnt = _getDefaultLanToaSlotsForUnit(u);
+      cleaned.push({
+        unitId: u.id,
+        tt: cleaned.length + 1,
+        unitName: u.unit_name,
+        maxSlots: cnt,
+        slots: Array.from({ length: cnt }, (_, sIdx) => ({
+          slotNo: sIdx + 1,
+          url: '',
+          accountName: '',
+          visibility: '',
+          resultText: '',
+          isValid: false
+        }))
+      });
+      changed = true;
+    }
+  });
+
+  if (changed) {
+    cleaned.forEach((u, idx) => { u.tt = idx + 1; });
+    board.units = cleaned.slice(0, 40);
+  }
+  return changed;
 }
 
 function _isLanToaBoardExpired(board) {
@@ -40520,6 +40561,7 @@ window.finalizeLanToaBoard = async function (boardId, isAuto) {
       }
     }
 
+    _sanitizeLanToaBoardUnits(board, state.units || []);
     _recalcLanToaBoardDuplicatesAndScores(board);
     const maxS = Number(board.maxScore || 3);
 
@@ -40913,6 +40955,7 @@ window.confirmEditLanToaBoard = async function (oldBoardId) {
       board.finalized = false;
       delete board.finalizedAt;
     }
+    _sanitizeLanToaBoardUnits(board, db.units || state.units || []);
     _recalcLanToaBoardDuplicatesAndScores(board);
     db.lan_toa_boards[String(newCritId)] = board;
   }, `Edit/Move Lan Toa board #${oldBoardId} -> #${newCritId}`);
